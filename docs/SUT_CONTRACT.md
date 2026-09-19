@@ -1,9 +1,10 @@
 # SUT contract — what an app code folder must provide
 
 The harness (`~/ui-long-degradation-test`) treats each candidate front-end as an **external
-code folder** it only ever reads (DESIGN.md §14). For the harness to evolve, isolate, serve, and
+code folder** it only ever reads (DESIGN.md §14). For the harness to evolve, isolate, build, and
 test that folder without knowing anything about its framework, the folder must honour this
-contract. Anything that honours it is testable — React, Vue, HTMX, whatever.
+contract. Anything that honours it is testable — React, Vue, HTMX, whatever. Serving is not the
+arm's job: one constant whole-stack launcher (§5) serves whatever dist the arm builds.
 
 ## 1. It is a git repo with a clean base ref
 
@@ -20,27 +21,18 @@ contract. Anything that honours it is testable — React, Vue, HTMX, whatever.
   store, shared primitives) so the boundary-violation co-metric can see when a change was forced
   to reach into them (DESIGN.md §8).
 
-## 3. It builds and serves itself: `start` and `stop`
+## 3. An arm builds to a servable dist
 
-The folder provides two scripts (paths in `config.yaml`; `bin/start`, `bin/stop` by default):
+An arm folder does NOT serve itself — serving is the constant whole-stack launcher's job (§5).
+An arm only needs to **build to a servable output**:
 
-### `start`
-- Builds the front-end if needed and **publishes it on the port** given in `$PORT`.
-- Points the front-end at the constant backend given in `$BACKEND_URL`.
-- Returns promptly once the server is launching (the harness polls for readiness — it does not
-  rely on `start` blocking).
-- Reads only these env vars from the harness: `PORT`, `BACKEND_URL` (plus anything the folder
-  itself needs internally).
+- `build_cmd` (default `bin/build`) runs in the mirrored worktree and produces `dist_dir`
+  (default `dist/`) — the static assets the launcher will serve.
+- The harness runs `build_cmd` as a separate step before starting the stack, so a compile failure
+  is cleanly distinct from a stack-start failure (mirrors the REST arm's build-then-run).
 
-### `stop`
-- Tears the front-end down cleanly and frees `$PORT`.
-- Is **idempotent**: safe to call when nothing is running, and safe after a crash left a stale
-  process/port behind (the harness may also kill by port as a backstop).
-
-### What `start`/`stop` must NOT do
-- **Never seed or reset data.** The harness owns the constant OfficeFloor backend and reseeds a
-  deterministic database per checkpoint (DESIGN.md §9). The front-end only talks to
-  `$BACKEND_URL`.
+That is the entire per-arm serving surface: produce a dist. Everything else (DB, OfficeFloor,
+serving, the port) is constant and lives in the launcher.
 
 ## 4. Behaviour is exposed through `data-test-id`
 
@@ -54,10 +46,24 @@ The folder provides two scripts (paths in `config.yaml`; `bin/start`, `bin/stop`
   even the backend's — may be rewritten freely as long as the UI contract holds. This is the
   freedom the experiment measures (DESIGN.md §14).
 
-## 5. The backend folder (constant, one, not an arm)
+## 5. The whole-stack launcher (constant, one, not an arm)
 
-The constant backend (`backend.repo` in `config.yaml`) honours a parallel lifecycle contract:
-`start_cmd` (publishes OfficeFloor on `backend.port`, reads `$PORT` + DB env), `stop_cmd`
-(idempotent), and `seed_cmd` (resets the DB to deterministic fixtures — called by the harness
-per checkpoint). It is byte-identical across every arm and never changes across checkpoints
-(DESIGN.md §2).
+The SUT launcher (`sut.repo` in `config.yaml`) is the CONSTANT layer — one folder, one pair of
+scripts, byte-identical across every arm and checkpoint (DESIGN.md §2, §14). It provides:
+
+### `sut.start_cmd` (default `bin/start`)
+Brings up the **whole stack on one port** in a single call. Reads env `PORT` and `FRONTEND_DIST`
+(the arm's built dist from §3), and:
+- **seeds a fresh, deterministic database** — a deterministic seed on every start IS the
+  per-checkpoint reset (DESIGN.md §9); there is no separate seed step;
+- starts the constant OfficeFloor server;
+- serves `FRONTEND_DIST` **and** the API on `PORT`.
+Returns once launching; the harness polls `sut.health_url` + a known anchor for readiness.
+
+### `sut.stop_cmd` (default `bin/stop`)
+Tears the whole stack down and frees `PORT`. **Idempotent** — safe when nothing is running and
+after a crash left a stale process/port (the harness may kill by port as a backstop).
+
+The launcher and its OfficeFloor image never change across arms or checkpoints; only the
+`FRONTEND_DIST` it is pointed at varies. That is what keeps "the backend is constant" true while
+the front-end is the sole variable.

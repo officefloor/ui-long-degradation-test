@@ -12,20 +12,24 @@ checkpoints_file: checkpoints.yaml
 limits:
   # rate/cost limits for the agent turn (lift from the REST arm)
 
-# The constant backend, identical across every arm and checkpoint (DESIGN.md §2, §14).
-# The HARNESS owns this lifecycle — it starts the OfficeFloor server and SEEDS a fresh,
-# deterministic database per checkpoint. The front-end start script never seeds data.
-backend:
-  repo: ${HOME}/compare/officehq-backend   # the constant OfficeFloor + DB app (external)
-  start_cmd: bin/start                      # publishes the backend; harness passes DB + PORT env
-  stop_cmd: bin/stop                        # idempotent teardown
-  seed_cmd: bin/seed                        # reset the DB to deterministic fixtures (per checkpoint)
-  port: 8080                                # BACKEND_URL = http://localhost:8080
-  health_url: http://localhost:8080/health  # readiness probe used by correctness.serve()
+# The System-Under-Test launcher: ONE whole-stack start script brings up everything on a
+# single port — a freshly SEEDED deterministic database, the constant OfficeFloor server,
+# and the arm's built front-end served by it (DESIGN.md §2, §14). This is the CONSTANT
+# layer: the launcher and the OfficeFloor image are byte-identical across every arm and
+# checkpoint; only the front-end dist it is pointed at varies.
+sut:
+  repo: ${HOME}/compare/officehq-sut   # holds the whole-stack start/stop scripts + OfficeFloor
+  start_cmd: bin/start                  # env: PORT, FRONTEND_DIST -> seed DB, start OfficeFloor
+                                        #      serving that dist + the API on PORT. Deterministic
+                                        #      seed on every start = the per-checkpoint reset.
+  stop_cmd: bin/stop                    # idempotent teardown of the whole stack (frees PORT)
+  port: 3000
+  health_url: http://localhost:3000/health   # readiness probe used by correctness.wait_ready
 
 # The candidate front-ends under test (DESIGN.md §10, §14). Each is an EXTERNAL code
 # folder, only ever READ as a start point; the harness mirrors it into work_root/sandbox
-# (copy/sync + Landlock). All arms start from ONE shared opinionated shell so the
+# (copy/sync + Landlock) for the agent turn, and BUILDS it to a servable dist that the
+# whole-stack launcher serves. All arms start from ONE shared opinionated shell so the
 # file-scope-container comparison is fair (DESIGN.md §8).
 arms:
   control:            # component SPA + global store + client router (expected slop magnet)
@@ -36,9 +40,8 @@ arms:
       router: ["src/router/**", "src/App.tsx"]
       store:  ["src/store/**"]
       primitives: ["src/components/ui/**"]
-    start_cmd: bin/start           # publishes the front-end on $PORT, pointed at $BACKEND_URL
-    stop_cmd: bin/stop             # idempotent
-    port: 3000
+    build_cmd: bin/build           # produces a static bundle the launcher serves
+    dist_dir: dist                 # relative to the worktree; passed as FRONTEND_DIST
 
   additive:           # file routing · no global store · closed primitives · slice boundaries · scoped styles
     repo: ${HOME}/compare/ui-additive
@@ -47,9 +50,8 @@ arms:
     shared_surfaces:
       router: []                   # file-based routing: adding a route is a new file, not an edit
       primitives: ["src/ui/**"]
-    start_cmd: bin/start
-    stop_cmd: bin/stop
-    port: 3000
+    build_cmd: bin/build
+    dist_dir: dist
 
   server_driven:      # OfficeFloor templates + HTMX fragments (measured mostly by boundary violations)
     repo: ${HOME}/compare/ui-htmx
@@ -57,9 +59,9 @@ arms:
     source_globs: ["src/**/*.{ts,html}"]     # NOTE: HTMX logic in hx-* attrs is invisible to Lizard (DESIGN.md §8)
     shared_surfaces:
       layout: ["templates/_layout.html"]
-    start_cmd: bin/start
-    stop_cmd: bin/stop
-    port: 3000
+    build_cmd: bin/build           # may be a near no-op; NOTE: server-rendered templates blur the
+    dist_dir: dist                 # constant-backend line (DESIGN.md §8.1, §10) — decide how the
+                                   # launcher serves these vs the constant OfficeFloor image.
 
   # full:             # optional CEILING control: agent sees prior specs -> regressions ~0
 
@@ -68,12 +70,12 @@ prompt_strategies:
     # template: |
     #   <the constant prompt; the data-test-id immutability rule lives in the shared AGENTS.md>
 
-# Correctness oracle: build the front-end, serve it against the seeded backend on a fixed
-# port, drive with Playwright bound to data-test-id ONLY (DESIGN.md §3, §5, §9, §14).
+# Correctness oracle: build the front-end, bring the whole stack up on sut.port via the
+# single launcher, drive with Playwright bound to data-test-id ONLY (DESIGN.md §3,§5,§9,§14).
 acceptance:
   specs_dir: acceptance/specs
   dest_subpath: e2e                # where specs are copied into the mirrored sandbox / worktree
-  base_url_template: http://localhost:{port}   # {port} = the arm's front-end port
+  base_url: http://localhost:3000  # = sut.port; Playwright hits ONLY this (never API/DB)
   # strict awaiting on data-test-id presence; select cp01..cpK at checkpoint K
 
 impact_gate:

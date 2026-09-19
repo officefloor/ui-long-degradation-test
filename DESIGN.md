@@ -131,12 +131,12 @@ For each checkpoint `k` (1→N):
    prior features and their anchors) is present as normal.
 1. **Agent turn.** A **fresh** headless `claude -p` with only this checkpoint's request and the
    current code. No cross-checkpoint memory. Cost / tokens / duration captured.
-2. **Build + serve the SUT.** Bring the whole system up on a fixed port and drive it with
-   Playwright (`correctness.serve()`, §14): the harness starts + freshly seeds the **constant
-   OfficeFloor backend**, runs the arm's **start script** to publish the built front-end on a
-   fixed **PORT** pointed at that backend, waits for reachability, then tears both down with the
-   arm's **stop script**. (This stage does not exist in the REST arm and is the main new moving
-   part — see §9, §14.)
+2. **Build + serve the SUT.** Build the arm to a servable dist, then bring the whole system up on
+   one port via the **single whole-stack launcher** and drive it with Playwright
+   (`correctness.serve()`, §14): `sut.start` seeds a fresh deterministic database, starts the
+   constant OfficeFloor server, and serves the built front-end + API on **PORT**; `wait_ready`;
+   run the specs; `sut.stop`. (This stage does not exist in the REST arm and is the main new
+   moving part — see §9, §14.)
 3. **Gate + score.** Run the **full resolved cp01..cpK Playwright suite** against the running
    SUT (never shown to the agent — gate, not context). Classify results (§6). Then run the code
    metrics (§8) over the checkpoint's source.
@@ -399,23 +399,30 @@ lifted unchanged (the helpers are generic; §13). Per (arm, chain) the harness:
 
 Only the gate/oracle is rewritten; this isolation spine is identical to the REST arm.
 
-### The start/stop/port contract — new for UI, owned by the app repo
+### The whole-stack launcher — one start/stop for the entire SUT (new for UI)
 
-Because the oracle drives a real browser, the SUT must actually run. The contract lives in **the
-app repo, not the harness** — which is exactly what keeps the harness framework-agnostic (any
-front-end that speaks start/stop/port + `data-test-id` is testable):
+Because the oracle drives a real browser, the SUT must actually run. Rather than orchestrate a
+backend and a front-end separately, **a single whole-stack `start` script brings up everything on
+one port**, and a matching `stop` tears it all down. This launcher is the **constant layer**: the
+script and the OfficeFloor image are byte-identical across every arm and checkpoint (§2); only the
+front-end dist it is pointed at varies. It lives in its own folder (`sut.repo`), not in an arm.
 
-- The arm's code folder provides a **start script** and a **stop script** (paths in config).
-- `start` builds if needed and publishes the front-end on a **fixed `PORT`** (passed in by the
-  harness), pointed at the constant backend via **`BACKEND_URL`**; it returns once launching.
-- `stop` tears it down cleanly, and is **idempotent** (safe to call after a crash / a stale run).
-- The **harness owns** port allocation, readiness polling (health + a known anchor), and —
-  crucially — the **constant OfficeFloor backend + deterministic DB seed/reset per checkpoint**.
-  The front-end start script never seeds data; determinism (§9) is the harness's job.
+- **Build is a separate, per-arm step.** The harness first runs the arm's `build_cmd` against the
+  worktree, producing a servable `dist_dir` (`correctness.build()`). Keeping build distinct from
+  start mirrors the REST arm (build then run) and cleanly separates a compile failure from a
+  stack-start failure.
+- **`sut.start_cmd`** receives `PORT` and `FRONTEND_DIST` (the arm's built dist) and, in one shot:
+  seeds a fresh **deterministic database**, starts the constant OfficeFloor server, and serves
+  that dist + the API on `PORT`. A deterministic seed on every start **is** the per-checkpoint
+  reset (§9) — there is no separate seed step and the front-end never seeds data.
+- **`sut.stop_cmd`** tears the whole stack down and frees `PORT`; **idempotent** (safe after a
+  crash or a stale run; the harness may kill by port as a backstop).
+- The **harness owns** only port choice and readiness polling (`sut.health_url` + a known
+  `data-test-id` anchor).
 
-A gate run (`correctness.serve()`): harness starts + seeds the constant backend → runs the arm's
-`start` with `PORT` + `BACKEND_URL` → waits for the port → runs Playwright against
-`http://localhost:$PORT` → arm's `stop` → harness stops backend + drops the DB.
+A gate run (`correctness.serve()`): build the arm → `sut.start` with `PORT` + `FRONTEND_DIST` →
+`wait_ready` → run Playwright against `http://localhost:$PORT` → `sut.stop`. One launcher, one
+port, whole stack.
 
 ### The testing-boundary invariant — why the system can evolve behind the UI
 
