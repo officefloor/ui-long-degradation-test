@@ -48,25 +48,36 @@ serving, the port) is constant and lives in the launcher.
 
 ## 5. The whole-stack launcher (constant, one, not an arm)
 
-The SUT launcher (`sut.repo` in `config.yaml`) is the CONSTANT layer — one folder, one pair of
-scripts, byte-identical across every arm and checkpoint (DESIGN.md §2, §14). It provides:
+The SUT launcher (`sut.repo` in `config.yaml`) is the CONSTANT layer — one folder holding a
+single **Spring Boot fat jar** (`officehq-sut.jar`) plus two thin scripts, byte-identical across
+every arm and checkpoint (DESIGN.md §2, §14). The jar is: OfficeFloor as a Spring plugin +
+in-memory H2 (Flyway-seeded on boot) + the SPA served as static files — one JVM, no daemon or
+container, so it runs embedded under Landlock (§4-equivalent, DESIGN.md §15).
 
 ### `sut.start_cmd` (default `bin/start`)
-Brings up the **whole stack on one port** in a single call. Reads env `PORT` and `FRONTEND_DIST`
-(the arm's built dist from §3), and:
-- **seeds a fresh, deterministic database** — a deterministic seed on every start IS the
-  per-checkpoint reset (DESIGN.md §9); there is no separate seed step;
-- starts the constant OfficeFloor server;
-- serves `FRONTEND_DIST` **and** the API on `PORT`.
-Returns once launching; the harness polls `sut.health_url` + a known anchor for readiness.
+Brings up the **whole stack on one port** in a single call:
+
+```sh
+exec java -jar officehq-sut.jar --server.port="$PORT" --app.spa.location="file:${FRONTEND_DIST}/"
+```
+
+- On boot, **Flyway migrates + seeds the in-memory H2** — a deterministic seed on every start IS
+  the per-checkpoint reset (DESIGN.md §9); there is no separate seed step.
+- OfficeFloor serves the API; Spring serves `FRONTEND_DIST` as static files with an SPA deep-link
+  fallback (unknown non-`api/` path → `index.html`), all on `PORT`.
+- Reads env `PORT` and `FRONTEND_DIST` (the arm's built dist from §3). The jar itself never
+  changes across arms — only the served dir does.
+Returns once launching; the harness polls `sut.health_url` (`/actuator/health`) + a known anchor.
 
 ### `sut.stop_cmd` (default `bin/stop`)
-Tears the whole stack down and frees `PORT`. **Idempotent** — safe when nothing is running and
-after a crash left a stale process/port (the harness may kill by port as a backstop).
+Kills the JVM and frees `PORT`. The in-memory H2 dies with the process, so this is a clean reset
+with nothing to tear down. **Idempotent** — safe when nothing is running and after a crash left a
+stale process/port (the harness may kill by port as a backstop).
 
-The launcher and its OfficeFloor image never change across arms or checkpoints; only the
-`FRONTEND_DIST` it is pointed at varies. That is what keeps "the backend is constant" true while
-the front-end is the sole variable.
+The jar and its OfficeFloor + H2 stay constant across arms and checkpoints; only the
+`FRONTEND_DIST` it serves varies. That is what keeps "the backend is constant" true while the
+front-end is the sole variable. (Exception: a server-rendered arm — e.g. HTMX — renders in the
+jar, so it needs a per-arm jar or is dropped; SPA arms stay clean. DESIGN.md §8.1, §10, §14.)
 
 ### The launcher must run EMBEDDED (the agent runs it too)
 

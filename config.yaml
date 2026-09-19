@@ -13,18 +13,21 @@ limits:
   # rate/cost limits for the agent turn (lift from the REST arm)
 
 # The System-Under-Test launcher: ONE whole-stack start script brings up everything on a
-# single port — a freshly SEEDED deterministic database, the constant OfficeFloor server,
-# and the arm's built front-end served by it (DESIGN.md §2, §14). This is the CONSTANT
-# layer: the launcher and the OfficeFloor image are byte-identical across every arm and
-# checkpoint; only the front-end dist it is pointed at varies.
+# single port (DESIGN.md §2, §14 "The concrete SUT"). Concretely a single Spring Boot fat
+# jar — OfficeFloor as a Spring plugin + in-memory H2 (Flyway-seeded on boot) + the SPA
+# served as static files — one JVM, no daemon/container, so it is embeddable under Landlock
+# (§15). This is the CONSTANT layer: the jar is BYTE-IDENTICAL across every arm and
+# checkpoint; only the served front-end dist (FRONTEND_DIST) varies.
 sut:
-  repo: ${HOME}/compare/officehq-sut   # holds the whole-stack start/stop scripts + OfficeFloor
-  start_cmd: bin/start                  # env: PORT, FRONTEND_DIST -> seed DB, start OfficeFloor
-                                        #      serving that dist + the API on PORT. Deterministic
-                                        #      seed on every start = the per-checkpoint reset.
-  stop_cmd: bin/stop                    # idempotent teardown of the whole stack (frees PORT)
+  repo: ${HOME}/compare/officehq-sut   # holds bin/start, bin/stop, and officehq-sut.jar
+  start_cmd: bin/start                  # runs: java -jar officehq-sut.jar --server.port=$PORT \
+                                        #         --app.spa.location=file:$FRONTEND_DIST/
+                                        # boot = Flyway migrate + seed in-mem H2 = per-checkpoint
+                                        # reset; serves that dist + the API on PORT.
+  stop_cmd: bin/stop                    # kill the pid / free PORT; in-mem H2 dies with the JVM
+                                        # (clean reset). Idempotent.
   port: 3000
-  health_url: http://localhost:3000/health   # readiness probe used by correctness.wait_ready
+  health_url: http://localhost:3000/actuator/health   # Spring Actuator; correctness.wait_ready
 
 # The candidate front-ends under test (DESIGN.md §10, §14). Each is an EXTERNAL code
 # folder, only ever READ as a start point; the harness mirrors it into work_root/sandbox
@@ -59,9 +62,10 @@ arms:
     source_globs: ["src/**/*.{ts,html}"]     # NOTE: HTMX logic in hx-* attrs is invisible to Lizard (DESIGN.md §8)
     shared_surfaces:
       layout: ["templates/_layout.html"]
-    build_cmd: bin/build           # may be a near no-op; NOTE: server-rendered templates blur the
-    dist_dir: dist                 # constant-backend line (DESIGN.md §8.1, §10) — decide how the
-                                   # launcher serves these vs the constant OfficeFloor image.
+    build_cmd: bin/build           # NOTE: server-rendered templates live IN the jar, so this arm
+    dist_dir: dist                 # breaks the byte-constant-jar model (DESIGN.md §8.1, §10, §14) —
+                                   # it needs a per-arm jar or is dropped. SPA arms above stay clean
+                                   # via --app.spa.location=file:$FRONTEND_DIST.
 
   # full:             # optional CEILING control: agent sees prior specs -> regressions ~0
 
@@ -99,12 +103,12 @@ isolation:
     enabled: true
     # The agent runs the WHOLE STACK to test (DESIGN.md §15), so the toolchain must be on the
     # allowlist. Landlock is filesystem-only — loopback serving + Playwright are unaffected.
-    extra_ro_binds: []   # node + Playwright browser binaries, JVM/OfficeFloor runtime, the
-                         #   read-only sut launcher folder (agent executes but cannot modify it)
-    extra_rw_binds: []   # under the sandbox: build dist, embedded-DB data dir, Playwright cache,
-                         #   tmp, npm/pnpm store — everything the stack writes while running
-    # NOTE (DESIGN.md §15): the stack must be EMBEDDED/in-process (embedded DB, OfficeFloor
-    # subprocess, static serve) — a Docker/daemon-backed stack cannot run under Landlock.
+    extra_ro_binds: []   # the JRE, node + Playwright browser binaries, and the read-only sut
+                         #   launcher folder (officehq-sut.jar; agent executes but cannot modify it)
+    extra_rw_binds: []   # under the sandbox: build dist, Playwright cache, tmp, npm/pnpm store.
+                         #   H2 is in-memory, so there is no DB data dir to bind.
+    # NOTE (DESIGN.md §15): the stack is a single Spring Boot fat jar (embedded H2 + static SPA),
+    # one JVM — embeddable under Landlock. A Docker/daemon-backed stack could not run here.
 
 paths:
   # Both MUST be absolute, EXTERNAL, and SEPARATE (see the REST arm's paths note): the

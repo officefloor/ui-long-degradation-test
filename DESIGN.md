@@ -317,10 +317,9 @@ variable.
 - **Backend SUT:** which OfficeFloor app + schema is the constant. Reuse the petclinic domain
   for continuity with the REST arm, or a fresh domain chosen to stress UI erosion vectors
   (tables/forms/nav growth, shared-component reuse pressure)?
-- **Embedded, not containerised (§15):** the whole-stack launcher must run in-process/embedded
-  (embedded DB, OfficeFloor subprocess, static serve) so the agent can run its test under
-  Landlock. Confirm this is workable for the real OfficeFloor + DB shape, or the agent-test loop
-  needs rethinking.
+- **Embedded, not containerised (§15): RESOLVED — a single Spring Boot fat jar** (OfficeFloor as
+  a Spring plugin + in-memory H2 + the SPA served as static files), one JVM, no daemon. See §14
+  "The concrete SUT". This is genuinely embeddable under Landlock, so the agent-test loop stands.
 - **Checkpoint list:** author ~60 changes as **user-facing intents** (framework-agnostic), and
   deliberately load them with reuse-pressure (same table reused with growing needs, cross-feature
   data on one screen, nav growth, variant explosion) — if the sequence never pressures shared
@@ -427,6 +426,40 @@ front-end dist it is pointed at varies. It lives in its own folder (`sut.repo`),
 A gate run (`correctness.serve()`): build the arm → `sut.start` with `PORT` + `FRONTEND_DIST` →
 `wait_ready` → run Playwright against `http://localhost:$PORT` → `sut.stop`. One launcher, one
 port, whole stack.
+
+### The concrete SUT — a single Spring Boot fat jar (chosen)
+
+The launcher is one Spring Boot fat jar, using stock Spring conventions, that resolves the §15
+embedded constraint outright — one JVM, no daemon, no container:
+
+- **OfficeFloor runs within Spring as a plugin**, so the API and the app run in-process.
+- **H2 in-memory** (`jdbc:h2:mem:app;DB_CLOSE_DELAY=-1`), auto-configured, in the same JVM. Schema
+  + deterministic seed run on boot via **Flyway** (matches §5's "code + migration"). A fresh JVM
+  boot = fresh migrate + seed = **the per-checkpoint reset**; the in-mem DB dies with the JVM, so
+  `sut.stop` (kill the pid) is a clean reset with no teardown to get wrong.
+- **The SPA is served as static files.** Spring Boot serves static content at `/` via
+  `ResourceHttpRequestHandler`; a `WebMvcConfigurer` + `PathResourceResolver` adds the SPA
+  **deep-link fallback** (unknown non-`api/` path → `index.html`) so refreshes/deep links work.
+- **The jar stays byte-constant across arms.** The SPA is *not* baked in; the jar serves the
+  arm's built dist at **runtime** via `--app.spa.location=file:$FRONTEND_DIST/`
+  (`spring.web.resources.static-locations`). So the constant layer is literally one unchanging
+  jar; only the served dir varies — the exact `FRONTEND_DIST` seam above.
+- **Readiness** is Spring Actuator's `/actuator/health` (`sut.health_url`), plus a known
+  `data-test-id` anchor.
+
+So `sut.start` is essentially:
+
+```sh
+exec java -jar officehq-sut.jar --server.port="$PORT" --app.spa.location="file:${FRONTEND_DIST}/"
+```
+
+Playwright (external TS specs) drives it at `http://localhost:$PORT`, binding only to
+`data-test-id` (the testing-boundary invariant, below).
+
+**The one exception** is the server-driven **HTMX arm**: it renders on the server, so its
+templates would live inside the jar and make the backend vary — the §8.1/§10 caveat. The SPA arms
+(React/Vue) stay clean under `static-locations`; the HTMX arm, if run, needs a per-arm jar or is
+dropped.
 
 ### The testing-boundary invariant — why the system can evolve behind the UI
 
