@@ -54,10 +54,12 @@ So there is **no constant layer** — every checkpoint may change all of:
 - **the front-end** — new pages/components/state;
 - **the acceptance test** — this checkpoint's own spec (§7).
 
-There are **no front-end arms** (the front-end architecture is fixed: the OfficeHQ opinionated
-base shell). The only comparison dimension, if run at all, is the **intervention condition**
-(§10) — e.g. the full OfficeHQ gated loop vs an ungated control — to quantify what the gates buy,
-exactly as the REST harness's four-condition study did.
+Within a single run the **whole stack is fixed** — it is one base repo (one technology stack). The
+study compares **technology stacks across runs**: each candidate stack is its own base repo (a
+home-level sibling `~/officehq-<stack>`), and the harness is run against each in turn to see which
+stack best resists erosion under the same evolution (§10). Within a run there are no in-run arms;
+the only optional in-run dimension is the **intervention condition** (§10) — the full OfficeHQ
+gated loop vs an ungated control — to quantify what the gates buy.
 
 Because everything churns, the **one thing that stays stable is the test contract** (`data-test-
 id` + UI-only assertions, §3). That is what makes a fully-evolving stack measurable at all, and
@@ -326,13 +328,17 @@ sequence of English requests (and, if the intervention study is run, the gating 
 
 ---
 
-## 10. What is run (single track + optional intervention study)
+## 10. What is run (per-stack runs + optional intervention study)
 
-There are **no front-end arms** (§2): the front-end architecture is fixed — the OfficeHQ
-opinionated base shell, chosen for erosion resistance the way OfficeFloor is on the server:
-additive file/manifest routing · no global domain store · closed shared primitives · enforced
-feature-slice boundaries · scoped styles (see `~/OfficeHQ/DESIGN.md`). A full-fidelity format
-(`.tsx`/`.vue`, §8) so its own erosion is visible.
+The comparison is **across technology stacks**, one per **base repo** (a home-level sibling
+`~/officehq-<stack>`, e.g. `~/officehq-react`; §14, `docs/SUT_CONTRACT.md`, `BASE_CHECKLIST.md`).
+Each base repo is a whole stack — front-end framework + how it sits on Spring/OfficeFloor — built
+for erosion resistance the way OfficeFloor is on the server: additive file/manifest routing · no
+global domain store · closed shared primitives · enforced feature-slice boundaries · scoped styles
+(see `~/OfficeHQ/DESIGN.md`). The harness runs the **same** ~60 English requests against each base
+repo (via `config.yaml → app.repo`) and compares their erosion trajectories — **which stack works
+best**. Pick front-end formats Lizard reads fully (`.tsx`/`.vue`, §8) so a stack's own erosion is
+visible.
 
 - **Primary run — the real OfficeHQ configuration.** The full gated loop (compile · tests ·
   ImpactGate · security) over the ~60 English requests, replicated across `chains` for CIs. The
@@ -423,12 +429,14 @@ extraction a lift, not a re-plumb.
 
 ### The code is one external folder — the evolving app
 
-There is a single external code folder (`app.repo` at `base_ref`) — the OfficeHQ-managed
+There is a single external code folder per run (`app.repo` at `base_ref`) — the OfficeHQ-managed
 application: the base front-end shell **and** Spring-with-OfficeFloor **and** Flyway **and** the
 whole-stack `bin/start`/`bin/stop` **and** the `/__test__` seed endpoint, all in one repo that
 **evolves together** over the run. (There is no separate constant `sut.repo` anymore — nothing is
-constant, §2.) The harness never edits `base_ref` in place; it is only ever **read** as the start
-point, keeping `~/ui-long-degradation-test` (the harness) separate from the app it grows.
+constant, §2.) Each base repo is a **technology stack**, a home-level sibling named
+`~/officehq-<stack>` (e.g. `~/officehq-react`); swap stacks by pointing `app.repo` at another and
+running again (§10). The harness never edits `base_ref` in place; it is only ever **read** as the
+start point, keeping `~/ui-long-degradation-test` (the harness) separate from the app it grows.
 
 ### Copy/sync + Landlock — reused verbatim from the REST arm
 
