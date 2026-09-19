@@ -20,9 +20,10 @@ limits:
 # for the agent turn, and builds+runs it whole for the gate. Rebuilt each checkpoint; always one
 # JVM (embedded H2, static SPA), so embeddable under Landlock (§15).
 app:
-  # One base repo = one technology stack, a home-level sibling dir named ~/officehq-<stack>.
+  # One base repo = one technology stack, a home-level sibling dir named
+  # ~/officehq-<frontend>-<backend> (front-end and backend both named — either may vary).
   # Point this at the stack to run; compare stacks by running against each in turn (DESIGN.md §10).
-  repo: ${HOME}/officehq-react
+  repo: ${HOME}/officehq-react-officefloor
   base_ref: base-empty              # base shell + Spring/OfficeFloor + Flyway (no tables) + scripts
   build_cmd: bin/build              # compile OfficeFloor backend + front-end into one runnable jar
                                     #   (SPA baked into src/main/resources/static)

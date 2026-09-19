@@ -56,8 +56,9 @@ So there is **no constant layer** — every checkpoint may change all of:
 
 Within a single run the **whole stack is fixed** — it is one base repo (one technology stack). The
 study compares **technology stacks across runs**: each candidate stack is its own base repo (a
-home-level sibling `~/officehq-<stack>`), and the harness is run against each in turn to see which
-stack best resists erosion under the same evolution (§10). Within a run there are no in-run arms;
+home-level sibling `~/officehq-<frontend>-<backend>`), and the harness is run against each in turn
+to see which stack best resists erosion under the same evolution (§10). Both the front-end **and**
+the backend may vary between stacks. Within a run there are no in-run arms;
 the only optional in-run dimension is the **intervention condition** (§10) — the full OfficeHQ
 gated loop vs an ungated control — to quantify what the gates buy.
 
@@ -331,8 +332,9 @@ sequence of English requests (and, if the intervention study is run, the gating 
 ## 10. What is run (per-stack runs + optional intervention study)
 
 The comparison is **across technology stacks**, one per **base repo** (a home-level sibling
-`~/officehq-<stack>`, e.g. `~/officehq-react`; §14, `docs/SUT_CONTRACT.md`, `BASE_CHECKLIST.md`).
-Each base repo is a whole stack — front-end framework + how it sits on Spring/OfficeFloor — built
+`~/officehq-<frontend>-<backend>`, e.g. `~/officehq-react-officefloor`; §14, `docs/SUT_CONTRACT.md`,
+`BASE_CHECKLIST.md`). Each base repo is a whole stack — a front-end framework **and** a backend
+(both may vary between stacks; e.g. a different front-end, or a different server behind it) — built
 for erosion resistance the way OfficeFloor is on the server: additive file/manifest routing · no
 global domain store · closed shared primitives · enforced feature-slice boundaries · scoped styles
 (see `~/OfficeHQ/DESIGN.md`). The harness runs the **same** ~60 English requests against each base
@@ -434,8 +436,9 @@ application: the base front-end shell **and** Spring-with-OfficeFloor **and** Fl
 whole-stack `bin/start`/`bin/stop` **and** the `/__test__` seed endpoint, all in one repo that
 **evolves together** over the run. (There is no separate constant `sut.repo` anymore — nothing is
 constant, §2.) Each base repo is a **technology stack**, a home-level sibling named
-`~/officehq-<stack>` (e.g. `~/officehq-react`); swap stacks by pointing `app.repo` at another and
-running again (§10). The harness never edits `base_ref` in place; it is only ever **read** as the
+`~/officehq-<frontend>-<backend>` (e.g. `~/officehq-react-officefloor`); swap stacks by pointing
+`app.repo` at another and running again (§10). The harness never edits `base_ref` in place; it is
+only ever **read** as the
 start point, keeping `~/ui-long-degradation-test` (the harness) separate from the app it grows.
 
 ### Copy/sync + Landlock — reused verbatim from the REST arm
