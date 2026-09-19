@@ -1,25 +1,29 @@
 # ui-long-degradation-test
 
-The **UI arm** of the long-degradation study. Its sibling,
-`~/spring-petclinic-rest-long-degradation-test`, measures how server code erodes under a long
-sequence of AI-authored changes; this repo asks the same question of a **front-end**.
+A **full-stack erosion experiment that replicates the OfficeHQ change loop**. Its sibling,
+`~/spring-petclinic-rest-long-degradation-test`, measures how *server* code erodes when an
+existing app is extended; this repo asks whether the **OfficeHQ approach can grow a whole
+application from scratch** under a long sequence of plain-English change requests without eroding.
 
-- A constant **OfficeFloor server + database** sits behind every arm and never changes, so any
-  measured erosion is attributable to the front-end alone.
-- Each candidate **front-end architecture** is an arm — an **external code folder** the harness
-  only reads, mirrors into an isolated sandbox (copy/sync + Landlock, as the REST arm does), and
-  serves via the folder's own `start`/`stop` scripts on a fixed port. See
-  **[docs/SUT_CONTRACT.md](./docs/SUT_CONTRACT.md)**.
-- The same ~60 changes run against each arm.
-- Tests are **implementation-agnostic**: they bind only to `data-test-id` attributes and are
-  driven through the running UI with Playwright, so one suite validates any framework.
-- The agent works **blind** (sees only the current checkpoint's test); the full accumulated
-  suite runs afterwards as a regression gate. Functionality is tracked as **tests, not
-  specifications**.
+- **One application evolves.** It starts from a near-empty base — a base front-end shell, Spring
+  with the OfficeFloor plugin, and an empty in-memory H2 database (no tables) — and is grown by
+  ~60 English change requests. Each request is a **full-stack change**: schema migration +
+  OfficeFloor server + front-end + its acceptance test. Nothing is held constant.
+- **The app is one embedded Spring Boot jar** (OfficeFloor plugin + in-memory H2 + the SPA served
+  as static files), one JVM — so it runs under the agent's Landlock sandbox. The harness mirrors
+  the app into an isolated sandbox (copy/sync + Landlock, as the REST arm does) and builds+runs it
+  whole for the gate. See **[docs/SUT_CONTRACT.md](./docs/SUT_CONTRACT.md)**.
+- **Tests are the stable contract across the churn.** They bind only to `data-test-id` and assert
+  only through the running UI with Playwright, so the whole stack beneath them can be regenerated.
+  Data is arranged per-spec via a profile-guarded `/__test__` seed endpoint (Arrange, not Assert).
+- **The agent works blind** (sees only the current checkpoint's request + its own test, never the
+  priors) and can run that test against the live app as it works. The full accumulated suite runs
+  afterwards as the regression gate. Functionality is tracked as **tests, not specifications**.
+- **No front-end arms** — the front-end is the fixed OfficeHQ opinionated shell. The only optional
+  comparison is the intervention condition (the gated OfficeHQ loop vs an ungated control), to
+  quantify what ImpactGate buys. Erosion is measured per layer (front-end TS + backend Java).
 
-See **[DESIGN.md](./DESIGN.md)** for the full design and the reasoning behind each decision.
-
-This harness also serves as a fidelity model of the OfficeHQ (`~/OfficeHQ`) production change
-loop — see DESIGN.md §7.
+See **[DESIGN.md](./DESIGN.md)** for the full design and the reasoning behind each decision
+(including why this started as a front-end-only comparison and became the full-stack model).
 
 _Status: design captured; implementation not yet started._

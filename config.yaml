@@ -1,10 +1,11 @@
 # ui-long-degradation-test configuration. STUB — fill in as the harness is built.
-# Mirrors the REST arm's config.yaml shape (DESIGN.md §13) with UI-specific sections.
+# Models the OfficeHQ change loop (DESIGN.md): ONE application, grown from a near-empty base by
+# ~60 English change requests, each a full-stack change (schema + OfficeFloor server + front-end).
 # ${VARS} and ~ are expanded from the environment; relative paths anchor inside this repo.
 
 model: claude-opus-4-8          # the fixed coding agent. Override per run with --model
-chains: 10                      # independent runs per (arm, strategy) for tight CIs
-active_strategy: just-solve
+chains: 10                      # independent runs per condition for tight CIs
+active_condition: gated         # which intervention condition to run by default (see `conditions`)
 agent_timeout: 3600
 
 checkpoints_file: checkpoints.yaml
@@ -12,109 +13,89 @@ checkpoints_file: checkpoints.yaml
 limits:
   # rate/cost limits for the agent turn (lift from the REST arm)
 
-# The System-Under-Test launcher: ONE whole-stack start script brings up everything on a
-# single port (DESIGN.md §2, §14 "The concrete SUT"). Concretely a single Spring Boot fat
-# jar — OfficeFloor as a Spring plugin + in-memory H2 (Flyway-seeded on boot) + the SPA
-# served as static files — one JVM, no daemon/container, so it is embeddable under Landlock
-# (§15). This is the CONSTANT layer: the jar is BYTE-IDENTICAL across every arm and
-# checkpoint; only the served front-end dist (FRONTEND_DIST) varies.
-sut:
-  repo: ${HOME}/compare/officehq-sut   # holds bin/start, bin/stop, and officehq-sut.jar
-  start_cmd: bin/start                  # runs: java -jar officehq-sut.jar --server.port=$PORT \
-                                        #         --app.spa.location=file:$FRONTEND_DIST/
-                                        # boot = Flyway migrate + seed in-mem H2 = per-checkpoint
-                                        # reset; serves that dist + the API on PORT.
-  stop_cmd: bin/stop                    # kill the pid / free PORT; in-mem H2 dies with the JVM
-                                        # (clean reset). Idempotent.
+# THE APP: the single external code folder that EVOLVES over the run (DESIGN.md §2, §14). One
+# Spring Boot app — base front-end shell + Spring-with-OfficeFloor plugin + Flyway (empty H2, no
+# tables) + the whole-stack start/stop scripts + the /__test__ seed endpoint — all in one repo.
+# Only ever READ at base_ref; the harness mirrors it into work_root/sandbox (copy/sync + Landlock)
+# for the agent turn, and builds+runs it whole for the gate. Rebuilt each checkpoint; always one
+# JVM (embedded H2, static SPA), so embeddable under Landlock (§15).
+app:
+  repo: ${HOME}/compare/officehq-app
+  base_ref: base-empty              # base shell + Spring/OfficeFloor + Flyway (no tables) + scripts
+  build_cmd: bin/build              # compile OfficeFloor backend + front-end into one runnable jar
+                                    #   (SPA baked into src/main/resources/static)
+  start_cmd: bin/start              # java -jar app.jar --server.port=$PORT ; Flyway migrates empty
+                                    #   H2 up to this checkpoint's schema on boot; serves SPA + API
+  stop_cmd: bin/stop                # kill the JVM / free PORT (in-mem H2 dies with it). Idempotent.
   port: 3000
   health_url: http://localhost:3000/actuator/health   # Spring Actuator; correctness.wait_ready
+  # Erosion is measured per layer (DESIGN.md §8): front-end TS (file-scope container) and backend
+  # Java (class-scope, comparable to the REST arm) tracked as SEPARATE series.
+  source_globs:
+    frontend: ["src/main/frontend/**/*.{ts,tsx}"]     # full-fidelity format so its erosion shows
+    backend:  ["src/main/java/**/*.java"]
+  shared_surfaces:                  # boundary-violation targets, both layers (metrics.boundary_violations)
+    frontend: ["src/main/frontend/router/**", "src/main/frontend/ui/**"]
+    backend:  ["src/main/resources/officefloor/**"]   # wiring/config the backend shouldn't need to churn
 
-# The candidate front-ends under test (DESIGN.md §10, §14). Each is an EXTERNAL code
-# folder, only ever READ as a start point; the harness mirrors it into work_root/sandbox
-# (copy/sync + Landlock) for the agent turn, and BUILDS it to a servable dist that the
-# whole-stack launcher serves. All arms start from ONE shared opinionated shell so the
-# file-scope-container comparison is fair (DESIGN.md §8).
-arms:
-  control:            # component SPA + global store + client router (expected slop magnet)
-    repo: ${HOME}/compare/ui-control
-    base_ref: base-no-specs        # app + shared shell only; no pre-existing checkpoint specs
-    source_globs: ["src/**/*.{ts,tsx}"]      # Lizard full-fidelity formats (DESIGN.md §8)
-    shared_surfaces:               # boundary-violation targets (DESIGN.md §8, metrics.boundary_violations)
-      router: ["src/router/**", "src/App.tsx"]
-      store:  ["src/store/**"]
-      primitives: ["src/components/ui/**"]
-    build_cmd: bin/build           # produces a static bundle the launcher serves
-    dist_dir: dist                 # relative to the worktree; passed as FRONTEND_DIST
-
-  additive:           # file routing · no global store · closed primitives · slice boundaries · scoped styles
-    repo: ${HOME}/compare/ui-additive
-    base_ref: base-no-specs
-    source_globs: ["src/**/*.{ts,tsx}"]
-    shared_surfaces:
-      router: []                   # file-based routing: adding a route is a new file, not an edit
-      primitives: ["src/ui/**"]
-    build_cmd: bin/build
-    dist_dir: dist
-
-  server_driven:      # OfficeFloor templates + HTMX fragments (measured mostly by boundary violations)
-    repo: ${HOME}/compare/ui-htmx
-    base_ref: base-no-specs
-    source_globs: ["src/**/*.{ts,html}"]     # NOTE: HTMX logic in hx-* attrs is invisible to Lizard (DESIGN.md §8)
-    shared_surfaces:
-      layout: ["templates/_layout.html"]
-    build_cmd: bin/build           # NOTE: server-rendered templates live IN the jar, so this arm
-    dist_dir: dist                 # breaks the byte-constant-jar model (DESIGN.md §8.1, §10, §14) —
-                                   # it needs a per-arm jar or is dropped. SPA arms above stay clean
-                                   # via --app.spa.location=file:$FRONTEND_DIST.
-
-  # full:             # optional CEILING control: agent sees prior specs -> regressions ~0
+# Intervention CONDITIONS (DESIGN.md §10) — NOT front-end architectures. This is the harness's
+# comparison slot (the REST arm's strategy dimension). The primary run is `gated`; `just-solve` is
+# the ungated control that quantifies what ImpactGate buys on full-stack erosion.
+conditions:
+  gated:              # the real OfficeHQ loop: compile · tests · ImpactGate · security
+    # prompt_template + impact_gate settings (below)
+  just-solve:         # ungated control — plain "implement this request", no ImpactGate refactor
+    # prompt_template only
 
 prompt_strategies:
   just-solve:
     # template: |
-    #   <the constant prompt; the data-test-id immutability rule lives in the shared AGENTS.md>
+    #   <the constant prompt; the data-test-id immutability rule + how to run ./e2e live in the
+    #    pinned CLAUDE.md/AGENTS.md. {request} is the checkpoint's plain-English change request.>
 
-# Correctness oracle: build the front-end, bring the whole stack up on sut.port via the
-# single launcher, drive with Playwright bound to data-test-id ONLY (DESIGN.md §3,§5,§9,§14).
+# Correctness oracle: build the app, bring the whole app up on app.port, drive with Playwright
+# bound to data-test-id ONLY (DESIGN.md §3, §5, §9, §14).
 acceptance:
   specs_dir: acceptance/specs
   dest_subpath: e2e                # where specs are copied into the mirrored sandbox / worktree
-  base_url: http://localhost:3000  # = sut.port; Playwright hits ONLY this (never API/DB)
-  # strict awaiting on data-test-id presence; select cp01..cpK at checkpoint K
-  agent_test_cmd: ./e2e            # the command the AGENT runs to test as it works (DESIGN.md
-                                   # §15): builds + brings the whole stack up via the constant
-                                   # sut launcher + runs the VISIBLE spec(s) only + tears down.
-                                   # Pinned + read-only so agent edits don't reach the gate.
+  base_url: http://localhost:3000  # = app.port; Playwright hits ONLY this (never the domain API/DB)
+  # Data is seeded PER-SPEC in beforeEach via the app's profile-guarded test-support endpoint
+  # (DESIGN.md §9): POST /__test__/reset + POST /__test__/seed. Schema is Flyway-on-boot.
+  seed_endpoint: /__test__
+  agent_test_cmd: ./e2e            # the command the AGENT runs to test as it works (DESIGN.md §15):
+                                   # build + app.start + run the VISIBLE spec(s) only + app.stop.
+                                   # Pinned so agent edits to it don't reach the gate.
 
 impact_gate:
-  # block/warn percentiles; NOTE: needs a TS seed distribution before grades mean
-  # anything (DESIGN.md §8, harness/impact_gate.py)
+  # block/warn percentiles; used by the `gated` condition. NOTE: front-end grades need a TS seed
+  # distribution before they mean anything (DESIGN.md §8, harness/impact_gate.py). Backend Java
+  # uses ImpactGate's shipped Java distribution as in the REST arm.
 
 tools:
-  # pinned versions: node, playwright, lizard, impact-gate, jscpd/ast-grep(-ts)
+  # pinned versions: node, playwright, JRE, lizard, impact-gate, jscpd/ast-grep(-ts)
 
-# Filesystem confinement for the agent turn (Linux Landlock; no root/bwrap). Identical
-# to the REST arm; fails CLOSED. Verify:  python harness/landlock_selftest.py
+# Filesystem confinement for the agent turn (Linux Landlock; no root/bwrap). Identical to the REST
+# arm; fails CLOSED. Verify:  python harness/landlock_selftest.py
 isolation:
-  # Pinned files are restored to authored before the gate, so agent edits to them never
-  # reach scoring (DESIGN.md §15). Pin the agent-facing rules AND the launcher/test command.
-  pin_files: ["AGENTS.md", "CLAUDE.md"]   # data-test-id immutability + how to run ./e2e live here
+  # Pinned files are restored to authored before the gate (DESIGN.md §15). Pin only the FIXED
+  # operational scaffolding — NOT the evolving app code (incl. the /__test__ endpoint, which
+  # evolves with the schema; a break there is a seed-path regression, §6).
+  pin_files: ["AGENTS.md", "CLAUDE.md", "bin/start", "bin/stop", "e2e"]
   agent_confinement:
     enabled: true
-    # The agent runs the WHOLE STACK to test (DESIGN.md §15), so the toolchain must be on the
+    # The agent runs the WHOLE app to test (DESIGN.md §15), so the toolchain must be on the
     # allowlist. Landlock is filesystem-only — loopback serving + Playwright are unaffected.
-    extra_ro_binds: []   # the JRE, node + Playwright browser binaries, and the read-only sut
-                         #   launcher folder (officehq-sut.jar; agent executes but cannot modify it)
-    extra_rw_binds: []   # under the sandbox: build dist, Playwright cache, tmp, npm/pnpm store.
+    extra_ro_binds: []   # the JRE, node + Playwright browser binaries
+    extra_rw_binds: []   # under the sandbox: build output, Playwright cache, tmp, npm/pnpm store.
                          #   H2 is in-memory, so there is no DB data dir to bind.
-    # NOTE (DESIGN.md §15): the stack is a single Spring Boot fat jar (embedded H2 + static SPA),
-    # one JVM — embeddable under Landlock. A Docker/daemon-backed stack could not run here.
+    # NOTE (DESIGN.md §15): the app is a single Spring Boot jar (embedded H2 + static SPA), one JVM
+    # — embeddable under Landlock. A Docker/daemon-backed stack could not run here.
 
 paths:
-  # Both MUST be absolute, EXTERNAL, and SEPARATE (see the REST arm's paths note): the
-  # agent's cwd is sandbox_root, so it must have no worktree/.git/results siblings to walk
-  # into. work_root holds per-chain worktrees; sandbox_root IS the agent's cwd, rebuilt
-  # fresh each turn (a dedicated dir — a home/root path is refused).
+  # Both MUST be absolute, EXTERNAL, and SEPARATE (see the REST arm's paths note): the agent's cwd
+  # is sandbox_root, so it must have no worktree/.git/results siblings to walk into. work_root
+  # holds per-chain worktrees; sandbox_root IS the agent's cwd, rebuilt fresh each turn (a
+  # dedicated dir — a home/root path is refused).
   work_root: ${HOME}/ui-work
   sandbox_root: ${HOME}/ui-sandbox
   results_csv: results/records.csv

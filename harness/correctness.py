@@ -13,7 +13,7 @@ with, so a future shared core is a lift not a re-plumb):
 The correctness contract with the repo (DESIGN.md §3, §5):
 
   * Tests bind ONLY to `data-test-id` attributes — never CSS classes, DOM structure,
-    tag nesting, or visible copy — so one suite validates any candidate front-end.
+    tag nesting, or visible copy — so one suite validates the app however the stack is built.
   * One Playwright spec per checkpoint, `cpNN`, selectable so the gate can run only
     cp01..cpK at checkpoint K (the analog of the REST arm's `@Tag("cpNN")`).
   * `data-test-id` values are IMMUTABLE PUBLIC API once introduced (DESIGN.md §3):
@@ -65,58 +65,57 @@ class TestOutcome:
 
 
 @dataclass
-class SutHandle:
-    """What serve() yields: how the running SUT is reached and torn down."""
+class AppHandle:
+    """What serve() yields: how the running app is reached and torn down."""
 
     base_url: str                       # e.g. http://localhost:3000 — the ONLY thing Playwright uses
     port: int = 0
 
 
 @contextlib.contextmanager
-def serve(worktree: str, arm_cfg: dict, cfg: dict):
-    """Bring the whole SUT up on one port via the single whole-stack launcher, then tear
-    it down. The launcher (cfg['sut']) is the CONSTANT layer — same script + OfficeFloor
-    image for every arm; only the front-end dist it serves varies (DESIGN.md §14,
-    docs/SUT_CONTRACT.md). Assumes build() has already produced the arm's dist.
+def serve(worktree: str, cfg: dict):
+    """Bring the whole app up on one port and tear it down. There is ONE evolving app
+    (cfg['app']) — a single Spring Boot jar (OfficeFloor plugin + in-memory H2 + static
+    SPA), rebuilt each checkpoint, one JVM, embeddable under Landlock (DESIGN.md §14,
+    docs/SUT_CONTRACT.md). Assumes build() has produced this checkpoint's jar.
 
     Steps (all TODO):
-      1. Run cfg['sut'].start_cmd with env PORT=cfg['sut'].port and FRONTEND_DIST=<the
-         arm's built dist under `worktree`>. In one shot it SEEDS a fresh deterministic
-         database (the per-checkpoint reset — DESIGN.md §9), starts the constant
-         OfficeFloor server, and serves that dist + the API on PORT.
-      2. wait_ready() on http://localhost:PORT (health path AND a known data-test-id
+      1. Run cfg['app'].start_cmd with env PORT=cfg['app'].port. On boot Flyway migrates
+         the EMPTY in-memory H2 up to this checkpoint's schema (DESIGN.md §5) and serves
+         the SPA + API on PORT. Data is NOT seeded here — specs seed per-`beforeEach` via
+         the /__test__ endpoint (DESIGN.md §9).
+      2. wait_ready() on http://localhost:PORT (/actuator/health AND a known data-test-id
          anchor — strict awaiting is the flake guard, DESIGN.md §9).
-      3. yield SutHandle(base_url=...); the caller runs Playwright against base_url only —
-         never the API/DB (the testing-boundary invariant, DESIGN.md §14).
-      4. on exit (always): cfg['sut'].stop_cmd — idempotent teardown of the WHOLE stack,
-         frees PORT. Robust to a crashed prior run (kill by port as a backstop).
+      3. yield AppHandle(base_url=...); the caller runs Playwright against base_url only —
+         asserting only through the UI (the testing-boundary invariant, DESIGN.md §14).
+      4. on exit (always): cfg['app'].stop_cmd — kill the JVM, free PORT (in-mem H2 dies
+         with it). Robust to a crashed prior run (kill by port as a backstop).
     """
-    raise NotImplementedError("serve(): run the single whole-stack sut launcher")
+    raise NotImplementedError("serve(): run the single evolving app (java -jar)")
     yield  # pragma: no cover  (documents the contextmanager shape)
 
 
 def wait_ready(base_url: str, cfg: dict, timeout: int = 120) -> bool:
-    """Poll until the SUT answers AND a known data-test-id anchor is present. TODO."""
+    """Poll until /actuator/health is up AND a known data-test-id anchor is present. TODO."""
     raise NotImplementedError
 
 
 # --- gate seam (signature-compatible with the REST arm) -----------------------
 
 
-def build(worktree: str, arm_cfg: dict, cfg: dict) -> tuple[bool, str]:
-    """Run the arm's build_cmd in `worktree` to produce its servable dist_dir (which
-    serve() then hands the whole-stack launcher as FRONTEND_DIST). -> (ok, console). TODO."""
+def build(worktree: str, cfg: dict) -> tuple[bool, str]:
+    """Run cfg['app'].build_cmd in `worktree` to compile the OfficeFloor backend + the
+    front-end into one runnable jar (SPA baked into static/). -> (ok, console). TODO."""
     raise NotImplementedError
 
 
-def run_tests(worktree: str, checkpoint_k: int, arm_cfg: dict, cfg: dict) -> TestOutcome:
-    """Run cp01..cpK Playwright specs against the served SUT and score.
+def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
+    """Run cp01..cpK Playwright specs against the served app and score.
 
-    Same return type as the REST arm's run_tests (the gate seam); takes `arm_cfg` too
-    because the build differs per arm. Inside: build(worktree, arm_cfg, cfg), then
-    `with serve(worktree, arm_cfg, cfg) as sut:` run the selected specs against
-    `sut.base_url` ONLY (never the API/DB — the testing-boundary invariant, DESIGN.md
-    §14), parse results, then score_results().
+    Same seam and return type as the REST arm's run_tests. Inside: build(worktree, cfg),
+    then `with serve(worktree, cfg) as app:` run the selected specs against `app.base_url`
+    ONLY (each spec `beforeEach` reset+seeds via /__test__; assertions are UI-only — the
+    testing-boundary invariant, DESIGN.md §14), parse results, then score_results().
     """
     raise NotImplementedError
 

@@ -57,11 +57,12 @@ def erosion(fns: list[dict], cc_threshold: int = CC_THRESHOLD) -> float:
 
 
 def impact_stats(worktree: str, prev_ref: str, cur_ref: str = "HEAD",
-                 arm_cfg: Optional[dict] = None) -> dict:
+                 app_cfg: Optional[dict] = None) -> dict:
     """Blast-radius / before-context-WMC composite for this checkpoint's diff.
 
-    The same signal impact_gate.py gates on. NOTE the file-scope container caveat above.
-    TODO.
+    The same signal impact_gate.py gates on. Computed per LAYER — front-end TS (file-scope
+    container) and backend Java (class-scope, comparable to the REST arm) as SEPARATE
+    series (DESIGN.md §8), never summed. NOTE the file-scope container caveat above. TODO.
     """
     raise NotImplementedError
 
@@ -72,8 +73,8 @@ def impact_stats(worktree: str, prev_ref: str, cur_ref: str = "HEAD",
 def boundary_violations(worktree: str, prev_ref: str, cur_ref: str, cfg: dict) -> dict:
     """Count edits this checkpoint made to declared shared/central files.
 
-    `cfg` supplies the arm's shared-surface globs (router/manifest, global store, the
-    shared-primitive dir). Return e.g.
+    `cfg` supplies the app's shared-surface globs, both layers — front-end (router/manifest,
+    global store, shared primitives) and backend (shared wiring/config). Return e.g.
         {"count": int, "files": [paths...], "by_surface": {surface: n}}
     An additive change scores 0 here; a change that had to reach into a shared file to
     land a feature scores >0. Format-neutral — no Lizard visibility required. TODO.
@@ -84,9 +85,10 @@ def boundary_violations(worktree: str, prev_ref: str, cur_ref: str, cfg: dict) -
 # --- the seam (signature-compatible with the REST arm) -----------------------
 
 
-def compute_all(worktree: str, arm_cfg: dict, tools: dict, base_commit: str,
+def compute_all(worktree: str, app_cfg: dict, tools: dict, base_commit: str,
                 prev_ref: Optional[str] = None) -> dict:
-    """One checkpoint's full structural metric row.
+    """One checkpoint's full structural metric row, computed PER LAYER from
+    app_cfg['source_globs'] {frontend, backend} as separate series (DESIGN.md §8).
 
     Same seam and return-shape contract as the REST arm's metrics.compute_all, so
     analyze.py can consume either. Composes functions()/erosion()/impact_stats()/

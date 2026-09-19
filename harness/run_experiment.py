@@ -4,32 +4,36 @@ STUB. Structurally parallel to the REST arm's run_experiment.py (the blind, two-
 per-checkpoint lifecycle) with the correctness oracle rewired from in-process MockMvc to
 the build+serve+Playwright gate in correctness.py. See DESIGN.md §4, §5.
 
-For each (arm, strategy, chain) it creates an isolated git worktree at the arm's base ref
-and walks the ordered checkpoints. At each checkpoint k (1->N), in order:
+For each (condition, chain) it creates an isolated git worktree of the ONE evolving app
+(cfg['app']) at base_ref and walks the ordered checkpoints, growing the app from empty. At
+each checkpoint k (1->N), in order:
 
   0. set_agent_view(): install ONLY cpK's own Playwright spec (+ shared test infra).
      Prior specs are removed from the sandbox AND withheld via Landlock so the agent
-     physically cannot read them (blind view — DESIGN.md §4). The current source tree,
-     with all prior features and their data-test-id anchors, is present as normal.
-  1. run a FRESH headless agent (harness.agent.run_agent) with only cpK's request +
-     the current code. No cross-checkpoint memory, isolated CLAUDE_CONFIG_DIR. The agent
-     can RUN ITS TEST as it works via `acceptance.agent_test_cmd` (./e2e), which builds +
-     brings the whole stack up via the constant launcher + runs its VISIBLE spec only,
-     inside the Landlock sandbox (DESIGN.md §15). The launcher, test command and pinned
-     files are read-only/pinned, so the agent can execute but not edit them.
+     physically cannot read them (blind view — DESIGN.md §4). The current source tree
+     (all prior schema/server/front-end and their data-test-id anchors) is present.
+  1. run a FRESH headless agent (harness.agent.run_agent) with cpK's plain-ENGLISH change
+     request + cpK's own spec + the current code. No cross-checkpoint memory, isolated
+     CLAUDE_CONFIG_DIR. It authors the FULL-STACK change (migration + OfficeFloor server +
+     front-end) and can RUN ITS TEST via `acceptance.agent_test_cmd` (./e2e) — build +
+     app.start + its VISIBLE spec only — inside the Landlock sandbox (DESIGN.md §15). The
+     start/stop scripts, ./e2e and pinned files are pinned, so the agent runs but can't
+     edit them; the app code it writes (incl. the /__test__ endpoint) is its delta.
   2. commit the pure agent delta, then install the FULL cp01..cpK suite (the priors the
-     agent never saw) and gate on correctness.run_tests -> build + serve seeded SUT +
-     Playwright. Regressions (incl. the 3-way reason split) surface here.
+     agent never saw) and gate on correctness.run_tests -> build + serve the evolving app
+     (Flyway migrates empty H2 up on boot) + Playwright (specs beforeEach reset+seed via
+     /__test__). Regressions (incl. the 4-way reason split, DESIGN.md §6) surface here.
   3. write the checkpoint's RAW capture (harness.capture): agent envelope + event
      stream, raw test-result map (+ reasons), pre-normalisation diff, SHAs. Never store
      derived numbers on the branch — analyze.py re-derives them.
   4. reset commit: normalise + set_agent_view for cp(K+1) (its own spec only), so the
      next checkpoint starts blind and each checkpoint is a clean two-commit boundary.
 
-Arms (DESIGN.md §10): control SPA+global-store · additive template · server-driven HTMX;
-optional `full` ceiling control (agent sees prior specs -> regressions ~0, on record).
-Structural metrics are computed each checkpoint only to narrate the log; analyze.py is
-the source of truth and recomputes from commits + capture.
+Conditions (DESIGN.md §10): `gated` (the OfficeHQ loop) primary; optional `just-solve`
+ungated control to quantify what ImpactGate buys; optional `full` ceiling reference
+(agent sees prior specs -> regressions ~0, on record). Erosion is measured per layer
+(front-end TS + backend Java, §8). Structural metrics are computed each checkpoint only to
+narrate the log; analyze.py is the source of truth and recomputes from commits + capture.
 """
 from __future__ import annotations
 
@@ -50,10 +54,11 @@ def phase_for(idx: int, n: int) -> str:
 # confine and are how the harness copies the right specs in per checkpoint.
 
 
-def make_worktree(arm_cfg: dict, work_root: str, arm: str, strategy: str,
+def make_worktree(app_cfg: dict, work_root: str, condition: str,
                   chain: int, run_id: str) -> tuple[str, str]:
-    """Branch evolve/<run_id>/<strategy>/<arm>/chain<n> from the untouched external
-    `arm_cfg['repo']` @ base_ref into work_root. LIFT from the REST arm verbatim."""
+    """Branch evolve/<run_id>/<condition>/chain<n> from the untouched ONE app repo
+    (`app_cfg['repo']` @ base_ref) into work_root. LIFT/adapt from the REST arm (which
+    branched a per-arm repo; here there is a single evolving app). TODO."""
     raise NotImplementedError
 
 
@@ -96,9 +101,9 @@ def install_measurement_suite(wt: str, cfg: dict, checkpoints: list[dict], k: in
     raise NotImplementedError
 
 
-def run_chain(cfg: dict, arm: str, strategy: str, chain: int, run_id: str,
+def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
               work_root: str) -> None:
-    """Walk the checkpoints for one arm/strategy/chain (the loop above). TODO."""
+    """Walk the checkpoints for one condition/chain, growing the app (the loop above). TODO."""
     raise NotImplementedError
 
 

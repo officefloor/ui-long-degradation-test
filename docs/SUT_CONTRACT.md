@@ -1,103 +1,68 @@
-# SUT contract — what an app code folder must provide
+# App contract — what the evolving app repo must provide
 
-The harness (`~/ui-long-degradation-test`) treats each candidate front-end as an **external
-code folder** it only ever reads (DESIGN.md §14). For the harness to evolve, isolate, build, and
-test that folder without knowing anything about its framework, the folder must honour this
-contract. Anything that honours it is testable — React, Vue, HTMX, whatever. Serving is not the
-arm's job: one constant whole-stack launcher (§5) serves whatever dist the arm builds.
+The harness (`~/ui-long-degradation-test`) grows **one application** from a near-empty base over
+~60 English change requests, modelling the OfficeHQ loop (DESIGN.md §1, §2, §14). It treats the
+app repo (`app.repo` in `config.yaml`) as an external folder it only reads at `base_ref`, mirrors
+into an isolated sandbox for the agent turn, then builds and runs whole for the gate. For that to
+work without the harness knowing the app's internals, the repo must honour this contract.
 
-## 1. It is a git repo with a clean base ref
+Everything in the app **evolves** across checkpoints — schema, OfficeFloor server, front-end, and
+the acceptance tests. The only things that stay fixed are the operational scaffolding (§3) and the
+test contract (§4).
 
-- The folder is a git repository (`arms.<name>.repo` in `config.yaml`).
-- It has a `base_ref` (e.g. `base-no-specs`) that is the app **plus the shared opinionated
-  shell, and NO pre-existing checkpoint specs**. The harness branches every run off this ref and
-  never writes to it.
+## 1. It is a git repo starting from a near-empty base
 
-## 2. Source lives under the configured globs
+- The folder is a git repository with a `base_ref` (e.g. `base-empty`) that contains: the base
+  front-end shell, Spring with the OfficeFloor plugin, Flyway wired against an **empty in-memory
+  H2 (no tables)**, the scaffolding scripts (§3), and the `/__test__` seed endpoint (§4).
+- The harness branches every run off `base_ref` and never writes to it. cp01 creates the first
+  tables/entities/UI.
 
-- Production source is under `arms.<name>.source_globs` (e.g. `src/**/*.{ts,tsx}`) so metrics see
-  it. Prefer `.ts`/`.tsx`/`.vue` — Lizard reads these at full fidelity (DESIGN.md §8).
-- Declare the shared/central files in `arms.<name>.shared_surfaces` (router/manifest, global
-  store, shared primitives) so the boundary-violation co-metric can see when a change was forced
-  to reach into them (DESIGN.md §8).
+## 2. One embedded stack — a single Spring Boot app
 
-## 3. An arm builds to a servable dist
+The whole app runs in **one JVM, no daemon or container**, so it is launchable inside the Landlock
+sandbox (the agent runs it too, §5; DESIGN.md §15):
 
-An arm folder does NOT serve itself — serving is the constant whole-stack launcher's job (§5).
-An arm only needs to **build to a servable output**:
+- **OfficeFloor within Spring** serves the API in-process.
+- **H2 in-memory** (`jdbc:h2:mem:app;DB_CLOSE_DELAY=-1`); **Flyway** migrations (added checkpoint
+  by checkpoint) build the schema up **on boot** from empty.
+- The **SPA is served as static files** from the jar (`src/main/resources/static`), with an SPA
+  deep-link fallback (unknown non-`api/` path → `index.html`).
+- Readiness is Spring Actuator's `/actuator/health` (`app.health_url`).
 
-- `build_cmd` (default `bin/build`) runs in the mirrored worktree and produces `dist_dir`
-  (default `dist/`) — the static assets the launcher will serve.
-- The harness runs `build_cmd` as a separate step before starting the stack, so a compile failure
-  is cleanly distinct from a stack-start failure (mirrors the REST arm's build-then-run).
+## 3. Fixed operational scaffolding: `bin/build`, `bin/start`, `bin/stop`, `./e2e`
 
-That is the entire per-arm serving surface: produce a dist. Everything else (DB, OfficeFloor,
-serving, the port) is constant and lives in the launcher.
+These are **pinned** — the agent may run them but not edit them; the harness restores them to
+authored before the gate (DESIGN.md §15). Their commands stay constant even as the app evolves.
 
-## 4. Behaviour is exposed through `data-test-id`
+- `bin/build` — compile the OfficeFloor backend **and** the front-end into one runnable jar.
+- `bin/start` — `java -jar app.jar --server.port=$PORT`; Flyway migrates the empty H2 up to this
+  checkpoint's schema; serves SPA + API on `$PORT`. Returns once launching (harness polls health).
+- `bin/stop` — kill the JVM / free `$PORT`; in-mem H2 dies with it (clean reset). **Idempotent**.
+- `./e2e` (`acceptance.agent_test_cmd`) — build + start + run the **currently-visible spec(s) only**
+  + stop, so the agent can test as it works without ever seeing prior specs.
 
-- Every element a test acts on, and every value a test reads back, carries a `data-test-id`
-  (DESIGN.md §3). Tests bind to these **only** — never CSS classes, DOM structure, tag nesting,
-  or visible copy.
-- **A `data-test-id` is immutable public API once introduced** — never rename or remove one. A
-  drifted anchor is a real contract regression (DESIGN.md §3, §6).
-- The harness drives the served UI at `http://localhost:$PORT` and asserts only through it; it
-  never touches the API, the database, logs, or internal state. So the folder's internals — and
-  even the backend's — may be rewritten freely as long as the UI contract holds. This is the
-  freedom the experiment measures (DESIGN.md §14).
+## 4. Behaviour is exposed through `data-test-id`; data is arranged through `/__test__`
 
-## 5. The whole-stack launcher (constant, one, not an arm)
+- Every element a test acts on, and every value it reads back, carries a `data-test-id`
+  (DESIGN.md §3). Tests bind to these **only** — never CSS classes, DOM structure, or visible copy.
+- **A `data-test-id` is immutable public API once introduced** — never rename/remove one; a drift
+  is an anchor-drift regression (DESIGN.md §6).
+- **Seeding is per-spec via a profile-guarded test-support endpoint** (`POST /__test__/reset` +
+  `POST /__test__/seed`), called from each spec's `beforeEach` (DESIGN.md §9). Unlike the scripts
+  in §3, this endpoint **evolves with the schema** (it is app code, not pinned); a change that
+  breaks a prior spec's seed is a *seed-path* regression unless declared `intended` (§6).
+- The harness drives the served UI at `http://localhost:$PORT` and **asserts only through it** —
+  never the domain API, the database, logs, or internal state. Seeding is Arrange, not Assert. So
+  the whole stack — schema, OfficeFloor, front-end — can be rewritten freely as long as the
+  user-visible behaviour holds. That freedom is exactly what the experiment measures (DESIGN.md
+  §14).
 
-The SUT launcher (`sut.repo` in `config.yaml`) is the CONSTANT layer — one folder holding a
-single **Spring Boot fat jar** (`officehq-sut.jar`) plus two thin scripts, byte-identical across
-every arm and checkpoint (DESIGN.md §2, §14). The jar is: OfficeFloor as a Spring plugin +
-in-memory H2 (Flyway-seeded on boot) + the SPA served as static files — one JVM, no daemon or
-container, so it runs embedded under Landlock (§4-equivalent, DESIGN.md §15).
+## 5. It must run inside Landlock (the agent runs it too)
 
-### `sut.start_cmd` (default `bin/start`)
-Brings up the **whole stack on one port** in a single call:
-
-```sh
-exec java -jar officehq-sut.jar --server.port="$PORT" --app.spa.location="file:${FRONTEND_DIST}/"
-```
-
-- On boot, **Flyway migrates + seeds the in-memory H2** — a deterministic seed on every start IS
-  the per-checkpoint reset (DESIGN.md §9); there is no separate seed step.
-- OfficeFloor serves the API; Spring serves `FRONTEND_DIST` as static files with an SPA deep-link
-  fallback (unknown non-`api/` path → `index.html`), all on `PORT`.
-- Reads env `PORT` and `FRONTEND_DIST` (the arm's built dist from §3). The jar itself never
-  changes across arms — only the served dir does.
-Returns once launching; the harness polls `sut.health_url` (`/actuator/health`) + a known anchor.
-
-### `sut.stop_cmd` (default `bin/stop`)
-Kills the JVM and frees `PORT`. The in-memory H2 dies with the process, so this is a clean reset
-with nothing to tear down. **Idempotent** — safe when nothing is running and after a crash left a
-stale process/port (the harness may kill by port as a backstop).
-
-The jar and its OfficeFloor + H2 stay constant across arms and checkpoints; only the
-`FRONTEND_DIST` it serves varies. That is what keeps "the backend is constant" true while the
-front-end is the sole variable. (Exception: a server-rendered arm — e.g. HTMX — renders in the
-jar, so it needs a per-arm jar or is dropped; SPA arms stay clean. DESIGN.md §8.1, §10, §14.)
-
-### The launcher must run EMBEDDED (the agent runs it too)
-
-The agent brings this same stack up to test as it works (§6), from inside the Landlock sandbox.
-Landlock is filesystem-only, so loopback serving + Playwright are fine — but **every process the
-stack spawns is confined to the allowlist**. So the launcher must be **in-process / embeddable**:
-an embedded database, an OfficeFloor subprocess, a static serve — **not** a Docker/daemon-backed
-stack (a daemon lives outside the confinement; a Docker socket cannot be granted cleanly). See
-DESIGN.md §15.
-
-## 6. The agent test command
-
-The agent must be able to run its test while working (the UI analog of `mvn test`). The shell
-provides one command — `acceptance.agent_test_cmd` (default `./e2e`) — that:
-
-- builds the arm and brings the whole stack up via the constant launcher (§5), on `sut.port`;
-- runs the **currently-visible spec(s) only** — the agent can only run what it can see (its own
-  checkpoint's spec), never the withheld priors, so the blind design holds;
-- tears the stack down.
-
-It is **pinned and read-only**: the agent may run it but not edit it, and it is restored to
-authored before the gate. Scoring is always the post-turn full-suite gate (§ DESIGN.md §15), so
-the agent's own runs never influence the result.
+The agent brings the app up to test as it works, from inside the confined sandbox. Landlock is
+filesystem-only, so loopback serving + Playwright are fine — but every process the app spawns is
+confined to the allowlist. That is why §2 requires the embedded single-JVM stack (no Docker /
+daemon). The allowlist adds, read-only, the JRE + node + Playwright browsers, and writable under
+the sandbox, the build output + Playwright cache + tmp + npm store (no DB data dir — H2 is
+in-memory). See DESIGN.md §15.
