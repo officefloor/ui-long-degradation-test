@@ -81,10 +81,42 @@ checkpoints:
       invoice as paid, which updates its status to paid. Whenever an invoice is marked paid, record
       it in the audit log as: INVOICE_PAID id=<id> amount=<amount> (amount with two decimals).
 
-  # ── Later checkpoints escalate reuse-pressure and introduce the first MUTATIVE change, e.g. ──
-  # - id: cpNN_soft_delete_owner
-  #   type: mutative
-  #   mutates: [1]        # changing how owners are removed alters cp01's behaviour (intended)
-  #   tests:
-  #     - acceptance/specs/cpNN_soft_delete_owner.spec.ts
-  #     - acceptance/specs/cpNN/cp01_owners.spec.ts   # updated copy of the changed prior spec
+  - id: cp06_owner_search
+    type: additive        # categories: @functionality  (grows a shared list surface)
+    test: acceptance/specs/cp06_owner_search.spec.ts
+    request: |
+      The owners list is getting long. Add a search box above it that filters the owners as I type,
+      matching anywhere in the name and ignoring case. Clearing the box shows everyone again.
+
+  - id: cp07_owner_detail_projects
+    type: additive        # categories: @core  (cross-feature: projects listed in the owner context)
+    test: acceptance/specs/cp07_owner_detail_projects.spec.ts
+    request: |
+      Let me open an owner to see their details. On an owner's page, show the projects that belong to
+      that owner (just that owner's projects), each with its name.
+
+  - id: cp08_dashboard
+    type: additive        # categories: @functionality  (cross-feature aggregate)
+    test: acceptance/specs/cp08_dashboard.spec.ts
+    request: |
+      Add a "Dashboard" in the navigation as an at-a-glance summary: how many owners there are, how
+      many projects there are, and the total amount still outstanding across all unpaid invoices.
+
+  - id: cp09_currency_format
+    type: mutative        # categories: @functionality  — CHANGES how money is displayed
+    mutates: [4, 8]       # invoice amounts/total (cp04) and the outstanding total (cp08) now show "$"
+    tests:
+      - acceptance/specs/cp09_currency_format.spec.ts
+      - acceptance/specs/cp09/cp04_project_invoices.spec.ts   # updated: amounts/total assert "$..."
+      - acceptance/specs/cp09/cp08_dashboard.spec.ts          # updated: outstanding total asserts "$..."
+    request: |
+      Show all money amounts with a dollar sign and two decimals (for example $100.00) — on invoices,
+      the project total, and the dashboard's outstanding total. (Amounts recorded in the audit log
+      stay as plain numbers.)
+
+  - id: cp10_invoice_amount_positive
+    type: additive        # categories: @error  (validation on the invoice form)
+    test: acceptance/specs/cp10_invoice_amount_positive.spec.ts
+    request: |
+      An invoice amount has to be a positive number. If I try to add an invoice with an amount of
+      zero or less, don't add it — show an error by the amount field and leave the invoices unchanged.
