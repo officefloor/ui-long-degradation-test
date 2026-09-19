@@ -12,11 +12,11 @@ with, so a future shared core is a lift not a re-plumb):
 
 The correctness contract with the repo (DESIGN.md §3, §5):
 
-  * Tests bind ONLY to `data-test-id` attributes — never CSS classes, DOM structure,
+  * Tests bind ONLY to `data-testid` attributes — never CSS classes, DOM structure,
     tag nesting, or visible copy — so one suite validates the app however the stack is built.
   * One Playwright spec per checkpoint, `cpNN`, selectable so the gate can run only
     cp01..cpK at checkpoint K (the analog of the REST arm's `@Tag("cpNN")`).
-  * `data-test-id` values are IMMUTABLE PUBLIC API once introduced (DESIGN.md §3):
+  * `data-testid` values are IMMUTABLE PUBLIC API once introduced (DESIGN.md §3):
     a prior anchor changing/vanishing is a real contract regression, not noise.
 
 The two new UI-only moving parts (DESIGN.md §9) both live here: the served SUT
@@ -34,7 +34,7 @@ from enum import Enum
 class RegressionReason(str, Enum):
     """WHY a prior-checkpoint test fails at checkpoint K.
 
-    ANCHOR_DRIFT  element present + functional, but its data-test-id changed/removed
+    ANCHOR_DRIFT  element present + functional, but its data-testid changed/removed
                   -> contract regression. COUNTS (it is the locality signal).
     BEHAVIOUR_LOSS the feature genuinely broke (element gone / wrong value / action
                   fails) -> classic regression. COUNTS.
@@ -84,7 +84,7 @@ def serve(worktree: str, cfg: dict):
          the EMPTY in-memory H2 up to this checkpoint's schema (DESIGN.md §5) and serves
          the SPA + API on PORT. Data is NOT seeded here — specs seed per-`beforeEach` via
          the /__test__ endpoint (DESIGN.md §9).
-      2. wait_ready() on http://localhost:PORT (/actuator/health AND a known data-test-id
+      2. wait_ready() on http://localhost:PORT (/actuator/health AND a known data-testid
          anchor — strict awaiting is the flake guard, DESIGN.md §9).
       3. yield AppHandle(base_url=...); the caller runs Playwright against base_url only —
          asserting only through the UI (the testing-boundary invariant, DESIGN.md §14).
@@ -96,7 +96,7 @@ def serve(worktree: str, cfg: dict):
 
 
 def wait_ready(base_url: str, cfg: dict, timeout: int = 120) -> bool:
-    """Poll until /actuator/health is up AND a known data-test-id anchor is present. TODO."""
+    """Poll until /actuator/health is up AND a known data-testid anchor is present. TODO."""
     raise NotImplementedError
 
 
@@ -129,7 +129,7 @@ def classify_failure(test_id: str, worktree: str, base_url: str) -> RegressionRe
     """Decide ANCHOR_DRIFT vs BEHAVIOUR_LOSS for a failed prior test (DESIGN.md §6).
 
     Heuristic (TODO): the feature's expected element is still present & functional but
-    its data-test-id is missing/renamed -> ANCHOR_DRIFT; otherwise BEHAVIOUR_LOSS.
+    its data-testid is missing/renamed -> ANCHOR_DRIFT; otherwise BEHAVIOUR_LOSS.
     INTENDED is decided by the checkpoint's `mutates` list, not here.
     """
     raise NotImplementedError

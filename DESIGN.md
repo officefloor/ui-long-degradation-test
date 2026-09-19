@@ -62,40 +62,40 @@ the backend may vary between stacks. Within a run there are no in-run arms;
 the only optional in-run dimension is the **intervention condition** (§10) — the full OfficeHQ
 gated loop vs an ungated control — to quantify what the gates buy.
 
-Because everything churns, the **one thing that stays stable is the test contract** (`data-test-
-id` + UI-only assertions, §3). That is what makes a fully-evolving stack measurable at all, and
+Because everything churns, the **one thing that stays stable is the test contract** (`data-testid`
++ UI-only assertions, §3). That is what makes a fully-evolving stack measurable at all, and
 it is the same reason OfficeHQ tracks functionality as tests, not specs (§7).
 
 ---
 
-## 3. The implementation-agnostic seam: `data-test-id` as a declared contract
+## 3. The implementation-agnostic seam: `data-testid` as a declared contract
 
 The REST harness is implementation-agnostic because its tests are black-box REST assertions
 (URLs, JSON fields, status codes) — the API *is* the contract. Here the whole stack (schema,
 server, front-end) is rewritten as the app evolves, so the tests need a seam that stays stable
 through all of that churn and never couples to any one implementation's internals.
 
-**Decision: tests bind to `data-test-id` attributes, and nothing else** — never CSS classes,
-DOM structure, tag nesting, or visible copy. A test locates an element by its `data-test-id`,
-performs the user action, and asserts on values read through other `data-test-id` anchors.
+**Decision: tests bind to `data-testid` attributes, and nothing else** — never CSS classes,
+DOM structure, tag nesting, or visible copy. A test locates an element by its `data-testid`,
+performs the user action, and asserts on values read through other `data-testid` anchors.
 The same Playwright suite validates the app however the stack beneath is implemented, because
 all it depends on is the presence and behaviour of named anchors over the data the spec itself
 seeds (§9) — not on any schema, API, or DOM detail.
 
 **Consequence — the anchors must be *provided* to the agent.** The agent cannot guess which
-`data-test-id` values a hidden test expects. So each checkpoint's own test is handed to the
+`data-testid` values a hidden test expects. So each checkpoint's own test is handed to the
 agent (see §4): the test declares the anchors the new feature must expose, and the agent's job
 is to build a feature that exposes them and behaves correctly.
 
 **The one genuinely new thing UI adds over REST.** A REST endpoint is *inherently* the
-contract; a `data-test-id` is a **synthetic** contract layered on the DOM, so it must be
+contract; a `data-testid` is a **synthetic** contract layered on the DOM, so it must be
 *declared stable*. One rule, constant across the run, in the shared agent instructions:
 
-> **Once introduced, a `data-test-id` is immutable public API. Never rename or remove it.**
+> **Once introduced, a `data-testid` is immutable public API. Never rename or remove it.**
 
 With that rule, a prior anchor changing is unambiguously the architecture failing to localize
 a change — signal, not agent whimsy. Without it, anchor drift is noise. The rule is what makes
-`data-test-id` a fair agnostic seam.
+`data-testid` a fair agnostic seam.
 
 ---
 
@@ -113,14 +113,14 @@ The REST harness already answered this and the reasoning transfers with more for
 Full mode makes the headline metric (Zero-Regression Rate) trivially 1.0 and deletes the
 signal. **Blind is chosen.**
 
-### Why the `data-test-id` regression worry dissolves under blind
+### Why the `data-testid` regression worry dissolves under blind
 
-The initial worry: a `data-test-id` drifting slightly registers as a regression even though
+The initial worry: a `data-testid` drifting slightly registers as a regression even though
 the app still works — false positives that swamp the architecture signal.
 
 It dissolves because **blind is only about prior *tests*, not prior *code*.** A fresh agent at
 checkpoint K sees the current source tree — which already contains every prior feature and its
-`data-test-id` anchors embedded in the components. It just does not see the prior *test files*.
+`data-testid` anchors embedded in the components. It just does not see the prior *test files*.
 Therefore:
 
 - The agent *can* preserve prior anchors — they are in the code it is editing.
@@ -153,7 +153,7 @@ For each checkpoint `k` (1→N):
    schema/server/front-end and its anchors) is present as normal.
 1. **Agent turn.** A **fresh** headless `claude -p` given this checkpoint's **plain-English change
    request** (as an OfficeHQ user would write it) plus this checkpoint's own spec (so it knows the
-   `data-test-id` anchors and values to satisfy), and the current code. No cross-checkpoint
+   `data-testid` anchors and values to satisfy), and the current code. No cross-checkpoint
    memory. It authors the full-stack change — **migration + OfficeFloor server + front-end** — and
    may run its own test as it works (§15). Cost / tokens / duration captured.
 2. **Build + serve the app.** Build this checkpoint's app into one runnable jar (Spring Boot host +
@@ -173,7 +173,7 @@ For each checkpoint `k` (1→N):
    build/test console, test outcomes, commit SHAs) committed with the reset, so each checkpoint
    commit is self-contained and the run reconstructs from git alone.
 
-Deterministic per-spec seeding and strict awaiting on `data-test-id` presence are load-bearing
+Deterministic per-spec seeding and strict awaiting on `data-testid` presence are load-bearing
 here (§9) — without them, UI flake manufactures regressions that have nothing to do with erosion.
 
 ---
@@ -185,7 +185,7 @@ discipline, and add a UI-specific reason code so the *shape* of erosion is visib
 
 At checkpoint K, each prior-checkpoint test failure is classified:
 
-- **anchor-drift** — the element is present and functional, but its `data-test-id` changed or
+- **anchor-drift** — the element is present and functional, but its `data-testid` changed or
   was removed. A contract regression. **Counts** — it is the locality signal.
 - **behaviour-loss** — the feature genuinely broke (element gone, wrong value, action fails).
   Classic regression. **Counts.**
@@ -324,7 +324,7 @@ sequence of English requests (and, if the intervention study is run, the gating 
    **seed-path** regression unless declared `intended` (§6).
 3. **Flake is a false-regression source that erosion is not.** Async UI + non-deterministic data
    manufacture regressions unrelated to erosion. Mitigate with the deterministic per-spec
-   reset+seed above and strict awaiting on `data-test-id` presence, or flake contaminates the
+   reset+seed above and strict awaiting on `data-testid` presence, or flake contaminates the
    published metric.
 
 ---
@@ -377,7 +377,7 @@ decay); "ui" marks that the tests — the stable contract across the churn — d
   request must be satisfiable as a full-stack change (schema + server + UI) — an app built from
   nothing, so early checkpoints create the first tables.
 - **Checkpoint authoring:** each checkpoint = an English request (to the AI) + an experimenter-
-  authored `cpNN` spec (the objective gate, with the `data-test-id` contract). Load the sequence
+  authored `cpNN` spec (the objective gate, with the `data-testid` contract). Load the sequence
   with reuse-pressure or nothing erodes and the experiment proves nothing.
 - **Embedded, not containerised (§15): RESOLVED — a single Spring Boot app** (OfficeFloor plugin +
   in-memory H2 + static SPA), one JVM, no daemon; rebuilt per checkpoint but always embeddable
@@ -478,7 +478,7 @@ repo and evolves with it** — it is not a constant layer.
 - **`app.stop_cmd`** kills the JVM and frees `PORT`; the in-memory H2 dies with it, so it is a
   clean reset. **Idempotent** (safe after a crash; the harness may kill by port as a backstop).
 - The **harness owns** only port choice and readiness polling (`app.health_url` + a known
-  `data-test-id` anchor).
+  `data-testid` anchor).
 
 A gate run (`correctness.serve()`): build → `app.start` on `PORT` → `wait_ready` → run Playwright
 against `http://localhost:$PORT` → per-spec `beforeEach` reset+seed via `/__test__` → `app.stop`.
@@ -508,7 +508,7 @@ container — resolving the §15 embedded constraint — rebuilt each checkpoint
 - **Data seeding is per-spec via a profile-guarded `/__test__` `@RestController`** (`reset` +
   `seed`), not a boot-time step (§9) — because the schema evolves, fixtures live with each spec.
 - **Readiness** is Spring Actuator's `/actuator/health` (`app.health_url`), plus a known
-  `data-test-id` anchor.
+  `data-testid` anchor.
 
 So `app.start` is essentially:
 
@@ -517,11 +517,11 @@ exec java -jar target/app.jar --server.port="$PORT" --spring.profiles.active=har
 ```
 
 Playwright (external TS specs) drives it at `http://localhost:$PORT`, binding only to
-`data-test-id` (the testing-boundary invariant, below).
+`data-testid` (the testing-boundary invariant, below).
 
 ### The testing-boundary invariant — why the whole stack can evolve behind the UI
 
-Playwright talks to the **served UI and nothing else**: it binds only to `data-test-id`, asserts
+Playwright talks to the **served UI and nothing else**: it binds only to `data-testid`, asserts
 only on values read back **through the UI**, and *arranges* data through the constant-shaped
 `/__test__` seed API (Arrange, not Assert; §9). It never asserts against the domain API, the
 database, logs, or internal state. Therefore the entire stack — schema, OfficeFloor server, front-

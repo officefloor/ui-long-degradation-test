@@ -8,12 +8,12 @@
 #     agent. Early requests create the first tables; each is satisfiable as a full-stack
 #     change — schema migration + OfficeFloor server + front-end (DESIGN.md §1, §2, §5).
 #   - `test`: the experimenter-authored cpNN Playwright spec — the OBJECTIVE gate, also
-#     given to the agent so it knows the exact data-test-id anchors + values to satisfy.
+#     given to the agent so it knows the exact data-testid anchors + values to satisfy.
 #
-# data-test-id CONTRACT. Every value a test reads and every element it acts on is given
-# an EXACT `data-test-id` in the spec. Tests assert ONLY through the UI; data is arranged
+# data-testid CONTRACT. Every value a test reads and every element it acts on is given
+# an EXACT `data-testid` in the spec. Tests assert ONLY through the UI; data is arranged
 # per-spec via the app's /__test__ seed endpoint (DESIGN.md §3, §9). Once introduced, a
-# data-test-id is immutable public API — never rename/remove it.
+# data-testid is immutable public API — never rename/remove it.
 #
 # REUSE PRESSURE (deliberate). Load the sequence with changes that pressure shared
 # surfaces — the same table/screen reused with growing needs, cross-feature data on one
@@ -39,7 +39,7 @@ checkpoints:
     # request: |
     #   <plain-English change request the OfficeHQ user would type>
     # spec: |
-    #   <self-contained acceptance description; names each data-test-id the feature must
+    #   <self-contained acceptance description; names each data-testid the feature must
     #    expose, the exact value each test reads back, and what its beforeEach seeds>
     # test: acceptance/specs/cp01_example.spec.ts   # this checkpoint's own spec
     # type: additive

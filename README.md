@@ -13,7 +13,7 @@ application from scratch** under a long sequence of plain-English change request
   as static files), one JVM — so it runs under the agent's Landlock sandbox. The harness mirrors
   the app into an isolated sandbox (copy/sync + Landlock, as the REST arm does) and builds+runs it
   whole for the gate. See **[docs/SUT_CONTRACT.md](./docs/SUT_CONTRACT.md)**.
-- **Tests are the stable contract across the churn.** They bind only to `data-test-id` and assert
+- **Tests are the stable contract across the churn.** They bind only to `data-testid` and assert
   only through the running UI with Playwright, so the whole stack beneath them can be regenerated.
   Data is arranged per-spec via a profile-guarded `/__test__` seed endpoint (Arrange, not Assert).
 - **The agent works blind** (sees only the current checkpoint's request + its own test, never the

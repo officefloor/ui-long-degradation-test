@@ -54,11 +54,11 @@ conditions:
 prompt_strategies:
   just-solve:
     # template: |
-    #   <the constant prompt; the data-test-id immutability rule + how to run ./e2e live in the
+    #   <the constant prompt; the data-testid immutability rule + how to run ./e2e live in the
     #    pinned CLAUDE.md/AGENTS.md. {request} is the checkpoint's plain-English change request.>
 
 # Correctness oracle: build the app, bring the whole app up on app.port, drive with Playwright
-# bound to data-test-id ONLY (DESIGN.md §3, §5, §9, §14).
+# bound to data-testid ONLY (DESIGN.md §3, §5, §9, §14).
 acceptance:
   specs_dir: acceptance/specs      # authored cpNN specs live HERE (in the harness repo)
   dest_subpath: e2e/specs          # copied into the app worktree's Playwright project (e2e/specs)

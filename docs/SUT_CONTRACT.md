@@ -45,11 +45,11 @@ authored before the gate (DESIGN.md §15). Their commands stay constant even as 
 - `./e2e` (`acceptance.agent_test_cmd`) — build + start + run the **currently-visible spec(s) only**
   + stop, so the agent can test as it works without ever seeing prior specs.
 
-## 4. Behaviour is exposed through `data-test-id`; data is arranged through `/__test__`
+## 4. Behaviour is exposed through `data-testid`; data is arranged through `/__test__`
 
-- Every element a test acts on, and every value it reads back, carries a `data-test-id`
+- Every element a test acts on, and every value it reads back, carries a `data-testid`
   (DESIGN.md §3). Tests bind to these **only** — never CSS classes, DOM structure, or visible copy.
-- **A `data-test-id` is immutable public API once introduced** — never rename/remove one; a drift
+- **A `data-testid` is immutable public API once introduced** — never rename/remove one; a drift
   is an anchor-drift regression (DESIGN.md §6).
 - **Seeding is per-spec via a profile-guarded test-support endpoint** (`POST /__test__/reset` +
   `POST /__test__/seed`), called from each spec's `beforeEach` (DESIGN.md §9). Unlike the scripts

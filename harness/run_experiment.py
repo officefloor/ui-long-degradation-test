@@ -11,7 +11,7 @@ each checkpoint k (1->N), in order:
   0. set_agent_view(): install ONLY cpK's own Playwright spec (+ shared test infra).
      Prior specs are removed from the sandbox AND withheld via Landlock so the agent
      physically cannot read them (blind view — DESIGN.md §4). The current source tree
-     (all prior schema/server/front-end and their data-test-id anchors) is present.
+     (all prior schema/server/front-end and their data-testid anchors) is present.
   1. run a FRESH headless agent (harness.agent.run_agent) with cpK's plain-ENGLISH change
      request + cpK's own spec + the current code. No cross-checkpoint memory, isolated
      CLAUDE_CONFIG_DIR. It authors the FULL-STACK change (migration + OfficeFloor server +

@@ -2,9 +2,9 @@
 
 - One spec per checkpoint under `specs/`, named `cpNN_<slug>.spec.ts`, selectable so
   the gate runs only cp01..cpK at checkpoint K.
-- Specs bind ONLY to `data-test-id` attributes — never CSS classes, DOM structure, tag
+- Specs bind ONLY to `data-testid` attributes — never CSS classes, DOM structure, tag
   nesting, or visible copy — so one suite validates any candidate front-end.
-- `data-test-id` values are immutable public API once introduced (DESIGN.md §3).
+- `data-testid` values are immutable public API once introduced (DESIGN.md §3).
 - A mutative checkpoint ships updated copies of the prior specs it changes under a
   `specs/cpNN/` subdir (the `mutates` discipline; DESIGN.md §6).
 - The agent, while working, sees ONLY the current checkpoint's spec (blind; DESIGN.md
