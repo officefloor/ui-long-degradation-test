@@ -41,34 +41,50 @@
 # breakage when a schema/API change breaks a prior spec's seed — DESIGN.md §6).
 
 checkpoints:
-  # cp01 — first table + core list (owners). Illustrative shape only; author the real ~60.
-  - id: cp01_add_owner
-    # request: |
-    #   Let me add an owner with a name and an email, and see all owners in a list.
-    # spec: |
-    #   core: seed 2 owners via /__test__/seed; open the owners page; owners-table has 2 rows;
-    #   row data-testids (owner-row-<id>, owner-name-<id>, owner-email-<id>) read the seeded values.
-    #   core: fill owner-form-name + owner-form-email, click owner-form-submit; a 3rd row appears.
-    # test: acceptance/specs/cp01_add_owner.spec.ts
-    # type: additive          # tag: @core
+  - id: cp01_owners
+    type: additive        # categories: @core
+    test: acceptance/specs/cp01_owners.spec.ts
+    request: |
+      I want to keep track of owners. Add an "Owners" section I can reach from the main navigation
+      that lists all owners with their name and email, and a form on that page to add a new owner
+      by entering a name and an email. New owners appear in the list.
 
-  # cp?? (error) — validation surfaced in the UI.
-  # - id: cpNN_owner_email_required
-  #   # request: An owner must have an email; reject blank and tell me why.
-  #   # spec: error: submit owner-form with blank email -> owner-form-email-error visible, no new row.
-  #   # test: acceptance/specs/cpNN_owner_email_required.spec.ts   # tag: @error
+  - id: cp02_owner_email_validation
+    type: additive        # categories: @error, @core
+    test: acceptance/specs/cp02_owner_email_validation.spec.ts
+    request: |
+      Every owner must have a valid email address. If I try to add an owner with the email left
+      blank, or with something that isn't a valid email, don't add it — show an error next to the
+      email field and leave the list unchanged. A valid email adds the owner as normal.
 
-  # cp?? (audit) — side-effect asserted via the KNOWN AUDIT FILE, not the UI.
-  # - id: cpNN_audit_invoice_sent
-  #   # request: When an invoice is marked sent, record it in the audit log.
-  #   # spec: functionality: seed an invoice; click invoice-send-<id>; UI shows invoice-status-<id>=SENT;
-  #   #       AND auditLines() contains "INVOICE_SENT id=<id> total=<amount>".
-  #   # test: acceptance/specs/cpNN_audit_invoice_sent.spec.ts     # tag: @functionality (audit)
+  - id: cp03_projects
+    type: additive        # categories: @core  (cross-entity join)
+    test: acceptance/specs/cp03_projects.spec.ts
+    request: |
+      Add a "Projects" section in the navigation. Each project has a name and belongs to one owner.
+      The projects list shows the project name and the owner's name. I can add a project by typing a
+      name and choosing which owner it belongs to.
 
-  # MUTATIVE — changes a prior rule; ships updated copies of the specs it breaks (intended).
+  - id: cp04_project_invoices
+    type: additive        # categories: @core  (cross-feature screen + derived total)
+    test: acceptance/specs/cp04_project_invoices.spec.ts
+    request: |
+      Let me open a project to see its details. On a project's page, show the invoices for that
+      project, each with its amount, and a total of all the project's invoice amounts. I can add an
+      invoice to the project by entering an amount.
+
+  - id: cp05_invoice_pay_audit
+    type: additive        # categories: @functionality  (status transition + audit-file side-effect)
+    test: acceptance/specs/cp05_invoice_pay_audit.spec.ts
+    request: |
+      An invoice is either unpaid or paid, and shows its status. On a project's page I can mark an
+      invoice as paid, which updates its status to paid. Whenever an invoice is marked paid, record
+      it in the audit log as: INVOICE_PAID id=<id> amount=<amount> (amount with two decimals).
+
+  # ── Later checkpoints escalate reuse-pressure and introduce the first MUTATIVE change, e.g. ──
   # - id: cpNN_soft_delete_owner
   #   type: mutative
-  #   mutates: [1]
-  #   # tests:
-  #   #   - acceptance/specs/cpNN_soft_delete_owner.spec.ts
-  #   #   - acceptance/specs/cpNN/cp01_add_owner.spec.ts   # updated copy of the changed prior spec
+  #   mutates: [1]        # changing how owners are removed alters cp01's behaviour (intended)
+  #   tests:
+  #     - acceptance/specs/cpNN_soft_delete_owner.spec.ts
+  #     - acceptance/specs/cpNN/cp01_owners.spec.ts   # updated copy of the changed prior spec
