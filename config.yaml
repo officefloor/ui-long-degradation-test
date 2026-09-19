@@ -56,13 +56,13 @@ prompt_strategies:
 # Correctness oracle: build the app, bring the whole app up on app.port, drive with Playwright
 # bound to data-test-id ONLY (DESIGN.md §3, §5, §9, §14).
 acceptance:
-  specs_dir: acceptance/specs
-  dest_subpath: e2e                # where specs are copied into the mirrored sandbox / worktree
+  specs_dir: acceptance/specs      # authored cpNN specs live HERE (in the harness repo)
+  dest_subpath: e2e/specs          # copied into the app worktree's Playwright project (e2e/specs)
   base_url: http://localhost:3000  # = app.port; Playwright hits ONLY this (never the domain API/DB)
   # Data is seeded PER-SPEC in beforeEach via the app's profile-guarded test-support endpoint
   # (DESIGN.md §9): POST /__test__/reset + POST /__test__/seed. Schema is Flyway-on-boot.
   seed_endpoint: /__test__
-  agent_test_cmd: ./e2e            # the command the AGENT runs to test as it works (DESIGN.md §15):
+  agent_test_cmd: bin/e2e          # the command the AGENT runs to test as it works (DESIGN.md §15):
                                    # build + app.start + run the VISIBLE spec(s) only + app.stop.
                                    # Pinned so agent edits to it don't reach the gate.
 
@@ -80,7 +80,7 @@ isolation:
   # Pinned files are restored to authored before the gate (DESIGN.md §15). Pin only the FIXED
   # operational scaffolding — NOT the evolving app code (incl. the /__test__ endpoint, which
   # evolves with the schema; a break there is a seed-path regression, §6).
-  pin_files: ["AGENTS.md", "CLAUDE.md", "bin/start", "bin/stop", "e2e"]
+  pin_files: ["AGENTS.md", "CLAUDE.md", "bin/build", "bin/start", "bin/stop", "bin/e2e"]
   agent_confinement:
     enabled: true
     # The agent runs the WHOLE app to test (DESIGN.md §15), so the toolchain must be on the
