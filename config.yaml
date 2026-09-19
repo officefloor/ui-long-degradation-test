@@ -77,6 +77,10 @@ acceptance:
   dest_subpath: e2e                # where specs are copied into the mirrored sandbox / worktree
   base_url: http://localhost:3000  # = sut.port; Playwright hits ONLY this (never API/DB)
   # strict awaiting on data-test-id presence; select cp01..cpK at checkpoint K
+  agent_test_cmd: ./e2e            # the command the AGENT runs to test as it works (DESIGN.md
+                                   # §15): builds + brings the whole stack up via the constant
+                                   # sut launcher + runs the VISIBLE spec(s) only + tears down.
+                                   # Pinned + read-only so agent edits don't reach the gate.
 
 impact_gate:
   # block/warn percentiles; NOTE: needs a TS seed distribution before grades mean
@@ -88,11 +92,19 @@ tools:
 # Filesystem confinement for the agent turn (Linux Landlock; no root/bwrap). Identical
 # to the REST arm; fails CLOSED. Verify:  python harness/landlock_selftest.py
 isolation:
-  pin_files: ["AGENTS.md", "CLAUDE.md"]   # the data-test-id contract rule is pinned, never AI-edited
+  # Pinned files are restored to authored before the gate, so agent edits to them never
+  # reach scoring (DESIGN.md §15). Pin the agent-facing rules AND the launcher/test command.
+  pin_files: ["AGENTS.md", "CLAUDE.md"]   # data-test-id immutability + how to run ./e2e live here
   agent_confinement:
     enabled: true
-    extra_ro_binds: []   # toolchain not under /usr,/opt,~/.local (e.g. a pinned node)
-    extra_rw_binds: []   # e.g. an alternate npm/pnpm store so build works inside the sandbox
+    # The agent runs the WHOLE STACK to test (DESIGN.md §15), so the toolchain must be on the
+    # allowlist. Landlock is filesystem-only — loopback serving + Playwright are unaffected.
+    extra_ro_binds: []   # node + Playwright browser binaries, JVM/OfficeFloor runtime, the
+                         #   read-only sut launcher folder (agent executes but cannot modify it)
+    extra_rw_binds: []   # under the sandbox: build dist, embedded-DB data dir, Playwright cache,
+                         #   tmp, npm/pnpm store — everything the stack writes while running
+    # NOTE (DESIGN.md §15): the stack must be EMBEDDED/in-process (embedded DB, OfficeFloor
+    # subprocess, static serve) — a Docker/daemon-backed stack cannot run under Landlock.
 
 paths:
   # Both MUST be absolute, EXTERNAL, and SEPARATE (see the REST arm's paths note): the

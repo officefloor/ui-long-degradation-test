@@ -67,3 +67,26 @@ after a crash left a stale process/port (the harness may kill by port as a backs
 The launcher and its OfficeFloor image never change across arms or checkpoints; only the
 `FRONTEND_DIST` it is pointed at varies. That is what keeps "the backend is constant" true while
 the front-end is the sole variable.
+
+### The launcher must run EMBEDDED (the agent runs it too)
+
+The agent brings this same stack up to test as it works (§6), from inside the Landlock sandbox.
+Landlock is filesystem-only, so loopback serving + Playwright are fine — but **every process the
+stack spawns is confined to the allowlist**. So the launcher must be **in-process / embeddable**:
+an embedded database, an OfficeFloor subprocess, a static serve — **not** a Docker/daemon-backed
+stack (a daemon lives outside the confinement; a Docker socket cannot be granted cleanly). See
+DESIGN.md §15.
+
+## 6. The agent test command
+
+The agent must be able to run its test while working (the UI analog of `mvn test`). The shell
+provides one command — `acceptance.agent_test_cmd` (default `./e2e`) — that:
+
+- builds the arm and brings the whole stack up via the constant launcher (§5), on `sut.port`;
+- runs the **currently-visible spec(s) only** — the agent can only run what it can see (its own
+  checkpoint's spec), never the withheld priors, so the blind design holds;
+- tears the stack down.
+
+It is **pinned and read-only**: the agent may run it but not edit it, and it is restored to
+authored before the gate. Scoring is always the post-turn full-suite gate (§ DESIGN.md §15), so
+the agent's own runs never influence the result.

@@ -12,7 +12,11 @@ and walks the ordered checkpoints. At each checkpoint k (1->N), in order:
      physically cannot read them (blind view — DESIGN.md §4). The current source tree,
      with all prior features and their data-test-id anchors, is present as normal.
   1. run a FRESH headless agent (harness.agent.run_agent) with only cpK's request +
-     the current code. No cross-checkpoint memory, isolated CLAUDE_CONFIG_DIR.
+     the current code. No cross-checkpoint memory, isolated CLAUDE_CONFIG_DIR. The agent
+     can RUN ITS TEST as it works via `acceptance.agent_test_cmd` (./e2e), which builds +
+     brings the whole stack up via the constant launcher + runs its VISIBLE spec only,
+     inside the Landlock sandbox (DESIGN.md §15). The launcher, test command and pinned
+     files are read-only/pinned, so the agent can execute but not edit them.
   2. commit the pure agent delta, then install the FULL cp01..cpK suite (the priors the
      agent never saw) and gate on correctness.run_tests -> build + serve seeded SUT +
      Playwright. Regressions (incl. the 3-way reason split) surface here.
@@ -62,7 +66,18 @@ def mirror_source(src: str, dst: str, extra_excludes: tuple = ()) -> None:
 def _prepare_agent_sandbox(wt: str, sandbox: str, cfg: dict, cp: dict,
                            checkpoints: list[dict]) -> None:
     """mirror_source(wt, sandbox) then install the blind agent view (this checkpoint's
-    own spec only) into the sandbox acceptance dest. LIFT/adapt from the REST arm."""
+    own spec only) into the sandbox acceptance dest, and make the agent test command
+    (acceptance.agent_test_cmd) available so the agent can run its spec against the whole
+    stack (DESIGN.md §15). LIFT/adapt from the REST arm."""
+    raise NotImplementedError
+
+
+def restore_pinned(wt: str, sandbox: str, cfg: dict, cp: dict) -> list[str]:
+    """Before the gate, restore pinned files, the constant launcher, and the agent test
+    command to authored, and the visible spec(s) to authored (the REST arm's
+    detect_agent_tamper, extended to the launcher + test command; DESIGN.md §15). Returns
+    the basenames the agent had changed, recorded as `*_touched`. The gate then re-derives
+    everything from the pristine launcher + full cp01..cpK suite. LIFT/adapt. TODO."""
     raise NotImplementedError
 
 

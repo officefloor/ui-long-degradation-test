@@ -317,6 +317,10 @@ variable.
 - **Backend SUT:** which OfficeFloor app + schema is the constant. Reuse the petclinic domain
   for continuity with the REST arm, or a fresh domain chosen to stress UI erosion vectors
   (tables/forms/nav growth, shared-component reuse pressure)?
+- **Embedded, not containerised (§15):** the whole-stack launcher must run in-process/embedded
+  (embedded DB, OfficeFloor subprocess, static serve) so the agent can run its test under
+  Landlock. Confirm this is workable for the real OfficeFloor + DB shape, or the agent-test loop
+  needs rethinking.
 - **Checkpoint list:** author ~60 changes as **user-facing intents** (framework-agnostic), and
   deliberately load them with reuse-pressure (same table reused with growing needs, cross-feature
   data on one screen, nav growth, variant explosion) — if the sequence never pressures shared
@@ -433,3 +437,50 @@ constant backend's — may be rewritten freely as long as the user-visible behav
 freedom is precisely what is being measured: how well the front-end keeps the UI contract intact
 while the code churns underneath it. See `docs/SUT_CONTRACT.md` for what an app folder must
 provide.
+
+---
+
+## 15. Running the tests during the agent turn (inside confinement)
+
+The agent must be able to **run its test as it works** — the UI analog of `mvn test` in the REST
+arm. In the REST arm that is cheap: MockMvc boots the app in-process, no server. Here a Playwright
+spec only passes against the **whole running stack**, so "let the agent run the test" means "let
+the agent bring the whole stack up, on a port, from inside the Landlock sandbox, and drive a
+browser at it." That has three consequences worth stating.
+
+### One agent test command, running only the visible spec
+
+The agent is given a single command — `acceptance.agent_test_cmd` (e.g. `./e2e`), pinned into the
+shared shell and documented in the pinned `CLAUDE.md`. It builds the arm, brings the stack up via
+the **same constant launcher** (`sut.start`), runs the **currently-visible spec(s) only**, and
+tears down (`sut.stop`). Blind holds by construction: the agent can only run what it can see (its
+own checkpoint's spec), never the withheld priors. This is exactly the REST arm's condition — the
+agent iterates against its own test — moved to a served UI.
+
+### Scoring is still the post-turn gate, not the agent's runs
+
+The agent running its spec is for its **own iteration only**. Correctness/regression scoring is
+unchanged: after the turn, the harness restores the pinned launcher and specs to authored and runs
+the **full cp01..cpK suite** with the pristine launcher (`correctness.run_tests`). So the agent
+cannot influence the score by editing the launcher, the test command, or its visible spec —
+they are pinned/restored and the gate re-derives everything (the REST arm's `detect_agent_tamper`
+discipline, extended to cover the launcher and the test command).
+
+### The stack must be launchable inside Landlock — which constrains the SUT
+
+Landlock is **filesystem-only**: it does not restrict loopback networking, so serving on
+`localhost` and driving Playwright at it work under confinement. What it does mean is that
+**every process the stack spawns is a Landlock child** and can touch only the allowlist.
+Therefore the whole-stack launcher must be **in-process / embeddable** — an embedded database, an
+OfficeFloor subprocess, a static serve — **not** a Docker/daemon-backed stack, because a daemon
+lives outside the confinement and a Docker socket cannot be granted cleanly. Concretely the
+allowlist must add, read-only, the toolchain (node + the Playwright browser binaries, the JVM /
+OfficeFloor runtime, the launcher folder itself) and, writable **under the sandbox**, the build
+dist, the embedded DB's data dir, the Playwright cache, and tmp. The launcher is bound
+**read-only** so the agent can execute but not modify it; `landlock.default_allowlist` gains these
+binds (`isolation.extra_ro_binds` / `extra_rw_binds`). Still fails closed — if the toolchain
+isn't reachable or a withheld sentinel is readable, the turn is refused.
+
+**This is the single biggest new constraint the UI arm places on the SUT:** the constant stack has
+to run embedded, not containerised. Flagged in §12 as an open decision to confirm against the
+real OfficeFloor + DB shape.
