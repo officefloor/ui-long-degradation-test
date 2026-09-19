@@ -18,3 +18,21 @@ Module map (DESIGN.md §13 — repository & code-sharing strategy):
     analyze.py      slopes / bootstrap CIs / EvoScore / Zero-Regression Rate (lift stats)
     impact_gate.py  impact-gate CLI wrapper (needs a TS seed distribution)
 """
+
+import os as _os
+import re as _re
+
+_UNEXPANDED = _re.compile(r"\$\{[^}]+\}|\$[A-Za-z_][A-Za-z0-9_]*")
+
+
+def expand_path(value, key: str = "path"):
+    """Expand ``~`` and ``${VARS}`` in a config path, failing LOUDLY on an undefined
+    variable rather than leaving a literal ``${HOME}`` (as os.path.expandvars would)."""
+    if value is None:
+        return None
+    expanded = _os.path.expandvars(_os.path.expanduser(value))
+    if _UNEXPANDED.search(expanded):
+        raise SystemExit(
+            f"config {key!r}: undefined environment variable in {value!r} "
+            f"(expanded to {expanded!r}). Set the variable, or use an absolute path.")
+    return expanded
