@@ -2,18 +2,24 @@
 # committed result of the previous one, GROWING ONE APP FROM A NEAR-EMPTY BASE (no
 # tables at cp01). STUB — author the real ~60 here. DESIGN — see DESIGN.md.
 #
+# DOMAIN: a generic business app — OWNERS, PROJECTS, INVOICES (what OfficeHQ users build and
+# recognise). Not a Spring comparison, so there is no reference implementation. The app grows from
+# nothing: early checkpoints create owners, then projects, then invoices, then cross-feature screens
+# (a project's invoices), filters, edits, and audit rules (DESIGN.md §12).
+#
 # FULL-STACK ENGLISH REQUESTS. Each checkpoint has two parts:
 #   - `request`: a plain-English change request, as an OfficeHQ user would write it
-#     ("let staff record a visit for a pet and show it on the pet's page"). Given to the
-#     agent. Early requests create the first tables; each is satisfiable as a full-stack
-#     change — schema migration + OfficeFloor server + front-end (DESIGN.md §1, §2, §5).
-#   - `test`: the experimenter-authored cpNN Playwright spec — the OBJECTIVE gate, also
-#     given to the agent so it knows the exact data-testid anchors + values to satisfy.
+#     ("let me add an owner with a name and email, and list all owners"). Given to the agent.
+#     Each is satisfiable as a full-stack change — schema migration + OfficeFloor server +
+#     front-end (+ an audit record where the rule is a side-effect) (DESIGN.md §1, §2, §5).
+#   - `test`: the experimenter-authored cpNN Playwright spec — the OBJECTIVE gate, also given to
+#     the agent so it knows the exact data-testid anchors + values (and audit records) to satisfy.
 #
-# data-testid CONTRACT. Every value a test reads and every element it acts on is given
-# an EXACT `data-testid` in the spec. Tests assert ONLY through the UI; data is arranged
-# per-spec via the app's /__test__ seed endpoint (DESIGN.md §3, §9). Once introduced, a
-# data-testid is immutable public API — never rename/remove it.
+# TWO ASSERTION CHANNELS (DESIGN.md §3). Tests assert through the UI (data-testid) for user-visible
+# behaviour, and through the KNOWN AUDIT FILE for side-effects (support/audit.ts). Data is arranged
+# per-spec via /__test__ (reset+seed; reset also clears the audit file). Every value/anchor and every
+# audit record is given EXACTLY in the spec. Once introduced, a data-testid (and an audit record
+# format) is immutable public API — never rename/remove it.
 #
 # REUSE PRESSURE (deliberate). Load the sequence with changes that pressure shared
 # surfaces — the same table/screen reused with growing needs, cross-feature data on one
@@ -35,18 +41,34 @@
 # breakage when a schema/API change breaks a prior spec's seed — DESIGN.md §6).
 
 checkpoints:
-  - id: cp01_example
+  # cp01 — first table + core list (owners). Illustrative shape only; author the real ~60.
+  - id: cp01_add_owner
     # request: |
-    #   <plain-English change request the OfficeHQ user would type>
+    #   Let me add an owner with a name and an email, and see all owners in a list.
     # spec: |
-    #   <self-contained acceptance description; names each data-testid the feature must
-    #    expose, the exact value each test reads back, and what its beforeEach seeds>
-    # test: acceptance/specs/cp01_example.spec.ts   # this checkpoint's own spec
-    # type: additive
+    #   core: seed 2 owners via /__test__/seed; open the owners page; owners-table has 2 rows;
+    #   row data-testids (owner-row-<id>, owner-name-<id>, owner-email-<id>) read the seeded values.
+    #   core: fill owner-form-name + owner-form-email, click owner-form-submit; a 3rd row appears.
+    # test: acceptance/specs/cp01_add_owner.spec.ts
+    # type: additive          # tag: @core
 
-  # - id: cp08_example_mutative
+  # cp?? (error) — validation surfaced in the UI.
+  # - id: cpNN_owner_email_required
+  #   # request: An owner must have an email; reject blank and tell me why.
+  #   # spec: error: submit owner-form with blank email -> owner-form-email-error visible, no new row.
+  #   # test: acceptance/specs/cpNN_owner_email_required.spec.ts   # tag: @error
+
+  # cp?? (audit) — side-effect asserted via the KNOWN AUDIT FILE, not the UI.
+  # - id: cpNN_audit_invoice_sent
+  #   # request: When an invoice is marked sent, record it in the audit log.
+  #   # spec: functionality: seed an invoice; click invoice-send-<id>; UI shows invoice-status-<id>=SENT;
+  #   #       AND auditLines() contains "INVOICE_SENT id=<id> total=<amount>".
+  #   # test: acceptance/specs/cpNN_audit_invoice_sent.spec.ts     # tag: @functionality (audit)
+
+  # MUTATIVE — changes a prior rule; ships updated copies of the specs it breaks (intended).
+  # - id: cpNN_soft_delete_owner
   #   type: mutative
-  #   mutates: [2, 5]
-  #   tests:
-  #     - acceptance/specs/cp08_example_mutative.spec.ts
-  #     - acceptance/specs/cp08/cp02_*.spec.ts   # updated copy of the changed prior spec
+  #   mutates: [1]
+  #   # tests:
+  #   #   - acceptance/specs/cpNN_soft_delete_owner.spec.ts
+  #   #   - acceptance/specs/cpNN/cp01_add_owner.spec.ts   # updated copy of the changed prior spec

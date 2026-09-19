@@ -66,6 +66,9 @@ acceptance:
   # Data is seeded PER-SPEC in beforeEach via the app's profile-guarded test-support endpoint
   # (DESIGN.md §9): POST /__test__/reset + POST /__test__/seed. Schema is Flyway-on-boot.
   seed_endpoint: /__test__
+  audit_file: .run/audit.log       # second assertion channel (DESIGN.md §3): audited side-effects
+                                   # are written one-record-per-line here; specs read it (support/
+                                   # audit.ts). /__test__/reset clears it. bin/start+bin/e2e set AUDIT_FILE.
   agent_test_cmd: bin/e2e          # the command the AGENT runs to test as it works (DESIGN.md §15):
                                    # build + app.start + run the VISIBLE spec(s) only + app.stop.
                                    # Pinned so agent edits to it don't reach the gate.

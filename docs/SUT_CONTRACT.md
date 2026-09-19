@@ -55,8 +55,13 @@ authored before the gate (DESIGN.md §15). Their commands stay constant even as 
   `POST /__test__/seed`), called from each spec's `beforeEach` (DESIGN.md §9). Unlike the scripts
   in §3, this endpoint **evolves with the schema** (it is app code, not pinned); a change that
   breaks a prior spec's seed is a *seed-path* regression unless declared `intended` (§6).
-- The harness drives the served UI at `http://localhost:$PORT` and **asserts only through it** —
-  never the domain API, the database, logs, or internal state. Seeding is Arrange, not Assert. So
+- **Audit / side-effect behaviour is written to a known file** (the `Audit` service →
+  `app.audit.file`; `bin/start`/`bin/e2e` set `AUDIT_FILE`), one record per line, and specs assert
+  it via `e2e/support/audit.ts`. This is the only non-UI assertion channel and is a stable contract
+  like `data-testid`. `/__test__/reset` also clears this file so each spec starts clean.
+- The harness drives the served UI at `http://localhost:$PORT` and **asserts only through the UI
+  and the known audit file** — never the domain API, the database, arbitrary logs, or internal
+  state. Seeding is Arrange, not Assert. So
   the whole stack — schema, OfficeFloor, front-end — can be rewritten freely as long as the
   user-visible behaviour holds. That freedom is exactly what the experiment measures (DESIGN.md
   §14).

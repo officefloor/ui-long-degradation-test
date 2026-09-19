@@ -82,10 +82,19 @@ The same Playwright suite validates the app however the stack beneath is impleme
 all it depends on is the presence and behaviour of named anchors over the data the spec itself
 seeds (§9) — not on any schema, API, or DOM detail.
 
+**A second channel for side-effects: a known audit file.** Some rules aren't user-visible — an
+audit trail, a notification. The UI can't show them, so (like the REST arm asserting against an
+`AUDIT` logger) the app writes audited behaviour, one record per line, to a **known file** (the
+`Audit` service → `app.audit.file`), and specs assert by reading it (`e2e/support/audit.ts`).
+This is the *only* non-UI assertion channel, and it is a declared, stable contract exactly like
+`data-testid`: the file path and one-record-per-line format don't drift, so the stack beneath can
+still be rewritten freely as long as it keeps emitting the agreed records. `/__test__/reset` clears
+the file per spec (§9). Everything else is still asserted through the UI.
+
 **Consequence — the anchors must be *provided* to the agent.** The agent cannot guess which
-`data-testid` values a hidden test expects. So each checkpoint's own test is handed to the
-agent (see §4): the test declares the anchors the new feature must expose, and the agent's job
-is to build a feature that exposes them and behaves correctly.
+`data-testid` values (or audit records) a hidden test expects. So each checkpoint's own test is
+handed to the agent (see §4): the test declares the anchors/records the new feature must expose,
+and the agent's job is to build a feature that exposes them and behaves correctly.
 
 **The one genuinely new thing UI adds over REST.** A REST endpoint is *inherently* the
 contract; a `data-testid` is a **synthetic** contract layered on the DOM, so it must be
@@ -187,7 +196,8 @@ At checkpoint K, each prior-checkpoint test failure is classified:
 
 - **anchor-drift** — the element is present and functional, but its `data-testid` changed or
   was removed. A contract regression. **Counts** — it is the locality signal.
-- **behaviour-loss** — the feature genuinely broke (element gone, wrong value, action fails).
+- **behaviour-loss** — the feature genuinely broke: a UI assertion fails (element gone, wrong
+  value, action fails) **or** an expected audit record is missing/changed in the audit file (§3).
   Classic regression. **Counts.**
 - **seed-path** — the prior spec's `beforeEach` seed call (§9) failed because checkpoint K
   changed the API/schema it relied on. **Counts** unless the change is declared `intended` (a
@@ -319,9 +329,10 @@ sequence of English requests (and, if the intervention study is run, the gating 
    through a **dedicated, profile-guarded test-support endpoint** (`POST /__test__/reset` +
    `POST /__test__/seed`), so the spec stays self-contained with the schema at its checkpoint. A
    reset before each spec gives inter-spec isolation without JVM restarts (the agent's `./e2e`
-   loop, §15, benefits too). Schema is Flyway-on-boot; **data is per-spec** — keep the two
-   separate. The seed API is a versioned contract; a change that breaks a prior seed is a
-   **seed-path** regression unless declared `intended` (§6).
+   loop, §15, benefits too) and **also clears the audit file** (§3) so audit assertions start
+   clean. Schema is Flyway-on-boot; **data is per-spec** — keep the two separate. The seed API is a
+   versioned contract; a change that breaks a prior seed is a **seed-path** regression unless
+   declared `intended` (§6).
 3. **Flake is a false-regression source that erosion is not.** Async UI + non-deterministic data
    manufacture regressions unrelated to erosion. Mitigate with the deterministic per-spec
    reset+seed above and strict awaiting on `data-testid` presence, or flake contaminates the
@@ -371,11 +382,13 @@ decay); "ui" marks that the tests — the stable contract across the churn — d
   OfficeFloor plugin + Flyway configured against empty in-memory H2 (no tables) + the whole-stack
   `bin/start`/`bin/stop` + the `/__test__` seed/reset endpoint (§9). This is THE repo the run
   evolves; get it right first.
-- **What app to build:** the ~60 English requests should grow one coherent app. Reuse the
-  petclinic *domain* for continuity with the REST arm, or a fresh domain chosen to stress erosion
-  vectors (tables/forms/nav growth, shared-component reuse pressure, cross-feature screens). Each
-  request must be satisfiable as a full-stack change (schema + server + UI) — an app built from
-  nothing, so early checkpoints create the first tables.
+- **What app to build: RESOLVED — a generic business app: owners, projects, invoices.** This is
+  no longer a Spring-vs-OfficeFloor comparison, so there is no reference implementation to mirror;
+  the domain is chosen for what OfficeHQ users would actually build and recognise, and because it
+  naturally produces the erosion vectors (tables/forms/nav growth, shared-component reuse, cross-
+  feature screens like invoices-for-a-project, and audit rules). Each request is satisfiable as a
+  full-stack change (schema + server + UI, + audit file where relevant) — an app built from
+  nothing, so early checkpoints create the first tables (owners), then projects, then invoices.
 - **Checkpoint authoring:** each checkpoint = an English request (to the AI) + an experimenter-
   authored `cpNN` spec (the objective gate, with the `data-testid` contract). Load the sequence
   with reuse-pressure or nothing erodes and the experiment proves nothing.
@@ -521,13 +534,14 @@ Playwright (external TS specs) drives it at `http://localhost:$PORT`, binding on
 
 ### The testing-boundary invariant — why the whole stack can evolve behind the UI
 
-Playwright talks to the **served UI and nothing else**: it binds only to `data-testid`, asserts
-only on values read back **through the UI**, and *arranges* data through the constant-shaped
-`/__test__` seed API (Arrange, not Assert; §9). It never asserts against the domain API, the
-database, logs, or internal state. Therefore the entire stack — schema, OfficeFloor server, front-
-end — may be rewritten freely as long as the user-visible behaviour holds. That is exactly what is
-measured: whether OfficeHQ keeps the UI (test) contract intact while it grows the whole app under
-English requests. See `docs/SUT_CONTRACT.md` for what the app repo must provide.
+Playwright asserts through **two declared contracts only**: the **UI** (`data-testid`) for
+user-visible behaviour, and the **known audit file** (§3) for audited side-effects. It *arranges*
+data through the constant-shaped `/__test__` seed API (Arrange, not Assert; §9). It never asserts
+against the domain API, the database, arbitrary logs, or internal state. Therefore the entire
+stack — schema, OfficeFloor server, front-end — may be rewritten freely as long as those two
+contracts hold. That is exactly what is measured: whether OfficeHQ keeps the test contract intact
+while it grows the whole app under English requests. See `docs/SUT_CONTRACT.md` for what the app
+repo must provide.
 
 ---
 
