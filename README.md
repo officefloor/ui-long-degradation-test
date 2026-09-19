@@ -26,4 +26,23 @@ application from scratch** under a long sequence of plain-English change request
 See **[DESIGN.md](./DESIGN.md)** for the full design and the reasoning behind each decision
 (including why this started as a front-end-only comparison and became the full-stack model).
 
-_Status: design captured; implementation not yet started._
+## Running
+
+```sh
+./setup.sh                                              # create .venv + install deps
+# run one condition/chain over the checkpoints (spawns a fresh agent per checkpoint):
+.venv/bin/python -m harness.run_experiment --config config.yaml --condition just-solve --chain 1
+# analyse a run's committed capture -> results/<run_id>/analysis/{summary.md,*.csv,*.png}:
+.venv/bin/python -m harness.analyze --config config.yaml --run-id <run_id>
+```
+
+`config.yaml` points `app.repo` at a base repo (a stack, e.g. `~/officehq-react-officefloor`); each
+run commits its checkpoints to an `evolve/<run_id>/…` branch there. Anything that builds/serves/tests
+needs real network + loopback (no sandbox).
+
+## Status
+
+Working: the base repo (`~/officehq-react-officefloor`), cp01–cp10 checkpoints, the driver
+(`run_experiment` — blind two-commit loop, `just-solve` condition), the UI gate (`correctness` —
+build/serve/Playwright + scoring), and `analyze` (Zero-Regression Rate, EvoScore, slopes). Deferred:
+the `gated`/ImpactGate condition, structural erosion via `metrics.py`, and Landlock-confined runs.
