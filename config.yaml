@@ -1,0 +1,57 @@
+# ui-long-degradation-test configuration. STUB — fill in as the harness is built.
+# Mirrors the REST arm's config.yaml shape (DESIGN.md §13) with UI-specific sections.
+
+model: claude-opus-4-8          # the fixed coding agent. Override per run with --model
+chains: 10                      # independent runs per (arm, strategy) for tight CIs
+active_strategy: just-solve
+agent_timeout: 3600
+
+checkpoints_file: checkpoints.yaml
+
+limits:
+  # rate/cost limits for the agent turn (lift from the REST arm)
+
+# The constant backend, identical across every arm and checkpoint (DESIGN.md §2).
+backend:
+  # officefloor_app: <path or image for the constant OfficeFloor server>
+  # database: <how to spin up + deterministically SEED per checkpoint (DESIGN.md §5,§9)>
+  # health_url: <readiness probe used by correctness.serve()>
+
+# The candidate front-ends under test (DESIGN.md §10). All start from ONE shared
+# opinionated shell so the file-scope-container comparison is fair (DESIGN.md §8).
+arms:
+  control:          # component SPA + global store + client router (expected slop magnet)
+    # base_ref, src_globs, shared_surfaces (router/store/primitives), build/serve cmds
+  additive:         # file routing · no global store · closed primitives · slice boundaries · scoped styles
+    # ...
+  server_driven:    # OfficeFloor templates + HTMX fragments (measured mostly by boundary violations)
+    # ...
+  # full:           # optional CEILING control: agent sees prior specs -> regressions ~0
+
+prompt_strategies:
+  just-solve:
+    # template: |
+    #   <the constant prompt; data-test-id contract rule lives in the shared AGENTS.md>
+
+# Correctness oracle: build the front-end, serve it against the seeded backend, drive
+# with Playwright bound to data-test-id only (DESIGN.md §3, §5, §9).
+acceptance:
+  specs_dir: acceptance/specs
+  # playwright_project, base_url_template, select cp01..cpK, strict awaiting on anchors
+
+build:
+  # per-arm build + serve commands; node/toolchain versions pinned for determinism
+
+impact_gate:
+  # block/warn percentiles; NOTE: needs a TS seed distribution before grades mean
+  # anything (DESIGN.md §8, harness/impact_gate.py)
+
+tools:
+  # pinned versions: node, playwright, lizard, impact-gate, jscpd/ast-grep(-ts)
+
+isolation:
+  # landlock allowlist additions for the UI build (node_modules, toolchain) while still
+  # withholding the prior specs (DESIGN.md §4; harness/landlock.py)
+
+paths:
+  # work_root, results repo/branch layout (mirror the REST arm's self-contained runs)

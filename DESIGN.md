@@ -327,3 +327,40 @@ variable.
   metric, or lead with boundary-violation count and treat ImpactGate as corroboration.
 - **Harness reuse:** how much of the REST harness's `harness/` (agent loop, capture, analyze,
   landlock, impact scoring) is lifted directly vs adapted for the build-and-serve oracle.
+  Resolved — see §13.
+
+---
+
+## 13. Repository & code-sharing strategy
+
+**Decision: separate repo, shared-by-copy now, extract a shared core only at N=3.** Not the
+same codebase as the REST arm, and not a shared library yet. Reasoning: the REST repo is a
+publication artifact mid-flight (`blog/`, baselines, its own Spring-vs-OfficeFloor thesis, the
+"each run reconstructs from its own commits" self-containment) — bolting a second, differently
+-shaped experiment into it, or refactoring it now to extract interfaces, churns the thing being
+published for low reward. And abstracting a shared core from one example builds the wrong seam;
+we are at N=1.5 (REST done, UI starting). Copy now, extract when a stable second instance exists
+to factor *from*.
+
+The REST harness's modules split cleanly by reusability:
+
+| Module | Nature | Action here |
+|---|---|---|
+| `agent.py` | generic (headless `claude -p`, config isolation) | **vendored verbatim** |
+| `landlock.py` | generic + security-critical (makes blind airtight) | **vendored verbatim** |
+| `capture.py` | generic capture-not-derive | **vendored**, adjust tool list / result shape |
+| `analyze.py` stats | generic (slopes, bootstrap CIs, EvoScore, ZRR, plots) | **lift the stats verbatim** |
+| `correctness.py` | REST/Java (MockMvc, Surefire) | **rewrite** → build+serve+Playwright |
+| `metrics.py` | Java (Erosion over Java, ast-grep-java, jscpd) | **rewrite** → Lizard/TS + boundary count |
+| `class_shape.py` | Spring vocabulary | **drop** (JS analog much later, if ever) |
+| `quality_gate.py` | Java rules | **drop initially** (only the `impact_gated` arm needs it) |
+| `impact_gate.py` | wrapper generic, seed Java | **vendor wrapper**, needs a TS seed distribution |
+
+Vendored files carry a provenance header naming the source repo + SHA + date, so upstream fixes
+can be diffed in and a future extraction is mechanical.
+
+**The cheap insurance:** even where the *bodies* differ, keep the seam **function signatures
+identical** across the two repos — a `gate(built_tree) -> {results, pass/fail}` (correctness) and
+a `compute_all(...) -> row` (metrics). Both harnesses already have these two natural seams; they
+are just not behind an ABC. Matching the signatures now makes the eventual `long-degradation-core`
+extraction a lift, not a re-plumb.

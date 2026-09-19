@@ -1,0 +1,7 @@
+# ui-long-degradation-test — Python harness deps (mirror the REST arm, minus Java bits).
+PyYAML
+numpy
+matplotlib
+lizard            # front-end structural metrics (TS/TSX/Vue readers) — also used by impact-gate
+# impact-gate is installed separately (see README / ~/ImpactGate), lizard-only.
+# Node/Playwright toolchain is pinned in tools/ (see config.yaml: tools).

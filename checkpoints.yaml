@@ -1,0 +1,46 @@
+# The ordered, cumulative checkpoint stream (UI arm). Each checkpoint is applied on
+# top of the committed result of the previous one. STUB — author the real ~60 here.
+#
+# DESIGN — see DESIGN.md. Adapted from the REST arm's checkpoints.yaml for a UI:
+#
+# USER-FACING INTENTS. Each spec is a user-facing change ("add a column showing X",
+# "add an inline-edit to the table", "add a Y page", "add a filter") so the SAME list
+# drives every candidate front-end regardless of framework (DESIGN.md §2, §12).
+#
+# data-test-id CONTRACT. Every value a test reads and every element it acts on is
+# given an EXACT `data-test-id` in the spec, so the agent can expose the right anchors
+# and one Playwright suite validates any framework. Once introduced, a data-test-id is
+# immutable public API — never rename/remove it (DESIGN.md §3).
+#
+# REUSE PRESSURE (deliberate). Load the sequence with changes that pressure shared
+# surfaces — the same table reused with growing per-context needs, cross-feature data
+# on one screen, navigation growth, variant explosion on a shared form. If the
+# sequence never pressures shared surfaces, nothing erodes and the experiment proves
+# nothing (DESIGN.md §12).
+#
+# CONTEXT-FREE (BLIND) AGENT. Each checkpoint runs a fresh agent with NO memory of
+# prior checkpoints and WITHOUT the prior specs; it works only from the current code,
+# its own spec, and this checkpoint's own Playwright spec. A spec must be
+# self-contained: never reference a checkpoint number; a mutative spec describes the
+# EXISTING behaviour to change in terms the agent can find in the running UI/code.
+#
+# ADDITIVE vs MUTATIVE (experimenter metadata; not shown to the agent). Most
+# checkpoints are additive and install only their own cpNN spec. A MUTATIVE checkpoint
+# declares `type: mutative`, the prior checkpoint numbers it changes in `mutates`, and
+# ships updated copies of each changed prior spec. A regression on a rule listed in
+# `mutates` is INTENDED; breakage on any rule NOT listed is a true regression.
+
+checkpoints:
+  - id: cp01_example
+    # spec: |
+    #   <self-contained user-facing description; names each data-test-id the feature
+    #    must expose and the exact value each test reads back>
+    # test: acceptance/specs/cp01_example.spec.ts   # this checkpoint's own spec
+    # type: additive
+
+  # - id: cp08_example_mutative
+  #   type: mutative
+  #   mutates: [2, 5]
+  #   tests:
+  #     - acceptance/specs/cp08_example_mutative.spec.ts
+  #     - acceptance/specs/cp08/cp02_*.spec.ts   # updated copy of the changed prior spec
