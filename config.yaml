@@ -26,12 +26,13 @@ app:
   repo: ${HOME}/officehq-react-officefloor
   base_ref: base-empty              # base shell + Spring/OfficeFloor + Flyway (no tables) + scripts
   build_cmd: bin/build              # compile OfficeFloor backend + front-end into one runnable jar
-                                    #   (SPA baked into src/main/resources/static)
-  start_cmd: bin/start              # java -jar app.jar --server.port=$PORT ; Flyway migrates empty
-                                    #   H2 up to this checkpoint's schema on boot; serves SPA + API
+                                    #   (SPA built into src/main/resources/PUBLIC, served by WoOF)
+  start_cmd: bin/start              # java -jar app.jar --http.port=$PORT (main OfficeFloorMain);
+                                    #   Flyway (officeflyway_migrate) migrates empty H2 up to this
+                                    #   checkpoint's schema on boot; WoOF serves the SPA (PUBLIC/) + API
   stop_cmd: bin/stop                # kill the JVM / free PORT (in-mem H2 dies with it). Idempotent.
   port: 3000
-  health_url: http://localhost:3000/actuator/health   # Spring Actuator; correctness.wait_ready
+  health_url: http://localhost:3000/health   # WoOF /health route; correctness.wait_ready
   # Erosion is measured per layer (DESIGN.md §8): front-end TS (file-scope container) and backend
   # Java (class-scope, comparable to the REST arm) tracked as SEPARATE series.
   source_globs:

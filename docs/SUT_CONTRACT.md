@@ -23,12 +23,14 @@ test contract (§4).
 The whole app runs in **one JVM, no daemon or container**, so it is launchable inside the Landlock
 sandbox (the agent runs it too, §5; DESIGN.md §15):
 
-- **OfficeFloor within Spring** serves the API in-process.
-- **H2 in-memory** (`jdbc:h2:mem:app;DB_CLOSE_DELAY=-1`); **Flyway** migrations (added checkpoint
-  by checkpoint) build the schema up **on boot** from empty.
-- The **SPA is served as static files** from the jar (`src/main/resources/static`), with an SPA
-  deep-link fallback (unknown non-`api/` path → `index.html`).
-- Readiness is Spring Actuator's `/actuator/health` (`app.health_url`).
+- **WoOF (OfficeFloor) is the HTTP server; Spring is supplied into it** (`officespring_webmvc`).
+  The executable jar is built by `spring-boot-maven-plugin` with main class
+  `net.officefloor.OfficeFloorMain`.
+- **H2 in-memory** via `officejdbc_h2`; **Flyway** via `officeflyway_migrate` builds the schema up
+  **on boot** from empty (`src/main/resources/db/migration`).
+- The **SPA is served from `src/main/resources/PUBLIC`** (WoOF serves static content from
+  `PUBLIC/`). SPA deep-link fallback (a WoOF catch-all → `index.html`) is a base-repo TODO.
+- Readiness is a WoOF `/health` route (`app.health_url`) — OfficeFloor has no Spring Actuator.
 
 ## 3. Fixed operational scaffolding: `bin/build`, `bin/start`, `bin/stop`, `./e2e`
 
@@ -36,7 +38,7 @@ These are **pinned** — the agent may run them but not edit them; the harness r
 authored before the gate (DESIGN.md §15). Their commands stay constant even as the app evolves.
 
 - `bin/build` — compile the OfficeFloor backend **and** the front-end into one runnable jar.
-- `bin/start` — `java -jar app.jar --server.port=$PORT`; Flyway migrates the empty H2 up to this
+- `bin/start` — `java -jar target/*.jar --http.port=$PORT` (main `OfficeFloorMain`); Flyway migrates the empty H2 up to this
   checkpoint's schema; serves SPA + API on `$PORT`. Returns once launching (harness polls health).
 - `bin/stop` — kill the JVM / free `$PORT`; in-mem H2 dies with it (clean reset). **Idempotent**.
 - `./e2e` (`acceptance.agent_test_cmd`) — build + start + run the **currently-visible spec(s) only**

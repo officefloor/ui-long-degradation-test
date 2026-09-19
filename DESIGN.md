@@ -157,7 +157,7 @@ For each checkpoint `k` (1→N):
    memory. It authors the full-stack change — **migration + OfficeFloor server + front-end** — and
    may run its own test as it works (§15). Cost / tokens / duration captured.
 2. **Build + serve the app.** Build this checkpoint's app into one runnable jar (evolved
-   OfficeFloor + migrations + the SPA in static resources), then bring it up on one port and drive
+   OfficeFloor + migrations + the SPA built into `PUBLIC/`), then bring it up on one port and drive
    it with Playwright (`correctness.serve()`, §14): `app.start` boots the jar (Flyway migrates the
    **in-memory H2** up to this checkpoint's schema — starting from empty) and serves the SPA + API
    on **PORT**; `wait_ready`; run the specs; `app.stop`. Data is seeded per-spec via the app's
@@ -468,13 +468,13 @@ Because the oracle drives a real browser, the app must actually run. **A single 
 brings the whole app up on one port**, and `stop` tears it down. The launcher lives **in the app
 repo and evolves with it** — it is not a constant layer.
 
-- **Build then run.** The harness first builds this checkpoint's app (`correctness.build()`):
-  compile the OfficeFloor backend + the front-end into one runnable artifact (a Spring Boot jar
-  with the SPA in its static resources). Keeping build distinct from start cleanly separates a
-  compile failure from a start failure.
-- **`app.start_cmd`** receives `PORT`, boots the jar — **Flyway migrates the in-memory H2 from
-  empty up to this checkpoint's schema** — and serves the SPA + API on `PORT`. Schema comes up on
-  boot; **data does not** (seeded per-spec, §9).
+- **Build then run.** The harness first builds this checkpoint's app (`correctness.build()`): a
+  Maven build whose `frontend-maven-plugin` compiles the SPA into `PUBLIC/`, then
+  `spring-boot-maven-plugin` repackages the WoOF app into one runnable jar. Keeping build distinct
+  from start cleanly separates a compile failure from a start failure.
+- **`app.start_cmd`** receives `PORT`, boots the jar — **`officeflyway_migrate` migrates the
+  in-memory H2 from empty up to this checkpoint's schema** — and WoOF serves the SPA + the `.yml`
+  routes on `PORT`. Schema comes up on boot; **data does not** (seeded per-spec, §9).
 - **`app.stop_cmd`** kills the JVM and frees `PORT`; the in-memory H2 dies with it, so it is a
   clean reset. **Idempotent** (safe after a crash; the harness may kill by port as a backstop).
 - The **harness owns** only port choice and readiness polling (`app.health_url` + a known
@@ -483,29 +483,36 @@ repo and evolves with it** — it is not a constant layer.
 A gate run (`correctness.serve()`): build → `app.start` on `PORT` → `wait_ready` → run Playwright
 against `http://localhost:$PORT` → per-spec `beforeEach` reset+seed via `/__test__` → `app.stop`.
 
-### The concrete SUT — a single Spring Boot app (chosen)
+### The concrete SUT — a single WoOF (OfficeFloor) app (chosen)
 
-One Spring Boot app, stock Spring conventions, resolves the §15 embedded constraint outright — one
-JVM, no daemon, no container — and rebuilds each checkpoint as the app evolves:
+Verified against the OfficeFloor tutorials (`SpringWebMvcHttpServer`, `DatabaseHttpServer`). One
+JVM, no daemon, no container — resolving the §15 embedded constraint — rebuilt each checkpoint as
+the app evolves. Coordinates and wiring are pinned in `~/officehq-react-officefloor` (`pom.xml`,
+`src/main/resources/officefloor/**`):
 
-- **OfficeFloor runs within Spring as a plugin**, so the API and the app run in-process.
-- **H2 in-memory** (`jdbc:h2:mem:app;DB_CLOSE_DELAY=-1`), auto-configured, in the same JVM. It
-  starts **empty**; **Flyway** migrations (added checkpoint by checkpoint) build the schema up on
-  boot — matching §5's "code + migration" and OfficeHQ's schema-evolution story.
-- **The SPA is served as static files.** Spring Boot serves static content at `/`; a
-  `WebMvcConfigurer` + `PathResourceResolver` adds the SPA **deep-link fallback** (unknown non-
-  `api/` path → `index.html`). Since it is now one app, the SPA is built into the jar's static
-  resources at build time (no external `FRONTEND_DIST` seam — that only existed to keep a constant
-  backend, which is gone).
-- **Data seeding is per-spec via a profile-guarded `/__test__` endpoint** (`reset` + `seed`), not
-  a boot-time step (§9) — because the schema evolves, fixtures live with each spec.
-- **Readiness** is Spring Actuator's `/actuator/health` (`app.health_url`), plus a known
-  `data-test-id` anchor.
+- **OfficeFloor (WoOF) is the HTTP server; Spring is supplied into it** (`net.officefloor.web:woof`
+  + `net.officefloor.spring:officespring_webmvc`, via `officefloor/suppliers/Spring.yml` → an
+  `@SpringBootApplication` config class). The executable jar is built by `spring-boot-maven-plugin`
+  with main class `net.officefloor.OfficeFloorMain`.
+- **H2 in-memory** via `net.officefloor.persistence:officejdbc_h2` (`officefloor/objects/
+  DataSource.yml`), same JVM; starts **empty**.
+- **Flyway on boot** via `net.officefloor.persistence:officeflyway_migrate`, from
+  `src/main/resources/db/migration` — schema built up checkpoint by checkpoint (§5's "code +
+  migration").
+- **The SPA is served from `src/main/resources/PUBLIC`** (WoOF serves static content from
+  `PUBLIC/`); the front-end builds there via `frontend-maven-plugin`. No external `FRONTEND_DIST`
+  seam (that only existed to keep a constant backend, which is gone). SPA deep-link fallback is a
+  TODO in the base repo (a WoOF catch-all → `index.html`).
+- **Data seeding is per-spec via a `/__test__` endpoint** (`reset` + `seed`, wired as WoOF routes),
+  not a boot-time step (§9) — because the schema evolves, fixtures live with each spec. TODO: guard
+  it to a harness-only OfficeFloor profile.
+- **Readiness** is a WoOF `/health` route (`app.health_url`) — OfficeFloor has no Spring Actuator —
+  plus a known `data-test-id` anchor.
 
 So `app.start` is essentially:
 
 ```sh
-exec java -jar app.jar --server.port="$PORT"      # this checkpoint's jar; SPA baked into static/
+exec java -jar target/app.jar --http.port="$PORT"   # main net.officefloor.OfficeFloorMain
 ```
 
 Playwright (external TS specs) drives it at `http://localhost:$PORT`, binding only to
