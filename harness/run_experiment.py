@@ -41,6 +41,31 @@ def phase_for(idx: int, n: int) -> str:
     raise NotImplementedError
 
 
+# --- copy/sync + sandbox isolation (LIFT VERBATIM from the REST arm; DESIGN.md §14) ---
+# These are generic (rsync/git-worktree, no Java/REST). They give Landlock something to
+# confine and are how the harness copies the right specs in per checkpoint.
+
+
+def make_worktree(arm_cfg: dict, work_root: str, arm: str, strategy: str,
+                  chain: int, run_id: str) -> tuple[str, str]:
+    """Branch evolve/<run_id>/<strategy>/<arm>/chain<n> from the untouched external
+    `arm_cfg['repo']` @ base_ref into work_root. LIFT from the REST arm verbatim."""
+    raise NotImplementedError
+
+
+def mirror_source(src: str, dst: str, extra_excludes: tuple = ()) -> None:
+    """rsync -a --delete src -> dst, excluding .git / build output / results, so the
+    agent's sandbox is a history-less exact copy. LIFT from the REST arm verbatim."""
+    raise NotImplementedError
+
+
+def _prepare_agent_sandbox(wt: str, sandbox: str, cfg: dict, cp: dict,
+                           checkpoints: list[dict]) -> None:
+    """mirror_source(wt, sandbox) then install the blind agent view (this checkpoint's
+    own spec only) into the sandbox acceptance dest. LIFT/adapt from the REST arm."""
+    raise NotImplementedError
+
+
 def set_agent_view(wt: str, cfg: dict, cp: dict) -> None:
     """Install only this checkpoint's own spec; withhold all priors (blind). TODO.
 

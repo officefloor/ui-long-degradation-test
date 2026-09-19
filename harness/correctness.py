@@ -61,23 +61,47 @@ class TestOutcome:
     console: str = ""
 
 
-# --- the served SUT (new in the UI arm; DESIGN.md §5.2, §9) -------------------
+# --- the served SUT (new in the UI arm; DESIGN.md §5.2, §9, §14) --------------
+
+
+@dataclass
+class SutHandle:
+    """What serve() yields: how the running SUT is reached and torn down."""
+
+    base_url: str                       # e.g. http://localhost:3000 — the ONLY thing Playwright uses
+    frontend_port: int = 0
+    backend_url: str = ""
 
 
 @contextlib.contextmanager
-def serve(worktree: str, cfg: dict):
-    """Bring up the full SUT for one gate run and tear it down.
+def serve(worktree: str, arm_cfg: dict, cfg: dict):
+    """Bring the whole SUT up on a fixed port for one gate run, then tear it down.
 
-    Yields a base URL Playwright can hit. Steps (all TODO):
-      1. build the candidate front-end from `worktree`;
-      2. start the constant OfficeFloor server against a FRESH, deterministically
-         seeded database (per-checkpoint reset — DESIGN.md §5, §9);
-      3. serve the built front-end; wait for reachability (health + a known anchor);
-      4. on exit: stop server, drop the DB, free ports.
-    Must be robust to leftover processes/ports from a crashed prior run.
+    The start/stop/port contract is owned by the app repos, NOT the harness (DESIGN.md
+    §14, docs/SUT_CONTRACT.md) — which is what keeps this oracle framework-agnostic.
+
+    Steps (all TODO):
+      1. HARNESS starts the CONSTANT OfficeFloor backend (cfg['backend'].start_cmd) and
+         SEEDS a fresh, deterministic database (backend.seed_cmd) — per-checkpoint reset
+         is the harness's job, never the front-end's (DESIGN.md §9). Wait for
+         backend.health_url.
+      2. Run the arm's START script (arm_cfg['start_cmd']) against `worktree`, passing
+         env PORT=arm_cfg['port'] and BACKEND_URL=<the backend from step 1>. It builds
+         if needed and publishes the built front-end on PORT.
+      3. Wait for reachability on http://localhost:PORT (a health path AND a known
+         data-test-id anchor — strict awaiting is the flake guard, DESIGN.md §9).
+      4. yield SutHandle(base_url=...); the caller runs Playwright against base_url only.
+      5. on exit (always): arm's STOP script (arm_cfg['stop_cmd']), then stop the backend
+         and drop the DB. Idempotent — robust to a crashed prior run leaving stale
+         processes/ports (kill by port, honour stop's non-zero exit).
     """
-    raise NotImplementedError("serve(): build + seed-db + serve the SUT")
+    raise NotImplementedError("serve(): seed backend + run arm start/stop on a fixed port")
     yield  # pragma: no cover  (documents the contextmanager shape)
+
+
+def wait_ready(base_url: str, cfg: dict, timeout: int = 120) -> bool:
+    """Poll until the SUT answers AND a known data-test-id anchor is present. TODO."""
+    raise NotImplementedError
 
 
 # --- gate seam (signature-compatible with the REST arm) -----------------------
@@ -88,11 +112,13 @@ def build(worktree: str, cfg: dict) -> tuple[bool, str]:
     raise NotImplementedError
 
 
-def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
+def run_tests(worktree: str, checkpoint_k: int, arm_cfg: dict, cfg: dict) -> TestOutcome:
     """Run cp01..cpK Playwright specs against the served SUT and score.
 
-    Same seam and return type as the REST arm's run_tests. Inside: `with serve(...)`,
-    run the selected specs, parse results, then `score_results(...)`.
+    Same return type as the REST arm's run_tests (the gate seam); takes `arm_cfg` too
+    because the UI start/stop/port differ per arm. Inside: `with serve(worktree, arm_cfg,
+    cfg) as sut:` run the selected specs against `sut.base_url` ONLY (never the API/DB —
+    the testing-boundary invariant, DESIGN.md §14), parse results, then score_results().
     """
     raise NotImplementedError
 

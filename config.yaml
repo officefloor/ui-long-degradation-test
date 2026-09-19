@@ -1,5 +1,6 @@
 # ui-long-degradation-test configuration. STUB — fill in as the harness is built.
 # Mirrors the REST arm's config.yaml shape (DESIGN.md §13) with UI-specific sections.
+# ${VARS} and ~ are expanded from the environment; relative paths anchor inside this repo.
 
 model: claude-opus-4-8          # the fixed coding agent. Override per run with --model
 chains: 10                      # independent runs per (arm, strategy) for tight CIs
@@ -11,36 +12,69 @@ checkpoints_file: checkpoints.yaml
 limits:
   # rate/cost limits for the agent turn (lift from the REST arm)
 
-# The constant backend, identical across every arm and checkpoint (DESIGN.md §2).
+# The constant backend, identical across every arm and checkpoint (DESIGN.md §2, §14).
+# The HARNESS owns this lifecycle — it starts the OfficeFloor server and SEEDS a fresh,
+# deterministic database per checkpoint. The front-end start script never seeds data.
 backend:
-  # officefloor_app: <path or image for the constant OfficeFloor server>
-  # database: <how to spin up + deterministically SEED per checkpoint (DESIGN.md §5,§9)>
-  # health_url: <readiness probe used by correctness.serve()>
+  repo: ${HOME}/compare/officehq-backend   # the constant OfficeFloor + DB app (external)
+  start_cmd: bin/start                      # publishes the backend; harness passes DB + PORT env
+  stop_cmd: bin/stop                        # idempotent teardown
+  seed_cmd: bin/seed                        # reset the DB to deterministic fixtures (per checkpoint)
+  port: 8080                                # BACKEND_URL = http://localhost:8080
+  health_url: http://localhost:8080/health  # readiness probe used by correctness.serve()
 
-# The candidate front-ends under test (DESIGN.md §10). All start from ONE shared
-# opinionated shell so the file-scope-container comparison is fair (DESIGN.md §8).
+# The candidate front-ends under test (DESIGN.md §10, §14). Each is an EXTERNAL code
+# folder, only ever READ as a start point; the harness mirrors it into work_root/sandbox
+# (copy/sync + Landlock). All arms start from ONE shared opinionated shell so the
+# file-scope-container comparison is fair (DESIGN.md §8).
 arms:
-  control:          # component SPA + global store + client router (expected slop magnet)
-    # base_ref, src_globs, shared_surfaces (router/store/primitives), build/serve cmds
-  additive:         # file routing · no global store · closed primitives · slice boundaries · scoped styles
-    # ...
-  server_driven:    # OfficeFloor templates + HTMX fragments (measured mostly by boundary violations)
-    # ...
-  # full:           # optional CEILING control: agent sees prior specs -> regressions ~0
+  control:            # component SPA + global store + client router (expected slop magnet)
+    repo: ${HOME}/compare/ui-control
+    base_ref: base-no-specs        # app + shared shell only; no pre-existing checkpoint specs
+    source_globs: ["src/**/*.{ts,tsx}"]      # Lizard full-fidelity formats (DESIGN.md §8)
+    shared_surfaces:               # boundary-violation targets (DESIGN.md §8, metrics.boundary_violations)
+      router: ["src/router/**", "src/App.tsx"]
+      store:  ["src/store/**"]
+      primitives: ["src/components/ui/**"]
+    start_cmd: bin/start           # publishes the front-end on $PORT, pointed at $BACKEND_URL
+    stop_cmd: bin/stop             # idempotent
+    port: 3000
+
+  additive:           # file routing · no global store · closed primitives · slice boundaries · scoped styles
+    repo: ${HOME}/compare/ui-additive
+    base_ref: base-no-specs
+    source_globs: ["src/**/*.{ts,tsx}"]
+    shared_surfaces:
+      router: []                   # file-based routing: adding a route is a new file, not an edit
+      primitives: ["src/ui/**"]
+    start_cmd: bin/start
+    stop_cmd: bin/stop
+    port: 3000
+
+  server_driven:      # OfficeFloor templates + HTMX fragments (measured mostly by boundary violations)
+    repo: ${HOME}/compare/ui-htmx
+    base_ref: base-no-specs
+    source_globs: ["src/**/*.{ts,html}"]     # NOTE: HTMX logic in hx-* attrs is invisible to Lizard (DESIGN.md §8)
+    shared_surfaces:
+      layout: ["templates/_layout.html"]
+    start_cmd: bin/start
+    stop_cmd: bin/stop
+    port: 3000
+
+  # full:             # optional CEILING control: agent sees prior specs -> regressions ~0
 
 prompt_strategies:
   just-solve:
     # template: |
-    #   <the constant prompt; data-test-id contract rule lives in the shared AGENTS.md>
+    #   <the constant prompt; the data-test-id immutability rule lives in the shared AGENTS.md>
 
-# Correctness oracle: build the front-end, serve it against the seeded backend, drive
-# with Playwright bound to data-test-id only (DESIGN.md §3, §5, §9).
+# Correctness oracle: build the front-end, serve it against the seeded backend on a fixed
+# port, drive with Playwright bound to data-test-id ONLY (DESIGN.md §3, §5, §9, §14).
 acceptance:
   specs_dir: acceptance/specs
-  # playwright_project, base_url_template, select cp01..cpK, strict awaiting on anchors
-
-build:
-  # per-arm build + serve commands; node/toolchain versions pinned for determinism
+  dest_subpath: e2e                # where specs are copied into the mirrored sandbox / worktree
+  base_url_template: http://localhost:{port}   # {port} = the arm's front-end port
+  # strict awaiting on data-test-id presence; select cp01..cpK at checkpoint K
 
 impact_gate:
   # block/warn percentiles; NOTE: needs a TS seed distribution before grades mean
@@ -49,9 +83,20 @@ impact_gate:
 tools:
   # pinned versions: node, playwright, lizard, impact-gate, jscpd/ast-grep(-ts)
 
+# Filesystem confinement for the agent turn (Linux Landlock; no root/bwrap). Identical
+# to the REST arm; fails CLOSED. Verify:  python harness/landlock_selftest.py
 isolation:
-  # landlock allowlist additions for the UI build (node_modules, toolchain) while still
-  # withholding the prior specs (DESIGN.md §4; harness/landlock.py)
+  pin_files: ["AGENTS.md", "CLAUDE.md"]   # the data-test-id contract rule is pinned, never AI-edited
+  agent_confinement:
+    enabled: true
+    extra_ro_binds: []   # toolchain not under /usr,/opt,~/.local (e.g. a pinned node)
+    extra_rw_binds: []   # e.g. an alternate npm/pnpm store so build works inside the sandbox
 
 paths:
-  # work_root, results repo/branch layout (mirror the REST arm's self-contained runs)
+  # Both MUST be absolute, EXTERNAL, and SEPARATE (see the REST arm's paths note): the
+  # agent's cwd is sandbox_root, so it must have no worktree/.git/results siblings to walk
+  # into. work_root holds per-chain worktrees; sandbox_root IS the agent's cwd, rebuilt
+  # fresh each turn (a dedicated dir — a home/root path is refused).
+  work_root: ${HOME}/ui-work
+  sandbox_root: ${HOME}/ui-sandbox
+  results_csv: results/records.csv

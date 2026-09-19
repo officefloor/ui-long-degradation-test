@@ -131,10 +131,12 @@ For each checkpoint `k` (1→N):
    prior features and their anchors) is present as normal.
 1. **Agent turn.** A **fresh** headless `claude -p` with only this checkpoint's request and the
    current code. No cross-checkpoint memory. Cost / tokens / duration captured.
-2. **Build + serve the SUT.** Build the candidate front-end, start the constant OfficeFloor
-   server against a freshly **seeded, deterministic database**, serve the built front-end, wait
-   for reachability. (This stage does not exist in the REST arm and is the main new moving part
-   — see §9.)
+2. **Build + serve the SUT.** Bring the whole system up on a fixed port and drive it with
+   Playwright (`correctness.serve()`, §14): the harness starts + freshly seeds the **constant
+   OfficeFloor backend**, runs the arm's **start script** to publish the built front-end on a
+   fixed **PORT** pointed at that backend, waits for reachability, then tears both down with the
+   arm's **stop script**. (This stage does not exist in the REST arm and is the main new moving
+   part — see §9, §14.)
 3. **Gate + score.** Run the **full resolved cp01..cpK Playwright suite** against the running
    SUT (never shown to the agent — gate, not context). Classify results (§6). Then run the code
    metrics (§8) over the checkpoint's source.
@@ -364,3 +366,63 @@ identical** across the two repos — a `gate(built_tree) -> {results, pass/fail}
 a `compute_all(...) -> row` (metrics). Both harnesses already have these two natural seams; they
 are just not behind an ABC. Matching the signatures now makes the eventual `long-degradation-core`
 extraction a lift, not a re-plumb.
+
+---
+
+## 14. System under test: external code, copy/sync isolation, and lifecycle
+
+### The code lives in an external folder, one per arm
+
+Each candidate front-end is its **own external code folder** (`arms.<name>.repo` at a
+`base_ref`), exactly as the REST arm points each arm at `${HOME}/compare/<framework>`. The
+harness never edits that folder in place — it is only ever **read** as a start point. This keeps
+`~/ui-long-degradation-test` (the harness) cleanly separate from the systems it measures.
+
+### Copy/sync + Landlock — reused verbatim from the REST arm
+
+The mechanism that makes the blind view airtight and lets the harness copy the right specs in is
+lifted unchanged (the helpers are generic; §13). Per (arm, chain) the harness:
+
+1. `make_worktree` — branches an `evolve/<run_id>/<strategy>/<arm>/chain<n>` line from the
+   **untouched** `base_ref` into `work_root`: the production tree + `.git` history + capture
+   staging. Every checkpoint commit lands here; the base branch is never written.
+2. `mirror_source` — rsyncs the worktree (excluding `.git`, build output, results) into a **flat
+   `sandbox_root` that IS the agent's cwd** — history-less, with no `run_id`/arm/chain in the path
+   and no `.git` to `git log`, so the agent cannot infer the checkpoint sequence.
+3. installs the agent's **test view** into the sandbox's acceptance dest — blind: this
+   checkpoint's own Playwright spec only, neutralised so nothing hints at a checkpoint number.
+4. **Landlock** confines the agent (and every child) to sandbox + toolchain; withheld specs and
+   everything else return `EACCES`. Fails closed.
+5. after the turn: mirror the sandbox back onto the worktree (propagating the agent's edits and
+   deletions while preserving `.git` and the harness-managed specs), restore visible specs to
+   authored, commit the **pure agent delta**.
+
+Only the gate/oracle is rewritten; this isolation spine is identical to the REST arm.
+
+### The start/stop/port contract — new for UI, owned by the app repo
+
+Because the oracle drives a real browser, the SUT must actually run. The contract lives in **the
+app repo, not the harness** — which is exactly what keeps the harness framework-agnostic (any
+front-end that speaks start/stop/port + `data-test-id` is testable):
+
+- The arm's code folder provides a **start script** and a **stop script** (paths in config).
+- `start` builds if needed and publishes the front-end on a **fixed `PORT`** (passed in by the
+  harness), pointed at the constant backend via **`BACKEND_URL`**; it returns once launching.
+- `stop` tears it down cleanly, and is **idempotent** (safe to call after a crash / a stale run).
+- The **harness owns** port allocation, readiness polling (health + a known anchor), and —
+  crucially — the **constant OfficeFloor backend + deterministic DB seed/reset per checkpoint**.
+  The front-end start script never seeds data; determinism (§9) is the harness's job.
+
+A gate run (`correctness.serve()`): harness starts + seeds the constant backend → runs the arm's
+`start` with `PORT` + `BACKEND_URL` → waits for the port → runs Playwright against
+`http://localhost:$PORT` → arm's `stop` → harness stops backend + drops the DB.
+
+### The testing-boundary invariant — why the system can evolve behind the UI
+
+Playwright talks to the **served front-end and nothing else**: it binds only to `data-test-id`
+and asserts only on values read back **through the UI**. It never asserts against the API, the
+database, logs, or internal state. Therefore any implementation — the front-end's, and even the
+constant backend's — may be rewritten freely as long as the user-visible behaviour holds. That
+freedom is precisely what is being measured: how well the front-end keeps the UI contract intact
+while the code churns underneath it. See `docs/SUT_CONTRACT.md` for what an app folder must
+provide.
