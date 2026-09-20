@@ -303,9 +303,19 @@ def _confine_config(cfg: dict, sandbox: str) -> dict | None:
     home = os.path.expanduser("~")
     rw = [os.path.join(home, d) for d in (".m2", ".cache", ".npm", ".config")] + ["/tmp"]
     ro = ["/usr", "/opt", "/etc"]
+    # Sentinels the confined agent MUST NOT be able to read — verify_denied refuses to run the
+    # turn if any is reachable (fail-closed blind guarantee, §15): the harness repo holds the
+    # FUTURE specs + checkpoints.yaml, and work_root holds other checkpoints' worktrees (.git
+    # history of the sequence). Neither is in the allowlist, so both should already be denied.
+    sentinels = [os.path.join(HARNESS_ROOT, "acceptance", "specs"),
+                 os.path.join(HARNESS_ROOT, "checkpoints.yaml")]
+    wr = (cfg.get("paths") or {}).get("work_root")
+    if wr:
+        sentinels.append(wr)
     return {"enabled": True,
             "ro": ro + list(iso.get("extra_ro_binds", [])),
-            "rw": rw + list(iso.get("extra_rw_binds", []))}
+            "rw": rw + list(iso.get("extra_rw_binds", [])),
+            "sentinels": [s for s in sentinels if os.path.exists(s)]}
 
 
 def _run_agent_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, prompt: str,
