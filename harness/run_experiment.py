@@ -31,7 +31,7 @@ from datetime import datetime
 
 import yaml
 
-from . import agent, capture, correctness, expand_path, landlock
+from . import agent, capture, correctness, expand_path, impact_gate, landlock, quality_gate
 
 HARNESS_DIR = os.path.dirname(os.path.abspath(__file__))
 HARNESS_ROOT = os.path.dirname(HARNESS_DIR)   # the ui-long-degradation-test repo root
@@ -216,6 +216,41 @@ bin/e2e, CLAUDE.md, AGENTS.md) or the test spec.
 """
 
 
+REFACTOR_TEMPLATE = """The codebase has grown hard to change: a recent change concentrated a lot
+of complexity in a few places. Refactor those places to be simpler and more cohesive so the NEXT
+change lands cleanly, WITHOUT changing what the application does — all existing tests must still
+pass. Do not add the new feature yet; only restructure.
+
+The upcoming change this should make easier:
+{request}
+
+Where complexity concentrated (simplify/restructure these; do not just move code around or copy it):
+{flagged}
+
+Read CLAUDE.md for the conventions. Do not edit the pinned scaffolding (bin/*, CLAUDE.md, AGENTS.md)
+or the test spec. You can run `bin/e2e` to confirm behaviour is preserved.
+"""
+
+REVIEW_TEMPLATE = """Your refactor introduced code-quality problems that must be fixed (they defeat
+the point of refactoring). Fix each — consolidate duplication, remove the wasteful patterns —
+without changing behaviour:
+
+{findings}
+"""
+
+
+def _layer_src_dirs(cfg: dict) -> list[str]:
+    """The source directory of each layer (the prefix of its source_globs), for jscpd/ast-grep
+    and the git-diff scope of the quality gate."""
+    dirs: list[str] = []
+    for globs in (cfg["app"].get("source_globs") or {}).values():
+        for g in globs:
+            d = impact_gate._glob_prefix(g)[:-3].rstrip("/")   # strip trailing /**
+            if d and d not in dirs:
+                dirs.append(d)
+    return dirs
+
+
 def _confine_config(cfg: dict, sandbox: str) -> dict | None:
     """Landlock confine dict for the agent turn, or None to run unconfined. Falls back to
     unconfined (with a warning) if Landlock is unavailable — the mirror-based hiding of
@@ -274,6 +309,123 @@ def _run_agent_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, prom
             wait = limits.get("poll_seconds", 1800)
         print(f"    [retry] {'limit' if ar.limit_reached else 'transient'} — waiting {wait}s", flush=True)
         time.sleep(wait)
+
+
+# --- gated condition: implement -> score(both layers) -> refactor -> re-score ---
+
+
+def _impact_gated_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, template: str,
+                       cap_dir: str, stream_file: str, base_for_cp: str,
+                       checkpoints: list[dict]) -> tuple[object, list[dict], dict, str]:
+    """The `gated` implement->score->refactor loop for one checkpoint (record-and-continue).
+
+    Each iteration the agent implements the change (NEUTRAL prompt — Design B, no formula), the
+    production result is mirrored + staged on wt, and impact-gate scores that staged delta PER
+    LAYER (front-end TS + backend Java, §8). If NEITHER layer is over block_percentile the
+    implementation is ACCEPTED (left staged on wt). Otherwise it is DISCARDED (wt reset to the
+    clean base) and a refactor turn runs on that clean base, seeded with the flagged files +
+    cost-driver classes from the blocked layers; the refactor's own added lines must pass the
+    quality gate (jscpd clones + ast-grep smells, both layers), with up to max_review_turns review
+    turns; the refactor is committed and the next implement builds on it. After max_refactors, the
+    change is ACCEPTED regardless (advisory: the chain must reach the last checkpoint; the grades
+    are measured, not enforced).
+
+    Returns (ar, attempt_log, gate_hist, base_for_cp) with the accepted change mirrored + `git
+    add -A` staged on wt, ready for the caller's COMMIT 1. base_for_cp is advanced to the last
+    refactor commit (so the COMMIT-1 diff is just the final implement's delta)."""
+    igc = cfg["impact_gate"]
+    block_p = float(igc.get("block_percentile", 98))
+    max_ref = int(igc.get("max_refactors", 2))
+    max_review = int(igc.get("max_review_turns", 2))
+    qcfg = igc.get("quality_gate") or {}
+    quality_dirs = _layer_src_dirs(cfg)
+    acc_excl = (cfg["acceptance"]["dest_subpath"].rstrip("/") + "/",)
+    refactor_tpl = igc.get("refactor_prompt") or REFACTOR_TEMPLATE
+    review_tpl = igc.get("review_prompt") or REVIEW_TEMPLATE
+    k = cp["n"]
+    prompt = template.replace("{request}", cp["request"].strip())
+    attempts: list[dict] = []
+    refactors = 0
+
+    def gate_hist(passed: bool) -> dict:
+        return {"enabled": True, "enforcement": "advisory", "block_percentile": block_p,
+                "max_refactors": max_ref, "refactors": refactors, "passed": passed,
+                "attempts": attempts}
+
+    for attempt in range(max_ref + 1):
+        ar, attempt_log = _run_agent_turn(cfg, wt, sandbox, cp, model, prompt, cap_dir, stream_file)
+        mirror_source(sandbox, wt, extra_excludes=acc_excl)
+        git(["-C", wt, "add", "-A"])
+        results = impact_gate.score_layers(wt, cfg)
+        attempts.append(impact_gate.attempt_summary("implement", results, block_p))
+        grades = {ly: impact_gate.grade_percentile(ig) for ly, ig in results.items()}
+        blocked_ly = impact_gate.blocked_layers(results, block_p)
+        print(f"    impact-gate: implement grades " + ", ".join(
+            f"{ly} p{('n/a' if g is None else round(g,1))}" for ly, g in grades.items())
+            + f"  (block p{block_p:g}) -> {'BLOCKED ' + str(blocked_ly) if blocked_ly else 'PASS'}"
+            + (f"  [refactors: {refactors}]" if refactors else ""), flush=True)
+        if not blocked_ly:
+            return ar, attempt_log, gate_hist(passed=True), base_for_cp
+        if attempt == max_ref:
+            print(f"    impact-gate: still over p{block_p:g} after {refactors} refactor(s) "
+                  f"(advisory — accepted, not enforced)", flush=True)
+            return ar, attempt_log, gate_hist(passed=False), base_for_cp
+
+        # DISCARD the blocked change, REFACTOR on the clean base.
+        git(["-C", wt, "reset", "--hard", base_for_cp])
+        subprocess.run(["git", "-C", wt, "clean", "-fd"], capture_output=True, text=True)
+        refactors += 1
+        mirror_source(wt, sandbox)
+        install_agent_view(sandbox, cfg, cp)
+        rprompt = impact_gate.refactor_prompt(refactor_tpl, cp, results, block_p)
+        rstream = f"cp{k:02d}.refactor{refactors}.jsonl"
+        print(f"    impact-gate: refactor {refactors}/{max_ref} — restructuring flagged "
+              f"classes before re-attempting", flush=True)
+        rar = agent.run_agent(rprompt, cwd=sandbox, model=model,
+                              timeout=cfg.get("agent_timeout", 3600),
+                              capture_path=os.path.join(cap_dir, rstream),
+                              confine=_confine_config(cfg, sandbox))
+        mirror_source(sandbox, wt, extra_excludes=acc_excl)
+        git(["-C", wt, "add", "-A"])
+        # QUALITY GATE — the refactor's own added lines must be clean (both layers).
+        quality = None
+        if qcfg.get("enabled", True):
+            for qt in range(max_review + 1):
+                quality = quality_gate.review(wt, quality_dirs, cfg.get("tools") or {}, qcfg)
+                if not quality.ran or quality.passed:
+                    if quality.ran:
+                        print(f"    quality-gate: refactor {refactors} clean"
+                              + (f" after {qt} review turn(s)" if qt else ""), flush=True)
+                    else:
+                        print(f"    quality-gate: tools did not run ({quality.reason}); "
+                              f"not enforced", flush=True)
+                    break
+                if qt == max_review:
+                    print(f"    quality-gate: refactor {refactors} still dirty after {qt} "
+                          f"review turn(s) — accepting (advisory)", flush=True)
+                    break
+                print(f"    quality-gate: refactor {refactors} dirty "
+                      f"({quality.clone_finding_lines} clone + {quality.smell_finding_lines} "
+                      f"smell lines) -> review {qt + 1}/{max_review}", flush=True)
+                qar = agent.run_agent(review_tpl.replace("{findings}", quality.review_text),
+                                      cwd=sandbox, model=model,
+                                      timeout=cfg.get("agent_timeout", 3600),
+                                      capture_path=os.path.join(
+                                          cap_dir, f"cp{k:02d}.refactor{refactors}.review{qt+1}.jsonl"),
+                                      confine=_confine_config(cfg, sandbox))
+                mirror_source(sandbox, wt, extra_excludes=acc_excl)
+                git(["-C", wt, "add", "-A"])
+        subprocess.run(["git", "-C", wt, "commit", "--allow-empty",
+                        "-m", f"cp{k:02d} refactor{refactors} {cp['id']}"],
+                       capture_output=True, text=True)
+        rsha = git(["-C", wt, "rev-parse", "HEAD"])
+        results_ref = impact_gate.score_layers(wt, cfg)
+        attempts.append(impact_gate.attempt_summary(
+            "refactor", results_ref, block_p, sha=rsha, agent=rar,
+            quality=quality_gate.summary(quality) if quality is not None else None))
+        shutil.rmtree(sandbox, ignore_errors=True)   # next implement rebuilds fresh from wt
+        base_for_cp = rsha
+    return ar, attempt_log, gate_hist(passed=False), base_for_cp   # unreachable (loop returns)
 
 
 # --- capture commits ----------------------------------------------------------
@@ -352,12 +504,19 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         stream_file = f"cp{k:02d}.agent.jsonl"
         prompt = template.replace("{request}", cp["request"].strip())
 
-        ar, attempt_log = _run_agent_turn(cfg, wt, sandbox, cp, model, prompt, cap_dir, stream_file)
+        gate_hist = None
+        if condition == "gated" and cfg.get("impact_gate"):
+            # implement -> score both layers -> refactor (quality-gated) -> re-score; leaves the
+            # accepted change mirrored + staged on wt, base_for_cp advanced past any refactor.
+            ar, attempt_log, gate_hist, base_for_cp = _impact_gated_turn(
+                cfg, wt, sandbox, cp, model, template, cap_dir, stream_file, base_for_cp, checkpoints)
+        else:
+            ar, attempt_log = _run_agent_turn(cfg, wt, sandbox, cp, model, prompt, cap_dir, stream_file)
+            # copy the agent's PRODUCTION result back (sandbox e2e/specs excluded: specs are the
+            # harness's, not the agent's delta).
+            mirror_source(sandbox, wt, extra_excludes=(cfg["acceptance"]["dest_subpath"].rstrip("/") + "/",))
+            git(["-C", wt, "add", "-A"])
 
-        # copy the agent's PRODUCTION result back (sandbox e2e/specs excluded: specs are the
-        # harness's, not the agent's delta).
-        mirror_source(sandbox, wt, extra_excludes=(cfg["acceptance"]["dest_subpath"].rstrip("/") + "/",))
-        git(["-C", wt, "add", "-A"])
         diff_file = f"cp{k:02d}.agent.diff"
         with open(os.path.join(cap_dir, diff_file), "w") as fh:
             fh.write(subprocess.run(["git", "-C", wt, "diff", "--cached", base_for_cp],
@@ -409,7 +568,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
             ar, outcome, None, touched_pins, [], stream_file, diff_file,
             build_log_file=build_log_file, attempts=attempt_log,
             spec=cp["request"], prompt=prompt, ckpt_type=cp.get("type", "additive"),
-            mutates=mutated)
+            mutates=mutated, impact_gate=gate_hist)
         capture.write_json(os.path.join(cap_dir, f"cp{k:02d}.json"), rec)
         wt_cap = os.path.join(wt, "evolve-results", "capture")
         os.makedirs(wt_cap, exist_ok=True)
@@ -466,6 +625,11 @@ def main() -> int:
         return p if os.path.isabs(p) else os.path.join(cfg_dir, p)
 
     cfg["app"]["repo"] = expand_path(cfg["app"]["repo"], "app.repo")
+    # ast-grep rules live in the harness repo but the quality gate runs with cwd in the worktree,
+    # so resolve to an absolute path here.
+    ar_rules = (cfg.get("tools") or {}).get("astgrep_rules")
+    if ar_rules and not os.path.isabs(ar_rules):
+        cfg["tools"]["astgrep_rules"] = os.path.join(HARNESS_ROOT, ar_rules)
     cfg["checkpoints_file"] = resolve(cfg["checkpoints_file"])
     cfg["paths"]["work_root"] = resolve(cfg["paths"]["work_root"])
     cfg["paths"]["sandbox_root"] = resolve(cfg["paths"]["sandbox_root"])

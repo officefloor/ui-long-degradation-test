@@ -73,13 +73,33 @@ acceptance:
                                    # build + app.start + run the VISIBLE spec(s) only + app.stop.
                                    # Pinned so agent edits to it don't reach the gate.
 
+# The `gated` condition (DESIGN.md §8, §10). After each implement turn the staged diff is scored
+# PER LAYER (front-end TS + backend Java) by impact-gate, grading the change's composite against
+# ImpactGate's SHIPPED per-language seed (java + typescript already ship — no TS corpus needed);
+# a layer over block_percentile triggers a quality-gated refactor turn, then the change is
+# re-attempted. Advisory / record-and-continue: after max_refactors the change is accepted anyway
+# so the chain reaches the last checkpoint (the grades are measured, not enforced).
 impact_gate:
-  # block/warn percentiles; used by the `gated` condition. NOTE: front-end grades need a TS seed
-  # distribution before they mean anything (DESIGN.md §8, harness/impact_gate.py). Backend Java
-  # uses ImpactGate's shipped Java distribution as in the REST arm.
+  # cmd: ["/abs/path/to/impact-gate"]   # default: ~/ImpactGate/.venv/bin/impact-gate, else PATH
+  block_percentile: 98
+  warn_percentile: 90
+  # curve_prior_weight: 200   # K in w=n/(n+K) blending project baseline vs shipped seed (CLI default)
+  max_refactors: 2            # refactor attempts before accepting a still-flagged change
+  max_review_turns: 2         # quality-gate review turns per refactor
+  # baseline_files: {backend: /abs/backend-baseline.json, frontend: /abs/frontend-baseline.json}
+  #   OPTIONAL project distributions (impact-gate baseline). Omitted -> grade vs the shipped seed.
+  quality_gate:
+    enabled: true
+    jscpd_min_tokens: 50
+    jscpd_min_lines: 5
+    jscpd_formats: "java,typescript,tsx,javascript,jsx"
+  # refactor_prompt / review_prompt override the built-in templates in run_experiment.py.
 
 tools:
-  # pinned versions: node, playwright, JRE, lizard, impact-gate, jscpd/ast-grep(-ts)
+  jscpd: jscpd                 # clone detector (both layers); on PATH
+  astgrep: sg                  # ast-grep binary (both layers); on PATH
+  astgrep_rules: astgrep-rules # java-wasteful.yml + typescript-wasteful.yml (resolved vs harness root)
+  # pin versions for a real study (node, playwright, JRE, lizard, impact-gate, jscpd, ast-grep)
 
 # Filesystem confinement for the agent turn (Linux Landlock; no root/bwrap). Identical to the REST
 # arm; fails CLOSED. Verify:  python harness/landlock_selftest.py

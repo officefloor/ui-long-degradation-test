@@ -1,0 +1,34 @@
+# ast-grep "wasteful pattern" rules for TypeScript — the front-end half of the impact_gated
+# quality gate (harness/quality_gate.py). STARTER SET (mirrors the java-wasteful seed); EXTEND IT.
+# Each rule must be a SINGLE-node pattern for the pinned ast-grep, covered by a golden case in
+# harness/quality_selftest.py. Sanity-check:
+#   printf 'ruleDirs:\n  - %s\n' "$PWD/astgrep-rules" > /tmp/sg.yml
+#   sg scan --json -c /tmp/sg.yml src/main/frontend
+
+id: ts-redundant-boolean-literal-compare
+language: typescript
+rule:
+  any:
+    - pattern: $X === true
+    - pattern: $X === false
+    - pattern: $X !== true
+    - pattern: $X !== false
+    - pattern: $X == true
+    - pattern: $X == false
+message: redundant comparison to boolean literal
+
+---
+id: ts-unnecessary-else-after-return
+language: typescript
+rule:
+  pattern: if ($C) { return $R; } else { $$$BODY }
+message: else after a returning if is unnecessary
+
+---
+id: ts-string-concat-empty
+language: typescript
+rule:
+  any:
+    - pattern: '"" + $X'
+    - pattern: '$X + ""'
+message: concatenation with empty string to coerce to string
