@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
-import { auditLines } from '../../support/audit';
+import { resetAndSeed } from '../support/seed';
+import { auditLines } from '../support/audit';
 
 // UPDATED (invoice lifecycle Draft -> Sent -> Paid): payment is only allowed after an invoice has
 // been sent, so this seeds a SENT invoice, then pays it. The paid audit record is unchanged.

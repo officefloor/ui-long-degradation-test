@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
-import { auditLines } from '../../support/audit';
+import { resetAndSeed } from '../support/seed';
+import { auditLines } from '../support/audit';
 
 // UPDATED (status is derived from payments): "paying" an invoice means recording a payment that
 // covers it. The invoice then reads PAID and a PAYMENT_RECORDED audit line is written.

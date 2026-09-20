@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // UPDATED (projects can be archived): the projects list excludes archived projects by default.
 test.describe('projects', () => {

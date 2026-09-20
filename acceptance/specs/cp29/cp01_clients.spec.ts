@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // UPDATED (clients can be archived): the clients list excludes archived clients by default.
 test.describe('clients', () => {

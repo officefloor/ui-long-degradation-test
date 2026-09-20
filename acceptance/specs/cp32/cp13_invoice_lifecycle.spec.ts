@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
-import { auditLines } from '../../support/audit';
+import { resetAndSeed } from '../support/seed';
+import { auditLines } from '../support/audit';
 
 // UPDATED (status derived from payments): sending still moves a draft to SENT and records it, but
 // PAID is now reached by recording a payment that covers the invoice, not a manual pay action.

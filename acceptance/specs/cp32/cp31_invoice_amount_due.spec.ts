@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // UPDATED (status derived from payments): the amount still due is unchanged (amount minus payments),
 // and a partly-paid invoice now reads PARTIAL.

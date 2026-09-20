@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
-import { auditLines } from '../../support/audit';
+import { resetAndSeed } from '../support/seed';
+import { auditLines } from '../support/audit';
 
 // UPDATED (delete now archives): removing a project archives it instead of deleting. It drops off
 // the list but is retained, and the audit line is PROJECT_ARCHIVED (not PROJECT_DELETED).

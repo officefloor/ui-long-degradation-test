@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // UPDATED for cp09 (mutates: [4]): money is now shown with a currency symbol. Same behaviour as the
 // original cp04, but amounts/total assert "$..." instead of "...". Installed by basename over the

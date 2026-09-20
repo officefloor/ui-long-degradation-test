@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // MUTATIVE change: money is now displayed with a currency symbol ("$100.00"). This changes the
-// displayed VALUES that cp04 (invoice amounts + project total) and cp08 (outstanding total) assert,
+// displayed VALUES that the invoice amounts, the project total and the dashboard outstanding total assert,
 // so those prior specs are shipped updated alongside this one (mutates: [4, 8]). The audit record
-// format is unchanged — this is a UI-display change only (cp05 still asserts amount=100.00).
+// format is unchanged. This is a UI-display change only (the paid-invoice audit still asserts amount=100.00).
 test.describe('currency formatting', () => {
   test('invoice amounts and totals show a currency symbol', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

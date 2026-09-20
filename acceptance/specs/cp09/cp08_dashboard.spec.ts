@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // UPDATED for cp09 (mutates: [8]): the outstanding total now shows a currency symbol. Counts are
 // plain integers and are unchanged. Installed by basename over the original cp08_dashboard.spec.ts.

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // UPDATED (money shows "$"; invoice amounts are now built from line items). A project still lists
 // its invoices with a total, but each invoice's amount comes from its line items, and a new invoice

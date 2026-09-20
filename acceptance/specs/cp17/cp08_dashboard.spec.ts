@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // UPDATED (money shows a currency symbol; outstanding now counts SENT invoices only). Counts are
 // unchanged; the outstanding total sums sent-and-unpaid invoices and shows "$".
