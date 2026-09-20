@@ -84,6 +84,11 @@ def default_allowlist(sandbox: str, cfg_dir: str | None, home: str | None = None
     skipped at apply time, so the lists are safe supersets."""
     home = home or os.path.expanduser("~")
     ro = ["/usr", "/etc", "/opt", "/bin", "/lib", "/lib64", "/sbin", "/proc",
+          "/sys",                             # Chromium renderers read /sys at startup (CPU/cgroup
+                                              # probing); without it Playwright's renderer target
+                                              # closes immediately, so the agent can't browser-self-
+                                              # test. Kernel/hardware info only — no user files, no
+                                              # future specs or .git history, so no blindness risk.
           "/run/systemd/resolve",             # stub-resolv.conf target — DNS for the API/Maven
           os.path.join(home, ".local/share/claude"),
           os.path.join(home, ".local/bin"),
