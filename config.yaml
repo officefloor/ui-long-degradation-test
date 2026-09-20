@@ -107,7 +107,12 @@ isolation:
   # Pinned files are restored to authored before the gate (DESIGN.md §15). Pin only the FIXED
   # operational scaffolding — NOT the evolving app code (incl. the /__test__ endpoint, which
   # evolves with the schema; a break there is a seed-path regression, §6).
-  pin_files: ["AGENTS.md", "CLAUDE.md", "bin/build", "bin/start", "bin/stop", "bin/e2e"]
+  # Also pin the fixed test-support CLIENT helpers: seed.ts is the Arrange plumbing (its fail-loud
+  # check makes a broken /__test__ contract visible) and audit.ts reads the audit file. The EVOLVING
+  # seed surface is the SERVER /__test__ endpoint in the app, not these clients, so pinning them stops
+  # an agent weakening the check to mask a seed-path regression (restored to base_ref before the gate).
+  pin_files: ["AGENTS.md", "CLAUDE.md", "bin/build", "bin/start", "bin/stop", "bin/e2e",
+              "e2e/support/seed.ts", "e2e/support/audit.ts"]
   agent_confinement:
     enabled: true
     # The agent runs the WHOLE app to test (DESIGN.md §15), so the toolchain must be on the
