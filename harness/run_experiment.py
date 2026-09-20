@@ -50,6 +50,26 @@ CSV_FIELDS = [
 NEUTRAL_SPEC = "acceptance.spec.ts"   # the single agent-visible spec, name carries no cpNN hint
 _CP_TOKEN = re.compile(r"cp\d+", re.IGNORECASE)
 
+OAUTH_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
+
+
+def require_long_lived_token() -> None:
+    """Abort unless a long-lived Claude token is in the environment.
+
+    A run spawns a FRESH `claude -p` per checkpoint over many hours; an interactive login
+    would expire mid-run. Require CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`), which
+    agent.run_agent passes through to each child. Exit 2 with instructions if missing/blank."""
+    if (os.environ.get(OAUTH_TOKEN_ENV) or "").strip():
+        return
+    print(
+        f"FATAL: {OAUTH_TOKEN_ENV} is not set.\n"
+        f"A run launches a fresh agent per checkpoint over many hours and needs a long-lived\n"
+        f"token, not an interactive login that would expire mid-run. Create one and export it:\n"
+        f"    export {OAUTH_TOKEN_ENV}=$(claude setup-token)\n"
+        f"then re-run. (Bypass for a local smoke test only with --allow-short-token.)",
+        file=sys.stderr, flush=True)
+    raise SystemExit(2)
+
 
 def git(args: list[str], check: bool = True) -> str:
     p = subprocess.run(["git", *args], capture_output=True, text=True)
@@ -616,7 +636,12 @@ def main() -> int:
     ap.add_argument("--model")
     ap.add_argument("--from", dest="lo", type=int, default=1, help="first checkpoint (1-based)")
     ap.add_argument("--to", dest="hi", type=int, default=10**9, help="last checkpoint (inclusive)")
+    ap.add_argument("--allow-short-token", action="store_true",
+                    help="skip the long-lived-token check (local smoke tests only)")
     args = ap.parse_args()
+
+    if not args.allow_short_token:
+        require_long_lived_token()
 
     with open(args.config) as fh:
         cfg = yaml.safe_load(fh)

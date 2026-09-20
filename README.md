@@ -30,6 +30,9 @@ See **[DESIGN.md](./DESIGN.md)** for the full design and the reasoning behind ea
 
 ```sh
 ./setup.sh                                              # create .venv + install deps
+# A run spawns a fresh agent per checkpoint over many hours, so it REQUIRES a long-lived token
+# (an interactive login would expire mid-run). The driver aborts without it.
+export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)
 # run one condition/chain over the checkpoints (spawns a fresh agent per checkpoint):
 .venv/bin/python -m harness.run_experiment --config config.yaml --condition just-solve --chain 1
 # analyse a run's committed capture -> results/<run_id>/analysis/{summary.md,*.csv,*.png}:
