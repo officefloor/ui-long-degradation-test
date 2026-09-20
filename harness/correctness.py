@@ -269,7 +269,13 @@ def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
             env.update({"PORT": str(app.port), "BASE_URL": app.base_url,
                         "AUDIT_FILE": os.path.join(worktree, ".run", "audit.log"),
                         "PLAYWRIGHT_JSON_OUTPUT_NAME": json_out})
-            cmd = ["npx", "playwright", "test", "--reporter=json",
+            # --workers=1 is REQUIRED, not an optimisation: the full accumulated suite spans many
+            # spec files that all drive ONE shared app + in-memory H2 via /__test__/reset+seed
+            # (Arrange per test). Playwright's default is multi-worker and `fullyParallel:false`
+            # only serialises WITHIN a file, so different files would run concurrently and their
+            # reset/seed calls would stomp on each other — producing false cross-file regressions
+            # that grow with the suite. One worker = fully serial = the reset/seed isolation holds.
+            cmd = ["npx", "playwright", "test", "--reporter=json", "--workers=1",
                    f"--output={os.path.join(worktree, '.run', 'pw-artifacts')}"]
             try:
                 p = subprocess.run(cmd, cwd=e2e_dir, env=env, capture_output=True, text=True,
