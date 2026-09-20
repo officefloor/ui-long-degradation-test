@@ -53,9 +53,7 @@ slopes), `metrics` (per-layer structural erosion), and the `gated`/ImpactGate re
 
 Landlock confinement of the agent turn works and enforces the blind guarantee: the future specs,
 `checkpoints.yaml`, and the work_root are unreadable, and `verify_denied` refuses to start the turn
-if any is reachable. The build/serve/gate all run **unconfined** (real network + loopback) and are
-unaffected. **Caveat:** during the *confined* agent turn the agent cannot run Playwright itself —
-Chromium renderers crash in that turn on a V8 flag the agent-child environment injects (Chromium
-runs fine unconfined, so the gate is unaffected). Confirm on your own machine with one cp01 run; if
-the confined agent still cannot browser-self-test, run with `HARNESS_NO_CONFINE=1` (blindness is
-still enforced by the history-less mirror) for a stronger agent self-check.
+if any is reachable. The build/serve/gate all run **unconfined** (real network + loopback). The
+confined agent can also run Playwright itself for its in-turn browser self-test — the confinement
+allowlist grants `/sys` read-only, which Chromium renderers need at startup (without it the renderer
+target closes on launch). `HARNESS_NO_CONFINE=1` still exists to run unconfined if ever needed.
