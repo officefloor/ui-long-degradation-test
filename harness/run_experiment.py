@@ -105,18 +105,31 @@ def mirror_source(src: str, dst: str, extra_excludes: tuple = ()) -> None:
 # --- spec install (blind view + full gate suite; honours mutative overrides) --
 
 
-def _spec_entries(cp: dict) -> list[str]:
-    """Repo-root-relative spec paths a checkpoint installs. A mutative checkpoint's `tests`
-    lists its own new spec PLUS updated copies of prior specs (installed by basename)."""
-    if cp.get("tests"):
-        return list(cp["tests"])
-    return [cp["test"]]
-
-
 def _own_spec(cp: dict) -> str:
     """The checkpoint's OWN spec (the only one the agent may see) — its `test`, or the
-    first entry of `tests` for a mutative checkpoint."""
-    return cp["test"] if cp.get("test") else _spec_entries(cp)[0]
+    first entry of an explicit `tests` list."""
+    return cp["test"] if cp.get("test") else list(cp.get("tests") or [None])[0]
+
+
+def _spec_entries(cp: dict) -> list[str]:
+    """Repo-root-relative spec paths a checkpoint installs: its OWN spec, PLUS any updated
+    copies of prior specs it ships. A mutative checkpoint drops those updated copies in a
+    sibling `cp<NN>/` folder next to the specs (auto-discovered here, installed by basename so
+    they win over the prior originals); an explicit `tests:` list is also honoured for
+    back-compat."""
+    own = _own_spec(cp)
+    entries: list[str] = [own] if own else []
+    base_dir = os.path.dirname(own) if own else ""
+    override_rel = os.path.join(base_dir, f"cp{int(cp['n']):02d}")
+    override_abs = os.path.join(HARNESS_ROOT, override_rel)
+    if os.path.isdir(override_abs):
+        for fn in sorted(os.listdir(override_abs)):
+            if fn.endswith(".spec.ts"):
+                entries.append(os.path.join(override_rel, fn))
+    for e in (cp.get("tests") or []):
+        if e not in entries:
+            entries.append(e)
+    return entries
 
 
 def _authored_specs(checkpoints: list[dict], k: int) -> dict[str, str]:

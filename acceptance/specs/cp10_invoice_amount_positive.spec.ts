@@ -6,8 +6,8 @@ import { resetAndSeed } from '../support/seed';
 test.describe('invoice amount validation', () => {
   test('rejects a non-positive amount', { tag: '@error' }, async ({ page }) => {
     await resetAndSeed({
-      owners: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
-      projects: [{ id: 1, name: 'Website Rebuild', ownerId: 1 }],
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [],
     });
     await page.goto('/');
@@ -23,8 +23,8 @@ test.describe('invoice amount validation', () => {
 
   test('accepts a positive amount', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
-      owners: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
-      projects: [{ id: 1, name: 'Website Rebuild', ownerId: 1 }],
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [],
     });
     await page.goto('/');

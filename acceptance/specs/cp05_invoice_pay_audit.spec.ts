@@ -7,8 +7,8 @@ import { auditLines } from '../support/audit';
 test.describe('invoice payment', () => {
   test('marking an invoice paid updates its status', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
-      owners: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
-      projects: [{ id: 1, name: 'Website Rebuild', ownerId: 1 }],
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [{ id: 1, projectId: 1, amount: 100, status: 'UNPAID' }],
     });
     await page.goto('/');
@@ -22,8 +22,8 @@ test.describe('invoice payment', () => {
 
   test('paying an invoice writes an audit record', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
-      owners: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
-      projects: [{ id: 1, name: 'Website Rebuild', ownerId: 1 }],
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [{ id: 1, projectId: 1, amount: 100, status: 'UNPAID' }],
     });
     await page.goto('/');

@@ -7,8 +7,8 @@ import { resetAndSeed } from '../../support/seed';
 test.describe('project invoices', () => {
   test('a project shows its invoices and their total', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
-      owners: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
-      projects: [{ id: 1, name: 'Website Rebuild', ownerId: 1 }],
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [
         { id: 1, projectId: 1, amount: 100 },
         { id: 2, projectId: 1, amount: 50 },
@@ -26,8 +26,8 @@ test.describe('project invoices', () => {
 
   test('adds an invoice to a project', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
-      owners: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
-      projects: [{ id: 1, name: 'Website Rebuild', ownerId: 1 }],
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [],
     });
     await page.goto('/');

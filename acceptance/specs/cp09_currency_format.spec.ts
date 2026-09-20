@@ -8,8 +8,8 @@ import { resetAndSeed } from '../support/seed';
 test.describe('currency formatting', () => {
   test('invoice amounts and totals show a currency symbol', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
-      owners: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
-      projects: [{ id: 1, name: 'Website Rebuild', ownerId: 1 }],
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [
         { id: 1, projectId: 1, amount: 100, status: 'UNPAID' },
         { id: 2, projectId: 1, amount: 50, status: 'UNPAID' },
