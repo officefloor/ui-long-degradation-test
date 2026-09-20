@@ -6,10 +6,10 @@ correctness row is rebuilt here from the raw `{test_id: passed}` map in each cpN
 correctness.score_results / outcome_row — so a scoring change (or, later, a structural metric)
 can be computed over OLD runs without re-invoking the agent.
 
-Headline (correctness-based): the degradation slope m = OLS slope of a metric on checkpoint
-index, per condition, with a chain-bootstrap CI; plus EvoScore and Zero-Regression Rate.
-STRUCTURAL EROSION (front-end TS + backend Java via metrics.py) is DEFERRED — recompute_rows
-has the seam (see the `TODO metrics` block) but does not block on it.
+Headline: the degradation slope m = OLS slope of a metric on checkpoint index, per condition,
+with a chain-bootstrap CI; plus EvoScore and Zero-Regression Rate. recompute_rows also merges
+PER-LAYER structural erosion/impact (metrics.compute_all over each checkpoint commit — front-end
+TS at file-scope, backend Java at class-scope; separate series, never compared across layers).
 
 Usage:
   python -m harness.analyze --config config.yaml [--run-id RID] [--out DIR] [--gammas 1,1.5,2]
@@ -23,12 +23,13 @@ import math
 import os
 import re
 import subprocess
+import tempfile
 from collections import Counter, defaultdict
 
 import numpy as np
 import yaml
 
-from . import correctness, expand_path
+from . import correctness, expand_path, metrics
 from .run_experiment import CSV_FIELDS, phase_for
 
 try:
@@ -129,10 +130,33 @@ def _outcome_from_capture(rec: dict) -> correctness.TestOutcome:
     return outcome
 
 
-def recompute_rows(repo: str, run_id: str) -> list[dict]:
+def _metrics_row(repo: str, commit_sha: str, prev_sha: str | None, app_cfg: dict) -> dict:
+    """Structural erosion/impact for a checkpoint: materialise its agent commit in a THROWAWAY
+    worktree and run metrics.compute_all over it (front-end TS + backend Java, per layer;
+    DESIGN.md §8). Resilient — any failure returns {} so one bad checkpoint can't abort analyze."""
+    if not commit_sha:
+        return {}
+    tmp = tempfile.mkdtemp(prefix="ana-metrics-")
+    try:
+        r = subprocess.run(["git", "-C", repo, "worktree", "add", "--detach", "-f", tmp, commit_sha],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            return {}
+        return metrics.compute_all(tmp, app_cfg, {}, commit_sha, prev_ref=(prev_sha or None))
+    except Exception as e:  # never let a metrics failure abort the run
+        print(f"    [warn] metrics failed for {commit_sha[:8]}: {e}")
+        return {}
+    finally:
+        subprocess.run(["git", "-C", repo, "worktree", "remove", "--force", tmp],
+                       capture_output=True, text=True)
+        subprocess.run(["rm", "-rf", tmp], capture_output=True, text=True)
+
+
+def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None) -> list[dict]:
     """One row per (chain, checkpoint), rebuilt from capture and re-scored. prior_passing
     accumulates within a chain so regressions / normalized_change are relative to the last
-    graded checkpoint (a gate-invalid checkpoint does not advance the baseline)."""
+    graded checkpoint (a gate-invalid checkpoint does not advance the baseline). When app_cfg
+    is given, structural metrics (metrics.compute_all) are merged in from the checkpoint commit."""
     rows: list[dict] = []
     for branch, condition, chain in sorted(_evolve_branches(repo, run_id)):
         caps = _read_captures(repo, branch)
@@ -160,9 +184,10 @@ def recompute_rows(repo: str, run_id: str) -> list[dict]:
                 "notes": "",
             }
             row.update(scored_row)
-            # TODO metrics (structural erosion, DEFERRED): materialise rec["commit_sha"] in a
-            # throwaway worktree and merge metrics.compute_all(...) columns (front-end TS +
-            # backend Java, per DESIGN.md §8) here — same shape as the REST arm's recompute.
+            # Structural erosion/impact (per layer) from the checkpoint commit (DESIGN.md §8).
+            if app_cfg:
+                row.update(_metrics_row(repo, rec.get("commit_sha") or "",
+                                        rec.get("prev_sha"), app_cfg))
             if not outcome.gate_invalid:
                 prior_passing = outcome.passing
             rows.append(row)
@@ -365,7 +390,14 @@ PLOT_FIELDS = [
     ("true_regressions", "True regressions (excl. intended mutations)"),
     ("normalized_change", "Normalized change (SWE-CI)"),
     ("cost_usd", "Agent cost per checkpoint (USD)"),
-    # TODO metrics: erosion_frontend / erosion_backend once metrics.py lands (DESIGN.md §8).
+    # Structural erosion / impact, PER LAYER (DESIGN.md §8) — separate series, never compared
+    # across layers (front-end is file-scope, backend is class-scope).
+    ("frontend_erosion", "Front-end erosion (TS)"),
+    ("backend_erosion", "Backend erosion (Java)"),
+    ("frontend_impact_composite", "Front-end blast-radius impact (TS)"),
+    ("backend_impact_composite", "Backend blast-radius impact (Java)"),
+    ("frontend_boundary", "Front-end boundary violations"),
+    ("backend_boundary", "Backend boundary violations"),
 ]
 
 
@@ -421,8 +453,9 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
          f"- chains: {sorted({int(r['chain']) for r in rows})}",
          f"- checkpoints: {sorted({int(r['checkpoint']) for r in rows})}",
          f"- rows: {len(rows)}  (gate-invalid: {sum(1 for r in rows if _b(r.get('gate_invalid')))})",
-         "", "> Correctness-based headline. Structural erosion (front-end TS + backend Java "
-         "via metrics.py) is DEFERRED — see the `TODO metrics` seam in recompute_rows.", ""]
+         "", "> Correctness headline + per-layer structural erosion/impact (front-end TS at "
+         "file-scope, backend Java at class-scope) — separate series, never compared across "
+         "layers (DESIGN.md §8).", ""]
 
     for cond in sorted(by_cond):
         cr = by_cond[cond]
@@ -460,8 +493,11 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
 
 def write_csv(rows: list[dict], out_dir: str) -> str:
     path = os.path.join(out_dir, "records.concat.csv")
+    # base correctness fields first, then any structural-metric columns present (sorted).
+    extra = sorted({k for r in rows for k in r} - set(CSV_FIELDS))
+    fieldnames = CSV_FIELDS + extra
     with open(path, "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=CSV_FIELDS, extrasaction="ignore")
+        w = csv.DictWriter(fh, fieldnames=fieldnames, extrasaction="ignore")
         w.writeheader()
         for r in rows:
             w.writerow(r)
@@ -486,7 +522,7 @@ def main() -> int:
         return 1
     print(f"analyzing run {run_id} in {repo}")
 
-    rows = recompute_rows(repo, run_id)
+    rows = recompute_rows(repo, run_id, cfg["app"])
     if not rows:
         print("no capture found for run", run_id)
         return 1
