@@ -374,10 +374,15 @@ checkpoints:
       I call these jobs, not projects. Please use that word everywhere.
 
   - id: cp53_job_code
-    type: additive
+    # Adding a required unique code CHANGES the job-creation contract, so this is mutative: the
+    # create tests for jobs (cp03) and job status on create (cp34) must now supply a code. Without
+    # updating them they would create a job with no code and fail — a test gap, not agent erosion.
+    type: mutative
+    mutates: [3, 34]
     test: acceptance/specs/cp53_job_code.spec.ts
     request: |
-      Give each job a short reference code. Keep it unique so no two jobs share one.
+      Give each job a short reference code, set when creating the job. Keep it unique so no two jobs
+      share one.
 
   - id: cp54_invoice_notes
     type: additive
