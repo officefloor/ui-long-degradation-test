@@ -11,8 +11,8 @@ test.describe('thousands separators', () => {
       invoices: [{ id: 1, projectId: 1, status: 'SENT', lineItems: [{ id: 1, description: 'Build', qty: 1, unitPrice: 1234.5 }] }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-jobs').click();
-    await page.getByTestId('job-open-1').click();
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-amount')).toHaveText('€1,234.50');
   });
 });

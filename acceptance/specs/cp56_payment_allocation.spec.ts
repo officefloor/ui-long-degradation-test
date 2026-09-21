@@ -25,8 +25,8 @@ test.describe('payment allocation', () => {
     await page.getByTestId('payment-alloc-2').fill('50');
     await page.getByTestId('payment-form-submit').click();
 
-    await page.getByTestId('nav-jobs').click();
-    await page.getByTestId('job-open-1').click();
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due-amount')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('PAID');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due-amount')).toHaveText('$50.00');

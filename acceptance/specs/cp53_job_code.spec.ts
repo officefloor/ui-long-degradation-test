@@ -9,8 +9,8 @@ test.describe('job code', () => {
       projects: [{ id: 1, name: 'Website Rebuild', clientId: 1, code: 'ACME01' }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-jobs').click();
-    await expect(page.getByTestId('job-row-1').getByTestId('job-code')).toHaveText('ACME01');
+    await page.getByTestId('nav-projects').click();
+    await expect(page.getByTestId('project-row-1').getByTestId('project-code')).toHaveText('ACME01');
   });
 
   test('rejects a duplicate code', { tag: '@error' }, async ({ page }) => {
@@ -19,13 +19,13 @@ test.describe('job code', () => {
       projects: [{ id: 1, name: 'Website Rebuild', clientId: 1, code: 'ACME01' }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-jobs').click();
-    await page.getByTestId('job-form-name').fill('Second');
-    await page.getByTestId('job-form-client').selectOption('1');
-    await page.getByTestId('job-form-code').fill('ACME01');
-    await page.getByTestId('job-form-submit').click();
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-form-name').fill('Second');
+    await page.getByTestId('project-form-client').selectOption('1');
+    await page.getByTestId('project-form-code').fill('ACME01');
+    await page.getByTestId('project-form-submit').click();
 
-    await expect(page.getByTestId('job-form-code-error')).toBeVisible();
-    await expect(page.getByTestId(/^job-row-/)).toHaveCount(1);
+    await expect(page.getByTestId('project-form-code-error')).toBeVisible();
+    await expect(page.getByTestId(/^project-row-/)).toHaveCount(1);
   });
 });

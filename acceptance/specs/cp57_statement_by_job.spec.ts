@@ -22,8 +22,8 @@ test.describe('statement grouped by job', () => {
     await page.getByTestId('client-open-1').click();
     await page.getByTestId('client-statement-open').click();
 
-    await expect(page.getByTestId('statement-job-1').getByTestId('statement-job-subtotal')).toHaveText('$150.00');
-    await expect(page.getByTestId('statement-job-2').getByTestId('statement-job-subtotal')).toHaveText('$200.00');
+    await expect(page.getByTestId('statement-project-1').getByTestId('statement-project-subtotal')).toHaveText('$150.00');
+    await expect(page.getByTestId('statement-project-2').getByTestId('statement-project-subtotal')).toHaveText('$200.00');
     await expect(page.getByTestId('client-outstanding-total')).toHaveText('$350.00');
   });
 });

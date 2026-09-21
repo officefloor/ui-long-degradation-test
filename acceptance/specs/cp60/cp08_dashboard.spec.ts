@@ -24,7 +24,7 @@ test.describe('dashboard', () => {
     await page.getByTestId('nav-dashboard').click();
 
     await expect(page.getByTestId('dashboard-clients-count')).toHaveText('2');
-    await expect(page.getByTestId('dashboard-jobs-count')).toHaveText('2');
+    await expect(page.getByTestId('dashboard-projects-count')).toHaveText('2');
     await expect(page.getByTestId('dashboard-outstanding-USD')).toHaveText('$100.00');
     await expect(page.getByTestId('dashboard-outstanding-EUR')).toHaveText('€200.00');
   });

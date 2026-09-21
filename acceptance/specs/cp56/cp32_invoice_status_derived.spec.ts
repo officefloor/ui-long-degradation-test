@@ -13,8 +13,8 @@ test.describe('derived invoice status', () => {
       invoices: [{ id: 1, projectId: 1, status: 'SENT', lineItems: [{ id: 1, description: 'Work', qty: 1, unitPrice: 100 }] }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-jobs').click();
-    await page.getByTestId('job-open-1').click();
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('SENT');
 
     await page.getByTestId('invoice-open-1').click();

@@ -12,8 +12,8 @@ test.describe('invoice amount due', () => {
       payments: [{ id: 1, invoiceId: 1, amount: 40, date: '2026-02-01' }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-jobs').click();
-    await page.getByTestId('job-open-1').click();
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
 
     // discounted amount 180, minus 40 paid = 140 due.
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due-amount')).toHaveText('$140.00');

@@ -11,8 +11,8 @@ test.describe('invoice notes', () => {
       notes: [{ id: 1, targetType: 'invoice', targetId: 1, text: 'Chase payment', at: '2026-02-01' }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-jobs').click();
-    await page.getByTestId('job-open-1').click();
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
     await page.getByTestId('invoice-open-1').click();
 
     await expect(page.getByTestId('invoice-notes')).toBeVisible();

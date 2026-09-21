@@ -19,8 +19,8 @@ test.describe('multi currency', () => {
     await page.getByTestId('client-currency-save').click();
     await expect(page.getByTestId('client-currency')).toHaveText('EUR');
 
-    await page.getByTestId('nav-jobs').click();
-    await page.getByTestId('job-open-1').click();
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-amount')).toHaveText('€100.00');
   });
 
