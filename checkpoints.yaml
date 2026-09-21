@@ -186,8 +186,9 @@ checkpoints:
     mutates: [3, 7, 24]
     test: acceptance/specs/cp25_project_archive.spec.ts
     request: |
-      Do not really delete a project. Just tuck it away so it is off my list. I do not want to lose
-      anything. Note it when I do.
+      Do not really delete a project. Just tuck it away so it drops off my lists. Keep it off the
+      main project list and off the list on the client's page. I do not want to lose anything.
+      Note it when I do.
 
   - id: cp26_project_tags
     type: additive
@@ -286,7 +287,8 @@ checkpoints:
     mutates: [9, 21, 33]
     test: acceptance/specs/cp40_thousands_separator.spec.ts
     request: |
-      For bigger amounts put commas in. Show it like $1,234.50.
+      For bigger amounts put commas in. Show it like $1,234.50. Do this everywhere an amount shows,
+      including on the invoices and on the client statement.
 
   - id: cp41_invoice_cancel_audit
     type: additive
@@ -346,7 +348,8 @@ checkpoints:
     mutates: [21, 47]
     test: acceptance/specs/cp49_sales_tax.spec.ts
     request: |
-      Let me add sales tax on top. Apply it after the discount. Include it in the total.
+      Let me add sales tax on top. Work it out after the discount. The amount shown for each invoice
+      should include the tax.
 
   - id: cp50_combined_filter
     type: additive
@@ -421,5 +424,6 @@ checkpoints:
     test: acceptance/specs/cp60_multi_currency.spec.ts
     request: |
       Different clients pay me in different currencies. Let me set each client's currency. Show
-      their money in that currency. On the home screen keep the totals separate for each currency.
-      Do not add different currencies together.
+      their money in that currency everywhere I see it, including on their statement. On the home
+      screen keep the totals separate for each currency. Show each client's figure in their own
+      currency in the top clients list too. Do not add different currencies together.
