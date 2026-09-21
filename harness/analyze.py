@@ -130,10 +130,12 @@ def _outcome_from_capture(rec: dict) -> correctness.TestOutcome:
     return outcome
 
 
-def _metrics_row(repo: str, commit_sha: str, prev_sha: str | None, app_cfg: dict) -> dict:
-    """Structural erosion/impact for a checkpoint: materialise its agent commit in a THROWAWAY
-    worktree and run metrics.compute_all over it (front-end TS + backend Java, per layer;
-    DESIGN.md §8). Resilient — any failure returns {} so one bad checkpoint can't abort analyze."""
+def _metrics_row(repo: str, commit_sha: str, prev_sha: str | None, app_cfg: dict,
+                 tools: dict | None = None, base_commit: str | None = None) -> dict:
+    """Structural erosion/impact/placement for a checkpoint: materialise its agent commit in a
+    THROWAWAY worktree and run metrics.compute_all over it (front-end TS + backend Java, per layer;
+    DESIGN.md §8). `tools` drives the Java-backend CK/PMD block; `base_commit` (the chain base) drives
+    cumulative change-entropy. Resilient — any failure returns {} so one bad checkpoint can't abort."""
     if not commit_sha:
         return {}
     tmp = tempfile.mkdtemp(prefix="ana-metrics-")
@@ -142,7 +144,8 @@ def _metrics_row(repo: str, commit_sha: str, prev_sha: str | None, app_cfg: dict
                            capture_output=True, text=True)
         if r.returncode != 0:
             return {}
-        return metrics.compute_all(tmp, app_cfg, {}, commit_sha, prev_ref=(prev_sha or None))
+        return metrics.compute_all(tmp, app_cfg, tools or {}, base_commit or commit_sha,
+                                   prev_ref=(prev_sha or None))
     except Exception as e:  # never let a metrics failure abort the run
         print(f"    [warn] metrics failed for {commit_sha[:8]}: {e}")
         return {}
@@ -152,17 +155,20 @@ def _metrics_row(repo: str, commit_sha: str, prev_sha: str | None, app_cfg: dict
         subprocess.run(["rm", "-rf", tmp], capture_output=True, text=True)
 
 
-def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None) -> list[dict]:
+def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
+                   tools: dict | None = None) -> list[dict]:
     """One row per (chain, checkpoint), rebuilt from capture and re-scored. prior_passing
     accumulates within a chain so regressions / normalized_change are relative to the last
     graded checkpoint (a gate-invalid checkpoint does not advance the baseline). When app_cfg
-    is given, structural metrics (metrics.compute_all) are merged in from the checkpoint commit."""
+    is given, structural metrics (metrics.compute_all) are merged in from the checkpoint commit;
+    `tools` drives the Java-backend CK/PMD block."""
     rows: list[dict] = []
     for branch, condition, chain in sorted(_evolve_branches(repo, run_id)):
         caps = _read_captures(repo, branch)
         if not caps:
             continue
         n = max(caps)
+        base_commit = caps[min(caps)].get("prev_sha")  # chain base (cp01's prev) — cum change-entropy
         prior_passing: set[str] = set()
         for k in sorted(caps):
             rec = caps[k]
@@ -184,10 +190,10 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None) -> list[
                 "notes": "",
             }
             row.update(scored_row)
-            # Structural erosion/impact (per layer) from the checkpoint commit (DESIGN.md §8).
+            # Structural erosion/impact/placement (per layer) from the checkpoint commit (§8).
             if app_cfg:
                 row.update(_metrics_row(repo, rec.get("commit_sha") or "",
-                                        rec.get("prev_sha"), app_cfg))
+                                        rec.get("prev_sha"), app_cfg, tools, base_commit))
             if not outcome.gate_invalid:
                 prior_passing = outcome.passing
             rows.append(row)
@@ -522,7 +528,7 @@ def main() -> int:
         return 1
     print(f"analyzing run {run_id} in {repo}")
 
-    rows = recompute_rows(repo, run_id, cfg["app"])
+    rows = recompute_rows(repo, run_id, cfg["app"], cfg.get("tools"))
     if not rows:
         print("no capture found for run", run_id)
         return 1

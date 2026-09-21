@@ -279,3 +279,32 @@ def summary(qr: QualityReview) -> dict:
         "reason": qr.reason or None,
         "clones_ran": qr.clones_ran, "smells_ran": qr.smells_ran,
     }
+
+
+# --- PMD runner (used by placement.pmd_metrics for the Java backend layer) -----
+
+
+def run_pmd(root: str, src_dirs: list[str], pmd_bin: str, rulesets: list[str],
+            what: str = "pmd", timeout: int = 900) -> "dict | None":
+    """ONE PMD process over `rulesets`; the raw JSON report, or None if PMD did not run.
+
+    Guards for the "did not run reads as found nothing" trap: PMD exits 4 when it finds
+    violations (so --no-fail-on-violation), and ruleset refs are made ABSOLUTE (PMD runs with
+    cwd=worktree, so a relative ref resolves against the worktree and silently fails)."""
+    refs = ",".join(os.path.abspath(r) for r in rulesets)
+    cmd = [pmd_bin, "check", "-f", "json", "-R", refs,
+           "--no-fail-on-violation", "--no-progress", "--no-cache"]
+    for d in src_dirs:
+        cmd += ["-d", d]
+    try:
+        proc = subprocess.run(cmd, cwd=root, capture_output=True, text=True, timeout=timeout)
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        first = ((proc.stderr or "").strip().splitlines() or [""])[0]
+        print(f"    ! pmd exited {proc.returncode}; {what} DID NOT RUN ({first[:160]})", flush=True)
+        return None
+    try:
+        return json.loads(proc.stdout or "{}")
+    except json.JSONDecodeError:
+        return None

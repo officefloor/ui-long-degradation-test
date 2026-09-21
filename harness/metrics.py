@@ -29,6 +29,8 @@ from typing import Callable, Optional
 
 import lizard
 
+from . import placement
+
 CC_THRESHOLD = 10
 IMPACT_RENAME_JACCARD = 0.6
 LAYERS = ("frontend", "backend")
@@ -298,6 +300,86 @@ def boundary_violations(worktree: str, prev_ref: str, cur_ref: str, cfg: dict) -
     return out
 
 
+# --- temporal coupling (re-edit) + change spread (git) ------------------------
+
+
+def _overlapping_functions(worktree: str, ref: str, path: str,
+                           ranges: list[tuple[int, int]]) -> list[dict]:
+    """Functions in path@ref whose line span overlaps any changed range."""
+    return [f for f in _parse_blob(worktree, ref, path).values()
+            if _line_overlap(f["s"], f["e"], ranges) > 0]
+
+
+def _blame_line_commits(worktree: str, ref: str, path: str) -> dict[int, str]:
+    """line number -> commit sha that last touched it, as of `ref`."""
+    out = _git(worktree, ["blame", "--line-porcelain", ref, "--", path], timeout=120)
+    m: dict[int, str] = {}
+    for line in out.splitlines():
+        mt = re.match(r"^([0-9a-f]{40}) \d+ (\d+)", line)
+        if mt:
+            m[int(mt.group(2))] = mt.group(1)
+    return m
+
+
+def reedit_stats(worktree: str, prev_ref: str, cur_ref: str,
+                 match: Callable[[str], bool]) -> dict:
+    """Temporal coupling: of the body lines in functions THIS checkpoint edits, what fraction
+    were authored by an EARLIER commit (not this checkpoint)? High => new rules keep piling
+    into functions earlier rules grew; low/None => the checkpoint added NEW units instead of
+    reopening accumulated ones. Whole edited-function bodies are counted (not just changed
+    lines) so a one-line insertion into a large shared function still registers."""
+    try:
+        ns = _git(worktree, ["diff", "--name-status", "-M", prev_ref, cur_ref])
+        cur_sha = _git(worktree, ["rev-parse", cur_ref]).strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return {"reedit_body_lines": None, "reedit_prior_lines": None, "reedit_rate": None}
+    modified = [p.split("\t")[-1] for p in ns.splitlines()
+                if len(p.split("\t")) >= 2 and not p.split("\t")[0].startswith("A")
+                and match(p.split("\t")[-1])]
+    body_total = prior = 0
+    for f in modified:
+        ranges = _changed_ranges(worktree, prev_ref, cur_ref, f)
+        for fn in _overlapping_functions(worktree, cur_ref, f, ranges):
+            blame = _blame_line_commits(worktree, cur_ref, f)
+            for ln in range(fn["s"], fn["e"] + 1):
+                sha = blame.get(ln)
+                if not sha:
+                    continue
+                body_total += 1
+                if sha != cur_sha:
+                    prior += 1
+    rate = (prior / body_total) if body_total else None
+    return {"reedit_body_lines": body_total, "reedit_prior_lines": prior,
+            "reedit_rate": (round(rate, 4) if rate is not None else None)}
+
+
+def change_spread(worktree: str, prev_ref: str, cur_ref: str,
+                  match: Callable[[str], bool]) -> dict:
+    """Architectural reach: distinct source directories the layer's diff touches."""
+    try:
+        names = _git(worktree, ["diff", "--name-only", prev_ref, cur_ref])
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return {"dirs_touched": None}
+    pkgs = {os.path.dirname(f) for f in names.splitlines() if f.strip() and match(f.strip())}
+    return {"dirs_touched": len(pkgs)}
+
+
+def _glob_dirs(globs: list[str]) -> list[str]:
+    """Static-prefix source directories of a layer's globs (for CK/PMD, which take dirs).
+    `src/main/java/**/*.java` -> `src/main/java`."""
+    dirs = []
+    for g in globs or []:
+        keep = []
+        for part in g.split("/"):
+            if any(c in part for c in "*?{"):
+                break
+            keep.append(part)
+        d = "/".join(keep)
+        if d:
+            dirs.append(d)
+    return sorted(set(dirs))
+
+
 # --- the seam analyze calls ---------------------------------------------------
 
 
@@ -323,10 +405,34 @@ def compute_all(worktree: str, app_cfg: dict, tools: dict, base_commit: str,
             row[f"{lyr}_{k}"] = v
         for k, v in hotspot(fns).items():
             row[f"{lyr}_{k}"] = v
+        # Placement: total CC + its concentration over fns/files/dirs (both layers, lizard).
+        for k, v in placement.complexity_placement(fns).items():
+            row[f"{lyr}_{k}"] = v
+        # Java-backend depth: Halstead/MI, CK (C&K), PMD (cognitive/NPath/GodClass). Each returns
+        # None -> blank columns (never zeros) when its tool is not configured/available.
+        if lyr == "backend" and fns:
+            for k, v in placement.halstead_placement(worktree, fns).items():
+                row[f"backend_{k}"] = v
+            src_dirs = _glob_dirs(globs)
+            pmd = placement.pmd_metrics(worktree, src_dirs, tools.get("pmd") or "",
+                                        tools.get("pmd_metrics_rules") or "")
+            for k, v in (pmd or {}).items():
+                row[f"backend_{k}"] = v
+            ck = placement.ck_metrics(worktree, src_dirs, tools.get("ck") or "",
+                                      tools.get("java") or "java")
+            for k, v in (ck or {}).items():
+                row[f"backend_{k}"] = v
         if prev_ref:
             for k, v in impact_stats(worktree, prev_ref, "HEAD", match).items():
                 row[f"{lyr}_{k}"] = v
             for k, v in blast_radius(worktree, prev_ref, "HEAD", match).items():
+                row[f"{lyr}_{k}"] = v
+            for k, v in reedit_stats(worktree, prev_ref, "HEAD", match).items():
+                row[f"{lyr}_{k}"] = v
+            for k, v in change_spread(worktree, prev_ref, "HEAD", match).items():
+                row[f"{lyr}_{k}"] = v
+            for k, v in placement.change_entropy(worktree, prev_ref, "HEAD",
+                                                 base_commit, match).items():
                 row[f"{lyr}_{k}"] = v
     if prev_ref:
         row.update(boundary_violations(worktree, prev_ref, "HEAD", {"app": app_cfg}))

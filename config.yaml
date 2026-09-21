@@ -99,7 +99,14 @@ tools:
   jscpd: jscpd                 # clone detector (both layers); on PATH
   astgrep: sg                  # ast-grep binary (both layers); on PATH
   astgrep_rules: astgrep-rules # java-wasteful.yml + typescript-wasteful.yml (resolved vs harness root)
-  # pin versions for a real study (node, playwright, JRE, lizard, impact-gate, jscpd, ast-grep)
+  # Structural-metrics tools for the BACKEND (Java) layer only (metrics.compute_all / analyze).
+  # Each is optional: unset or missing -> those columns stay BLANK (never zero). See harness/placement.py.
+  java: java                   # JRE on PATH; drives the CK tool
+  pmd: ${HOME}/spring-petclinic-rest-long-degradation-test/tools/pmd/bin/pmd   # PMD binary (reused
+                               #   from the REST arm; vendor into ./tools/pmd for a self-contained study)
+  pmd_metrics_rules: pmd-rules/java-metrics.xml   # cognitive/NPath VALUES + GodClass/DataClass verdicts
+  ck:                          # path to ck.jar for the Chidamber-Kemerer suite (unset -> ck_* blank)
+  # pin versions for a real study (node, playwright, JRE, lizard, jscpd, ast-grep, pmd, ck)
 
 # Filesystem confinement for the agent turn (Linux Landlock; no root/bwrap). Identical to the REST
 # arm; fails CLOSED. Verify:  python harness/landlock_selftest.py
