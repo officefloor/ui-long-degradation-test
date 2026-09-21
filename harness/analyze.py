@@ -528,7 +528,11 @@ def main() -> int:
         return 1
     print(f"analyzing run {run_id} in {repo}")
 
-    rows = recompute_rows(repo, run_id, cfg["app"], cfg.get("tools"))
+    # Expand ${VARS}/~ in the metrics tool paths (pmd/ck/java) so a config path like
+    # ${HOME}/.../pmd resolves — otherwise the CK/PMD blocks silently produce blank columns.
+    tools = {k: (os.path.expanduser(os.path.expandvars(v)) if isinstance(v, str) else v)
+             for k, v in (cfg.get("tools") or {}).items()}
+    rows = recompute_rows(repo, run_id, cfg["app"], tools)
     if not rows:
         print("no capture found for run", run_id)
         return 1
