@@ -83,6 +83,11 @@ impact_gate:
   # cmd: ["/abs/path/to/impact-gate"]   # default: ~/ImpactGate/.venv/bin/impact-gate, else PATH
   block_percentile: 98
   warn_percentile: 90
+  # Cognitive Complexity gate (Campbell 2018), ON by default here. A checkpoint also blocks when
+  # any method it TOUCHED (in either layer) exceeds this. It catches deeply nested, hard to read
+  # methods that the change impact percentile cannot see. Requires an impact-gate build with the
+  # cognitive gate (the --cognitive-max flag). Set to null to turn it off.
+  cognitive_max: 15
   # curve_prior_weight: 200   # K in w=n/(n+K) blending project baseline vs shipped seed (CLI default)
   max_refactors: 2            # refactor attempts before accepting a still-flagged change
   max_review_turns: 2         # quality-gate review turns per refactor

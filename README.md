@@ -33,11 +33,20 @@ See **[DESIGN.md](./DESIGN.md)** for the full design and the reasoning behind ea
 # A run spawns a fresh agent per checkpoint over many hours, so it REQUIRES a long-lived token
 # (an interactive login would expire mid-run). The driver aborts without it.
 export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)
-# run one condition/chain over the checkpoints (spawns a fresh agent per checkpoint):
-.venv/bin/python -m harness.run_experiment --config config.yaml --condition just-solve --chain 1
+# run the default condition/chain over the checkpoints (spawns a fresh agent per checkpoint):
+.venv/bin/python -m harness.run_experiment --config config.yaml --chain 1
 # analyse a run's committed capture -> results/<run_id>/analysis/{summary.md,*.csv,*.png}:
 .venv/bin/python -m harness.analyze --config config.yaml --run-id <run_id>
 ```
+
+The default condition is `gated` (`active_condition` in `config.yaml`). It runs the OfficeHQ
+ImpactGate loop. After each implement turn the staged diff is scored per layer. A checkpoint
+blocks and triggers a refactor turn when the change impact is over `block_percentile`, OR when the
+cognitive gate flags a method it touched. The cognitive gate is on by default (`impact_gate.cognitive_max`).
+It blocks a method whose Cognitive Complexity (Campbell 2018) exceeds the threshold. It catches
+deeply nested, hard to read methods that the change impact percentile cannot see. It needs an
+impact-gate build with the `--cognitive-max` flag. Set `impact_gate.cognitive_max: null` to turn
+it off, or pass `--condition just-solve` to run the ungated control.
 
 `config.yaml` points `app.repo` at a base repo (a stack, e.g. `~/officehq-react-officefloor`); each
 run commits its checkpoints to an `evolve/<run_id>/…` branch there. Anything that builds/serves/tests

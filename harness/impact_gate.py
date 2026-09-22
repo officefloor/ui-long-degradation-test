@@ -97,6 +97,8 @@ def score(worktree: str, layer: str, cfg: dict, timeout: int = 300) -> dict:
             "--measure-config", mc]
     if igc.get("curve_prior_weight") is not None:
         argv += ["--curve-prior-weight", str(igc["curve_prior_weight"])]
+    if igc.get("cognitive_max") is not None:
+        argv += ["--cognitive-max", str(igc["cognitive_max"])]
     baseline = (igc.get("baseline_files") or {}).get(layer)
     if baseline:
         argv += ["--baseline-file", baseline]
@@ -135,9 +137,19 @@ def grade_percentile(ig: dict) -> float | None:
     return (ig.get("grade") or {}).get("percentile")
 
 
+def cognitive_blocked(ig: dict) -> bool:
+    """A layer fails the cognitive gate when a method it touched is over cognitive_max. This is
+    absolute per method, independent of the change impact percentile. Empty/absent when the
+    cognitive gate is off, so it never fails on its own then."""
+    return bool((ig.get("cognitive") or {}).get("blocked"))
+
+
 def is_blocked(ig: dict, block_percentile: float) -> bool:
-    """A layer fails when its grade percentile ≥ block_percentile. An empty/ungraded layer
-    (no source of that language touched) never fails."""
+    """A layer fails when its change impact grade percentile ≥ block_percentile, OR when the
+    cognitive gate flags a touched method. An empty/ungraded layer (no source of that language
+    touched) never fails on impact."""
+    if cognitive_blocked(ig):
+        return True
     pct = grade_percentile(ig)
     if pct is None:
         return bool(ig.get("blocked"))
@@ -174,19 +186,38 @@ def _format_drivers(ig: dict, limit: int = 6) -> list[str]:
     return lines
 
 
+def _format_cognitive(ig: dict, limit: int = 6) -> list[str]:
+    """The methods this change left over the cognitive limit. Cognitive Complexity is a published
+    metric, so naming the value is fair and actionable (unlike the bespoke composite)."""
+    lines = []
+    for u in ((ig.get("cognitive") or {}).get("offenders") or [])[:limit]:
+        where = u.get("container") or "(file scope)"
+        lines.append(f"    - {u['path']} :: {u['name']}  (in {where}, cognitive complexity "
+                     f"{u.get('cognitive')})")
+    return lines
+
+
 def format_flagged(results_by_layer: dict[str, dict], block_percentile: float) -> str:
-    """The flagged files + cost-driver classes/units across the blocked layers, for the
-    refactor prompt. Only blocked layers are shown (they are what must come down)."""
+    """The flagged files + cost-driver classes/units + over-complex methods across the blocked
+    layers, for the refactor prompt. Only blocked layers are shown (they are what must come down)."""
     blocks = []
     for layer, ig in results_by_layer.items():
         if not is_blocked(ig, block_percentile):
             continue
-        files = _format_files(ig)
-        drivers = _format_drivers(ig)
-        section = [f"  {layer.upper()} — files where the change concentrated cost:"]
-        section += files or ["    (no single file dominates)"]
-        section += [f"  {layer.upper()} — the classes/units to simplify or restructure:"]
-        section += drivers or ["    (none isolated)"]
+        section: list[str] = []
+        # Change impact drivers (only meaningful when the impact percentile is what blocked).
+        if not cognitive_blocked(ig) or grade_percentile(ig) is None or _format_drivers(ig):
+            section += [f"  {layer.upper()} — files where the change concentrated cost:"]
+            section += _format_files(ig) or ["    (no single file dominates)"]
+            section += [f"  {layer.upper()} — the classes/units to simplify or restructure:"]
+            section += _format_drivers(ig) or ["    (none isolated)"]
+        # Cognitive offenders: methods to break into smaller pieces.
+        cog = _format_cognitive(ig)
+        if cog:
+            section += [f"  {layer.upper()} — methods too complex to read. Break these into "
+                        "smaller methods. Reduce the depth of nested decisions. Straight line "
+                        "sequential code is fine:"]
+            section += cog
         blocks.append("\n".join(section))
     return "\n\n".join(blocks) or "  (nothing flagged)"
 
