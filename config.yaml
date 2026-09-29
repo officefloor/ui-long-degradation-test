@@ -101,8 +101,9 @@ impact_gate:
   # refactor_prompt / review_prompt override the built-in templates in run_experiment.py.
 
 tools:
-  jscpd: jscpd                 # clone detector (both layers); on PATH
-  astgrep: sg                  # ast-grep binary (both layers); on PATH
+  jscpd: tools/node_modules/.bin/jscpd        # clone detector (both layers), PINNED in tools/
+  astgrep: tools/node_modules/.bin/ast-grep   # ast-grep CLI (both layers), PINNED in tools/;
+                               #   NOT the unrelated npm package that also publishes `ast-grep`
   astgrep_rules: astgrep-rules # java-wasteful.yml + typescript-wasteful.yml (resolved vs harness root)
   # Structural-metrics tools for the BACKEND (Java) layer only (metrics.compute_all / analyze).
   # Each is optional: unset or missing -> those columns stay BLANK (never zero). See harness/placement.py.
@@ -111,10 +112,13 @@ tools:
                                #   from the REST arm; vendor into ./tools/pmd for a self-contained study)
   pmd_metrics_rules: pmd-rules/java-metrics.xml   # cognitive/NPath VALUES + GodClass/DataClass verdicts
   ck:                          # path to ck.jar for the Chidamber-Kemerer suite (unset -> ck_* blank)
-  # pin versions for a real study (node, playwright, JRE, lizard, jscpd, ast-grep, pmd, ck)
+  # jscpd + ast-grep are pinned in tools/package.json and lizard in requirements.txt; still to
+  # pin for a real study: node, playwright (stack repo e2e/package.json), JRE, pmd, ck
 
 # Filesystem confinement for the agent turn (Linux Landlock; no root/bwrap). Identical to the REST
-# arm; fails CLOSED. Verify:  python harness/landlock_selftest.py
+# arm; fails CLOSED — every turn calls landlock.verify_denied() on the withheld material and
+# refuses to start if any is reachable. Check support here:
+#   .venv/bin/python -c 'from harness import landlock; print(landlock.abi_version())'  # >=1
 isolation:
   # Pinned files are restored to authored before the gate (DESIGN.md §15). Pin only the FIXED
   # operational scaffolding — NOT the evolving app code (incl. the /__test__ endpoint, which

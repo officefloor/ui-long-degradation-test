@@ -29,7 +29,8 @@ See **[DESIGN.md](./DESIGN.md)** for the full design and the reasoning behind ea
 ## Running
 
 ```sh
-./setup.sh                                              # create .venv + install deps
+./setup.sh                                              # .venv + pinned tools/ ; reports what
+                                                        # it does NOT install (impact-gate, PMD, ck)
 # A run spawns a fresh agent per checkpoint over many hours, so it REQUIRES a long-lived token
 # (an interactive login would expire mid-run). The driver aborts without it.
 export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)

@@ -678,6 +678,12 @@ def main() -> int:
     ar_rules = (cfg.get("tools") or {}).get("astgrep_rules")
     if ar_rules and not os.path.isabs(ar_rules):
         cfg["tools"]["astgrep_rules"] = os.path.join(HARNESS_ROOT, ar_rules)
+    # Same for a VENDORED tool binary (tools/node_modules/.bin/ast-grep): a value carrying a path
+    # separator is a path into the harness repo, while a bare name (jscpd) is a PATH lookup.
+    for tool in ("jscpd", "astgrep"):
+        val = (cfg.get("tools") or {}).get(tool)
+        if val and os.sep in val and not os.path.isabs(val):
+            cfg["tools"][tool] = os.path.join(HARNESS_ROOT, val)
     cfg["checkpoints_file"] = resolve(cfg["checkpoints_file"])
     cfg["paths"]["work_root"] = resolve(cfg["paths"]["work_root"])
     cfg["paths"]["sandbox_root"] = resolve(cfg["paths"]["sandbox_root"])

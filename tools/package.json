@@ -1,0 +1,12 @@
+{
+  "//": "Node-side tooling for the quality gate (harness/quality_gate.py), PINNED for the study.",
+  "//astgrep": "ast-grep MUST come from here: an unrelated npm package also publishes the name",
+  "//astgrep2": "`ast-grep` (v0.1.0, JS-only, no `scan`), and a global install of it shadows this one.",
+  "//jscpd": "Pinned to the version the study started on — clone thresholds are version-sensitive.",
+  "name": "ui-long-degradation-test-tools",
+  "private": true,
+  "dependencies": {
+    "@ast-grep/cli": "0.45.3",
+    "jscpd": "5.0.14"
+  }
+}

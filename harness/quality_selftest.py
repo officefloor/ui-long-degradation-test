@@ -5,6 +5,7 @@ Java pattern, and asserts the gate flags both; then a clean addition and asserts
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import tempfile
 
@@ -12,7 +13,22 @@ from . import quality_gate as qg
 
 HARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RULES = os.path.join(HARNESS_ROOT, "astgrep-rules")
-TOOLS = {"jscpd": "jscpd", "astgrep": "sg", "astgrep_rules": RULES}
+
+
+def _tool(vendored: str, *fallbacks: str) -> str:
+    """The version PINNED in tools/ (as config.yaml points at), else whatever is on PATH. For
+    ast-grep the pin MATTERS: an unrelated npm package also publishes the name `ast-grep`."""
+    path = os.path.join(HARNESS_ROOT, "tools", "node_modules", ".bin", vendored)
+    if os.path.exists(path):
+        return path
+    for name in (vendored, *fallbacks):
+        found = shutil.which(name)
+        if found:
+            return found
+    return vendored
+
+
+TOOLS = {"jscpd": _tool("jscpd"), "astgrep": _tool("ast-grep", "sg"), "astgrep_rules": RULES}
 QCFG = {"jscpd_min_tokens": 50, "jscpd_min_lines": 5,
         "jscpd_formats": "java,typescript,tsx,javascript,jsx"}
 
