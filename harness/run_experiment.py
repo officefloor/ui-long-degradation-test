@@ -32,7 +32,8 @@ from datetime import datetime
 
 import yaml
 
-from . import agent, capture, correctness, expand_path, impact_gate, landlock, quality_gate
+from . import (agent, capture, correctness, expand_path, impact_gate, landlock,
+               quality_gate, stack_label, stack_repo)
 
 HARNESS_DIR = os.path.dirname(os.path.abspath(__file__))
 HARNESS_ROOT = os.path.dirname(HARNESS_DIR)   # the ui-long-degradation-test repo root
@@ -164,6 +165,31 @@ def prior_passing_from_capture(wt: str, k: int) -> set[str]:
             continue
         passing = {t for t, ok in (tests.get("results") or {}).items() if ok}
     return passing
+
+
+def verify_resume_stack(wt: str, app_cfg: dict) -> None:
+    """Refuse to resume a chain with a DIFFERENT stack than the one that started it.
+
+    The manifest is written once, at chain creation, so a resumed chain keeps the stack identity
+    it began with. Continuing it against another repo would splice two stacks into one branch and
+    one capture — every per-checkpoint `stack` block would still read as the original. Compared on
+    the repo path and on the `origin` remote, either of which is enough to catch the mistake."""
+    prov_path = os.path.join(wt, "evolve-results", "provenance.json")
+    if not os.path.isfile(prov_path):
+        print("    resume : WARNING no evolve-results/provenance.json on the branch; "
+              "cannot verify the stack", flush=True)
+        return
+    with open(prov_path) as fh:
+        prov = json.load(fh)
+    for key, now in (("app_repo", app_cfg["repo"]), ("app_origin", app_cfg.get("origin"))):
+        was = prov.get(key)
+        if was is None:          # manifest predates this field — nothing to compare
+            continue
+        if was != now:
+            raise RuntimeError(
+                f"--resume: this chain was started against {key}={was!r}, but --repo resolves to "
+                f"{now!r}. Resuming would mix two stacks into one branch. Re-run with the original "
+                f"stack, or start a new run_id for this one.")
 
 
 def mirror_source(src: str, dst: str, extra_excludes: tuple = ()) -> None:
@@ -571,10 +597,17 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
                                resume=resume)
     # The chain base is base_ref either way; on a fresh chain that is also HEAD.
     base_commit = git(["-C", wt, "rev-parse", app_cfg["base_ref"] if resume else "HEAD"])
+    stack = {"repo": app_cfg["repo"], "origin": app_cfg.get("origin"),
+             "name": os.path.basename(app_cfg["repo"]), "base_ref": app_cfg["base_ref"],
+             "base_commit": base_commit}
+    label = stack_label(app_cfg["repo"], app_cfg.get("origin"), app_cfg["base_ref"])
     print(f"\n=== {condition}/chain{chain}  branch={branch}  worktree={wt} ===", flush=True)
+    print(f"    stack  : {label}", flush=True)
 
-    done = completed_checkpoints(wt) if resume else 0
+    done = 0
     if resume:
+        verify_resume_stack(wt, app_cfg)
+        done = completed_checkpoints(wt)
         lo = max(lo, done + 1)
         print(f"    resume : cp01..cp{done:02d} already committed; continuing at cp{lo:02d}"
               if done else "    resume : no completed checkpoint on the branch; starting at cp01",
@@ -587,6 +620,8 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
     prov = capture.provenance(cfg, run_id, model, HARNESS_DIR, extra={
         "condition": condition, "chain": chain, "branch": branch,
         "base_ref": app_cfg["base_ref"], "base_commit": base_commit, "app_repo": app_cfg["repo"],
+        # The stack's own origin, so a chain branch can be tied to the remote it lives on.
+        "app_origin": app_cfg.get("origin"), "stack": os.path.basename(app_cfg["repo"]),
         "resumed_at": lo if resume else None})
     if not resume:
         commit_run_manifest(wt, branch, run_id, condition, chain, prov, cfg.get("_snapshot"))
@@ -615,6 +650,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         print(f"\n--- run {run_id} | {condition}/chain{chain} | cp{k:02d} [{phase}] {cid} ---", flush=True)
         if cp.get("type") == "mutative":
             print(f"    type   : MUTATIVE (revises {cp.get('mutates', [])})", flush=True)
+        print(f"    stack  : {label}", flush=True)
         print(f"    request: {cp['request'].strip().splitlines()[0]}", flush=True)
 
         base_for_cp = git(["-C", wt, "rev-parse", "HEAD"])
@@ -685,7 +721,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
             ar, outcome, None, touched_pins, [], stream_file, diff_file,
             build_log_file=build_log_file, attempts=attempt_log,
             spec=cp["request"], prompt=prompt, ckpt_type=cp.get("type", "additive"),
-            mutates=mutated, impact_gate=gate_hist)
+            mutates=mutated, impact_gate=gate_hist, stack=stack)
         capture.write_json(os.path.join(cap_dir, f"cp{k:02d}.json"), rec)
         wt_cap = os.path.join(wt, "evolve-results", "capture")
         os.makedirs(wt_cap, exist_ok=True)
@@ -714,6 +750,10 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
+    ap.add_argument("--repo", required=True,
+                    help="the STACK repo to run against (~/officehq-<frontend>-<backend>). Never "
+                         "configured: one harness drives many stacks, so the stack under test is "
+                         "named per run, logged per checkpoint, and recorded in the commits.")
     ap.add_argument("--condition", help="intervention condition (default active_condition)")
     ap.add_argument("--chain", type=int,
                     help="run ONE chain by number; omitted runs chains 1..N from config `chains` "
@@ -751,7 +791,11 @@ def main() -> int:
         p = expand_path(p)
         return p if os.path.isabs(p) else os.path.join(cfg_dir, p)
 
-    cfg["app"]["repo"] = expand_path(cfg["app"]["repo"], "app.repo")
+    if cfg["app"].get("repo"):
+        raise SystemExit(
+            f"config {args.config}: app.repo must NOT be set — the stack repo is passed per run "
+            f"with --repo. Delete app.repo (found {cfg['app']['repo']!r}).")
+    cfg["app"]["repo"], cfg["app"]["origin"] = stack_repo(args.repo)
     # ast-grep rules live in the harness repo but the quality gate runs with cwd in the worktree,
     # so resolve to an absolute path here.
     ar_rules = (cfg.get("tools") or {}).get("astgrep_rules")

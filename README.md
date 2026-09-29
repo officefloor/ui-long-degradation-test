@@ -37,14 +37,18 @@ export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)
 # run the default condition over the checkpoints (spawns a fresh agent per checkpoint).
 # No --chain runs every chain `chains` declares (2 by default), SEQUENTIALLY, under one run_id —
 # which is what analyze aggregates over. One chain's hard failure does not stop the others.
-.venv/bin/python -m harness.run_experiment --config config.yaml
-.venv/bin/python -m harness.run_experiment --config config.yaml --chain 1   # just chain 1
+# --repo names the STACK under test (never configured: one harness drives many stacks). It is
+# logged at every checkpoint and written into the commits with that repo's `origin` remote.
+STACK=~/officehq-react-officefloor
+.venv/bin/python -m harness.run_experiment --config config.yaml --repo $STACK
+.venv/bin/python -m harness.run_experiment --config config.yaml --repo $STACK --chain 1
 # a chain that died part-way CONTINUES from its last committed checkpoint (same --run-id/--chain).
 # NOTE --from does NOT resume: it starts at base_ref, so it would skip the features later
 # checkpoints build on. Use it only to run a prefix (--to N) or a smoke test.
-.venv/bin/python -m harness.run_experiment --config config.yaml --chain 1 --run-id <run_id> --resume
+.venv/bin/python -m harness.run_experiment --config config.yaml --repo $STACK \
+    --chain 1 --run-id <run_id> --resume     # refuses a --repo other than the one that started it
 # analyse a run's committed capture -> results/<run_id>/analysis/{summary.md,*.csv,*.png}:
-.venv/bin/python -m harness.analyze --config config.yaml --run-id <run_id>
+.venv/bin/python -m harness.analyze --config config.yaml --repo $STACK --run-id <run_id>
 ```
 
 The default condition is `gated` (`active_condition` in `config.yaml`). It runs the OfficeHQ

@@ -233,7 +233,8 @@ def checkpoint_record(k: int, cp_id: str, phase: str, shas: dict, agent_result,
                       diff_file: str | None, build_log_file: str | None = None,
                       attempts: list[dict] | None = None, spec: str | None = None,
                       prompt: str | None = None, ckpt_type: str = "additive",
-                      mutates: list | None = None, impact_gate: dict | None = None) -> dict:
+                      mutates: list | None = None, impact_gate: dict | None = None,
+                      stack: dict | None = None) -> dict:
     """Assemble the raw, irreproducible record for one checkpoint. `outcome` is a
     correctness.TestOutcome (its RAW results map + detail are what matter here —
     every set-based correctness metric is re-derivable from them).
@@ -246,6 +247,10 @@ def checkpoint_record(k: int, cp_id: str, phase: str, shas: dict, agent_result,
     ar = agent_result
     return {
         "checkpoint": k,
+        # WHICH stack produced this checkpoint: repo name/path, its `origin` remote (so the chain
+        # branch ties back to the remote it lives on), base_ref and the chain base commit. Per
+        # checkpoint, not just in the chain manifest, so every record is self-describing.
+        "stack": stack,
         "checkpoint_id": cp_id,
         "phase": phase,
         "type": ckpt_type,          # additive | mutative

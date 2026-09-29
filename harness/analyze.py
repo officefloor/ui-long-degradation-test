@@ -29,7 +29,7 @@ from collections import Counter, defaultdict
 import numpy as np
 import yaml
 
-from . import correctness, expand_path, metrics
+from . import correctness, metrics, stack_label, stack_repo
 from .run_experiment import CSV_FIELDS, phase_for
 
 try:
@@ -513,6 +513,9 @@ def write_csv(rows: list[dict], out_dir: str) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
+    ap.add_argument("--repo", required=True,
+                    help="the STACK repo whose evolve/<run_id>/... branches to analyse "
+                         "(~/officehq-<frontend>-<backend>); never configured, see run_experiment")
     ap.add_argument("--run-id", help="which run to analyze (default: latest on the branches)")
     ap.add_argument("--out", help="output dir (default: results/<run_id>/analysis under the harness)")
     ap.add_argument("--gammas", default="1,1.5,2")
@@ -520,7 +523,11 @@ def main() -> int:
 
     with open(args.config) as fh:
         cfg = yaml.safe_load(fh)
-    repo = expand_path(cfg["app"]["repo"], "app.repo")
+    if (cfg.get("app") or {}).get("repo"):
+        raise SystemExit(
+            f"config {args.config}: app.repo must NOT be set — pass the stack repo with --repo.")
+    repo, origin = stack_repo(args.repo)
+    print("stack:", stack_label(repo, origin, (cfg.get("app") or {}).get("base_ref", "")))
 
     run_id = args.run_id or _latest_run_id(repo)
     if not run_id:
