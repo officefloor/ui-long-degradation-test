@@ -34,8 +34,11 @@ See **[DESIGN.md](./DESIGN.md)** for the full design and the reasoning behind ea
 # A run spawns a fresh agent per checkpoint over many hours, so it REQUIRES a long-lived token
 # (an interactive login would expire mid-run). The driver aborts without it.
 export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)
-# run the default condition/chain over the checkpoints (spawns a fresh agent per checkpoint):
-.venv/bin/python -m harness.run_experiment --config config.yaml --chain 1
+# run the default condition over the checkpoints (spawns a fresh agent per checkpoint).
+# No --chain runs every chain `chains` declares (2 by default), SEQUENTIALLY, under one run_id —
+# which is what analyze aggregates over. One chain's hard failure does not stop the others.
+.venv/bin/python -m harness.run_experiment --config config.yaml
+.venv/bin/python -m harness.run_experiment --config config.yaml --chain 1   # just chain 1
 # a chain that died part-way CONTINUES from its last committed checkpoint (same --run-id/--chain).
 # NOTE --from does NOT resume: it starts at base_ref, so it would skip the features later
 # checkpoints build on. Use it only to run a prefix (--to N) or a smoke test.

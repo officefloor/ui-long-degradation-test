@@ -715,7 +715,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     ap.add_argument("--condition", help="intervention condition (default active_condition)")
-    ap.add_argument("--chain", type=int, default=1)
+    ap.add_argument("--chain", type=int,
+                    help="run ONE chain by number; omitted runs chains 1..N from config `chains` "
+                         "(sequentially — chains share sandbox_root and the app port)")
     ap.add_argument("--run-id")
     ap.add_argument("--model")
     ap.add_argument("--from", dest="lo", type=int, default=1, help="first checkpoint (1-based)")
@@ -772,10 +774,38 @@ def main() -> int:
     for i, cp in enumerate(checkpoints, 1):
         cp["n"] = i
 
+    # One chain if asked for by number, else every chain the config declares. They run
+    # SEQUENTIALLY: paths.sandbox_root and app.port are single-valued, so concurrent chains
+    # would fight over the sandbox and the port.
+    chains = [args.chain] if args.chain else list(range(1, max(1, int(cfg.get("chains") or 1)) + 1))
     print(f"run_id={run_id} model={cfg['model']} condition={condition} "
-          f"chain={args.chain} checkpoints={args.lo}..{min(args.hi, len(checkpoints))}"
+          f"chains={','.join(str(c) for c in chains)} "
+          f"checkpoints={args.lo}..{min(args.hi, len(checkpoints))}"
           + (" (resume)" if args.resume else ""), flush=True)
-    run_chain(cfg, condition, args.chain, run_id, checkpoints, args.lo, args.hi, args.resume)
+
+    failed: list[tuple[int, str]] = []
+    for c in chains:
+        try:
+            run_chain(cfg, condition, c, run_id, checkpoints, args.lo, args.hi, args.resume)
+        except Exception as e:                                  # noqa: BLE001
+            # One chain's hard failure must not cost the remaining chains — an overnight run of
+            # several chains would otherwise be lost to the first error. The branch keeps every
+            # checkpoint it committed, so `--resume` can finish this chain later.
+            failed.append((c, f"{type(e).__name__}: {e}"))
+            print(f"\n!!! chain{c} ABORTED — {type(e).__name__}: {e}\n"
+                  f"    the other chains continue; finish this one later with:\n"
+                  f"      --run-id {run_id} --chain {c} --resume", flush=True)
+    if failed:
+        print("\n=== chains that did not finish ===", flush=True)
+        for c, err in failed:
+            print(f"    chain{c}: {err}", flush=True)
+        print(f"    resume each with:  --config {args.config} --run-id {run_id} "
+              f"--chain <n> --resume", flush=True)
+        return 1
+    if len(chains) > 1:
+        print(f"\n=== all {len(chains)} chains finished (run_id={run_id}) — analyse with:\n"
+              f"    .venv/bin/python -m harness.analyze --config {args.config} "
+              f"--run-id {run_id} ===", flush=True)
     return 0
 
 
