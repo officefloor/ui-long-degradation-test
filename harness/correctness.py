@@ -153,6 +153,11 @@ def serve(worktree: str, cfg: dict):
     env["PORT"] = str(port)
     env["BASE_URL"] = base_url
     env["AUDIT_FILE"] = audit_file
+    # Free the port BEFORE starting. bin/start is a bare `nohup java -jar --server.port=$PORT`
+    # with no bind check, so a JVM left behind by a crashed run would keep the port, the new one
+    # would die on bind, and wait_ready would get a healthy UP from the STALE app — gating this
+    # checkpoint against the wrong build, with nothing in the log to say so.
+    _kill_port(port)
     started = False
     try:
         subprocess.run([_script(worktree, cfg, "start_cmd")], cwd=worktree, env=env,

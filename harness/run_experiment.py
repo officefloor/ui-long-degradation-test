@@ -21,6 +21,7 @@ are deferred. Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -89,24 +90,80 @@ def phase_for(idx: int, n: int) -> str:
 # --- copy/sync + worktree (generic; adapted from the REST arm) ----------------
 
 
+def _branch_exists(repo: str, branch: str) -> bool:
+    return subprocess.run(["git", "-C", repo, "rev-parse", "--verify", "--quiet", branch],
+                          capture_output=True, text=True).returncode == 0
+
+
 def make_worktree(app_cfg: dict, work_root: str, condition: str, chain: int,
-                  run_id: str) -> tuple[str, str]:
-    """git worktree add evolve/<run_id>/<condition>/chain<n> from app.repo @ base_ref."""
+                  run_id: str, resume: bool = False) -> tuple[str, str]:
+    """git worktree add evolve/<run_id>/<condition>/chain<n> from app.repo @ base_ref.
+
+    `resume` instead ATTACHES to an existing chain branch at its tip and destroys nothing, so a
+    chain that died hours in can continue from its last committed checkpoint. Without it the
+    branch is deleted and recreated at base_ref — which is why --from cannot resume: it would
+    start from the empty base and skip the checkpoints whose features the later ones build on."""
     repo, base_ref = app_cfg["repo"], app_cfg["base_ref"]
     branch = f"evolve/{run_id}/{condition}/chain{chain}"
     if branch == base_ref or not branch.startswith("evolve/"):
         raise RuntimeError(f"refusing to write to non-evolve branch {branch!r}")
     wt = os.path.join(work_root, run_id, f"{condition}-chain{chain}")
+    if resume:
+        if not _branch_exists(repo, branch):
+            raise RuntimeError(
+                f"--resume: no branch {branch!r} in {repo} — nothing to resume. Drop --resume to "
+                f"start this chain (that CREATES the branch at {base_ref!r}).")
+        if os.path.isdir(wt):
+            on = git(["-C", wt, "rev-parse", "--abbrev-ref", "HEAD"])
+            if on != branch:
+                raise RuntimeError(f"--resume: worktree {wt} is on {on!r}, not {branch!r}")
+        else:
+            os.makedirs(os.path.dirname(wt), exist_ok=True)
+            git(["-C", repo, "worktree", "add", wt, branch])
+        # Drop anything the aborted run left staged/half-mirrored; committed work is kept.
+        git(["-C", wt, "reset", "--hard", "HEAD"])
+        subprocess.run(["git", "-C", wt, "clean", "-fd"], capture_output=True, text=True)
+        return wt, branch
     if os.path.isdir(wt):
         subprocess.run(["git", "-C", repo, "worktree", "remove", "--force", wt],
                        capture_output=True, text=True)
         shutil.rmtree(wt, ignore_errors=True)
-    if subprocess.run(["git", "-C", repo, "rev-parse", "--verify", "--quiet", branch],
-                      capture_output=True, text=True).returncode == 0:
+    if _branch_exists(repo, branch):
         subprocess.run(["git", "-C", repo, "branch", "-D", branch], capture_output=True, text=True)
     os.makedirs(os.path.dirname(wt), exist_ok=True)
     git(["-C", repo, "worktree", "add", "-b", branch, wt, base_ref])
     return wt, branch
+
+
+_RESET_COMMIT = re.compile(r"^cp(\d+) reset ")
+
+
+def completed_checkpoints(wt: str) -> int:
+    """Highest cpNN whose RESET commit is on the branch. The loop commits agent-then-reset per
+    checkpoint (the two-commit boundary), so a reset commit means that checkpoint finished its
+    gate and had its capture committed; anything after it is incomplete and gets redone."""
+    done = [int(m.group(1)) for m in
+            (_RESET_COMMIT.match(line) for line in git(["-C", wt, "log", "--format=%s"]).splitlines())
+            if m]
+    return max(done) if done else 0
+
+
+def prior_passing_from_capture(wt: str, k: int) -> set[str]:
+    """Rebuild the accumulated passing-test set from the captures committed up to cpK, so a
+    resumed chain scores regressions against the same baseline the aborted run would have used.
+    Mirrors the live rule: a gate_invalid checkpoint carries no verdict and never replaces it."""
+    cap_dir = os.path.join(wt, "evolve-results", "capture")
+    passing: set[str] = set()
+    for i in range(1, k + 1):
+        path = os.path.join(cap_dir, f"cp{i:02d}.json")
+        if not os.path.isfile(path):
+            continue
+        with open(path) as fh:
+            tests = (json.load(fh).get("tests") or {})
+        if tests.get("gate_invalid"):
+            continue
+        passing = {t for t, ok in (tests.get("results") or {}).items() if ok}
+    return passing
 
 
 def mirror_source(src: str, dst: str, extra_excludes: tuple = ()) -> None:
@@ -503,24 +560,40 @@ def commit_chain_results(wt: str, branch: str, run_id: str, condition: str, chai
 
 
 def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
-              checkpoints: list[dict], lo: int, hi: int) -> None:
+              checkpoints: list[dict], lo: int, hi: int, resume: bool = False) -> None:
     app_cfg = cfg["app"]
     model = cfg["model"]
     n = len(checkpoints)
     template = ((cfg.get("prompt_strategies") or {}).get(condition) or {}).get("template") \
         or PROMPT_TEMPLATE
 
-    wt, branch = make_worktree(app_cfg, cfg["paths"]["work_root"], condition, chain, run_id)
-    base_commit = git(["-C", wt, "rev-parse", "HEAD"])
+    wt, branch = make_worktree(app_cfg, cfg["paths"]["work_root"], condition, chain, run_id,
+                               resume=resume)
+    # The chain base is base_ref either way; on a fresh chain that is also HEAD.
+    base_commit = git(["-C", wt, "rev-parse", app_cfg["base_ref"] if resume else "HEAD"])
     print(f"\n=== {condition}/chain{chain}  branch={branch}  worktree={wt} ===", flush=True)
+
+    done = completed_checkpoints(wt) if resume else 0
+    if resume:
+        lo = max(lo, done + 1)
+        print(f"    resume : cp01..cp{done:02d} already committed; continuing at cp{lo:02d}"
+              if done else "    resume : no completed checkpoint on the branch; starting at cp01",
+              flush=True)
+        if lo > min(hi, len(checkpoints)):
+            print(f"    resume : nothing left to run (cp{done:02d} is the last requested "
+                  f"checkpoint) — leaving the branch untouched", flush=True)
+            return
 
     prov = capture.provenance(cfg, run_id, model, HARNESS_DIR, extra={
         "condition": condition, "chain": chain, "branch": branch,
-        "base_ref": app_cfg["base_ref"], "base_commit": base_commit, "app_repo": app_cfg["repo"]})
-    commit_run_manifest(wt, branch, run_id, condition, chain, prov, cfg.get("_snapshot"))
+        "base_ref": app_cfg["base_ref"], "base_commit": base_commit, "app_repo": app_cfg["repo"],
+        "resumed_at": lo if resume else None})
+    if not resume:
+        commit_run_manifest(wt, branch, run_id, condition, chain, prov, cfg.get("_snapshot"))
 
     cap_dir = wt + "-capture"
-    shutil.rmtree(cap_dir, ignore_errors=True)
+    if not resume:          # on resume KEEP the aborted run's staged capture artifacts
+        shutil.rmtree(cap_dir, ignore_errors=True)
     os.makedirs(cap_dir, exist_ok=True)
 
     sandbox = cfg["paths"]["sandbox_root"]
@@ -528,7 +601,8 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         raise RuntimeError(f"paths.sandbox_root must be a dedicated directory, not {sandbox!r}")
     shutil.rmtree(sandbox, ignore_errors=True)
 
-    prior_passing: set[str] = set()
+    # Regressions are relative to the last passing suite, so a resumed chain must reload it.
+    prior_passing: set[str] = prior_passing_from_capture(wt, done) if resume else set()
     captures: list[dict] = []
     strict_count = regr_count = 0
 
@@ -646,6 +720,9 @@ def main() -> int:
     ap.add_argument("--model")
     ap.add_argument("--from", dest="lo", type=int, default=1, help="first checkpoint (1-based)")
     ap.add_argument("--to", dest="hi", type=int, default=10**9, help="last checkpoint (inclusive)")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue an existing chain branch from its last committed checkpoint "
+                         "instead of recreating it at base_ref (same --run-id and --chain)")
     ap.add_argument("--allow-short-token", action="store_true",
                     help="skip the long-lived-token check (local smoke tests only)")
     args = ap.parse_args()
@@ -696,8 +773,9 @@ def main() -> int:
         cp["n"] = i
 
     print(f"run_id={run_id} model={cfg['model']} condition={condition} "
-          f"chain={args.chain} checkpoints={args.lo}..{min(args.hi, len(checkpoints))}", flush=True)
-    run_chain(cfg, condition, args.chain, run_id, checkpoints, args.lo, args.hi)
+          f"chain={args.chain} checkpoints={args.lo}..{min(args.hi, len(checkpoints))}"
+          + (" (resume)" if args.resume else ""), flush=True)
+    run_chain(cfg, condition, args.chain, run_id, checkpoints, args.lo, args.hi, args.resume)
     return 0
 
 

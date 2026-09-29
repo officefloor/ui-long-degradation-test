@@ -36,6 +36,10 @@ See **[DESIGN.md](./DESIGN.md)** for the full design and the reasoning behind ea
 export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)
 # run the default condition/chain over the checkpoints (spawns a fresh agent per checkpoint):
 .venv/bin/python -m harness.run_experiment --config config.yaml --chain 1
+# a chain that died part-way CONTINUES from its last committed checkpoint (same --run-id/--chain).
+# NOTE --from does NOT resume: it starts at base_ref, so it would skip the features later
+# checkpoints build on. Use it only to run a prefix (--to N) or a smoke test.
+.venv/bin/python -m harness.run_experiment --config config.yaml --chain 1 --run-id <run_id> --resume
 # analyse a run's committed capture -> results/<run_id>/analysis/{summary.md,*.csv,*.png}:
 .venv/bin/python -m harness.analyze --config config.yaml --run-id <run_id>
 ```
