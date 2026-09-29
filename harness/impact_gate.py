@@ -156,6 +156,19 @@ def is_blocked(ig: dict, block_percentile: float) -> bool:
     return pct >= block_percentile
 
 
+def _blocked_on(ig: dict, block_percentile: float) -> list[str]:
+    """WHICH gate(s) failed this layer: 'impact', 'cognitive', both, or []. The two are
+    independent (is_blocked ORs them), so the capture records the attribution rather than
+    leaving it to be re-derived from a bare `blocked` flag."""
+    on: list[str] = []
+    pct = grade_percentile(ig)
+    if (pct is not None and pct >= block_percentile) or (pct is None and ig.get("blocked")):
+        on.append("impact")
+    if cognitive_blocked(ig):
+        on.append("cognitive")
+    return on
+
+
 def any_blocked(results: dict[str, dict], block_percentile: float) -> bool:
     return any(is_blocked(ig, block_percentile) for ig in results.values())
 
@@ -242,9 +255,10 @@ def attempt_summary(kind: str, results_by_layer: dict[str, dict], block_percenti
                     sha: str = "", agent=None, tests: dict | None = None,
                     quality: dict | None = None) -> dict:
     """One entry in the capture record's gate history. `kind` is 'implement' or 'refactor'.
-    Records, per layer, the grade/verdict + flagged files/drivers (so guidance is
-    reproducible from capture), plus the commit sha and (for a refactor) the agent envelope,
-    correctness, and quality-gate verdict."""
+    Records, per layer, the grade/verdict + flagged files/drivers + the COGNITIVE verdict (so
+    guidance is reproducible from capture, and a block is attributable to the change-impact
+    percentile, the cognitive gate, or both), plus the commit sha and (for a refactor) the
+    agent envelope, correctness, and quality-gate verdict."""
     per_layer = {}
     for layer, ig in results_by_layer.items():
         per_layer[layer] = {
@@ -252,8 +266,13 @@ def attempt_summary(kind: str, results_by_layer: dict[str, dict], block_percenti
             "impact": ig.get("impact"),
             "level": ig.get("level"),
             "blocked": is_blocked(ig, block_percentile),
+            "blocked_on": _blocked_on(ig, block_percentile),
             "files": [f for f in (ig.get("files") or []) if (f.get("cost") or 0) > 0],
             "drivers": ig.get("top_units") or [],
+            # The cognitive gate's own verdict: {threshold, max, blocked, offenders} as
+            # impact-gate reported it, or None when the gate is OFF (cognitive_max: null).
+            # None and {"blocked": false} are NOT the same thing — one never ran.
+            "cognitive": ig.get("cognitive"),
         }
     entry = {
         "kind": kind,

@@ -63,9 +63,42 @@ def test_refactor_prompt():
     print("  ok  test_refactor_prompt")
 
 
+def test_capture_records_cognitive():
+    """attempt_summary must carry the cognitive verdict and WHY a layer blocked, so a capture
+    attributes a block to the change-impact percentile, the cognitive gate, or both."""
+    cog = {"threshold": 20, "max": 33, "blocked": True,
+           "offenders": [{"path": "src/main/java/App.java", "name": "App::handle",
+                          "container": "App", "cognitive": 33}]}
+    # Cognitive ALONE blocks: the grade is nowhere near the percentile threshold.
+    res = {"backend": {"grade": {"percentile": 0.7}, "files": [], "top_units": [],
+                       "cognitive": cog},
+           "frontend": {"grade": {"percentile": 3}, "files": [], "top_units": [],
+                        "cognitive": {"threshold": 20, "max": 4, "blocked": False,
+                                      "offenders": []}}}
+    e = ig.attempt_summary("implement", res, 98)
+    _eq("blocked_layers cognitive", e["blocked_layers"], ["backend"])
+    _eq("blocked_on cognitive", e["layers"]["backend"]["blocked_on"], ["cognitive"])
+    _eq("cognitive offenders kept", e["layers"]["backend"]["cognitive"]["offenders"][0]["name"],
+        "App::handle")
+    # A layer that did NOT block still records its measured cognitive max.
+    _eq("blocked_on clean", e["layers"]["frontend"]["blocked_on"], [])
+    _eq("cognitive max clean", e["layers"]["frontend"]["cognitive"]["max"], 4)
+    # Both gates trip.
+    e2 = ig.attempt_summary("implement", {"backend": dict(res["backend"],
+                                                          grade={"percentile": 99})}, 98)
+    _eq("blocked_on both", e2["layers"]["backend"]["blocked_on"], ["impact", "cognitive"])
+    # Impact alone.
+    e3 = ig.attempt_summary("implement", {"backend": {"grade": {"percentile": 99},
+                                                      "files": [], "top_units": []}}, 98)
+    _eq("blocked_on impact", e3["layers"]["backend"]["blocked_on"], ["impact"])
+    # Gate OFF: None, NOT {"blocked": false} — one never ran.
+    _eq("cognitive off is none", e3["layers"]["backend"]["cognitive"], None)
+
+
 def main() -> int:
     for fn in (test_glob_prefix, test_layer_ignore, test_grade_and_block,
-               test_any_and_blocked_layers, test_refactor_prompt):
+               test_any_and_blocked_layers, test_refactor_prompt,
+               test_capture_records_cognitive):
         fn()
     print("OK — impact_gate tests passed")
     return 0
