@@ -69,3 +69,71 @@ def stack_label(repo: str, origin: str | None, base_ref: str = "") -> str:
     """One-line stack identity for the logs: which code is under test, and where it lives."""
     at = f" @ {base_ref}" if base_ref else ""
     return f"{_os.path.basename(repo)}{at}  (origin: {origin or 'NONE'})"
+
+
+def stack_layers(repo: str, base_ref: str, fallback: dict | None = None,
+                 expected: tuple = ()):
+    """The layer SOURCE ROOTS, declared by the STACK not the harness.
+
+    A layer's root+extensions are a property of the technology, so they belong with the stack the
+    same way `--repo` does (see `stack_repo`): a harness-level glob like
+    `src/main/frontend/**/*.{ts,tsx}` silently matches NOTHING for a stack whose front-end is
+    templates or `.svelte`, and every `frontend_*` column then reads 0/None — a number that looks
+    like an answer. So each base repo declares its own, read from `stack.yaml` AT base_ref:
+
+        layers:
+          frontend: { root: src/main/frontend, ext: [ts, tsx] }
+          backend:  { root: src/main/java,     ext: [java] }
+
+    `ext` says which files ARE that layer's source; it does not promise they are parseable. A
+    layer whose files Lizard cannot parse (HTML/templates) still gets every git-derived metric,
+    and its parser-derived columns come back empty rather than zero.
+
+    Returns (source_globs, provenance). Falls back to the harness config's `app.source_globs`
+    when the stack declares none, so a stack predating stack.yaml keeps working.
+    """
+    import yaml as _yaml
+
+    got = _subprocess.run(["git", "-C", repo, "show", f"{base_ref}:stack.yaml"],
+                          capture_output=True, text=True)
+    if got.returncode != 0:
+        if not fallback:
+            raise SystemExit(
+                f"{_os.path.basename(repo)} declares no stack.yaml at {base_ref} and the config "
+                f"has no app.source_globs fallback — the layer roots are unknown.")
+        return dict(fallback), f"config app.source_globs (no stack.yaml at {base_ref})"
+
+    try:
+        declared = ((_yaml.safe_load(got.stdout) or {}).get("layers") or {})
+    except _yaml.YAMLError as e:
+        raise SystemExit(f"{_os.path.basename(repo)}:{base_ref}:stack.yaml is not valid YAML: {e}")
+    if not declared:
+        raise SystemExit(f"{_os.path.basename(repo)}:{base_ref}:stack.yaml declares no `layers`.")
+
+    if expected:
+        unknown = sorted(set(declared) - set(expected))
+        missing = sorted(set(expected) - set(declared))
+        if unknown or missing:
+            raise SystemExit(
+                f"{_os.path.basename(repo)}:{base_ref}:stack.yaml declares layers "
+                f"{sorted(declared)} but the harness reports on {list(expected)}"
+                + (f"; unknown: {unknown}" if unknown else "")
+                + (f"; missing: {missing}" if missing else "")
+                + ". A layer the harness does not know about produces no columns at all.")
+
+    globs: dict[str, list[str]] = {}
+    for layer, spec in declared.items():
+        spec = spec or {}
+        root = str(spec.get("root") or "").strip().strip("/")
+        exts = [str(e).lstrip(".") for e in (spec.get("ext") or []) if str(e).strip()]
+        if not root or not exts:
+            raise SystemExit(f"{_os.path.basename(repo)}:{base_ref}:stack.yaml layer {layer!r} "
+                             f"needs both `root` and a non-empty `ext` list.")
+        listed = _subprocess.run(["git", "-C", repo, "ls-tree", base_ref, "--", root + "/"],
+                                 capture_output=True, text=True)
+        if listed.returncode != 0 or not listed.stdout.strip():
+            raise SystemExit(f"{_os.path.basename(repo)}:{base_ref}:stack.yaml layer {layer!r}: "
+                             f"root {root!r} does not exist at {base_ref}.")
+        inner = exts[0] if len(exts) == 1 else "{" + ",".join(sorted(exts)) + "}"
+        globs[layer] = [f"{root}/**/*.{inner}"]
+    return globs, f"{_os.path.basename(repo)}:{base_ref}:stack.yaml"

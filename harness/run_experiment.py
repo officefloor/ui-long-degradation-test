@@ -32,8 +32,8 @@ from datetime import datetime
 
 import yaml
 
-from . import (agent, capture, correctness, expand_path, impact_gate, landlock,
-               quality_gate, stack_label, stack_repo)
+from . import (agent, capture, correctness, expand_path, impact_gate, landlock, metrics,
+               quality_gate, stack_label, stack_layers, stack_repo)
 
 HARNESS_DIR = os.path.dirname(os.path.abspath(__file__))
 HARNESS_ROOT = os.path.dirname(HARNESS_DIR)   # the ui-long-degradation-test repo root
@@ -796,6 +796,12 @@ def main() -> int:
             f"config {args.config}: app.repo must NOT be set — the stack repo is passed per run "
             f"with --repo. Delete app.repo (found {cfg['app']['repo']!r}).")
     cfg["app"]["repo"], cfg["app"]["origin"] = stack_repo(args.repo)
+    # The layer source roots belong to the STACK, not this config (see stack_layers): they decide
+    # what every per-layer metric and the ImpactGate's per-layer scoring even looks at.
+    cfg["app"]["source_globs"], _layer_prov = stack_layers(
+        cfg["app"]["repo"], cfg["app"]["base_ref"],
+        (cfg["app"].get("source_globs") or None), expected=metrics.LAYERS)
+    print("layers:", _layer_prov, cfg["app"]["source_globs"], flush=True)
     # ast-grep rules live in the harness repo but the quality gate runs with cwd in the worktree,
     # so resolve to an absolute path here.
     ar_rules = (cfg.get("tools") or {}).get("astgrep_rules")

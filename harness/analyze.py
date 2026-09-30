@@ -30,7 +30,7 @@ from collections import Counter, defaultdict
 import numpy as np
 import yaml
 
-from . import correctness, metrics, stack_label, stack_repo
+from . import correctness, metrics, stack_label, stack_layers, stack_repo
 from .run_experiment import CSV_FIELDS, phase_for
 
 try:
@@ -455,6 +455,15 @@ PLOT_FIELDS = [
     ("backend_erosion", "Backend erosion (Java)"),
     ("frontend_impact_composite", "Front-end blast-radius impact (TS)"),
     ("backend_impact_composite", "Backend blast-radius impact (Java)"),
+    # Declaration-free co-metrics (no shared_surfaces list, no parser) — the pair that compares
+    # across stacks: which files the run keeps reopening, and how much settled code it destroys.
+    ("frontend_hot_share", "Front-end churn in its 3 hottest files (share)"),
+    ("backend_hot_share", "Backend churn in its 3 hottest files (share)"),
+    ("frontend_reedit_lines_rate", "Front-end settled lines replaced (share of lines touched)"),
+    ("backend_reedit_lines_rate", "Backend settled lines replaced (share of lines touched)"),
+    ("frontend_reedit_age_mean", "Front-end age of replaced lines (checkpoints)"),
+    ("backend_reedit_age_mean", "Backend age of replaced lines (checkpoints)"),
+    # Contract check, not an erosion measure: files the STACK declares frozen (shared_surfaces).
     ("frontend_boundary", "Front-end boundary violations"),
     ("backend_boundary", "Backend boundary violations"),
 ]
@@ -582,6 +591,12 @@ def main() -> int:
     repo, origin = stack_repo(args.repo)
     print("stack:", stack_label(repo, origin, (cfg.get("app") or {}).get("base_ref", "")),
           flush=True)
+    # The layer source roots come from the STACK (stack.yaml at base_ref), not this config, so one
+    # harness reports honestly on stacks whose layers live elsewhere or are a different language.
+    cfg["app"]["source_globs"], _prov = stack_layers(
+        repo, cfg["app"]["base_ref"], (cfg["app"].get("source_globs") or None),
+        expected=metrics.LAYERS)
+    print("layers:", _prov, cfg["app"]["source_globs"], flush=True)
 
     run_id = args.run_id or _latest_run_id(repo)
     if not run_id:

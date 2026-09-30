@@ -11,8 +11,15 @@ and once for the backend (Java, `source_globs.backend`) — and reported as SEPA
 `frontend_*` / `backend_*` columns (DESIGN.md §8). The two are never summed or compared to
 each other: front-end components are free functions so their cohesion container is the FILE,
 while backend methods are class-qualified (`Class::method`); the erosion ratio is comparable
-within a layer across checkpoints, not across layers. `boundary_violations` is the
-format-neutral co-metric: how many `shared_surfaces` files the checkpoint had to touch.
+within a layer across checkpoints, not across layers.
+
+Two co-metrics are format-neutral and need NO declared list, so they compare across stacks:
+`hot_surface` DISCOVERS the shared surface (which files the run keeps reopening, and how much of
+all mutation lands in the worst few), and `reedit_line_stats` measures how much settled code a
+checkpoint replaced, and how old it was, from git alone — no parser, so a layer Lizard cannot read
+still gets it. `boundary_violations` stays as a CONTRACT check (did the checkpoint touch a file the
+stack declares frozen?), not an erosion measure: it can only see surfaces someone listed up front,
+and last run it declared `router/**` while the churn went into the feature pages.
 
 Raw numbers only (Lizard + git) — no dependency on the impact-gate CLI or a TS seed
 distribution (those are for the deferred `gated` condition's blocking grade, not these
@@ -364,6 +371,184 @@ def change_spread(worktree: str, prev_ref: str, cur_ref: str,
     return {"dirs_touched": len(pkgs)}
 
 
+def _prev_changed_ranges(worktree: str, prev_ref: str, cur_ref: str,
+                         path: str) -> list[tuple[int, int]]:
+    """The line ranges of `path` AT prev_ref that this diff replaced or deleted.
+
+    `_changed_ranges` gives the `+` side (what the checkpoint wrote). This gives the `-` side:
+    the lines that were already there and are now gone. That is the side that says whether the
+    checkpoint disturbed settled code, and unlike the function-scoped measures it needs no
+    parser — so it works for a layer Lizard cannot read (templates, HTML)."""
+    try:
+        out = _git(worktree, ["diff", "-U0", prev_ref, cur_ref, "--", path])
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return []
+    ranges = []
+    for line in out.splitlines():
+        m = re.match(r"^@@ -(\d+)(?:,(\d+))? \+", line)
+        if not m:
+            continue
+        start = int(m.group(1))
+        count = int(m.group(2)) if m.group(2) is not None else 1
+        if count > 0:
+            ranges.append((start, start + count - 1))
+    return ranges
+
+
+def _commit_checkpoints(worktree: str, base_commit: str, cur_ref: str) -> dict[str, int]:
+    """sha -> the CHECKPOINT number that commit belongs to, from its `cpNN ...` subject.
+
+    A run puts TWO commits per checkpoint on the branch (`cpNN reset`, `cpNN agent`), so a raw
+    commit distance would report every age at roughly double. Age is only meaningful in the unit
+    the study reasons in — checkpoints — so this maps by label and returns {} when the labels are
+    absent, which makes the age columns BLANK rather than silently wrong.
+
+    Everything at or before base_commit is checkpoint 0: the base shell is the oldest code there
+    is, and lines of it that a checkpoint rewrites are exactly what these columns exist to catch."""
+    out: dict[str, int] = {}
+    try:
+        for sha in _git(worktree, ["rev-list", base_commit], timeout=300).split():
+            out[sha] = 0
+        log = _git(worktree, ["log", "--format=%H %s", f"{base_commit}..{cur_ref}"], timeout=300)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return {}
+    labelled = False
+    for line in log.splitlines():
+        sha, _, subject = line.partition(" ")
+        m = re.match(r"^cp0*(\d+)\b", subject.strip())
+        if m:
+            out[sha] = int(m.group(1))
+            labelled = True
+    # No cpNN anywhere in base..cur: there is no checkpoint scale to age against, so report none
+    # rather than pretending base-is-0 is a checkpoint distance.
+    return out if labelled else {}
+
+
+def reedit_line_stats(worktree: str, prev_ref: str, cur_ref: str, base_commit: str,
+                      match: Callable[[str], bool]) -> dict:
+    """Parser-free counterpart to `reedit_stats`: how much ALREADY-WRITTEN code did this
+    checkpoint replace or delete, and how old was it?
+
+    Needs only git — no function parsing — so it is comparable across technologies: a stack whose
+    front-end is templates gets this even though it has no functions for `reedit_stats` to scope
+    to. Measured on the `-` side of the diff (what was destroyed), not the `+` side.
+      reedit_lines_removed  pre-existing lines this checkpoint replaced or deleted
+      reedit_lines_settled  those written 2+ checkpoints ago — i.e. NOT this feature's own
+                            in-progress code from the checkpoint just before it
+      reedit_lines_rate     settled lines as a share of every line the checkpoint touched in
+                            existing files (added + removed); 0 = the change left settled code alone
+      reedit_age_mean/max   how many checkpoints ago those lines were written (blank when the
+                            branch carries no `cpNN` commit labels — see _commit_checkpoints)
+    """
+    blank = {"reedit_lines_removed": None, "reedit_lines_settled": None,
+             "reedit_lines_rate": None, "reedit_age_mean": None, "reedit_age_max": None}
+    try:
+        ns = _git(worktree, ["diff", "--name-status", "-M", prev_ref, cur_ref])
+        cur_sha = _git(worktree, ["rev-parse", cur_ref]).strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return dict(blank)
+    modified = []
+    for line in ns.splitlines():
+        parts = line.split("\t")
+        if len(parts) >= 2 and not parts[0].startswith("A") and match(parts[-1]):
+            modified.append(parts[-1])
+    if not modified:
+        return {**blank, "reedit_lines_removed": 0, "reedit_lines_settled": 0}
+
+    cps = _commit_checkpoints(worktree, base_commit, cur_ref)
+    cur_cp = cps.get(cur_sha)
+    # Whether there is a checkpoint scale to age against at all. Without one the settled/age
+    # columns are BLANK; with one, "destroyed nothing" is a real 0 and must not read as blank.
+    scaled = bool(cps) and cur_cp is not None
+    removed = settled = touched = 0
+    ages: list[int] = []
+    for path in modified:
+        ranges = _prev_changed_ranges(worktree, prev_ref, cur_ref, path)
+        for a, r in _numstat_pairs(worktree, prev_ref, cur_ref, path):
+            touched += a + r
+        if not ranges:
+            continue
+        blame = _blame_line_commits(worktree, prev_ref, path)
+        for start, end in ranges:
+            for ln in range(start, end + 1):
+                removed += 1
+                sha = blame.get(ln)
+                if not sha or cur_cp is None or sha not in cps:
+                    continue
+                age = max(cur_cp - cps[sha], 0)
+                ages.append(age)
+                if age >= 2:
+                    settled += 1
+    if removed == 0:
+        settled_out, rate_out = 0, (0.0 if touched else None)
+    elif scaled:
+        settled_out = settled
+        rate_out = round(settled / touched, 4) if touched else None
+    else:
+        settled_out = rate_out = None
+    return {"reedit_lines_removed": removed,
+            "reedit_lines_settled": settled_out,
+            "reedit_lines_rate": rate_out,
+            "reedit_age_mean": (round(sum(ages) / len(ages), 2) if ages else None),
+            "reedit_age_max": (max(ages) if ages else None)}
+
+
+def _numstat_pairs(worktree: str, prev_ref: str, cur_ref: str, path: str):
+    """(added, removed) line counts for one path in this diff; [] for a binary file."""
+    try:
+        out = _git(worktree, ["diff", "--numstat", prev_ref, cur_ref, "--", path])
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return []
+    pairs = []
+    for line in out.splitlines():
+        st = line.split("\t")
+        if len(st) >= 2 and st[0].isdigit() and st[1].isdigit():
+            pairs.append((int(st[0]), int(st[1])))
+    return pairs
+
+
+def hot_surface(worktree: str, base_commit: str, cur_ref: str,
+                match: Callable[[str], bool], top_k: int = 3) -> dict:
+    """The layer's shared surface DISCOVERED, not declared.
+
+    `boundary_violations` can only count edits to files somebody listed in advance, and the list
+    is both technology-specific and fallible: the react arm declared `router/**` + `ui/**`, while
+    the surface that actually absorbed the churn was the feature PAGE. This asks git instead —
+    over base..cur, which files does the run keep REOPENING (status M), and how much of all the
+    mutation lands in the worst few?
+      hot_top_file / hot_top_edits  the most-reopened file and how many checkpoints touched it
+      hot_share                     share of ALL mutated lines landing in the top_k files
+                                    (1.0 = one file absorbs the whole run's churn)
+      hot_files                     those top_k, as `path:edits`
+    Additions are excluded: a file appearing for the first time is not a shared surface.
+    """
+    blank = {"hot_top_file": None, "hot_top_edits": None, "hot_share": None, "hot_files": None}
+    try:
+        log = _git(worktree, ["log", "--format=%H", "--numstat", "--diff-filter=M", "-M",
+                              f"{base_commit}..{cur_ref}"], timeout=300)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return dict(blank)
+    edits: dict[str, int] = defaultdict(int)
+    churn: dict[str, int] = defaultdict(int)
+    for line in log.splitlines():
+        st = line.split("\t")
+        if len(st) >= 3 and st[0].isdigit() and st[1].isdigit():
+            path = st[-1]
+            if not match(path):
+                continue
+            edits[path] += 1
+            churn[path] += int(st[0]) + int(st[1])
+    if not edits:
+        return dict(blank)
+    ranked = sorted(edits.items(), key=lambda kv: (-kv[1], -churn[kv[0]], kv[0]))
+    total = sum(churn.values())
+    top = ranked[:top_k]
+    share = (sum(churn[p] for p, _ in top) / total) if total else None
+    return {"hot_top_file": ranked[0][0], "hot_top_edits": ranked[0][1],
+            "hot_share": (round(share, 4) if share is not None else None),
+            "hot_files": ";".join(f"{p}:{n}" for p, n in top)}
+
+
 def _glob_dirs(globs: list[str]) -> list[str]:
     """Static-prefix source directories of a layer's globs (for CK/PMD, which take dirs).
     `src/main/java/**/*.java` -> `src/main/java`."""
@@ -429,7 +614,12 @@ def compute_all(worktree: str, app_cfg: dict, tools: dict, base_commit: str,
                 row[f"{lyr}_{k}"] = v
             for k, v in reedit_stats(worktree, prev_ref, "HEAD", match).items():
                 row[f"{lyr}_{k}"] = v
+            for k, v in reedit_line_stats(worktree, prev_ref, "HEAD", base_commit,
+                                          match).items():
+                row[f"{lyr}_{k}"] = v
             for k, v in change_spread(worktree, prev_ref, "HEAD", match).items():
+                row[f"{lyr}_{k}"] = v
+            for k, v in hot_surface(worktree, base_commit, "HEAD", match).items():
                 row[f"{lyr}_{k}"] = v
             for k, v in placement.change_entropy(worktree, prev_ref, "HEAD",
                                                  base_commit, match).items():

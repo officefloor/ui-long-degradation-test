@@ -44,9 +44,20 @@ app:
   health_url: http://localhost:3000/actuator/health   # Spring Actuator; correctness.wait_ready
   # Erosion is measured per layer (DESIGN.md §8): front-end TS (file-scope container) and backend
   # Java (class-scope, comparable to the REST arm) tracked as SEPARATE series.
+  # FALLBACK ONLY. The layer source roots are declared by the STACK, in its own `stack.yaml` at
+  # base_ref (harness.stack_layers) — same reasoning as `--repo` above: one harness drives many
+  # stacks, and a glob sitting here matches NOTHING for a stack whose front-end is templates or
+  # .svelte, making every frontend_* column read 0/None, which looks like an answer. A stack that
+  # declares stack.yaml overrides this; one that predates it falls back here (the run logs which).
   source_globs:
     frontend: ["src/main/frontend/**/*.{ts,tsx}"]     # full-fidelity format so its erosion shows
     backend:  ["src/main/java/**/*.java"]
+  # A CONTRACT check, not an erosion measure: files the stack declares frozen, so a checkpoint that
+  # moves one is reported. It can only see surfaces listed up front, and the react arm showed why
+  # that is not enough — it declared `router/**` while the churn went into the feature pages. The
+  # erosion questions are answered without any list by metrics.hot_surface (which files the run
+  # keeps reopening) and metrics.reedit_line_stats (how much settled code a checkpoint destroyed,
+  # and how old it was) — both git-only, so they compare across technologies.
   shared_surfaces:                  # boundary-violation targets, both layers (metrics.boundary_violations)
     frontend: ["src/main/frontend/router/**", "src/main/frontend/ui/**"]
     backend:  ["src/main/resources/officefloor/**"]   # wiring/config the backend shouldn't need to churn
