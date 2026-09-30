@@ -48,6 +48,8 @@ STACK=~/officehq-react-officefloor
 .venv/bin/python -m harness.run_experiment --config config.yaml --repo $STACK \
     --chain 1 --run-id <run_id> --resume     # refuses a --repo other than the one that started it
 # analyse a run's committed capture -> results/<run_id>/analysis/{summary.md,*.csv,*.png}:
+# progress is a heartbeat line per CHECKPOINT (s/cp + eta + the headline metrics), because the
+# recompute re-runs lizard/PMD/CK over a throwaway worktree per checkpoint and takes minutes.
 .venv/bin/python -m harness.analyze --config config.yaml --repo $STACK --run-id <run_id>
 ```
 

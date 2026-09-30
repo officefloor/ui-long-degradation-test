@@ -24,6 +24,7 @@ import os
 import re
 import subprocess
 import tempfile
+import time
 from collections import Counter, defaultdict
 
 import numpy as np
@@ -130,6 +131,20 @@ def _outcome_from_capture(rec: dict) -> correctness.TestOutcome:
     return outcome
 
 
+def _heartbeat_val(row: dict, field: str) -> str:
+    """One metric as the progress heartbeat shows it.
+
+    `-` means the field is BLANK (the metric did not run — e.g. the Java CK/PMD block on a
+    checkpoint with no backend files yet), never a real 0: "did not run" must not read as
+    "found nothing". Display only; nothing is derived from this."""
+    v = row.get(field, "")
+    if v is None or v == "":
+        return "-"
+    if isinstance(v, float):
+        return f"{v:.4g}"
+    return str(v)
+
+
 def _metrics_row(repo: str, commit_sha: str, prev_sha: str | None, app_cfg: dict,
                  tools: dict | None = None, base_commit: str | None = None) -> dict:
     """Structural erosion/impact/placement for a checkpoint: materialise its agent commit in a
@@ -147,7 +162,7 @@ def _metrics_row(repo: str, commit_sha: str, prev_sha: str | None, app_cfg: dict
         return metrics.compute_all(tmp, app_cfg, tools or {}, base_commit or commit_sha,
                                    prev_ref=(prev_sha or None))
     except Exception as e:  # never let a metrics failure abort the run
-        print(f"    [warn] metrics failed for {commit_sha[:8]}: {e}")
+        print(f"    [warn] metrics failed for {commit_sha[:8]}: {e}", flush=True)
         return {}
     finally:
         subprocess.run(["git", "-C", repo, "worktree", "remove", "--force", tmp],
@@ -163,14 +178,27 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
     is given, structural metrics (metrics.compute_all) are merged in from the checkpoint commit;
     `tools` drives the Java-backend CK/PMD block."""
     rows: list[dict] = []
-    for branch, condition, chain in sorted(_evolve_branches(repo, run_id)):
+    branches = sorted(_evolve_branches(repo, run_id))
+    n_br = len(branches)
+    t_all = time.time()
+    print(f"recompute: {n_br} chain branch(es)"
+          + ("" if app_cfg else "  (no app config — correctness only, no structural metrics)"),
+          flush=True)
+    for i_br, (branch, condition, chain) in enumerate(branches, 1):
         caps = _read_captures(repo, branch)
         if not caps:
+            print(f"  [{i_br}/{n_br}] {branch}: no capture — skipped", flush=True)
             continue
         n = max(caps)
+        ks = sorted(caps)
+        n_cp = len(ks)
+        print(f"  [{i_br}/{n_br}] {branch}: {n_cp} checkpoint(s)", flush=True)
         base_commit = caps[min(caps)].get("prev_sha")  # chain base (cp01's prev) — cum change-entropy
         prior_passing: set[str] = set()
-        for k in sorted(caps):
+        n_noop = 0        # checkpoints the agent left unchanged -> no commit -> no structural row
+        n_invalid = 0     # gates that aborted -> correctness is missing, not failed
+        t_chain = time.time()
+        for i_cp, k in enumerate(ks, 1):
             rec = caps[k]
             outcome = _outcome_from_capture(rec)
             mutated = [int(m) for m in (rec.get("mutates") or [])]
@@ -196,7 +224,32 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
                                         rec.get("prev_sha"), app_cfg, tools, base_commit))
             if not outcome.gate_invalid:
                 prior_passing = outcome.passing
+            else:
+                n_invalid += 1
+            if not (rec.get("commit_sha") or ""):
+                n_noop += 1
             rows.append(row)
+
+            # Heartbeat, one line per CHECKPOINT (the unit that takes the time: a throwaway
+            # worktree plus lizard/PMD/CK over it). Deliberately not per-metric — nearly all of
+            # a checkpoint is the external tool launches, so a per-metric line would be ~20x the
+            # volume while idling on exactly the steps that take the time.
+            el = time.time() - t_chain
+            eta = (el / i_cp) * (n_cp - i_cp)
+            flags = ("  NO-OP" if not (rec.get("commit_sha") or "") else "") + \
+                    ("  INVALID-GATE" if outcome.gate_invalid else "")
+            print(f"      cp{k:02d} {i_cp:>3}/{n_cp}  {el / i_cp:5.1f}s/cp  eta {eta / 60:5.1f}m"
+                  f"  fe[er={_heartbeat_val(row, 'frontend_erosion')}"
+                  f" sloc={_heartbeat_val(row, 'frontend_sloc')}]"
+                  f"  be[er={_heartbeat_val(row, 'backend_erosion')}"
+                  f" sloc={_heartbeat_val(row, 'backend_sloc')}]"
+                  f"  regr={_heartbeat_val(row, 'regressions')}" + flags, flush=True)
+        print(f"  recomputed {branch}: {n_cp} checkpoint(s)"
+              + (f" ({n_noop} no-op)" if n_noop else "")
+              + (f"  ! {n_invalid} INVALID GATE(S) — correctness excluded" if n_invalid else "")
+              + f"  [{(time.time() - t_chain) / 60:.1f}m]", flush=True)
+    print(f"recompute done: {len(rows)} rows from {n_br} branch(es) "
+          f"in {(time.time() - t_all) / 60:.1f}m", flush=True)
     return rows
 
 
@@ -527,13 +580,14 @@ def main() -> int:
         raise SystemExit(
             f"config {args.config}: app.repo must NOT be set — pass the stack repo with --repo.")
     repo, origin = stack_repo(args.repo)
-    print("stack:", stack_label(repo, origin, (cfg.get("app") or {}).get("base_ref", "")))
+    print("stack:", stack_label(repo, origin, (cfg.get("app") or {}).get("base_ref", "")),
+          flush=True)
 
     run_id = args.run_id or _latest_run_id(repo)
     if not run_id:
-        print("no evolve/<run_id>/... branches found in", repo)
+        print("no evolve/<run_id>/... branches found in", repo, flush=True)
         return 1
-    print(f"analyzing run {run_id} in {repo}")
+    print(f"analyzing run {run_id} in {repo}", flush=True)
 
     # Expand ${VARS}/~ in the metrics tool paths (pmd/ck/java) so a config path like
     # ${HOME}/.../pmd resolves — otherwise the CK/PMD blocks silently produce blank columns.
@@ -541,7 +595,7 @@ def main() -> int:
              for k, v in (cfg.get("tools") or {}).items()}
     rows = recompute_rows(repo, run_id, cfg["app"], tools)
     if not rows:
-        print("no capture found for run", run_id)
+        print("no capture found for run", run_id, flush=True)
         return 1
 
     harness_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -549,17 +603,22 @@ def main() -> int:
     os.makedirs(out_dir, exist_ok=True)
     gammas = [float(g) for g in args.gammas.split(",") if g.strip()]
 
+    print(f"writing csv -> {out_dir}", flush=True)
     csv_path = write_csv(rows, out_dir)
+    print("writing summary (slopes + chain-bootstrap CIs) ...", flush=True)
     summary_path = write_summary(rows, run_id, gammas, out_dir)
 
     by_cond: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         by_cond[group_key(r)].append(r)
-    for field, label in PLOT_FIELDS:
+    print(f"plotting {len(PLOT_FIELDS)} metric(s)"
+          + ("" if HAVE_MPL else "  (matplotlib missing: skipped)"), flush=True)
+    for i_pf, (field, label) in enumerate(PLOT_FIELDS, 1):
+        print(f"  [{i_pf}/{len(PLOT_FIELDS)}] {field}", flush=True)
         plot_metric(by_cond, field, label, os.path.join(out_dir, f"{field}.png"))
 
-    print(f"wrote {summary_path}")
-    print(f"wrote {csv_path}")
+    print(f"wrote {summary_path}", flush=True)
+    print(f"wrote {csv_path}", flush=True)
     print("\n" + open(summary_path).read())
     return 0
 
