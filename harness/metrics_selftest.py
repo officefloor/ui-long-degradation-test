@@ -156,11 +156,16 @@ def test_reedit_line_stats_ages_in_checkpoints():
         assert st["reedit_lines_settled"] == 1, st          # written 2 checkpoints earlier
         assert st["reedit_age_max"] == 2, st                # checkpoints, NOT 4 commits
         assert 0 < st["reedit_lines_rate"] <= 1, st
+        # the DENOMINATOR is stored, so a run's rate can be pooled instead of averaged.
+        # 3 = 2 added ("ONE" replacing "one", plus the appended "4") + 1 removed ("one").
+        assert st["reedit_lines_touched"] == 3, st
+        assert abs(st["reedit_lines_rate"] - 1 / 3) < 1e-4, st
         # a purely additive checkpoint replaces nothing
         _write(tmp, "src/main/frontend/added.html", "<p>new</p>\n")
         add = _commit(tmp, "cp03 agent")
         st2 = metrics.reedit_line_stats(tmp, cur, add, base, match)
         assert st2["reedit_lines_removed"] == 0 and st2["reedit_lines_settled"] == 0, st2
+        assert st2["reedit_lines_touched"] == 0, st2
 
 
 def test_reedit_age_blank_without_checkpoint_labels():
@@ -234,6 +239,74 @@ def test_stack_layers_falls_back_to_config():
             raise AssertionError("expected SystemExit with neither source")
         except SystemExit as e:
             assert "layer roots are unknown" in str(e), e
+
+
+def test_pooled_ratio_beats_mean_of_ratios():
+    """The artifact this exists to avoid: averaging per-checkpoint ratios can invert a comparison."""
+    from . import analyze
+    # arm A: one checkpoint replaced 1 of 2 lines (rate 0.50), one replaced 10 of 400 (0.025)
+    A = [{"chain": "1", "frontend_reedit_lines_settled": 1, "frontend_reedit_lines_touched": 2},
+         {"chain": "1", "frontend_reedit_lines_settled": 10, "frontend_reedit_lines_touched": 400}]
+    # arm B: steadily replaced 60 of 402 lines — WORSE, but its per-checkpoint mean looks better
+    B = [{"chain": "1", "frontend_reedit_lines_settled": 30, "frontend_reedit_lines_touched": 201},
+         {"chain": "1", "frontend_reedit_lines_settled": 30, "frontend_reedit_lines_touched": 201}]
+    mean_a = sum(r["frontend_reedit_lines_settled"] / r["frontend_reedit_lines_touched"] for r in A) / 2
+    mean_b = sum(r["frontend_reedit_lines_settled"] / r["frontend_reedit_lines_touched"] for r in B) / 2
+    pooled_a = analyze.pooled_ratio(A, "frontend_reedit_lines_settled", "frontend_reedit_lines_touched")
+    pooled_b = analyze.pooled_ratio(B, "frontend_reedit_lines_settled", "frontend_reedit_lines_touched")
+    assert mean_a > mean_b, (mean_a, mean_b)        # mean-of-ratios says A is worse
+    assert pooled_a < pooled_b, (pooled_a, pooled_b)  # pooled says A is better — and it is
+    assert abs(pooled_a - 11 / 402) < 1e-9, pooled_a
+    # a missing denominator is blank, not a zero that drags the pooled value down
+    assert analyze.pooled_ratio([{"chain": "1"}], "frontend_reedit_lines_settled",
+                                "frontend_reedit_lines_touched") is None
+
+
+def test_source_loc_is_the_density_denominator():
+    """A duplication density above 1 is a unit error, not a finding — guard the denominator."""
+    from . import deep_metrics
+    with tempfile.TemporaryDirectory() as tmp:
+        _write(tmp, "src/main/frontend/a.tsx",
+               "import x from 'y';\n\nexport function A(){ return <div/>; }\n")
+        match = metrics._matcher(["src/main/frontend/**/*.{ts,tsx}"])
+        phys = deep_metrics.source_loc(tmp, match)
+        fn_nloc = deep_metrics.total_java_loc(metrics.functions(tmp, ["src/main/frontend/**/*.{ts,tsx}"]))
+        assert phys == 2, phys            # the blank line is not counted; the import IS
+        assert phys > fn_nloc, (phys, fn_nloc)   # which is exactly why it must be the denominator
+        assert deep_metrics.source_loc(tmp, lambda p: False) == 0
+
+
+def test_clone_area_is_cross_feature_not_petclinic():
+    from . import deep_metrics
+    # jscpd names are relative to the scanned root, so two features are two areas
+    assert deep_metrics._clone_area("features/clients/ClientsTable.tsx") == "features/clients"
+    assert (deep_metrics._clone_area("features/clients/a.tsx")
+            != deep_metrics._clone_area("features/projects/b.tsx"))
+    # a flat package collapses to one area -> cross-area 0, which is the truth
+    assert (deep_metrics._clone_area("net/officefloor/hq/app/A.java")
+            == deep_metrics._clone_area("net/officefloor/hq/app/B.java"))
+
+
+def test_frontend_unit_vocabulary():
+    """What KIND of unit holds a new rule — most specific label wins."""
+    from . import class_shape as cs
+    cases = [
+        ("routes/clients.index.tsx", "export const Route = createFileRoute('/clients')({})", "route"),
+        ("features/c/nav.slot.tsx", "export const contribution = AppNav.fill({})", "slot-contribution"),
+        ("slots/defs/appNav.ts", "export const AppNav = defineSlot('app.nav')", "slot-def"),
+        ("features/c/queries.ts", "export const q = () => useQuery({})", "query-module"),
+        ("ui/money.ts", "export const fmt = (n: number) => n.toFixed(2)", "ui-primitive"),
+        ("features/c/ClientsPage.tsx", "export function P(){ return <div/>; }", "component"),
+        ("features/c/model.ts", "export type C = { id: number }", "module"),
+        # a comparison operator must not read as JSX
+        ("features/c/calc.ts", "export const lt = (a: number, b: number) => a < b && b > a;", "module"),
+    ]
+    for path, code, expect in cases:
+        got = cs.classify_frontend(path, code)
+        assert got == expect, (path, got, expect)
+    # a route that also queries is still a route: the route is what makes it addable
+    assert cs.classify_frontend("routes/x.tsx",
+                                "export const Route = createFileRoute('/x')({}); useQuery({})") == "route"
 
 
 def main() -> int:

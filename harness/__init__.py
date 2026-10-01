@@ -71,6 +71,26 @@ def stack_label(repo: str, origin: str | None, base_ref: str = "") -> str:
     return f"{_os.path.basename(repo)}{at}  (origin: {origin or 'NONE'})"
 
 
+def stack_layer_options(repo: str, base_ref: str) -> dict:
+    """The stack's raw `layers` block from stack.yaml at base_ref, verbatim ({} when absent).
+
+    `stack_layers` turns `root`+`ext` into source globs; this hands back everything else the
+    stack declares about a layer — `jscpd_format`, `handler_pattern`, `node_roots`,
+    `function_package_glob`, `config_globs` — which the deep metrics need and which are
+    properties of the technology, not of the harness.
+    """
+    import yaml as _yaml
+
+    got = _subprocess.run(["git", "-C", repo, "show", f"{base_ref}:stack.yaml"],
+                          capture_output=True, text=True)
+    if got.returncode != 0:
+        return {}
+    try:
+        return ((_yaml.safe_load(got.stdout) or {}).get("layers") or {})
+    except _yaml.YAMLError:
+        return {}
+
+
 def stack_layers(repo: str, base_ref: str, fallback: dict | None = None,
                  expected: tuple = ()):
     """The layer SOURCE ROOTS, declared by the STACK not the harness.
@@ -137,3 +157,22 @@ def stack_layers(repo: str, base_ref: str, fallback: dict | None = None,
         inner = exts[0] if len(exts) == 1 else "{" + ",".join(sorted(exts)) + "}"
         globs[layer] = [f"{root}/**/*.{inner}"]
     return globs, f"{_os.path.basename(repo)}:{base_ref}:stack.yaml"
+
+
+# Ported from the REST arm (spring-petclinic-rest-long-degradation-test) so the vendored
+# `cumulative_impact` / `class_shape` modules run here unchanged.
+def git_out(cwd: str, args: list[str], check: bool = False, timeout: int = 60) -> str:
+    """Run ``git -C <cwd> <args>`` and return stdout (unstripped). Swallows errors
+    (returns "") unless ``check`` is set, in which case a non-zero exit raises. Used
+    by the derive/analyze side, which needs graceful degradation on a missing repo;
+    run_experiment keeps its own stricter ``git`` (raises by default, strips)."""
+    try:
+        proc = _subprocess.run(["git", "-C", cwd, *args],
+                              capture_output=True, text=True, timeout=timeout)
+    except (FileNotFoundError, _subprocess.TimeoutExpired, OSError):
+        if check:
+            raise
+        return ""
+    if check and proc.returncode != 0:
+        raise RuntimeError(f"git {' '.join(args)} failed: {proc.stderr.strip()}")
+    return proc.stdout

@@ -30,7 +30,8 @@ from collections import Counter, defaultdict
 import numpy as np
 import yaml
 
-from . import correctness, metrics, stack_label, stack_layers, stack_repo
+from . import (class_shape, correctness, cumulative_impact, metrics, stack_label,
+               stack_layer_options, stack_layers, stack_repo)
 from .run_experiment import CSV_FIELDS, phase_for
 
 try:
@@ -463,6 +464,28 @@ PLOT_FIELDS = [
     ("backend_reedit_lines_rate", "Backend settled lines replaced (share of lines touched)"),
     ("frontend_reedit_age_mean", "Front-end age of replaced lines (checkpoints)"),
     ("backend_reedit_age_mean", "Backend age of replaced lines (checkpoints)"),
+    # Deep metrics (harness.deep_metrics). DUPLICATION is the counter-hypothesis for an additive
+    # architecture: adding a file instead of editing one is only better if the file is not a copy.
+    ("frontend_dup_density", "Front-end duplicated lines (share of LOC)"),
+    ("backend_dup_density", "Backend duplicated lines (share of LOC)"),
+    ("frontend_dup_evolved_density", "Front-end duplication in the evolving footprint"),
+    ("backend_dup_evolved_density", "Backend duplication in the evolving footprint"),
+    ("frontend_dup_cross_area_pairs", "Front-end cross-feature clone pairs"),
+    ("frontend_verbosity", "Front-end verbosity (clone or smell lines / LOC)"),
+    ("backend_verbosity", "Backend verbosity (clone or smell lines / LOC)"),
+    # Role-comparable entry surface, rather than whichever file happens to be heaviest.
+    ("frontend_wmc_handler", "Front-end WMC of the entry surface"),
+    ("backend_wmc_handler", "Backend WMC of the entry surface"),
+    ("frontend_erosion_handler", "Front-end erosion of the entry surface"),
+    ("backend_erosion_handler", "Backend erosion of the entry surface"),
+    ("frontend_existing_fns_modified", "Front-end pre-existing functions disturbed"),
+    ("backend_existing_fns_modified", "Backend pre-existing functions disturbed"),
+    # The declared additive unit: count rising while size stays flat is the healthy shape.
+    ("frontend_fnpkg_count", "Front-end additive units declared"),
+    ("frontend_fnpkg_nloc_max", "Front-end largest additive unit (NLOC)"),
+    # Comprehension load per wired node, and how much of it each node owns alone.
+    ("backend_node_cc_median", "Backend CC reachable from one node (median)"),
+    ("backend_node_exclusive_share", "Backend node-exclusive CC share"),
     # Contract check, not an erosion measure: files the STACK declares frozen (shared_surfaces).
     ("frontend_boundary", "Front-end boundary violations"),
     ("backend_boundary", "Backend boundary violations"),
@@ -511,7 +534,118 @@ def _fmt_ci(t) -> str:
     return f"{p:+.4f} [{lo:+.4f}, {hi:+.4f}] ({excl})"
 
 
-def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: str) -> str:
+# Ratio metrics, as (label, numerator field, denominator field). A ratio must be POOLED over the
+# run (sum of numerators / sum of denominators), never averaged over checkpoints: per-checkpoint
+# ratios are dominated by the checkpoints with a tiny denominator — a checkpoint that touched 2
+# lines of existing code and replaced 1 of them contributes 0.5, the same weight as a checkpoint
+# that touched 300. On the first two arms that artifact INVERTED the comparison, so the slope rows
+# below (OLS on the per-checkpoint ratio, which the plots show) are not the number to quote for a
+# level — this block is.
+POOLED_RATIOS = [
+    (f"{lyr}_reedit_lines_rate", f"{lyr}_reedit_lines_settled", f"{lyr}_reedit_lines_touched")
+    for lyr in metrics.LAYERS
+] + [
+    (f"{lyr}_reedit_rate", f"{lyr}_reedit_prior_lines", f"{lyr}_reedit_body_lines")
+    for lyr in metrics.LAYERS
+]
+
+
+def _num(x) -> float:
+    """`_f` yields NaN for a blank/absent field, and NaN poisons a sum (and is truthy, so
+    `_f(x) or 0` does NOT guard it). Treat it as 0 for accumulation."""
+    v = _f(x)
+    return 0.0 if math.isnan(v) else v
+
+
+def pooled_ratio(rows: list[dict], num_field: str, den_field: str):
+    """Sum/sum over the given rows. None when no row carried the denominator — a missing
+    denominator must read BLANK, never as a zero that drags the pooled value down."""
+    num = den = 0.0
+    seen = False
+    for r in rows:
+        d = _f(r.get(den_field))
+        if math.isnan(d):
+            continue
+        seen = True
+        den += d
+        num += _num(r.get(num_field))
+    if not seen or den == 0:
+        return None
+    return num / den
+
+
+def branch_audits(repo: str, run_id: str, app_cfg: dict, verbose: bool = True) -> list[str]:
+    """Run the two BRANCH-level audits (base -> chain tip, one diff per chain) and return their
+    summary.md sections.
+
+    These answer what the per-checkpoint series cannot. `class_shape` asks what KIND of unit the
+    run created to hold each new rule — for the front end, whether the architecture was actually
+    used as designed (route / slot-contribution / query-module) or quietly bypassed (one more
+    component). `cumulative_impact` collapses intermediate churn and measures only the SURVIVING
+    change over every changed file, including the files `source_globs` deliberately does not
+    reach (wiring YAML, SQL, config), so work pushed outside the measured scope still shows up.
+
+    Keyed `<condition>/<layer>` so each vocabulary renders as its own column set.
+    """
+    globs = app_cfg.get("source_globs") or {}
+    layers = app_cfg.get("layers") or {}
+    shape: dict[str, list[dict]] = defaultdict(list)
+    cumul: dict[str, list[dict]] = defaultdict(list)
+    branches = sorted(_evolve_branches(repo, run_id))
+    if verbose:
+        print(f"branch audits: class-shape + cumulative-impact over {len(branches)} chain(s)",
+              flush=True)
+    for branch, condition, chain in branches:
+        caps = _read_captures(repo, branch)
+        if not caps:
+            continue
+        base = caps[min(caps)].get("prev_sha")   # the chain base, as recompute_rows derives it
+        if not base:
+            continue
+        for lyr in metrics.LAYERS:
+            opts = layers.get(lyr) or {}
+            root = opts.get("root")
+            if not root:
+                continue
+            key = f"{condition}/{lyr}"
+            exts = tuple("." + str(e).lstrip(".") for e in (opts.get("ext") or []))
+            classify = (class_shape.classify_frontend if lyr == "frontend"
+                        else class_shape.classify)
+            try:
+                counts = class_shape.audit_branch(repo, base, branch, root, exts, classify)
+                shape[key].append({"chain": chain, "total": sum(counts.values()), **dict(counts)})
+            except Exception as e:                      # never let an audit abort the analysis
+                print(f"    [warn] class-shape {key} chain{chain}: {e}", flush=True)
+        # ONCE per chain, over the union of both layers' globs. This audit is deliberately
+        # UNSCOPED — its question is what the scoped metrics cannot see — so running it per
+        # layer produced two identical columns differing only in the in-scope row.
+        try:
+            all_globs = [g for lyr in metrics.LAYERS for g in (globs.get(lyr) or [])]
+            r = cumulative_impact.audit_branch(repo, base, branch, all_globs)
+            r.update(arm=condition, strategy=condition, chain=chain, branch=branch)
+            cumul[condition].append(r)
+        except Exception as e:
+            print(f"    [warn] cumulative-impact {condition} chain{chain}: {e}", flush=True)
+        if verbose:
+            print(f"  {condition}/chain{chain}: audited", flush=True)
+
+    out: list[str] = []
+    for lyr, cats, title in (
+        ("frontend", class_shape.FRONTEND_CATEGORIES,
+         "## Unit shape, front end (what kind of unit holds a new rule)"),
+        ("backend", class_shape.CATEGORIES,
+         "## Class shape, backend (what kind of class holds a new rule)"),
+    ):
+        sub = {k: v for k, v in shape.items() if k.endswith("/" + lyr)}
+        if sub:
+            out += class_shape.markdown_section(sub, cats, title)
+    if cumul:
+        out += cumulative_impact.markdown_section(dict(cumul))
+    return out
+
+
+def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: str,
+                  extra_sections: list[str] | None = None) -> str:
     by_cond: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         by_cond[group_key(r)].append(r)
@@ -541,6 +675,23 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
               "", "degradation slopes (OLS on checkpoint index; chain-bootstrap 95% CI):"]
         for field, _label in PLOT_FIELDS:
             L.append(f"  - {field}: {_fmt_ci(bootstrap_slope(series_by_chain(cr, field)))}")
+        L += ["", "pooled ratios (sum numerator / sum denominator over the run — quote THESE "
+              "for a level, not the per-checkpoint slopes above):"]
+        chains = sorted({int(r["chain"]) for r in cr})
+        for field, num_f, den_f in POOLED_RATIOS:
+            overall = pooled_ratio(cr, num_f, den_f)
+            if overall is None:
+                L.append(f"  - {field}: — (no data)")
+                continue
+            per = []
+            for ch in chains:
+                v = pooled_ratio([r for r in cr if int(r["chain"]) == ch], num_f, den_f)
+                per.append("—" if v is None else f"{v:.4f}")
+            tot_n = sum(_num(r.get(num_f)) for r in cr)
+            tot_d = sum(_num(r.get(den_f)) for r in cr)
+            L.append(f"  - {field}: {overall:.4f}  (per chain: {' / '.join(per)};"
+                     f" {tot_n:.0f} of {tot_d:.0f} lines)")
+
         L += ["", "cost/effort:",
               f"  - total agent cost: ${sum(_f(r.get('cost_usd')) or 0 for r in cr):.4f}",
               f"  - total turns: {int(sum(_f(r.get('num_turns')) or 0 for r in cr))}", ""]
@@ -553,6 +704,7 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
             L.append(f"  - {field}: {_fmt_ci(bootstrap_diff_slope(by_cond[a], by_cond[b], field))}")
         L.append("")
 
+    L += (extra_sections or [])
     out = os.path.join(out_dir, "summary.md")
     with open(out, "w") as fh:
         fh.write("\n".join(L) + "\n")
@@ -596,6 +748,9 @@ def main() -> int:
     cfg["app"]["source_globs"], _prov = stack_layers(
         repo, cfg["app"]["base_ref"], (cfg["app"].get("source_globs") or None),
         expected=metrics.LAYERS)
+    # The stack also declares each layer's deep-metric anchors (jscpd language, entry surface,
+    # additive unit, wiring) — see harness.stack_layer_options.
+    cfg["app"]["layers"] = stack_layer_options(repo, cfg["app"]["base_ref"])
     print("layers:", _prov, cfg["app"]["source_globs"], flush=True)
 
     run_id = args.run_id or _latest_run_id(repo)
@@ -606,8 +761,18 @@ def main() -> int:
 
     # Expand ${VARS}/~ in the metrics tool paths (pmd/ck/java) so a config path like
     # ${HOME}/.../pmd resolves — otherwise the CK/PMD blocks silently produce blank columns.
-    tools = {k: (os.path.expanduser(os.path.expandvars(v)) if isinstance(v, str) else v)
-             for k, v in (cfg.get("tools") or {}).items()}
+    _hroot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Tool paths in config.yaml are written relative to the HARNESS root ("tools/node_modules/...",
+    # "pmd-rules/..."), but every tool is launched with cwd set to the checkpoint WORKTREE, where a
+    # relative path does not resolve — jscpd/ast-grep then raise FileNotFoundError and their metrics
+    # come back blank, which looks exactly like "this stack has no duplication". Absolutise them.
+    def _tool(v):
+        if not isinstance(v, str) or not v:
+            return v
+        v = os.path.expanduser(os.path.expandvars(v))
+        return v if os.path.isabs(v) else os.path.join(_hroot, v)
+
+    tools = {k: _tool(v) for k, v in (cfg.get("tools") or {}).items()}
     rows = recompute_rows(repo, run_id, cfg["app"], tools)
     if not rows:
         print("no capture found for run", run_id, flush=True)
@@ -620,8 +785,9 @@ def main() -> int:
 
     print(f"writing csv -> {out_dir}", flush=True)
     csv_path = write_csv(rows, out_dir)
+    audits = branch_audits(repo, run_id, cfg["app"])
     print("writing summary (slopes + chain-bootstrap CIs) ...", flush=True)
-    summary_path = write_summary(rows, run_id, gammas, out_dir)
+    summary_path = write_summary(rows, run_id, gammas, out_dir, extra_sections=audits)
 
     by_cond: dict[str, list[dict]] = defaultdict(list)
     for r in rows:

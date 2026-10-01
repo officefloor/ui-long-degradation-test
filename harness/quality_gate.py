@@ -21,10 +21,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
+from typing import Optional
 
 _SCRATCH = ".jscpd-quality"
 
@@ -308,3 +310,93 @@ def run_pmd(root: str, src_dirs: list[str], pmd_bin: str, rulesets: list[str],
         return json.loads(proc.stdout or "{}")
     except json.JSONDecodeError:
         return None
+
+
+# ── PMD line helpers, ported from the REST arm (spring-petclinic-rest-long-degradation-test
+# @ 7ea7402) so `deep_metrics.verbosity` can share ONE PMD run with the gate instead of
+# spawning its own. `run_pmd` above already does the invocation; these three turn a report
+# into line sets and let two rulesets be scanned together and split back apart by rule name.
+def _pmd_lines(root: str, src_dirs: list[str], pmd_bin: str,
+               ruleset: str) -> dict[tuple[str, int], str] | None:
+    """{(repo-relative path, 1-based line): message} for every PMD violation, or None if
+    PMD did not run.
+
+    PMD replaces ast-grep as the smell detector: SlopCodeBench's 137 Verbosity rules are
+    `language: python` and cannot match these Java arms, while PMD ships a mature Java
+    ruleset whose "unnecessary/useless/redundant" rules are the same construct. The
+    curated subset lives in `pmd-rules/java-wasteful.xml` (committed; it decides verdicts,
+    so it travels with the run like the ast-grep rules did).
+
+    The spawn and its "did not run reads as found nothing" guards live in `run_pmd`.
+    Analysis is source-only (no --aux-classpath): checkpoint trees are materialised but
+    never compiled, and type resolution is not needed by these rules.
+
+    This is the gate's entry point, and it runs PMD for this ruleset alone.
+    `metrics.compute_all` instead runs `run_pmd` ONCE for this ruleset and the metrics
+    one together and splits the report with `pmd_lines_from_report`.
+    """
+    if not ruleset or not os.path.isfile(ruleset):
+        return None
+    report = run_pmd(root, src_dirs, pmd_bin, [ruleset], "smell detection")
+    if report is None:
+        return None
+    return pmd_lines_from_report(report, root)
+
+
+def ruleset_rule_names(ruleset: str) -> Optional[set[str]]:
+    """The rule NAMES a ruleset file pulls in -- the last path segment of every `ref=`.
+
+    Used to split ONE merged PMD report back into the per-ruleset violation sets, which
+    is only sound while the rulesets are DISJOINT; `compute_all` asserts that and falls
+    back to separate runs if it ever stops holding. PMD's own `ruleset` JSON field cannot
+    do this job: it reports the rule's CATEGORY ("Design"), and both of this repo's
+    rulesets draw from category/java/design.xml.
+
+    None means "cannot enumerate, do not split a merged report with this". That is
+    returned for a CATEGORY-level ref (`ref="category/java/design.xml"`, no rule after
+    it), which pulls in every rule in that file under names this function cannot see:
+    those violations would silently vanish from whichever half they belong to, which is
+    exactly the "did not run reads as found nothing" failure this file keeps guarding
+    against. Neither committed ruleset does this today -- both name every rule -- so the
+    branch exists to keep a future edit from quietly corrupting Verbosity.
+    """
+    if not ruleset or not os.path.isfile(ruleset):
+        return None
+    try:
+        with open(ruleset, encoding="utf-8", errors="ignore") as fh:
+            body = fh.read()
+    except OSError:
+        return None
+    names: set[str] = set()
+    for r in re.findall(r'ref="([^"]+)"', body):
+        leaf = r.rsplit("/", 1)[-1]
+        if not leaf or leaf.endswith(".xml"):
+            return None          # whole-category ref: rule names are not enumerable here
+        names.add(leaf)
+    return names or None
+
+
+def pmd_lines_from_report(report: dict, root: str,
+                          keep: Optional[set[str]] = None
+                          ) -> dict[tuple[str, int], str]:
+    """Violation lines out of an already-parsed PMD report.
+
+    `keep` restricts to one ruleset's rule names when the report came from a merged run.
+    """
+    out: dict[tuple[str, int], str] = {}
+    for f in report.get("files", []):
+        path = f.get("filename") or ""
+        rel = os.path.relpath(path, root) if os.path.isabs(path) else path
+        for v in f.get("violations", []):
+            begin, end = v.get("beginline"), v.get("endline")
+            if begin is None:
+                continue
+            if keep is not None and (v.get("rule") or "") not in keep:
+                continue
+            msg = v.get("rule") or "wasteful pattern"
+            # PMD lines are already 1-based. The curated ruleset deliberately excludes
+            # class-level rules, so spans stay small (max 3 lines observed) and a single
+            # finding cannot flood a LINE-counted metric.
+            for ln in range(int(begin), int(end or begin) + 1):
+                out.setdefault((rel, ln), msg)
+    return out

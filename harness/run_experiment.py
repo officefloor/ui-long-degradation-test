@@ -33,7 +33,8 @@ from datetime import datetime
 import yaml
 
 from . import (agent, capture, correctness, expand_path, impact_gate, landlock, metrics,
-               quality_gate, stack_label, stack_layers, stack_repo)
+               quality_gate, stack_label, stack_layer_options, stack_layers,
+               stack_repo)
 
 HARNESS_DIR = os.path.dirname(os.path.abspath(__file__))
 HARNESS_ROOT = os.path.dirname(HARNESS_DIR)   # the ui-long-degradation-test repo root
@@ -801,6 +802,7 @@ def main() -> int:
     cfg["app"]["source_globs"], _layer_prov = stack_layers(
         cfg["app"]["repo"], cfg["app"]["base_ref"],
         (cfg["app"].get("source_globs") or None), expected=metrics.LAYERS)
+    cfg["app"]["layers"] = stack_layer_options(cfg["app"]["repo"], cfg["app"]["base_ref"])
     print("layers:", _layer_prov, cfg["app"]["source_globs"], flush=True)
     # ast-grep rules live in the harness repo but the quality gate runs with cwd in the worktree,
     # so resolve to an absolute path here.
@@ -813,6 +815,12 @@ def main() -> int:
         val = (cfg.get("tools") or {}).get(tool)
         if val and os.sep in val and not os.path.isabs(val):
             cfg["tools"][tool] = os.path.join(HARNESS_ROOT, val)
+    # Tool paths in config.yaml are written relative to the HARNESS root ("tools/node_modules/...",
+    # "pmd-rules/..."), but every tool is launched with cwd set to the checkpoint WORKTREE, where a
+    # relative path does not resolve — jscpd/ast-grep then raise FileNotFoundError and their metrics
+    # come back blank, which looks exactly like "this stack has no duplication". Absolutise them.
+    cfg["tools"] = {k: (resolve(v) if isinstance(v, str) and v else v)
+                    for k, v in (cfg.get("tools") or {}).items()}
     cfg["checkpoints_file"] = resolve(cfg["checkpoints_file"])
     cfg["paths"]["work_root"] = resolve(cfg["paths"]["work_root"])
     cfg["paths"]["sandbox_root"] = resolve(cfg["paths"]["sandbox_root"])

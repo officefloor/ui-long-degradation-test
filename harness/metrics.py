@@ -435,13 +435,19 @@ def reedit_line_stats(worktree: str, prev_ref: str, cur_ref: str, base_commit: s
       reedit_lines_removed  pre-existing lines this checkpoint replaced or deleted
       reedit_lines_settled  those written 2+ checkpoints ago — i.e. NOT this feature's own
                             in-progress code from the checkpoint just before it
-      reedit_lines_rate     settled lines as a share of every line the checkpoint touched in
-                            existing files (added + removed); 0 = the change left settled code alone
+      reedit_lines_touched  every line the checkpoint touched in existing files (added + removed)
+                            — the ratio's DENOMINATOR, stored so a run's rate can be POOLED
+                            (sum/sum) instead of averaged over checkpoints. Averaging per-checkpoint
+                            ratios is dominated by checkpoints with a tiny denominator and can
+                            invert the comparison; analyze reports the pooled value.
+      reedit_lines_rate     settled lines as a share of reedit_lines_touched; 0 = the change left
+                            settled code alone. Per-checkpoint only — quote the pooled value.
       reedit_age_mean/max   how many checkpoints ago those lines were written (blank when the
                             branch carries no `cpNN` commit labels — see _commit_checkpoints)
     """
     blank = {"reedit_lines_removed": None, "reedit_lines_settled": None,
-             "reedit_lines_rate": None, "reedit_age_mean": None, "reedit_age_max": None}
+             "reedit_lines_touched": None, "reedit_lines_rate": None,
+             "reedit_age_mean": None, "reedit_age_max": None}
     try:
         ns = _git(worktree, ["diff", "--name-status", "-M", prev_ref, cur_ref])
         cur_sha = _git(worktree, ["rev-parse", cur_ref]).strip()
@@ -453,7 +459,8 @@ def reedit_line_stats(worktree: str, prev_ref: str, cur_ref: str, base_commit: s
         if len(parts) >= 2 and not parts[0].startswith("A") and match(parts[-1]):
             modified.append(parts[-1])
     if not modified:
-        return {**blank, "reedit_lines_removed": 0, "reedit_lines_settled": 0}
+        return {**blank, "reedit_lines_removed": 0, "reedit_lines_settled": 0,
+                "reedit_lines_touched": 0}
 
     cps = _commit_checkpoints(worktree, base_commit, cur_ref)
     cur_cp = cps.get(cur_sha)
@@ -488,6 +495,7 @@ def reedit_line_stats(worktree: str, prev_ref: str, cur_ref: str, base_commit: s
         settled_out = rate_out = None
     return {"reedit_lines_removed": removed,
             "reedit_lines_settled": settled_out,
+            "reedit_lines_touched": touched,
             "reedit_lines_rate": rate_out,
             "reedit_age_mean": (round(sum(ages) / len(ages), 2) if ages else None),
             "reedit_age_max": (max(ages) if ages else None)}
@@ -573,12 +581,18 @@ def compute_all(worktree: str, app_cfg: dict, tools: dict, base_commit: str,
     """One checkpoint's full structural row, PER LAYER (frontend_* / backend_*), from the
     worktree (checked out at the checkpoint commit) + a diff against prev_ref. Robust when a
     layer has no files yet (early checkpoints) — emits zeros, never raises."""
+    # Imported here, not at module scope: deep_metrics builds on this module's helpers, so a
+    # top-level import would be circular.
+    from . import deep_metrics
+
     source_globs = app_cfg.get("source_globs") or {}
+    layer_opts = app_cfg.get("layers") or {}      # stack.yaml's per-layer deep-metric options
     row: dict = {}
     for lyr in LAYERS:
         globs = source_globs.get(lyr) or []
         match = _matcher(globs)
         fns = functions(worktree, globs)
+        opts = layer_opts.get(lyr) or {}
         det = erosion_detail(fns)
         row[f"{lyr}_erosion"] = det["erosion"]
         row[f"{lyr}_over_threshold"] = det["over_threshold"]
@@ -607,7 +621,82 @@ def compute_all(worktree: str, app_cfg: dict, tools: dict, base_commit: str,
                                       tools.get("java") or "java")
             for k, v in (ck or {}).items():
                 row[f"backend_{k}"] = v
+        # ── deep metrics (harness.deep_metrics, ported from the REST arm) ───────────────────
+        # Layer-generic first. Each returns blanks (never zeros) when its tool is absent, and
+        # the layer's language/anchors come from stack.yaml, not from this file.
+        src_dirs = _glob_dirs(globs)
+        touched_all = set()
         if prev_ref:
+            try:
+                touched_all = set(_git(worktree, ["diff", "--name-only", base_commit,
+                                                  "HEAD"]).splitlines())
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                touched_all = set()
+        touched_fns = [f for f in fns if f["file"] in touched_all]
+        # Physical non-blank source lines, NOT the sum of function nloc: jscpd/ast-grep count
+        # whole-file lines, so a function-nloc denominator makes density exceed 1 (see
+        # deep_metrics.source_loc).
+        loc = deep_metrics.source_loc(worktree, match)
+        evolved_match = (lambda p: match(p) and p in touched_all)
+        evolved_loc = deep_metrics.source_loc(worktree, evolved_match)
+        row[f"{lyr}_source_loc"] = loc
+        row[f"{lyr}_evolved_loc"] = evolved_loc
+        # jscpd reports paths relative to the scanned dir, so express the changed files the
+        # same way before scoping duplication to them.
+        evolved_names: set[str] = set()
+        for t in touched_all:
+            for d in src_dirs:
+                pref = d.rstrip("/") + "/"
+                if t.startswith(pref):
+                    evolved_names.add(t[len(pref):])
+                    break
+        fmt = opts.get("jscpd_format") or ""
+        jrep = None
+        if src_dirs and fmt and tools.get("jscpd"):
+            jrep = deep_metrics._jscpd_report(worktree, src_dirs, tools["jscpd"], fmt)
+        for k, v in deep_metrics.clone_metrics(jrep, loc, evolved_loc, evolved_names).items():
+            row[f"{lyr}_{k}"] = v
+        if src_dirs and fmt:
+            jclones = None if jrep is None else deep_metrics._clone_lines_from_report(jrep, worktree)
+            vscore, _vd = deep_metrics.verbosity(worktree, src_dirs, loc,
+                                                 {**tools, "jscpd_format": fmt}, clones=jclones)
+            row[f"{lyr}_verbosity"] = ("" if vscore != vscore else round(vscore, 4))  # NaN -> blank
+        else:
+            row[f"{lyr}_verbosity"] = ""
+        for k, v in deep_metrics.wmc_stats(touched_fns).items():
+            row[f"{lyr}_{k}"] = v
+        for k, v in deep_metrics.hotspot_stats(touched_fns).items():
+            row[f"{lyr}_deep_{k}"] = v
+        # Namespaced `fnpkg_`: this returns fn_count/fn_nloc_* about ONE declared package, which
+        # would otherwise overwrite the layer's own fn_count computed above.
+        for k, v in deep_metrics.function_package_stats(
+                worktree, opts.get("function_package_glob")).items():
+            row[f"{lyr}_fnpkg_{k[len('fn_'):]}" if k.startswith("fn_") else f"{lyr}_{k}"] = v
+        # Anchored to the layer's own entry surface (stack.yaml `handler_pattern`): for the
+        # backend every OfficeFloor logic class with a `service(...)`, for the front end the
+        # route files. Role-comparable across stacks in a way `wmc_max` is not.
+        hp = opts.get("handler_pattern")
+        for k, v in deep_metrics.entry_handler_stats(fns, hp).items():
+            row[f"{lyr}_{k}"] = v
+        for k, v in deep_metrics.handler_wmc_stats(fns, hp).items():
+            row[f"{lyr}_{k}"] = v
+        for k, v in deep_metrics.handler_scoped_erosion(fns, hp).items():
+            row[f"{lyr}_{k}"] = v
+        row[f"{lyr}_config_loc"] = deep_metrics.yaml_loc(worktree, opts.get("config_globs") or [])
+        # Java-shaped: the call index parses Java identifiers and a `.java` class stem.
+        if lyr == "backend" and fns:
+            for k, v in deep_metrics.node_closure_stats(worktree, fns, opts).items():
+                row[f"{lyr}_{k}"] = v
+        else:
+            for k in ("node_count", "node_cc_median", "node_cc_mean", "node_cc_p90",
+                      "node_cc_max", "node_methods_median", "node_exclusive_share",
+                      "node_path_cc", "node_path_methods"):
+                row[f"{lyr}_{k}"] = None
+
+        if prev_ref:
+            for k, v in deep_metrics.blast_radius_detail(worktree, prev_ref, "HEAD",
+                                                         match=match).items():
+                row[f"{lyr}_{k}"] = v
             for k, v in impact_stats(worktree, prev_ref, "HEAD", match).items():
                 row[f"{lyr}_{k}"] = v
             for k, v in blast_radius(worktree, prev_ref, "HEAD", match).items():
