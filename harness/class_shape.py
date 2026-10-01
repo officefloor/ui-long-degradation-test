@@ -205,6 +205,57 @@ def classify_template(path: str, code: str) -> str:
     return "markup"
 
 
+# ── Angular vocabulary (UI-ARM, for the framework-control arm) ────────────────────────────────
+# Angular and React are both TypeScript, so the extension cannot tell them apart — a stack says
+# which idiom it is written in (`stack.yaml -> layers.<layer>.unit_vocabulary: angular`). The
+# question is the same as for the other arms: what KIND of unit did the run create to hold a new
+# rule? Angular answers in decorators, which makes it unusually legible.
+ANGULAR_CATEGORIES = ["component", "service", "route-config", "guard", "resolver", "pipe",
+                      "directive", "model", "module", "unparsed"]
+
+_NG_COMPONENT = re.compile(r"@Component\s*\(")
+_NG_INJECTABLE = re.compile(r"@Injectable\s*\(")
+_NG_PIPE = re.compile(r"@Pipe\s*\(")
+_NG_DIRECTIVE = re.compile(r"@Directive\s*\(")
+_NG_ROUTES = re.compile(r":\s*Routes\b|\bprovideRouter\s*\(")
+_NG_GUARD = re.compile(r"\bCanActivate\w*\b|\bCanMatch\b|Guard(?:Fn)?\b")
+_NG_RESOLVE = re.compile(r"\bResolveFn\b|\bResolve<|Resolver\b")
+_NG_MODEL = re.compile(r"\bexport\s+(?:interface|type|enum)\b")
+
+
+def classify_angular(path: str, code: str) -> str:
+    """The category of the PRIMARY unit in an Angular file. Decorator first, since that is what
+    Angular itself dispatches on; `route-config` is checked before the rest because a routes file
+    carries no decorator and would otherwise fall through to `module`."""
+    try:
+        lizard.analyze_file.analyze_source_code(path, code)
+    except Exception:
+        return "unparsed"
+    probe = _strip_comments(code)
+    if _NG_COMPONENT.search(probe):
+        return "component"
+    if _NG_PIPE.search(probe):
+        return "pipe"
+    if _NG_DIRECTIVE.search(probe):
+        return "directive"
+    if _NG_ROUTES.search(probe):
+        return "route-config"
+    if _NG_INJECTABLE.search(probe):
+        # A guard/resolver is often an @Injectable or a bare function; prefer the specific label.
+        if _NG_GUARD.search(probe):
+            return "guard"
+        if _NG_RESOLVE.search(probe):
+            return "resolver"
+        return "service"
+    if _NG_GUARD.search(probe):
+        return "guard"
+    if _NG_RESOLVE.search(probe):
+        return "resolver"
+    if _NG_MODEL.search(probe) and "class " not in probe:
+        return "model"
+    return "module"
+
+
 def audit_branch(repo: str, base: str, tip: str, src_root: str = "src/main/java",
                  exts: tuple = (".java",), classify_fn=None) -> collections.Counter:
     """Category counts over the production units this chain CREATED.

@@ -357,6 +357,54 @@ def test_java_vocabulary_separates_officefloor_procedures():
     assert cs.classify("src/main/java/a/Money.java", plain) == "instance-class"
 
 
+def test_angular_vocabulary():
+    """Angular answers in decorators, so the unit kind is unusually legible."""
+    from . import class_shape as cs
+    cases = [
+        ("app/features/clients/clients.ts",
+         '@Component({selector: "app-clients", template: ""}) export class Clients {}', "component"),
+        ("app/features/clients/clients.service.ts",
+         '@Injectable({providedIn: "root"}) export class ClientApi { list() {} }', "service"),
+        ("app/app.routes.ts",
+         'import { Routes } from "@angular/router"; export const routes: Routes = [];',
+         "route-config"),
+        ("app/auth.guard.ts", "export const authGuard: CanActivateFn = () => true;", "guard"),
+        ("app/money.pipe.ts", '@Pipe({name: "money"}) export class MoneyPipe {}', "pipe"),
+        ("app/hl.directive.ts", '@Directive({selector: "[hl]"}) export class Hl {}', "directive"),
+        ("app/client.model.ts", "export interface Client { id: number; name: string }", "model"),
+        ("app/util.ts", "export const inc = (n: number) => n + 1;", "module"),
+    ]
+    for path, code, expect in cases:
+        got = cs.classify_angular(path, code)
+        assert got == expect, (path, got, expect)
+    # a component that also injects a service is still a component
+    assert cs.classify_angular("app/x.ts",
+        '@Component({template: ""}) export class X { api = inject(ClientApi); }') == "component"
+    # and the idiom must not be read out of a comment
+    assert cs.classify_angular("app/notes.ts",
+        '// example: @Component({...}) export class Foo {}\nexport const a = 1;') == "module"
+
+
+def test_declared_vocabulary_wins_over_the_extension():
+    """Angular and React share an extension, so the stack must be able to SAY which it is."""
+    from . import analyze, class_shape as cs
+    assert analyze._classifier_for((".ts",), "angular") is cs.classify_angular
+    assert analyze._categories_for((".ts",), "angular") == cs.ANGULAR_CATEGORIES
+    # same extension, no declaration -> the React vocabulary, as before
+    assert analyze._classifier_for((".ts",)) is cs.classify_frontend
+    # an unknown vocabulary must fail LOUDLY: silently filing every unit as unparsed would
+    # answer nothing while looking like a finding of "no architecture used".
+    for bad in ("vue", "svelte", ""):
+        if not bad:
+            assert analyze._classifier_for((".ts",), bad) is cs.classify_frontend   # blank = absent
+            continue
+        try:
+            analyze._classifier_for((".ts",), bad)
+            raise AssertionError(f"expected SystemExit for {bad!r}")
+        except SystemExit as e:
+            assert "unit_vocabulary" in str(e), e
+
+
 def test_classifier_dispatch_follows_the_declared_extensions():
     """"frontend" is .tsx in one stack and .html in another; the vocabulary must follow the ext."""
     from . import analyze, class_shape as cs

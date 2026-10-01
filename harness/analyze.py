@@ -574,28 +574,43 @@ def pooled_ratio(rows: list[dict], num_field: str, den_field: str):
     return num / den
 
 
-def _classifier_for(exts: tuple):
-    """The unit classifier for a layer, chosen by what its files ARE.
+_VOCABULARIES = {
+    "angular": (class_shape.classify_angular, class_shape.ANGULAR_CATEGORIES),
+    "template": (class_shape.classify_template, class_shape.TEMPLATE_CATEGORIES),
+    "react": (class_shape.classify_frontend, class_shape.FRONTEND_CATEGORIES),
+    "java": (class_shape.classify, class_shape.CATEGORIES),
+}
 
-    `.html` is server-rendered markup (role: page / fragment / layout); `.ts`/`.tsx` is a
-    JavaScript UI (role: route / slot-contribution / query-module); anything else falls to the
-    Java/Spring classifier. Keyed on extensions rather than the layer name because "frontend"
-    means a different language in each stack.
+
+def _vocabulary(exts: tuple, declared: str | None = None):
+    """(classifier, categories) for a layer.
+
+    An explicit `unit_vocabulary` from stack.yaml wins, because once two stacks share a LANGUAGE
+    the extension stops being enough to tell their idioms apart — Angular and React are both
+    `.ts`. Otherwise fall back to the extension, which still separates server-rendered markup
+    from a JavaScript UI from Java.
     """
+    if declared:
+        key = str(declared).strip().lower()
+        if key not in _VOCABULARIES:
+            raise SystemExit(
+                f"stack.yaml: unit_vocabulary {declared!r} is not one of "
+                f"{sorted(_VOCABULARIES)} — a vocabulary the harness does not know would file "
+                f"every unit as 'unparsed' and silently answer nothing.")
+        return _VOCABULARIES[key]
     if any(e in (".html", ".htm") for e in exts):
-        return class_shape.classify_template
+        return _VOCABULARIES["template"]
     if any(e in (".ts", ".tsx", ".js", ".jsx") for e in exts):
-        return class_shape.classify_frontend
-    return class_shape.classify
+        return _VOCABULARIES["react"]
+    return _VOCABULARIES["java"]
 
 
-def _categories_for(exts: tuple) -> list[str]:
-    """The vocabulary that matches `_classifier_for`, so the table's rows and its labels agree."""
-    if any(e in (".html", ".htm") for e in exts):
-        return class_shape.TEMPLATE_CATEGORIES
-    if any(e in (".ts", ".tsx", ".js", ".jsx") for e in exts):
-        return class_shape.FRONTEND_CATEGORIES
-    return class_shape.CATEGORIES
+def _classifier_for(exts: tuple, declared: str | None = None):
+    return _vocabulary(exts, declared)[0]
+
+
+def _categories_for(exts: tuple, declared: str | None = None) -> list[str]:
+    return _vocabulary(exts, declared)[1]
 
 
 def branch_audits(repo: str, run_id: str, app_cfg: dict, verbose: bool = True) -> list[str]:
@@ -636,7 +651,7 @@ def branch_audits(repo: str, run_id: str, app_cfg: dict, verbose: bool = True) -
             # Dispatch on the layer's DECLARED extensions, not its name: "frontend" is .tsx in the
             # React arms and .html in the server-rendered one, and they need different
             # vocabularies. A stack says what its layers are made of (stack.yaml); this follows it.
-            classify = _classifier_for(exts)
+            classify = _classifier_for(exts, opts.get("unit_vocabulary"))
             try:
                 counts = class_shape.audit_branch(repo, base, branch, root, exts, classify)
                 shape[key].append({"chain": chain, "total": sum(counts.values()), **dict(counts)})
@@ -662,9 +677,10 @@ def branch_audits(repo: str, run_id: str, app_cfg: dict, verbose: bool = True) -
     ):
         sub = {k: v for k, v in shape.items() if k.endswith("/" + lyr)}
         if sub:
-            exts = tuple("." + str(e).lstrip(".")
-                         for e in ((layers.get(lyr) or {}).get("ext") or []))
-            out += class_shape.markdown_section(sub, _categories_for(exts), title)
+            lopts = layers.get(lyr) or {}
+            exts = tuple("." + str(e).lstrip(".") for e in (lopts.get("ext") or []))
+            out += class_shape.markdown_section(
+                sub, _categories_for(exts, lopts.get("unit_vocabulary")), title)
     if cumul:
         out += cumulative_impact.markdown_section(dict(cumul))
     return out
