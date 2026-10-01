@@ -574,6 +574,30 @@ def pooled_ratio(rows: list[dict], num_field: str, den_field: str):
     return num / den
 
 
+def _classifier_for(exts: tuple):
+    """The unit classifier for a layer, chosen by what its files ARE.
+
+    `.html` is server-rendered markup (role: page / fragment / layout); `.ts`/`.tsx` is a
+    JavaScript UI (role: route / slot-contribution / query-module); anything else falls to the
+    Java/Spring classifier. Keyed on extensions rather than the layer name because "frontend"
+    means a different language in each stack.
+    """
+    if any(e in (".html", ".htm") for e in exts):
+        return class_shape.classify_template
+    if any(e in (".ts", ".tsx", ".js", ".jsx") for e in exts):
+        return class_shape.classify_frontend
+    return class_shape.classify
+
+
+def _categories_for(exts: tuple) -> list[str]:
+    """The vocabulary that matches `_classifier_for`, so the table's rows and its labels agree."""
+    if any(e in (".html", ".htm") for e in exts):
+        return class_shape.TEMPLATE_CATEGORIES
+    if any(e in (".ts", ".tsx", ".js", ".jsx") for e in exts):
+        return class_shape.FRONTEND_CATEGORIES
+    return class_shape.CATEGORIES
+
+
 def branch_audits(repo: str, run_id: str, app_cfg: dict, verbose: bool = True) -> list[str]:
     """Run the two BRANCH-level audits (base -> chain tip, one diff per chain) and return their
     summary.md sections.
@@ -609,8 +633,10 @@ def branch_audits(repo: str, run_id: str, app_cfg: dict, verbose: bool = True) -
                 continue
             key = f"{condition}/{lyr}"
             exts = tuple("." + str(e).lstrip(".") for e in (opts.get("ext") or []))
-            classify = (class_shape.classify_frontend if lyr == "frontend"
-                        else class_shape.classify)
+            # Dispatch on the layer's DECLARED extensions, not its name: "frontend" is .tsx in the
+            # React arms and .html in the server-rendered one, and they need different
+            # vocabularies. A stack says what its layers are made of (stack.yaml); this follows it.
+            classify = _classifier_for(exts)
             try:
                 counts = class_shape.audit_branch(repo, base, branch, root, exts, classify)
                 shape[key].append({"chain": chain, "total": sum(counts.values()), **dict(counts)})
@@ -630,15 +656,15 @@ def branch_audits(repo: str, run_id: str, app_cfg: dict, verbose: bool = True) -
             print(f"  {condition}/chain{chain}: audited", flush=True)
 
     out: list[str] = []
-    for lyr, cats, title in (
-        ("frontend", class_shape.FRONTEND_CATEGORIES,
-         "## Unit shape, front end (what kind of unit holds a new rule)"),
-        ("backend", class_shape.CATEGORIES,
-         "## Class shape, backend (what kind of class holds a new rule)"),
+    for lyr, title in (
+        ("frontend", "## Unit shape, front end (what kind of unit holds a new rule)"),
+        ("backend", "## Class shape, backend (what kind of class holds a new rule)"),
     ):
         sub = {k: v for k, v in shape.items() if k.endswith("/" + lyr)}
         if sub:
-            out += class_shape.markdown_section(sub, cats, title)
+            exts = tuple("." + str(e).lstrip(".")
+                         for e in ((layers.get(lyr) or {}).get("ext") or []))
+            out += class_shape.markdown_section(sub, _categories_for(exts), title)
     if cumul:
         out += cumulative_impact.markdown_section(dict(cumul))
     return out

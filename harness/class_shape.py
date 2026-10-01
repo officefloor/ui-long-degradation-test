@@ -54,13 +54,52 @@ from .cumulative_impact import evolve_branches, latest_run_id
 # about how the agent chose to express a rule.
 GENERATED = re.compile(r"/rest/(dto|api)/")
 
+# UI-ARM: `SpringBootApplication` added. It is @Configuration + @ComponentScan +
+# @EnableAutoConfiguration, so the app entry point is container-managed like any other bean — but
+# it was absent here, and the class usually has nothing but a static `main`, so once comments
+# stopped being matched it started filing as `static-util`. True of the method, wrong about the
+# class. (It only ever affects base files, which audit_branch excludes, but the label should still
+# be right.)
 _STEREOTYPE = re.compile(r"@(Component|Service|Repository|RestController|Controller|"
-                         r"ControllerAdvice|RestControllerAdvice|Configuration|Bean)\b")
+                         r"ControllerAdvice|RestControllerAdvice|Configuration|Bean|"
+                         r"SpringBootApplication|SpringBootConfiguration)\b")
 _ENTITY = re.compile(r"@(Entity|Embeddable|MappedSuperclass)\b")
 
+# ── Java/backend vocabulary ───────────────────────────────────────────────────────────────────
 # Order the summary lists categories in: idiom-carrying first, filler last.
-CATEGORIES = ["spring-bean", "static-util", "instance-class", "exception",
-              "entity", "annotation", "interface", "other", "unparsed"]
+#
+# UI-ARM: three categories added for the OfficeFloor backends these arms run. `instance-class`
+# was absorbing almost everything they create (70-79 of ~95 per chain), because an OfficeFloor
+# logic class carries no stereotype — so the table could not distinguish "added a wired procedure"
+# from "added an ordinary class", which is the whole question. `view-procedure` is the one to
+# watch on the htmx arm: it says the agent rendered a page the way the architecture intends.
+CATEGORIES = ["nav-component", "view-procedure", "officefloor-procedure", "spring-bean",
+              "static-util", "instance-class", "exception", "entity", "annotation",
+              "interface", "other", "unparsed"]
+
+# Classify on CODE, not on prose ABOUT code. Every one of these classifiers is a regex over the
+# file, and a file that documents the idiom mentions it: `NavEntry.java`'s javadoc says
+# "{@code @Component}" and was filed as a spring-bean rather than an interface, and
+# `slots/Slot.tsx` carries the line "export const contribution = ..." in its header comment as
+# the usage example, which filed the MECHANISM as a contribution. Both are the files most likely
+# to be well documented, so the misreads land exactly where they do most damage.
+#
+# A `//` inside a string literal (a bare URL) truncates that line too; harmless here, since no
+# check depends on what follows, and a javadoc @link URL is inside a block comment already.
+_C_BLOCK = re.compile(r"/\*.*?\*/", re.S)
+_C_LINE = re.compile(r"//[^\n]*")
+_MARKUP_COMMENT = re.compile(r"<!--.*?-->", re.S)
+
+
+def _strip_comments(code: str, markup: bool = False) -> str:
+    if markup:
+        return _MARKUP_COMMENT.sub("", code)
+    return _C_LINE.sub("", _C_BLOCK.sub("", code))
+
+
+_NAV_ENTRY = re.compile(r"\bimplements\s+NavEntry\b")
+_VIEW_RENDER = re.compile(r"\bViewResponse\b")
+_PROCEDURE = re.compile(r"\b(?:public\s+)?\w[\w<>,.\[\]\s]*\s+service\s*\(")
 
 
 def _git(repo: str, args: list[str]) -> str:
@@ -80,17 +119,30 @@ def classify(path: str, code: str) -> str:
     except Exception:
         return "unparsed"
 
-    if _STEREOTYPE.search(code):
+    # Regex checks run on the comment-stripped text; `code` is kept for lizard above and for the
+    # signature line lookup below, so line numbers stay aligned.
+    probe = _strip_comments(code)
+
+    # A nav link registered as a bean — the htmx arm's additive nav mechanism. Checked before the
+    # stereotype test, which would otherwise swallow it as a plain spring-bean.
+    if _NAV_ENTRY.search(probe):
+        return "nav-component"
+    if _STEREOTYPE.search(probe):
         return "spring-bean"
-    if _ENTITY.search(code):
+    if _ENTITY.search(probe):
         return "entity"
-    if "@interface" in code:
+    if "@interface" in probe:
         return "annotation"
 
     cls = path.rsplit("/", 1)[-1][:-len(".java")]
-    if path.endswith("Exception.java") or re.search(r"\bclass\s+\w*Exception\b", code):
+    if path.endswith("Exception.java") or re.search(r"\bclass\s+\w*Exception\b", probe):
         return "exception"
-    if re.search(rf"\binterface\s+{re.escape(cls)}\b", code):
+    # OfficeFloor procedures carry no annotation, so they are invisible to the stereotype test.
+    # A `service(...)` method is what the YAML wires to; one that also takes a ViewResponse is
+    # rendering a page rather than returning data.
+    if _PROCEDURE.search(probe):
+        return "view-procedure" if _VIEW_RENDER.search(probe) else "officefloor-procedure"
+    if re.search(rf"\binterface\s+{re.escape(cls)}\b", probe):
         return "interface"
 
     lines = code.splitlines()
@@ -116,6 +168,41 @@ def classify(path: str, code: str) -> str:
     if instance:
         return "instance-class"
     return "other"
+
+
+# ── Template vocabulary (UI-ARM, for a server-rendered arm) ───────────────────────────────────
+# The htmx arm's UI layer is Thymeleaf markup, which lizard cannot parse — so the question is not
+# complexity but ROLE: did the agent add a page, a swappable fragment, or neither?
+TEMPLATE_CATEGORIES = ["page-template", "fragment", "layout", "markup", "unparsed"]
+
+_TPL_LAYOUT = re.compile(r"""th:fragment\s*=\s*["']page\s*\(""")
+_TPL_USES_LAYOUT = re.compile(r"""th:replace\s*=\s*["']~\{\s*layout\s*::""")
+_TPL_FRAGMENT = re.compile(r"""th:fragment\s*=""")
+_TPL_THYMELEAF = re.compile(r"\bth:[a-z]+\s*=|xmlns:th=")
+
+
+def classify_template(path: str, code: str) -> str:
+    """The role of a template file. Most specific first.
+
+    `page-template` replaces the shared layout, so it is a whole page and therefore a new URL.
+    `fragment` renders only itself — what htmx swaps into a target — identified by living under
+    fragments/ or by declaring a fragment without replacing the layout. `markup` is HTML with no
+    Thymeleaf in it at all, which in this stack means something static rather than a page.
+    """
+    if not code.strip():
+        return "unparsed"
+    # Thymeleaf's own comment form is `<!--/* ... */-->`, so a documented layout carries a sample
+    # `th:replace="~{layout :: ...}"` in prose — strip comments before matching.
+    probe = _strip_comments(code, markup=True)
+    if _TPL_LAYOUT.search(probe):
+        return "layout"
+    if _TPL_USES_LAYOUT.search(probe):
+        return "page-template"
+    if "fragments/" in path or (_TPL_FRAGMENT.search(probe) and _TPL_THYMELEAF.search(probe)):
+        return "fragment"
+    if _TPL_THYMELEAF.search(probe):
+        return "page-template"
+    return "markup"
 
 
 def audit_branch(repo: str, base: str, tip: str, src_root: str = "src/main/java",
@@ -164,19 +251,20 @@ def classify_frontend(path: str, code: str) -> str:
         lizard.analyze_file.analyze_source_code(path, code)
     except Exception:
         return "unparsed"
-    if _FE_ROUTE.search(code):
+    probe = _strip_comments(code)
+    if _FE_ROUTE.search(probe):
         return "route"
-    if _FE_CONTRIB.search(code):
+    if _FE_CONTRIB.search(probe):
         return "slot-contribution"
-    if _FE_SLOTDEF.search(code):
+    if _FE_SLOTDEF.search(probe):
         return "slot-def"
-    if _FE_QUERY.search(code):
+    if _FE_QUERY.search(probe):
         return "query-module"
     # Segment match, not a substring: the path may be repo-relative ("src/main/frontend/ui/x.ts")
     # or root-relative as jscpd reports it ("ui/x.ts"), and "/ui/" misses the second.
     if "ui" in path.split("/"):
         return "ui-primitive"
-    if _FE_JSX.search(code):
+    if _FE_JSX.search(probe):
         return "component"
     return "module"
 

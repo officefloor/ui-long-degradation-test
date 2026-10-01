@@ -309,6 +309,66 @@ def test_frontend_unit_vocabulary():
                                 "export const Route = createFileRoute('/x')({}); useQuery({})") == "route"
 
 
+def test_template_vocabulary():
+    """Role of a server-rendered template: page, swappable fragment, or the layout itself."""
+    from . import class_shape as cs
+    cases = [
+        # the shell declares the page fragment others replace into
+        ("templates/layout.html",
+         '<html xmlns:th="http://www.thymeleaf.org" th:fragment="page(content)">', "layout"),
+        # a page replaces the layout -> it is a whole page, therefore a URL
+        ("templates/clients.html",
+         '<html th:replace="~{layout :: page(~{::content})}">', "page-template"),
+        # a partial htmx swaps in renders only itself
+        ("templates/fragments/row.html",
+         '<tr xmlns:th="http://www.thymeleaf.org" th:text="${x}"/>', "fragment"),
+        ("templates/other.html",
+         '<div xmlns:th="http://www.thymeleaf.org" th:fragment="bit">x</div>', "fragment"),
+        # Thymeleaf but neither -> still a page
+        ("templates/plain.html",
+         '<html xmlns:th="http://www.thymeleaf.org"><p th:text="${a}">a</p></html>', "page-template"),
+        # no Thymeleaf at all -> static markup, not a page in this stack
+        ("templates/static.html", "<html><body><p>hi</p></body></html>", "markup"),
+        ("templates/empty.html", "   ", "unparsed"),
+    ]
+    for path, code, expect in cases:
+        got = cs.classify_template(path, code)
+        assert got == expect, (path, got, expect)
+
+
+def test_java_vocabulary_separates_officefloor_procedures():
+    """`instance-class` was absorbing the procedures these arms actually add."""
+    from . import class_shape as cs
+    proc = ("package a; public class ClientsGet { public void service(ClientRepository r,"
+            " ObjectResponse<List<Client>> response) { response.send(r.findAll()); } }")
+    view = ("package a; import net.officefloor.spring.starter.rest.view.ViewResponse;"
+            " public class ClientsView { public void service(Model model, ViewResponse response)"
+            " { response.send(\"clients\"); } }")
+    nav = ("package a.web; import org.springframework.stereotype.Component;"
+           " @Component public class ClientsNav implements NavEntry {"
+           " public String section(){ return \"clients\"; } }")
+    bean = ("package a; import org.springframework.stereotype.Service;"
+            " @Service public class ClientService { public int f(){ return 1; } }")
+    plain = "package a; public class Money { public int cents(){ return 1; } }"
+    assert cs.classify("src/main/java/a/ClientsGet.java", proc) == "officefloor-procedure"
+    assert cs.classify("src/main/java/a/ClientsView.java", view) == "view-procedure"
+    assert cs.classify("src/main/java/a/web/ClientsNav.java", nav) == "nav-component"
+    assert cs.classify("src/main/java/a/ClientService.java", bean) == "spring-bean"
+    assert cs.classify("src/main/java/a/Money.java", plain) == "instance-class"
+
+
+def test_classifier_dispatch_follows_the_declared_extensions():
+    """"frontend" is .tsx in one stack and .html in another; the vocabulary must follow the ext."""
+    from . import analyze, class_shape as cs
+    assert analyze._classifier_for((".html",)) is cs.classify_template
+    assert analyze._categories_for((".html",)) == cs.TEMPLATE_CATEGORIES
+    assert analyze._classifier_for((".ts", ".tsx")) is cs.classify_frontend
+    assert analyze._categories_for((".ts", ".tsx")) == cs.FRONTEND_CATEGORIES
+    assert analyze._classifier_for((".java",)) is cs.classify          # fallback
+    assert analyze._categories_for((".java",)) == cs.CATEGORIES
+    assert analyze._classifier_for(()) is cs.classify                  # nothing declared
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
