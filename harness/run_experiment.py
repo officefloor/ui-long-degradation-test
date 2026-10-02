@@ -911,8 +911,15 @@ def main() -> int:
     # "pmd-rules/..."), but every tool is launched with cwd set to the checkpoint WORKTREE, where a
     # relative path does not resolve — jscpd/ast-grep then raise FileNotFoundError and their metrics
     # come back blank, which looks exactly like "this stack has no duplication". Absolutise them.
-    cfg["tools"] = {k: (resolve(v) if isinstance(v, str) and v else v)
-                    for k, v in (cfg.get("tools") or {}).items()}
+    # A BARE command name (java, jscpd, sg) is resolved via PATH at use time; anchoring it to the
+    # harness root yields <harness>/java, which does not exist, and the tool then silently does
+    # not run. Only anchor values that actually carry a path.
+    def _resolve_tool(v):
+        if not isinstance(v, str) or not v:
+            return v
+        return resolve(v) if (os.sep in v or (os.altsep and os.altsep in v)) else v
+
+    cfg["tools"] = {k: _resolve_tool(v) for k, v in (cfg.get("tools") or {}).items()}
     cfg["checkpoints_file"] = resolve(cfg["checkpoints_file"])
     cfg["paths"]["work_root"] = resolve(cfg["paths"]["work_root"])
     cfg["paths"]["sandbox_root"] = resolve(cfg["paths"]["sandbox_root"])

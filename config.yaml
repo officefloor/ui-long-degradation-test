@@ -128,10 +128,12 @@ tools:
   # Structural-metrics tools for the BACKEND (Java) layer only (metrics.compute_all / analyze).
   # Each is optional: unset or missing -> those columns stay BLANK (never zero). See harness/placement.py.
   java: java                   # JRE on PATH; drives the CK tool
-  pmd: ${HOME}/spring-petclinic-rest-long-degradation-test/tools/pmd/bin/pmd   # PMD binary (reused
-                               #   from the REST arm; vendor into ./tools/pmd for a self-contained study)
+  pmd: tools/pmd/bin/pmd       # PMD binary — DOWNLOADED by setup.sh, pinned by
+                               #   tools/pmd-version.txt. Was a path into a sibling private repo,
+                               #   which no one else has; self-contained now.
   pmd_metrics_rules: pmd-rules/java-metrics.xml   # cognitive/NPath VALUES + GodClass/DataClass verdicts
-  ck:                          # path to ck.jar for the Chidamber-Kemerer suite (unset -> ck_* blank)
+  ck: tools/ck/ck.jar          # Chidamber-Kemerer suite — DOWNLOADED by setup.sh, pinned by
+                               #   tools/ck-version.txt + ck-sha256.txt (unset -> ck_* blank)
   # jscpd + ast-grep are pinned in tools/package.json and lizard in requirements.txt; still to
   # pin for a real study: node, playwright (stack repo e2e/package.json), JRE, pmd, ck
 

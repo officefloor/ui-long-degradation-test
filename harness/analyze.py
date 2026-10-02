@@ -883,6 +883,12 @@ def main() -> int:
         if not isinstance(v, str) or not v:
             return v
         v = os.path.expanduser(os.path.expandvars(v))
+        # A BARE command name (java, jscpd, sg) must be left alone so PATH lookup still works:
+        # absolutising it against the harness root produces <harness>/java, which does not exist,
+        # and the tool then silently does not run. Only a value carrying a path separator is a
+        # path to anchor.
+        if os.sep not in v and (os.altsep is None or os.altsep not in v):
+            return v
         return v if os.path.isabs(v) else os.path.join(_hroot, v)
 
     tools = {k: _tool(v) for k, v in (cfg.get("tools") or {}).items()}

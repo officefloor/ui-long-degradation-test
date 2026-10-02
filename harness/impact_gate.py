@@ -33,11 +33,20 @@ class ImpactGateError(RuntimeError):
 
 
 def default_cmd() -> list[str]:
-    """The impact-gate command: config's `cmd` wins; else the ImpactGate venv binary; else
-    whatever is on PATH."""
-    venv = os.path.expanduser("~/ImpactGate/.venv/bin/impact-gate")
-    if os.path.isfile(venv):
-        return [venv]
+    """The impact-gate command: config's `cmd` wins; else THIS harness's venv (where setup.sh
+    installs it, which is the zero-configuration path); else a sibling ImpactGate checkout's own
+    venv; else whatever is on PATH.
+
+    The harness venv comes first because `shutil.which` cannot see it — a venv is only on PATH
+    once activated, and the harness is run as `.venv/bin/python -m harness...` without
+    activation. Without this, setup.sh could install the gate and the run would still report it
+    missing.
+    """
+    here = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        ".venv", "bin", "impact-gate")
+    for cand in (here, os.path.expanduser("~/ImpactGate/.venv/bin/impact-gate")):
+        if os.path.isfile(cand):
+            return [cand]
     found = shutil.which("impact-gate")
     return [found] if found else ["impact-gate"]
 
