@@ -543,6 +543,99 @@ def _fmt_ci(t) -> str:
     return f"{p:+.4f} [{lo:+.4f}, {hi:+.4f}] ({excl})"
 
 
+# ── Pre-declared expectations ─────────────────────────────────────────────────────────────────
+# What each metric is PREDICTED to do, declared in code so a run marks its own disconfirmations.
+# Without this, any result can be narrated after the fact: a metric that moves the right way is
+# evidence, one that does not gets explained away. Ported from the REST arm, which puts it
+# plainly — "declaring these BEFORE reading the run is what makes the counter-signal section
+# meaningful".
+#
+# HONESTY NOTE, which matters more than the mechanism: the four runs already recorded here
+# (react and tanstack x gated and just-solve) were read BEFORE these entries were written, so for
+# those runs the marks are DESCRIPTIVE, not confirmatory. The first genuine test of these
+# declarations is the next run — tanstack-spring, tanstack-mixed, htmx-*, angular-*. Saying so is
+# the point; a pre-registration backdated over data it was derived from is worse than none.
+#
+# Each entry is (expected sign, dimension) for the BETWEEN-CONDITION comparison that analyze
+# computes, oriented `gated - just-solve`:
+#     +1  gated is HIGHER       -1  gated is LOWER       0  no difference predicted
+#     "slope"  the trajectory claim   "level"  the end-state claim   "both"  both
+# The dimension is not decoration: testing a level claim as a slope is a category error that
+# manufactures a false counter-signal.
+GATE_EXPECTATION = {
+    # The gate's OWN target. impact_gate.cognitive_max is a declared bound, so gated runs must
+    # sit below it and ungated runs are free to exceed it.
+    "backend_pmd_cognitive_max": (-1, "level"),
+    "backend_pmd_cognitive_mean": (-1, "level"),
+    "frontend_pmd_cognitive_max": (-1, "level"),
+    # Consequences of bounding per-method complexity: fewer paths, flatter peaks, and no single
+    # class becoming the dump. NPath is the sharpest — it is super-linear in nesting.
+    "backend_pmd_npath_max": (-1, "level"),
+    "backend_pmd_cyclo_max": (-1, "level"),
+    "backend_pmd_god_classes": (-1, "level"),
+    "backend_wmcdist_class_gini": (-1, "level"),
+    "backend_wmc_max": (-1, "level"),
+    # AMOUNT is conserved: a complexity control redistributes work, it does not delete the
+    # feature's inherent complexity. Predicting NO difference here is what makes the claim
+    # falsifiable — a gate that lowered the TOTAL would be suspicious, not impressive.
+    "backend_pmd_cognitive_total": (0, "level"),
+    "backend_pmd_cyclo_total": (0, "level"),
+    "backend_ck_wmc_total": (0, "level"),
+    # Cost: the gate fires rarely, so no material price is predicted.
+    "cost_usd": (0, "both"),
+    # Downstream correctness: NOT predicted to improve. The control is about comprehensibility,
+    # and claiming a regression benefit it has not shown would be exactly the overreach this
+    # table exists to prevent.
+    "true_regressions": (0, "both"),
+    "strict_pass": (0, "both"),
+}
+
+# The ARCHITECTURE claim, for the cross-arm overview, oriented `additive - mutative`
+# (e.g. tanstack - react). This is the paper's thesis, stated per metric.
+ARCH_EXPECTATION = {
+    "frontend_impact_mutation": (-1, "both"),     # additive changes rewrite less
+    "frontend_impact_addition": (0, "both"),      # and ADD about as much: the work is the same
+    "frontend_erosion": (-1, "both"),
+    "frontend_wmc_max": (-1, "level"),
+    "frontend_wmc_handler": (-1, "both"),         # the entry surface stops growing
+    "frontend_hot_share": (-1, "level"),          # churn is not concentrated in a few files
+    "frontend_existing_fns_modified": (-1, "both"),
+    "true_regressions": (-1, "level"),
+    # The counter-hypothesis, declared as a RISK rather than a win: adding files instead of
+    # editing them creates the opportunity to copy. Predicting HIGHER duplication for the
+    # additive arm is what stops a duplication finding being dismissed later as noise.
+    "frontend_dup_density": (+1, "level"),
+    "frontend_dup_cross_area_pairs": (+1, "level"),
+    "frontend_source_loc": (+1, "level"),         # more, smaller units means more lines
+    "cost_usd": (+1, "level"),                    # more units means more agent work
+}
+
+
+def _level_mean(rows: list[dict], field: str):
+    """The field's mean over every row of a group — the END-STATE half of a claim."""
+    vals = [_f(r.get(field)) for r in rows]
+    vals = [v for v in vals if v is not None and not math.isnan(v)]
+    return (sum(vals) / len(vals)) if vals else None
+
+
+def _g(v) -> str:
+    return "—" if v is None or (isinstance(v, float) and math.isnan(v)) else f"{v:.4g}"
+
+
+def expectation_mark(spec, observed: int) -> str:
+    """"" matches | "!" contradicts | "~" predicted a difference, found none."""
+    if spec is None:
+        return ""
+    exp, _dim = spec
+    if exp == 0 and observed != 0:
+        return "!"
+    if exp != 0 and observed == -exp:
+        return "!"
+    if exp != 0 and observed == 0:
+        return "~"
+    return ""
+
+
 # Ratio metrics, as (label, numerator field, denominator field). A ratio must be POOLED over the
 # run (sum of numerators / sum of denominators), never averaged over checkpoints: per-checkpoint
 # ratios are dominated by the checkpoints with a tiny denominator — a checkpoint that touched 2
@@ -783,10 +876,60 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
     conds = sorted(by_cond)
     if len(conds) >= 2:
         a, b = conds[0], conds[1]
-        L += [f"## between-condition: slope({a}) − slope({b})  (paired chain-bootstrap)", ""]
-        for field, _label in PLOT_FIELDS:
-            L.append(f"  - {field}: {_fmt_ci(bootstrap_diff_slope(by_cond[a], by_cond[b], field))}")
+        # Orient the comparison `gated - just-solve` when both are present, so the sign matches
+        # GATE_EXPECTATION regardless of alphabetical order.
+        if {"gated", "just-solve"} <= set(conds):
+            a, b = "gated", "just-solve"
+        L += [f"## between-condition: {a} − {b}  (paired chain-bootstrap)", "",
+              "`exp` is the PRE-DECLARED expected direction (GATE_EXPECTATION); `!` marks a result",
+              "that contradicts it and `~` one where a predicted difference did not appear. Both are",
+              "collected below. A direction only counts when its CI excludes 0 — an unresolved",
+              "difference is not a contradiction.", "",
+              "| metric | slope diff | CI low | CI high | excl 0 | level diff | exp |",
+              "|---|---:|---:|---:|:--:|---:|:--:|"]
+        counter = []
+        for field, _label in PLOT_FIELDS + [(f, f) for f in sorted(GATE_EXPECTATION)
+                                            if f not in {x for x, _ in PLOT_FIELDS}]:
+            m, lo, hi = bootstrap_diff_slope(by_cond[a], by_cond[b], field)
+            la, lb = _level_mean(by_cond[a], field), _level_mean(by_cond[b], field)
+            ldiff = (la - lb) if (la is not None and lb is not None) else None
+            if math.isnan(m) and ldiff is None:
+                continue
+            excl = "yes" if (not math.isnan(lo) and (lo > 0 or hi < 0)) else "no"
+            spec = GATE_EXPECTATION.get(field)
+            # The declared dimension decides WHICH observation is judged; judging a level claim
+            # by its slope is a category error that manufactures false counter-signals.
+            if spec is None:
+                mark = ""
+            else:
+                dim = spec[1]
+                if dim == "slope":
+                    obs = 0 if (excl != "yes" or m == 0) else (1 if m > 0 else -1)
+                elif dim == "level":
+                    obs = 0 if not ldiff else (1 if ldiff > 0 else -1)
+                else:
+                    o1 = 0 if (excl != "yes" or m == 0) else (1 if m > 0 else -1)
+                    o2 = 0 if not ldiff else (1 if ldiff > 0 else -1)
+                    obs = o1 if o1 == o2 else (o1 or o2)
+                mark = expectation_mark(spec, obs)
+                if mark:
+                    counter.append((field, spec, m, ldiff, mark))
+            exp_cell = "" if spec is None else f"{'+' if spec[0] > 0 else ('-' if spec[0] < 0 else '0')}{mark}"
+            L.append(f"| {field} | {_g(m)} | {_g(lo)} | {_g(hi)} | {excl} "
+                     f"| {_g(ldiff)} | {exp_cell} |")
         L.append("")
+        if counter:
+            L += ["### counter-signals (results against the declared expectation)", "",
+                  "These are the rows the harness itself flags as not matching what was predicted.",
+                  "They are listed here so the cost of a claim is reported with it rather than",
+                  "left for a reader to find.", "",
+                  "| metric | predicted | observed | slope diff | level diff |",
+                  "|---|:--:|:--:|---:|---:|"]
+            for field, spec, m, ldiff, mark in counter:
+                pred = {1: "higher", -1: "lower", 0: "no difference"}[spec[0]]
+                seen = "no difference" if mark == "~" else "the opposite"
+                L.append(f"| {field} | {pred} ({spec[1]}) | {seen} | {_g(m)} | {_g(ldiff)} |")
+            L.append("")
 
     L += (extra_sections or [])
     out = os.path.join(out_dir, "summary.md")

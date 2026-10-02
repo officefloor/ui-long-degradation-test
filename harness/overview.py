@@ -149,6 +149,127 @@ def plot(rows: list[dict], field: str, title: str, out_path: str) -> bool:
     return True
 
 
+# ── pre-declared expectations, evaluated here because the comparisons live here ───────────────
+# `analyze` runs per run_id, and a run carries ONE condition, so its between-condition section
+# only fires when two conditions were deliberately filed under one run id. The comparisons that
+# matter across this study — gated vs ungated for one stack, and additive vs mutative for one
+# condition — are between SERIES, which is what this module holds.
+#
+# The declarations themselves live in harness.analyze (GATE_EXPECTATION, ARCH_EXPECTATION) so
+# there is one copy; see the honesty note there about which runs they can legitimately be said
+# to predict.
+# A level difference smaller than this fraction of the larger magnitude is not treated as a
+# direction. 10% is a judgement, stated here so it can be argued with rather than buried.
+MATERIAL_REL = 0.10
+
+
+def pairs(rows: list[dict]):
+    """The comparisons worth judging, derived from the data rather than configured.
+
+    gate: same stack, gated vs just-solve — isolates the control.
+    arch: same condition, additive vs mutative stack — isolates the architecture.
+    Anything else (different stack AND different condition) varies two things at once and is
+    deliberately NOT judged: it could not attribute a difference to either.
+    """
+    seen = {}
+    for r in rows:
+        seen.setdefault((r["stack"], r.get("condition") or "?"), 0)
+        seen[(r["stack"], r.get("condition") or "?")] += 1
+    keys = sorted(seen)
+    out = []
+    for i, (s1, c1) in enumerate(keys):
+        for (s2, c2) in keys[i + 1:]:
+            if s1 == s2 and c1 != c2:
+                # orient gated - just-solve
+                a, b = ((s1, c1), (s2, c2)) if c1 == "gated" else ((s2, c2), (s1, c1))
+                out.append(("gate", a, b))
+            elif c1 == c2 and s1 != s2:
+                # orient additive - mutative: the additive arms are the non-"react" ones
+                a, b = ((s2, c2), (s1, c1)) if "react" in s1 else ((s1, c1), (s2, c2))
+                out.append(("arch", a, b))
+    return out
+
+
+def judge(rows: list[dict]) -> list[str]:
+    """Every declared expectation, checked against every comparison the data supports."""
+    from .analyze import ARCH_EXPECTATION, GATE_EXPECTATION, expectation_mark
+
+    by_key: dict[tuple, list[dict]] = defaultdict(list)
+    for r in rows:
+        by_key[(r["stack"], r.get("condition") or "?")].append(r)
+
+    def level(key, field):
+        vals = [_f(r.get(field)) for r in by_key[key]]
+        vals = [v for v in vals if v is not None]
+        return (sum(vals) / len(vals)) if vals else None
+
+    L: list[str] = []
+    counter: list[tuple] = []
+    for kind, a, b in pairs(rows):
+        spec_map = GATE_EXPECTATION if kind == "gate" else ARCH_EXPECTATION
+        label = (f"{a[0].replace('officehq-', '')}/{a[1]} − {b[0].replace('officehq-', '')}/{b[1]}")
+        body = []
+        for field in sorted(spec_map):
+            la, lb = level(a, field), level(b, field)
+            if la is None or lb is None:
+                continue
+            d = la - lb
+            spec = spec_map[field]
+            # LEVEL only: this module has no chain bootstrap across stacks, so there is no
+            # significance test and none is implied.
+            #
+            # That absence needs a MATERIALITY band. The REST arm counts a direction only when it
+            # survives FDR, so a non-significant difference reads as "no difference"; here there
+            # is no such filter, and on a continuous metric an exact 0 never occurs — so every
+            # `no difference` prediction would be flagged as contradicted, which it was: cost_usd
+            # by two cents. A difference below MATERIAL_REL of the larger magnitude is therefore
+            # treated as no direction at all, which is the honest reading of an untested gap.
+            scale = max(abs(la), abs(lb))
+            material = scale > 0 and abs(d) / scale >= MATERIAL_REL
+            obs = 0 if (d == 0 or not material) else (1 if d > 0 else -1)
+            mark = expectation_mark(spec, obs)
+            pred = {1: "higher", -1: "lower", 0: "no difference"}[spec[0]]
+            rel = f"{(abs(d) / scale * 100):.0f}%" if scale else "—"
+            body.append(f"| {field} | {pred} | {_fmt(la)} | {_fmt(lb)} | {_fmt(d)} | {rel} | "
+                        f"{'match' if not mark else ('CONTRADICTS' if mark == '!' else 'no diff')} |")
+            if mark:
+                counter.append((kind, label, field, pred, d, mark))
+        if not body:
+            continue
+        L += [f"### {kind}: {label}", "",
+              "| metric | predicted | A | B | A − B | rel | verdict |",
+              "|---|:--:|---:|---:|---:|---:|:--:|"]
+        L += body
+        L.append("")
+    if not L:
+        return []
+    head = ["## Declared expectations",
+            "",
+            "Each metric's direction was declared in code (harness.analyze GATE_EXPECTATION /",
+            "ARCH_EXPECTATION) rather than chosen after reading the run, so the harness marks its",
+            "own disconfirmations instead of leaving them to be noticed. `gate` holds the stack",
+            "constant and varies the condition; `arch` holds the condition and varies the stack.",
+            "A pair that varies BOTH is not judged — it could not attribute a difference to either.",
+            "",
+            "These are LEVELS (means over every checkpoint of every chain). There is no",
+            "significance test across stacks here and none is implied: with two chains per series",
+            "the within-arm spread can exceed a between-arm difference, so read a direction as a",
+            "direction. `analyze`'s own tables carry the chain-bootstrap CIs. A gap below",
+            f"{int(MATERIAL_REL * 100)}% of the larger magnitude is not counted as a direction at all.",
+            ""]
+    if counter:
+        head_c = ["### counter-signals", "",
+                  "Results against what was declared. Listed so the cost of a claim travels with it.",
+                  "", "| comparison | metric | predicted | observed | A − B |",
+                  "|---|---|:--:|:--:|---:|"]
+        for kind, label, field, pred, d, mark in counter:
+            seen = "no difference" if mark == "~" else "the opposite"
+            head_c.append(f"| {kind}: {label} | {field} | {pred} | {seen} | {_fmt(d)} |")
+        head_c.append("")
+        return head + L + head_c
+    return head + L + ["### counter-signals", "", "None: every declared expectation was met.", ""]
+
+
 def _fmt(v, nd=4):
     return "—" if v is None else f"{v:.{nd}g}"
 
@@ -242,7 +363,7 @@ def main() -> int:
 
     summary = os.path.join(out_dir, "overview.md")
     with open(summary, "w") as fh:
-        fh.write("\n".join(summarise(rows)) + "\n")
+        fh.write("\n".join(summarise(rows) + judge(rows)) + "\n")
     print(f"wrote {summary}")
     print(f"wrote {all_csv}")
     print(f"wrote {n_plots} graph(s) to {out_dir}")
