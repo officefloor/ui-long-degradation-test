@@ -223,6 +223,47 @@ def test_stack_layers_from_the_base_repo():
             assert "ui" in str(e), e
 
 
+def test_backend_only_stack():
+    """A headless API has no front end. Requiring one made "bring your own architecture" false
+    for exactly the stacks most likely to arrive."""
+    from . import stack_layer_options, stack_layers
+    with tempfile.TemporaryDirectory() as tmp:
+        _git_repo(tmp)
+        _write(tmp, "internal/clients/handler.go",
+               "package clients\nfunc Handle(n int) int {\n if n > 0 { return 1 }\n return 0\n}\n")
+        _write(tmp, "stack.yaml",
+               "layers:\n  backend:\n    root: internal\n    ext: [go]\n    jscpd_format: go\n")
+        base = _commit(tmp, "cp00 base")
+        _run(tmp, "git", "branch", "-M", "base-empty")
+
+        globs, _prov = stack_layers(tmp, "base-empty", None, expected=metrics.LAYERS)
+        assert globs == {"backend": ["internal/**/*.go"]}, globs
+
+        _write(tmp, "internal/clients/notes.go", "package clients\nfunc N(s string) string { return s }\n")
+        cur = _commit(tmp, "cp01 agent")
+        row = metrics.compute_all(tmp, {"source_globs": globs,
+                                        "layers": stack_layer_options(tmp, "base-empty")},
+                                  {}, base, prev_ref=base)
+        assert row["backend_fn_count"] >= 1, row["backend_fn_count"]
+        assert row["backend_erosion"] is not None
+        # an UNDECLARED layer must produce NO columns, not empty ones: absent and zero are
+        # different answers, and the whole metric set rests on that distinction.
+        assert not [k for k in row if k.startswith("frontend_")], \
+            [k for k in row if k.startswith("frontend_")]
+        # Java-only tool columns stay away from a Go layer
+        assert not [k for k in row if k.startswith("backend_ck_")], "CK ran on Go"
+
+        # a layer name the harness does not report on is still fatal — its metrics would be
+        # computed and then silently dropped
+        _write(tmp, "stack.yaml", "layers:\n  api:\n    root: internal\n    ext: [go]\n")
+        _commit(tmp, "bad layer name")
+        try:
+            stack_layers(tmp, "base-empty", None, expected=metrics.LAYERS)
+            raise AssertionError("expected SystemExit for an unknown layer name")
+        except SystemExit as e:
+            assert "api" in str(e), e
+
+
 def test_stack_layers_falls_back_to_config():
     """A stack predating stack.yaml keeps working off the harness config."""
     from . import stack_layers

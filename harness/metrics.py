@@ -294,12 +294,15 @@ def boundary_violations(worktree: str, prev_ref: str, cur_ref: str, cfg: dict) -
     """Format-neutral co-metric: changed files matching each layer's shared_surfaces globs.
     A purely-additive change (new files only) scores 0 (DESIGN.md §8)."""
     shared = (cfg.get("app") or {}).get("shared_surfaces") or {}
+    # Only the layers this stack actually declares: a backend-only stack must not be given empty
+    # frontend_* columns, which would read as "measured and found nothing".
+    present = [l for l in LAYERS if l in ((cfg.get("app") or {}).get("source_globs") or {})] or list(LAYERS)
     try:
         names = [f for f in _git(worktree, ["diff", "--name-only", prev_ref, cur_ref]).splitlines() if f.strip()]
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return {f"{lyr}_boundary": None for lyr in LAYERS}
+        return {f"{lyr}_boundary": None for lyr in present}
     out = {}
-    for lyr in LAYERS:
+    for lyr in present:
         match = _matcher(shared.get(lyr) or [], exclude_tests=False)
         hits = [f for f in names if match(f)]
         out[f"{lyr}_boundary"] = len(hits)
@@ -611,8 +614,12 @@ def compute_all(worktree: str, app_cfg: dict, tools: dict, base_commit: str,
 
     source_globs = app_cfg.get("source_globs") or {}
     layer_opts = app_cfg.get("layers") or {}      # stack.yaml's per-layer deep-metric options
+    # The layers the STACK declares, in the harness's canonical order. A stack may declare a
+    # subset (a headless API has no front end), and an undeclared layer gets NO columns rather
+    # than empty ones — absent and zero must stay distinguishable.
+    layers_present = [l for l in LAYERS if l in source_globs] or list(LAYERS)
     row: dict = {}
-    for lyr in LAYERS:
+    for lyr in layers_present:
         globs = source_globs.get(lyr) or []
         match = _matcher(globs)
         fns = functions(worktree, globs)

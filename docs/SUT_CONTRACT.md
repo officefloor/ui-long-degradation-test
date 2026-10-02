@@ -67,6 +67,12 @@ layers:
         - { category: composable, path: '(^|/)composables/' }
 ```
 
+A stack declares a **subset** of the layer names the harness reports on (`frontend`, `backend`) —
+a headless API declares only `backend`, and gets no `frontend_*` columns at all rather than empty
+ones, because absent and zero are different answers. A name outside that set is refused: the column
+prefixes, the plotted series and `shared_surfaces` are all keyed by these names, so a layer called
+`api` would have its metrics computed and then dropped.
+
 `unit_vocabulary` is either a built-in name (`java`, `react`, `angular`, `template`) or, as above,
 an inline definition — so an idiom the harness has never seen needs no Python. Rules are tried in
 order and the first match wins; each may carry `code`, `not_code`, `path` and `not_path`, and

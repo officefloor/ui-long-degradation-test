@@ -131,15 +131,18 @@ def stack_layers(repo: str, base_ref: str, fallback: dict | None = None,
         raise SystemExit(f"{_os.path.basename(repo)}:{base_ref}:stack.yaml declares no `layers`.")
 
     if expected:
+        # A stack declares a SUBSET of the known layer names: a headless API has no front end, and
+        # requiring one made "bring your own architecture" false for exactly the stacks most
+        # likely to arrive. An UNKNOWN name is still fatal — the column prefixes, the plotted
+        # series and shared_surfaces are all keyed by these names, so a layer called `api` would
+        # compute metrics that nothing reports. A subset simply produces fewer columns.
         unknown = sorted(set(declared) - set(expected))
-        missing = sorted(set(expected) - set(declared))
-        if unknown or missing:
+        if unknown:
             raise SystemExit(
-                f"{_os.path.basename(repo)}:{base_ref}:stack.yaml declares layers "
-                f"{sorted(declared)} but the harness reports on {list(expected)}"
-                + (f"; unknown: {unknown}" if unknown else "")
-                + (f"; missing: {missing}" if missing else "")
-                + ". A layer the harness does not know about produces no columns at all.")
+                f"{_os.path.basename(repo)}:{base_ref}:stack.yaml declares layer(s) {unknown}, "
+                f"which the harness does not report on (known: {list(expected)}) — their metrics "
+                f"would be computed and then dropped. Rename them, or declare a subset of the "
+                f"known names.")
 
     globs: dict[str, list[str]] = {}
     for layer, spec in declared.items():
