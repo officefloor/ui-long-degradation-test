@@ -59,6 +59,92 @@ _CP_TOKEN = re.compile(r"cp\d+", re.IGNORECASE)
 OAUTH_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
 
 
+def preflight(cfg: dict, condition: str) -> None:
+    """Refuse to start unless everything the RUN itself needs is present.
+
+    A run is hours of wall clock and real money, so the things that can only be discovered by
+    starting are checked first and reported TOGETHER — one list to fix, not one failure per
+    attempt. Only genuinely run-blocking prerequisites are fatal here; a missing metrics tool is
+    an ANALYSE concern (analyze has its own preflight) and a missing quality-gate tool degrades
+    loudly to "not enforced", so neither belongs in this list.
+    """
+    app = cfg["app"]
+    fatal: list[str] = []
+    warn: list[str] = []
+
+    # 1. The agent turn. A fresh `claude -p` per checkpoint over many hours needs a long-lived
+    #    token; an interactive login expires mid-run.
+    if not (os.environ.get(OAUTH_TOKEN_ENV) or "").strip():
+        fatal.append(f"{OAUTH_TOKEN_ENV} is not set — export "
+                     f"{OAUTH_TOKEN_ENV}=$(claude setup-token)")
+
+    # 2. Confinement. agent_confinement falls back to UNCONFINED with a warning rather than
+    #    failing (the sandbox mirror is the primary blind mechanism), so this is a warning here
+    #    too — but a silent downgrade of §15 across a whole run deserves saying once, up front.
+    iso = (cfg.get("isolation") or {}).get("agent_confinement") or {}
+    if iso.get("enabled") and not os.environ.get("HARNESS_NO_CONFINE"):
+        if landlock.abi_version() < 1:
+            warn.append("agent_confinement is enabled but Landlock is unavailable — every turn "
+                        "will run UNCONFINED (§15 not enforced)")
+
+    # 3. The port. correctness._kill_port frees it with `fuser -k` before each start, so a busy
+    #    port is not fatal — but WITHOUT fuser it cannot be freed, and every checkpoint's app
+    #    start would fail.
+    if not shutil.which("fuser"):
+        fatal.append("`fuser` not found — the harness frees app.port with `fuser -k <port>/tcp` "
+                     "before each start (correctness._kill_port); install psmisc")
+    else:
+        port = app.get("port")
+        if port:
+            held = subprocess.run(["fuser", f"{port}/tcp"], capture_output=True, text=True)
+            if held.returncode == 0 and held.stdout.strip():
+                warn.append(f"app.port {port} is in use by pid(s) {held.stdout.split()} — the "
+                            f"harness will KILL it at the first checkpoint")
+
+    # 4. The app's own toolchain. bin/build and bin/e2e need these; discovering it at checkpoint
+    #    one wastes a turn, and discovering it at checkpoint forty wastes the run.
+    for tool, why in (("java", "the app build/run"), ("node", "the front-end build and Playwright")):
+        if not shutil.which(tool):
+            fatal.append(f"`{tool}` not found on PATH — needed for {why}")
+
+    # 5. The stack's pinned scaffolding. The harness only ever calls these four.
+    repo = app.get("repo") or ""
+    for script in ("build", "start", "stop", "e2e"):
+        path = os.path.join(repo, "bin", script)
+        if not os.path.isfile(path):
+            fatal.append(f"{repo}/bin/{script} is missing (docs/SUT_CONTRACT.md §3)")
+        elif not os.access(path, os.X_OK):
+            fatal.append(f"{repo}/bin/{script} is not executable")
+
+    # 6. The gated condition cannot run without the scorer; the ungated one never calls it.
+    if condition == "gated" and ((cfg.get("impact_gate") or {}).get("enabled", True) is not False):
+        try:
+            cmd = impact_gate._cmd(cfg)
+        except Exception:                                      # noqa: BLE001
+            cmd = None
+        found = bool(cmd) and (os.path.isfile(cmd[0]) or shutil.which(cmd[0]))
+        if not found:
+            fatal.append(f"condition `gated` needs the impact-gate CLI; "
+                         f"{(cmd or ['<unresolved>'])[0]!r} not found (set impact_gate.cmd)")
+
+    # Advisory: the quality gate degrades loudly to "not enforced", so this is never fatal.
+    tools = cfg.get("tools") or {}
+    for tool in ("jscpd", "astgrep"):
+        val = tools.get(tool)
+        if val and not (os.path.isfile(val) or shutil.which(val)):
+            warn.append(f"tools.{tool} -> {val!r} not found; the quality gate inside a refactor "
+                        f"turn will report 'tools did not run; not enforced'")
+
+    for w in warn:
+        print(f"  [warn] {w}", flush=True)
+    if fatal:
+        print("\nFATAL: the run cannot start — fix all of these:", flush=True)
+        for f in fatal:
+            print(f"  - {f}", flush=True)
+        raise SystemExit(2)
+    print("  preflight: ok", flush=True)
+
+
 def require_long_lived_token() -> None:
     """Abort unless a long-lived Claude token is in the environment.
 
@@ -773,9 +859,6 @@ def main() -> int:
                     help="skip the long-lived-token check (local smoke tests only)")
     args = ap.parse_args()
 
-    if not args.allow_short_token:
-        require_long_lived_token()
-
     with open(args.config) as fh:
         cfg = yaml.safe_load(fh)
     # YAML sections written as comment-only parse to None; normalise to dicts.
@@ -807,6 +890,12 @@ def main() -> int:
         (cfg["app"].get("source_globs") or None), expected=metrics.LAYERS)
     cfg["app"]["layers"] = stack_layer_options(cfg["app"]["repo"], cfg["app"]["base_ref"])
     print("layers:", _layer_prov, cfg["app"]["source_globs"], flush=True)
+
+    # Everything the RUN needs, checked together before the first (expensive) agent turn.
+    # --allow-short-token keeps its original meaning: skip only the token requirement.
+    if args.allow_short_token:
+        os.environ.setdefault(OAUTH_TOKEN_ENV, "skipped-by---allow-short-token")
+    preflight(cfg, condition)
     # ast-grep rules live in the harness repo but the quality gate runs with cwd in the worktree,
     # so resolve to an absolute path here.
     ar_rules = (cfg.get("tools") or {}).get("astgrep_rules")

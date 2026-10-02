@@ -85,6 +85,59 @@ def test_phase_means():
     _approx(vals[0], 0.0); _approx(vals[1], 2.0); _approx(vals[2], 4.0)
 
 
+
+def test_analysis_preflight_distinguishes_unset_from_broken():
+    """Unset is a choice; configured-but-missing is a mistake. Conflating them is how an
+    incomplete analysis comes to look like a clean result."""
+    from . import analyze
+    real = __import__("shutil").which("python3") or "/bin/sh"
+
+    # all unset -> warns, never fatal, and records the blanks for summary.md
+    lines = analyze.analysis_preflight({}, {"frontend": {"jscpd_format": "ts"}})
+    body = "\n".join(lines)
+    assert "## Tooling" in body and "NOT a zero" in body, body
+    for key in ("pmd", "ck", "jscpd", "astgrep"):
+        assert f"`{key}`" in body, (key, body)
+
+    # a layer with no jscpd_format is reported too — jscpd present but unusable for it
+    lines = analyze.analysis_preflight({"jscpd": real}, {"backend": {}})
+    assert "jscpd_format[backend]" in "\n".join(lines)
+
+    # configured but absent -> SystemExit(2)
+    for tools in ({"pmd": "/nonexistent/pmd"}, {"jscpd": "/nonexistent/jscpd"},
+                  {"ck": "/nonexistent/ck.jar", "java": real}):
+        try:
+            analyze.analysis_preflight(tools, {})
+            raise AssertionError(f"expected SystemExit for {tools}")
+        except SystemExit as e:
+            assert e.code == 2, e.code
+
+    # present but its companion is missing is ALSO a misconfiguration (pmd without its ruleset)
+    try:
+        analyze.analysis_preflight({"pmd": real}, {})
+        raise AssertionError("expected SystemExit for pmd without pmd_metrics_rules")
+    except SystemExit as e:
+        assert e.code == 2, e.code
+
+
+def test_run_preflight_reports_everything_at_once():
+    """A run costs hours and money, so every blocker is listed in ONE failure."""
+    import os
+    from . import run_experiment as rx
+    saved = os.environ.pop(rx.OAUTH_TOKEN_ENV, None)
+    try:
+        cfg = {"app": {"repo": "/nonexistent/stack", "port": 0},
+               "isolation": {}, "impact_gate": {"enabled": False}, "tools": {}}
+        try:
+            rx.preflight(cfg, "just-solve")
+            raise AssertionError("expected SystemExit")
+        except SystemExit as e:
+            assert e.code == 2, e.code
+    finally:
+        if saved is not None:
+            os.environ[rx.OAUTH_TOKEN_ENV] = saved
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for t in tests:

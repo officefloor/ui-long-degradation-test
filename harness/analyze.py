@@ -22,6 +22,7 @@ import json
 import math
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 import time
@@ -611,6 +612,78 @@ def _categories_for(exts: tuple, declared: str | None = None) -> list[str]:
     return _vocabulary(exts, declared)[1]
 
 
+# Which column families each analysis tool supplies. A tool that does not run blanks its
+# columns, and a blank is NOT a zero — so the reader has to be told which ones, in the terminal
+# and in summary.md, or an incomplete analysis is indistinguishable from a clean result.
+TOOL_COLUMNS = [
+    ("pmd",     ("pmd_metrics_rules",), "backend cohesion/cognitive columns (pmd_*)"),
+    ("ck",      ("java",),              "Chidamber-Kemerer columns (ck_*)"),
+    ("jscpd",   (),                     "duplication columns (dup_*) and verbosity's clone half"),
+    ("astgrep", ("astgrep_rules",),     "verbosity's smell half"),
+]
+
+
+def analysis_preflight(tools: dict, layers: dict) -> list[str]:
+    """Report what will and will not be computed, and REFUSE on a misconfiguration.
+
+    The distinction that matters: a tool left UNSET is a deliberate choice, and its columns are
+    blank by design. A tool that is CONFIGURED but cannot be found is a mistake, and continuing
+    silently produces an analysis whose blanks look like findings — which is exactly how 34
+    duplication columns once read as "this stack has no duplication". So unset warns and
+    misconfigured fails.
+
+    Returns the summary.md lines recording what ran, so an archived summary says what it lacked.
+    """
+    present, absent, broken = [], [], []
+    for key, extra, what in TOOL_COLUMNS:
+        val = tools.get(key)
+        if not val:
+            absent.append((key, what, "not configured"))
+            continue
+        if not (os.path.isfile(val) or shutil.which(val)):
+            broken.append((key, what, f"configured as {val!r} but not found"))
+            continue
+        missing_extra = [e for e in extra
+                         if not (tools.get(e) and (os.path.isfile(str(tools[e]))
+                                                   or shutil.which(str(tools[e]))
+                                                   or os.path.isdir(str(tools[e]))))]
+        if missing_extra:
+            broken.append((key, what, f"needs tools.{'/'.join(missing_extra)}, which is unset "
+                                      f"or not found"))
+        else:
+            present.append((key, what))
+
+    # jscpd needs a per-layer language, declared by the stack. Without it the duplication
+    # metrics are skipped for that layer even though jscpd itself is present.
+    for lyr, o in (layers or {}).items():
+        if not (o or {}).get("jscpd_format"):
+            absent.append((f"jscpd_format[{lyr}]", f"dup_* and verbosity for the {lyr} layer",
+                           "no jscpd_format declared in stack.yaml"))
+
+    for key, what in present:
+        print(f"  tool ok    {key:<18} -> {what}", flush=True)
+    for key, what, why in absent:
+        print(f"  tool ABSENT {key:<17} -> BLANK: {what}  ({why})", flush=True)
+    for key, what, why in broken:
+        print(f"  tool BROKEN {key:<17} -> {why}", flush=True)
+    if broken:
+        print("\nFATAL: a configured analysis tool cannot be found. Continuing would produce an "
+              "analysis whose blank columns are indistinguishable from real zeros. Fix the paths "
+              "in config.yaml (they are resolved against the harness root), or unset them to "
+              "accept the blanks deliberately.", flush=True)
+        raise SystemExit(2)
+
+    L = ["## Tooling (what this analysis could and could not compute)", "",
+         "A blank column is NOT a zero. Anything listed as absent below was not computed at all.",
+         "", "| tool | status | affects |", "|---|---|---|"]
+    for key, what in present:
+        L.append(f"| `{key}` | ran | {what} |")
+    for key, what, why in absent:
+        L.append(f"| `{key}` | **absent** — {why} | **blank**: {what} |")
+    L.append("")
+    return L
+
+
 def branch_audits(repo: str, run_id: str, app_cfg: dict, verbose: bool = True) -> list[str]:
     """Run the two BRANCH-level audits (base -> chain tip, one diff per chain) and return their
     summary.md sections.
@@ -813,6 +886,7 @@ def main() -> int:
         return v if os.path.isabs(v) else os.path.join(_hroot, v)
 
     tools = {k: _tool(v) for k, v in (cfg.get("tools") or {}).items()}
+    tool_lines = analysis_preflight(tools, cfg["app"].get("layers") or {})
     rows = recompute_rows(repo, run_id, cfg["app"], tools)
     if not rows:
         print("no capture found for run", run_id, flush=True)
@@ -825,7 +899,7 @@ def main() -> int:
 
     print(f"writing csv -> {out_dir}", flush=True)
     csv_path = write_csv(rows, out_dir)
-    audits = branch_audits(repo, run_id, cfg["app"])
+    audits = tool_lines + branch_audits(repo, run_id, cfg["app"])
     print("writing summary (slopes + chain-bootstrap CIs) ...", flush=True)
     summary_path = write_summary(rows, run_id, gammas, out_dir, extra_sections=audits)
 
