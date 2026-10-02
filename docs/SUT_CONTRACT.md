@@ -1,5 +1,9 @@
 # App contract — what the evolving app repo must provide
 
+> Language-agnostic by construction: the harness touches the app only through four
+> scripts (`bin/build`, `bin/start`, `bin/stop`, `bin/e2e`) and HTTP. Bring any
+> language or framework that can satisfy §2–§5.
+
 The harness (`~/ui-long-degradation-test`) grows **one application** from a near-empty base over
 ~60 English change requests, modelling the OfficeHQ loop (DESIGN.md §1, §2, §14). It treats the
 app repo (`app.repo` in `config.yaml`) as an external folder it only reads at `base_ref`, mirrors
@@ -18,32 +22,63 @@ test contract (§4).
 - The harness branches every run off `base_ref` and never writes to it. cp01 creates the first
   tables/entities/UI.
 
-## 2. One embedded stack — a single Spring Boot app
+## 2. One locally-startable process — NOT a jar, and not necessarily Java
 
-The whole app runs in **one JVM, no daemon or container**, so it is launchable inside the Landlock
-sandbox (the agent runs it too, §5; DESIGN.md §15):
+The contract is about PROPERTIES, not technology. Everything the harness needs it gets through the
+four scripts of §3 and two HTTP endpoints, so a stack may be written in any language: the harness
+never builds, starts or inspects the process itself, it only runs `bin/build`, `bin/start`,
+`bin/stop` and reads HTTP.
 
-- **Spring Boot 4 is the host; OfficeFloor REST is added via the starter**
-  (`officefloor-rest-spring-boot-4-starter` + `spring-boot-starter-web`). Standard
-  `@SpringBootApplication` main; normal `spring-boot-maven-plugin` repackage. Domain endpoints are
-  additive OfficeFloor YAML (`officefloor/rest/*.yml` → a logic class).
-- **H2 in-memory + Flyway on boot**, Spring-managed (`spring.datasource`, `spring.flyway`,
-  `ddl-auto=none`), from `src/main/resources/db/migration`.
-- The **SPA is served from `src/main/resources/static`** (Spring's static handler); deep-link
-  fallback in `SpaConfig` (unknown non-`api/` → `index.html`).
-- Readiness is Spring Actuator's `/actuator/health` (`app.health_url`).
+Required properties:
+
+- **One process, started and stopped by scripts.** `bin/start` brings the whole app up; `bin/stop`
+  takes it down. No daemon, no container, no external service — the agent runs the app too, inside
+  the Landlock sandbox (§5), and that sandbox can only confine what the scripts launch. A
+  `java -jar`, a `node server.js`, a `uvicorn`, a `go run` or a compiled binary are all equally
+  acceptable; what matters is that the two scripts are the ONLY interface.
+- **Readiness over HTTP** at `app.health_url`. Any path, any body — the harness only polls for a
+  2xx. (The reference stacks happen to use Spring Actuator's `/actuator/health`.)
+- **Schema built on start, from nothing.** The app must be able to come up against an empty data
+  store and migrate itself to the current schema, because the harness starts it fresh at every
+  checkpoint. An in-memory store is simplest (it dies with the process, so there is no data
+  directory to clean), but a file-backed one that `bin/stop` discards is equally fine.
+- **The UI served by the same process.** However the UI is produced — a built SPA served as static
+  files, server-rendered templates, anything — it must be reachable from the one base URL, since
+  the acceptance suite drives a browser against `app.port` alone.
+- **Reproducible offline.** `bin/build` must succeed with no network egress, because the gate runs
+  Landlock-confined. Pre-warm whatever a first build downloads (a toolchain, a package cache) by
+  building once outside the sandbox.
+
+Nothing above names a language, a framework or a packaging format. The reference stacks are Spring
+Boot jars with an embedded in-memory H2 and Flyway because that was convenient, not because the
+harness requires it — see `BASE_CHECKLIST.md` in any `officehq-*` base repo for one worked example,
+and `stack.yaml` for how a stack declares its source layers and their languages (which is what
+keeps the language-specific metrics from being applied to a language they cannot read).
 
 ## 3. Fixed operational scaffolding: `bin/build`, `bin/start`, `bin/stop`, `./e2e`
 
 These are **pinned** — the agent may run them but not edit them; the harness restores them to
 authored before the gate (DESIGN.md §15). Their commands stay constant even as the app evolves.
 
-- `bin/build` — compile the OfficeFloor backend **and** the front-end into one runnable jar.
-- `bin/start` — `java -jar target/*.jar --server.port=$PORT --spring.profiles.active=harness`; Flyway migrates the empty H2 up to this
-  checkpoint's schema; serves SPA + API on `$PORT`. Returns once launching (harness polls health).
-- `bin/stop` — kill the JVM / free `$PORT`; in-mem H2 dies with it (clean reset). **Idempotent**.
-- `./e2e` (`acceptance.agent_test_cmd`) — build + start + run the **currently-visible spec(s) only**
-  + stop, so the agent can test as it works without ever seeing prior specs.
+Each is specified by BEHAVIOUR, not by command — the harness only checks the exit status and then
+polls HTTP, so any language satisfies these the same way:
+
+- `bin/build` — produce whatever `bin/start` needs to run, from a clean checkout, **with no network
+  egress** (the gate is Landlock-confined). Non-zero exit = build failure, and that is the whole
+  interface: the harness never inspects the output.
+- `bin/start` — bring the app up on `$PORT`, building the schema from empty as it goes. **Returns
+  once the app is launching**, not once it is ready — the harness polls `app.health_url` for that —
+  so it must background the process and record whatever `bin/stop` needs (a pid file, a container
+  id, a port). Exit non-zero only if the launch itself could not be attempted.
+- `bin/stop` — take the app down and **free `$PORT`**, discarding its data so the next checkpoint
+  starts clean. **Idempotent**: it is called when nothing is running, and after a crash, and must
+  succeed in both cases.
+- `bin/e2e` (`acceptance.agent_test_cmd`) — build + start + run **only the spec(s) currently
+  present** + stop, so the agent can test as it works without ever seeing prior specs. This is the
+  one script the agent is expected to run.
+
+Both `$PORT` and the harness's `AUDIT_FILE` arrive as environment variables; nothing else is
+passed in, and nothing but exit status and HTTP comes back out.
 
 ## 4. Behaviour is exposed through `data-testid`; data is arranged through `/__test__`
 

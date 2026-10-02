@@ -100,7 +100,8 @@ def _script(worktree: str, cfg: dict, key: str) -> str:
 
 def build(worktree: str, cfg: dict) -> tuple[bool, str]:
     """Run cfg['app'].build_cmd (bin/build) in the worktree — front-end -> static/, then
-    spring-boot repackage -> target/*.jar. Returns (ok, console)."""
+    whatever `bin/build` does — the harness never looks inside, and the stack may be
+    any language (docs/SUT_CONTRACT.md §2). Returns (ok, console)."""
     cmd = [_script(worktree, cfg, "build_cmd")]
     try:
         p = subprocess.run(cmd, cwd=worktree, capture_output=True, text=True,
@@ -153,7 +154,7 @@ def serve(worktree: str, cfg: dict):
     env["PORT"] = str(port)
     env["BASE_URL"] = base_url
     env["AUDIT_FILE"] = audit_file
-    # Free the port BEFORE starting. bin/start is a bare `nohup java -jar --server.port=$PORT`
+    # Free the port BEFORE starting. bin/start only has to background the app on $PORT
     # with no bind check, so a JVM left behind by a crashed run would keep the port, the new one
     # would die on bind, and wait_ready would get a healthy UP from the STALE app — gating this
     # checkpoint against the wrong build, with nothing in the log to say so.

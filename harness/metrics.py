@@ -557,6 +557,30 @@ def hot_surface(worktree: str, base_commit: str, cur_ref: str,
             "hot_files": ";".join(f"{p}:{n}" for p, n in top)}
 
 
+def _layer_langs(opts: dict, globs: list[str]) -> set[str]:
+    """The layer's source languages, as lower-case extensions.
+
+    A metric that only understands ONE language must key on this, never on the layer's NAME.
+    Running PMD and a Java call-graph parser because a layer happens to be called "backend"
+    produces junk for a Node, Python or Go backend — where the honest answer is the blank that
+    says "did not run". The stack declares its languages (`stack.yaml -> layers.<l>.ext`); for a
+    stack predating that, they are probed through the layer's own glob matcher, so the two can
+    never disagree.
+    """
+    exts = {str(e).lstrip(".").lower() for e in (opts.get("ext") or [])}
+    if exts:
+        return exts
+    # Probe through the layer's OWN matcher so the two can never disagree — but anchored under
+    # the glob's static directory prefix, since a glob like `src/main/java/**/*.java` matches
+    # nothing at an arbitrary path.
+    match = _matcher(globs, exclude_tests=False)
+    dirs = _glob_dirs(globs) or [""]
+    cands = ("java", "kt", "scala", "ts", "tsx", "js", "jsx", "mjs", "py", "go",
+             "rb", "cs", "php", "rs", "html")
+    return {e for e in cands
+            if any(match(f"{d}/probe.{e}" if d else f"probe.{e}") for d in dirs)}
+
+
 def _glob_dirs(globs: list[str]) -> list[str]:
     """Static-prefix source directories of a layer's globs (for CK/PMD, which take dirs).
     `src/main/java/**/*.java` -> `src/main/java`."""
@@ -593,6 +617,7 @@ def compute_all(worktree: str, app_cfg: dict, tools: dict, base_commit: str,
         match = _matcher(globs)
         fns = functions(worktree, globs)
         opts = layer_opts.get(lyr) or {}
+        langs = _layer_langs(opts, globs)
         det = erosion_detail(fns)
         row[f"{lyr}_erosion"] = det["erosion"]
         row[f"{lyr}_over_threshold"] = det["over_threshold"]
@@ -609,18 +634,21 @@ def compute_all(worktree: str, app_cfg: dict, tools: dict, base_commit: str,
             row[f"{lyr}_{k}"] = v
         # Java-backend depth: Halstead/MI, CK (C&K), PMD (cognitive/NPath/GodClass). Each returns
         # None -> blank columns (never zeros) when its tool is not configured/available.
-        if lyr == "backend" and fns:
+        # Halstead/MI, PMD and CK are JAVA tools. Gated on the layer's declared language, not on
+        # its name, so a non-Java backend gets blanks instead of whatever PMD makes of a
+        # directory of .js. Column prefix is the layer's, so a Java layer under either name works.
+        if "java" in langs and fns:
             for k, v in placement.halstead_placement(worktree, fns).items():
-                row[f"backend_{k}"] = v
+                row[f"{lyr}_{k}"] = v
             src_dirs = _glob_dirs(globs)
             pmd = placement.pmd_metrics(worktree, src_dirs, tools.get("pmd") or "",
                                         tools.get("pmd_metrics_rules") or "")
             for k, v in (pmd or {}).items():
-                row[f"backend_{k}"] = v
+                row[f"{lyr}_{k}"] = v
             ck = placement.ck_metrics(worktree, src_dirs, tools.get("ck") or "",
                                       tools.get("java") or "java")
             for k, v in (ck or {}).items():
-                row[f"backend_{k}"] = v
+                row[f"{lyr}_{k}"] = v
         # ── deep metrics (harness.deep_metrics, ported from the REST arm) ───────────────────
         # Layer-generic first. Each returns blanks (never zeros) when its tool is absent, and
         # the layer's language/anchors come from stack.yaml, not from this file.
@@ -683,8 +711,10 @@ def compute_all(worktree: str, app_cfg: dict, tools: dict, base_commit: str,
         for k, v in deep_metrics.handler_scoped_erosion(fns, hp).items():
             row[f"{lyr}_{k}"] = v
         row[f"{lyr}_config_loc"] = deep_metrics.yaml_loc(worktree, opts.get("config_globs") or [])
-        # Java-shaped: the call index parses Java identifiers and a `.java` class stem.
-        if lyr == "backend" and fns:
+        # Java-shaped: the call index parses Java identifiers and a `.java` class stem, so this
+        # is gated on the LANGUAGE. For any other backend the node columns are blank — the
+        # architecture has no wired nodes this parser can see, which is not the same as zero.
+        if "java" in langs and fns:
             for k, v in deep_metrics.node_closure_stats(worktree, fns, opts).items():
                 row[f"{lyr}_{k}"] = v
         else:
