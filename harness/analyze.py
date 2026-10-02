@@ -205,7 +205,15 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
             mutated = [int(m) for m in (rec.get("mutates") or [])]
             scored_row = correctness.outcome_row(outcome, prior_passing, mutated)
             ag = rec.get("agent") or {}
+            # The STACK this row came from. results/<run_id>/ is keyed by run id alone, so
+            # without this a CSV cannot be attributed to an arm — which makes a cross-arm
+            # overview impossible and an archived records.csv unciteable. Taken from the
+            # capture, which records it per checkpoint, so it is the stack the run actually
+            # used rather than whatever --repo happens to point at now.
+            stk = rec.get("stack") or {}
             row = {
+                "stack": stk.get("name") or os.path.basename(repo.rstrip("/")),
+                "stack_origin": stk.get("origin") or "",
                 "run_id": run_id, "branch": branch, "condition": condition, "chain": chain,
                 "checkpoint": k, "checkpoint_id": rec.get("checkpoint_id"),
                 "phase": rec.get("phase") or phase_for(k, n),

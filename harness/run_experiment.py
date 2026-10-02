@@ -40,6 +40,9 @@ HARNESS_DIR = os.path.dirname(os.path.abspath(__file__))
 HARNESS_ROOT = os.path.dirname(HARNESS_DIR)   # the ui-long-degradation-test repo root
 
 CSV_FIELDS = [
+    # `stack` first: a records CSV that cannot be attributed to an arm is unciteable, and
+    # results/<run_id>/ is keyed by run id alone.
+    "stack", "stack_origin",
     "run_id", "branch", "condition", "chain", "checkpoint", "checkpoint_id", "phase",
     "checkpoint_type", "agent_ok", "cost_usd", "input_tokens", "output_tokens",
     "num_turns", "duration_ms", "duration_api_ms", "build_ok", "gate_invalid",
@@ -852,18 +855,22 @@ def main() -> int:
             failed.append((c, f"{type(e).__name__}: {e}"))
             print(f"\n!!! chain{c} ABORTED — {type(e).__name__}: {e}\n"
                   f"    the other chains continue; finish this one later with:\n"
-                  f"      --run-id {run_id} --chain {c} --resume", flush=True)
+                  f"      .venv/bin/python -m harness.run_experiment --config {args.config} "
+                  f"--repo {cfg['app']['repo']} --run-id {run_id} --chain {c} --resume", flush=True)
     if failed:
         print("\n=== chains that did not finish ===", flush=True)
         for c, err in failed:
             print(f"    chain{c}: {err}", flush=True)
-        print(f"    resume each with:  --config {args.config} --run-id {run_id} "
-              f"--chain <n> --resume", flush=True)
+        print(f"    resume each with:\n"
+              f"      .venv/bin/python -m harness.run_experiment --config {args.config} "
+              f"--repo {cfg['app']['repo']} --run-id {run_id} --chain <n> --resume", flush=True)
         return 1
     if len(chains) > 1:
-        print(f"\n=== all {len(chains)} chains finished (run_id={run_id}) — analyse with:\n"
+        print(f"\n=== all {len(chains)} chains finished (run_id={run_id}) — next:\n"
               f"    .venv/bin/python -m harness.analyze --config {args.config} "
-              f"--run-id {run_id} ===", flush=True)
+              f"--repo {cfg['app']['repo']} --run-id {run_id}\n"
+              f"    ./push.sh --repo {cfg['app']['repo']} {run_id}   # publish the chain branches\n"
+              f"===", flush=True)
     return 0
 
 

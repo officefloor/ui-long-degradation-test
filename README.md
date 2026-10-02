@@ -60,6 +60,16 @@ STACK=~/officehq-react-officefloor
 ./push.sh --repo $STACK <run_id> --dry-run   # just this run, and show rather than push
 ```
 
+```sh
+# analyse EVERY run of every stack (~/officehq-*), then draw them all on one set of graphs.
+# Each repo is interrogated for the runs and conditions it holds, so a repo with several of
+# either is handled; results/overview/ gets the combined graphs + records.all.csv.
+./analyze-all.sh                       # discover, analyse each run, then the overview
+./analyze-all.sh --dry-run             # show the work, do none of it
+./analyze-all.sh --overview-only       # redraw the combined graphs without re-analysing
+./analyze-all.sh 202610020135          # only this run id, across whichever repos hold it
+```
+
 The default condition is `gated` (`active_condition` in `config.yaml`). It runs the OfficeHQ
 ImpactGate loop. After each implement turn the staged diff is scored per layer. A checkpoint
 blocks and triggers a refactor turn when the change impact is over `block_percentile`, OR when the
