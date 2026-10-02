@@ -61,6 +61,14 @@ STACK=~/officehq-react-officefloor
 ```
 
 ```sh
+# does a stack satisfy the app contract? run this BEFORE a run, not after.
+./verify-stack.sh --repo $STACK            # static: environment + contract, seconds
+./verify-stack.sh --repo $STACK --smoke    # also build, start, probe and stop it (minutes)
+# the one prerequisite table, on its own:
+.venv/bin/python -m harness.doctor --config config.yaml --repo $STACK
+```
+
+```sh
 # analyse EVERY run of every stack (~/officehq-*), then draw them all on one set of graphs.
 # Each repo is interrogated for the runs and conditions it holds, so a repo with several of
 # either is handled; results/overview/ gets the combined graphs + records.all.csv.

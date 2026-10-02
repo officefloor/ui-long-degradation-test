@@ -113,68 +113,23 @@ else
   echo "     or set IMPACT_GATE_SRC=/path/to/ImpactGate and re-run ./setup.sh"
 fi
 
-# ── Things this script CANNOT install (they need root, or are kernel features) ────────────────
-# Detected below, each with the exact command for THIS machine's package manager.
-
+# ── Everything else: reported by the ONE prerequisite table ──────────────────────────────────
+# harness/doctor.py is the single source of truth, shared with run_experiment's preflight,
+# analyze's tool check and ./verify-stack.sh. It used to be a list maintained here as well, and
+# the two had already drifted — this file checked PMD but not `fuser`, the run preflight the
+# reverse — which is the worst kind of bug to hand a newcomer: setup.sh says all-ok and the run
+# then refuses. Each finding carries its consequence and the install command for THIS machine.
 echo
-echo "== prerequisites this script cannot install =="
+./.venv/bin/python -m harness.doctor --config config.yaml --phase setup
+doctor=$?
 
-# Name the package manager once, so every hint below is copy-pasteable rather than generic.
-if   command -v apt-get >/dev/null 2>&1; then PM="sudo apt-get install -y"
-elif command -v dnf     >/dev/null 2>&1; then PM="sudo dnf install -y"
-elif command -v yum     >/dev/null 2>&1; then PM="sudo yum install -y"
-elif command -v pacman  >/dev/null 2>&1; then PM="sudo pacman -S --noconfirm"
-elif command -v zypper  >/dev/null 2>&1; then PM="sudo zypper install -y"
-elif command -v apk     >/dev/null 2>&1; then PM="sudo apk add"
-elif command -v brew    >/dev/null 2>&1; then PM="brew install"
-else PM=""
-fi
-
-blockers=0
-need() {   # need <command> <package> <why it matters> <blocking|degrades>
-  if command -v "$1" >/dev/null 2>&1; then
-    printf '  ok        %-8s %s\n' "$1" "$3"
-  elif [ "$4" = blocking ]; then
-    blockers=$((blockers + 1))
-    printf '  BLOCKING  %-8s %s\n' "$1" "$3"
-    [ -n "$PM" ] && printf '            install:  %s %s\n' "$PM" "$2" \
-                 || printf '            install %s with your package manager\n' "$2"
-  else
-    printf '  missing   %-8s %s\n' "$1" "$3"
-    [ -n "$PM" ] && printf '            install:  %s %s\n' "$PM" "$2"
-  fi
-}
-
-# Blocking: a run cannot complete without these.
-need fuser psmisc "frees app.port before each app start (correctness._kill_port)" blocking
-need java  default-jre "builds and runs the app; also drives the CK metrics"      blocking
-need node  nodejs  "the front-end build and Playwright"                          blocking
-# Degrading: only affects tooling, never the run itself.
-need unzip unzip   "unpacks the PMD download"                                    degrades
-need curl  curl    "downloads PMD and CK"                                        degrades
-
-# Landlock is a KERNEL feature (Linux 5.13+), not a package. Absence is not fatal: the agent
-# turn falls back to unconfined and the sandbox mirror still hides prior specs, but §15 is then
-# not enforced for the whole run — so say it here rather than once per checkpoint.
-abi="$(./.venv/bin/python -c 'from harness import landlock; print(landlock.abi_version())' 2>/dev/null || echo 0)"
-if [ "${abi:-0}" -ge 1 ] 2>/dev/null; then
-  printf '  ok        %-8s Landlock ABI %s — agent turns will be confined (§15)\n' kernel "$abi"
-else
-  printf '  missing   %-8s no Landlock (needs Linux 5.13+) — agent turns run UNCONFINED; §15 not enforced\n' kernel
-fi
-
-echo
-if [ "$blockers" -gt 0 ]; then
-  echo "$blockers blocking prerequisite(s) missing — install them before starting a run."
-  echo "(run_experiment refuses to start and lists them again, so nothing is wasted.)"
-else
-  echo "All blocking prerequisites present."
-fi
 cat <<'NEXT'
 
 Next:
   .venv/bin/python -m harness.quality_selftest          # tools see clones and smells
   .venv/bin/python -m harness.metrics_selftest          # structural metrics
+  ./verify-stack.sh --repo ~/officehq-<stack> --smoke   # does the stack satisfy the contract?
   export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)  # long-lived; a run spans hours
   .venv/bin/python -m harness.run_experiment --config config.yaml --repo ~/officehq-<stack>
 NEXT
+exit $doctor
