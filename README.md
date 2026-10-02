@@ -53,6 +53,13 @@ STACK=~/officehq-react-officefloor
 .venv/bin/python -m harness.analyze --config config.yaml --repo $STACK --run-id <run_id>
 ```
 
+```sh
+# publish a finished run: the chain branches carry the evolved source + that chain's capture,
+# and results/ is gitignored, so pushing them is what makes a run a remote record.
+./push.sh --repo $STACK                      # every evolve/ branch not yet on the remote
+./push.sh --repo $STACK <run_id> --dry-run   # just this run, and show rather than push
+```
+
 The default condition is `gated` (`active_condition` in `config.yaml`). It runs the OfficeHQ
 ImpactGate loop. After each implement turn the staged diff is scored per layer. A checkpoint
 blocks and triggers a refactor turn when the change impact is over `block_percentile`, OR when the
