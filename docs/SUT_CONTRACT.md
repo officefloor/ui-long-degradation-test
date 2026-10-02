@@ -49,6 +49,36 @@ Required properties:
   Landlock-confined. Pre-warm whatever a first build downloads (a toolchain, a package cache) by
   building once outside the sandbox.
 
+### Declaring the layers, and the idiom
+
+`stack.yaml` at `base_ref` tells the harness what each layer is made of:
+
+```yaml
+layers:
+  frontend:
+    root: app/javascript            # where the layer's source lives
+    ext: [js, vue]                  # which files ARE its source
+    jscpd_format: javascript,vue    # for the duplication metrics
+    unit_vocabulary:                # what KIND of unit holds a new rule
+      default: module
+      rules:
+        - { category: component, path: '\.vue$' }
+        - { category: store,     code: '\bdefineStore\s*\(' }
+        - { category: composable, path: '(^|/)composables/' }
+```
+
+`unit_vocabulary` is either a built-in name (`java`, `react`, `angular`, `template`) or, as above,
+an inline definition — so an idiom the harness has never seen needs no Python. Rules are tried in
+order and the first match wins; each may carry `code`, `not_code`, `path` and `not_path`, and
+`code` matches the COMMENT-STRIPPED source so a file that documents an idiom is not mistaken for
+one that uses it. A malformed vocabulary fails loudly, naming the rule: one that silently matched
+nothing would report "no architecture used", which reads as a finding rather than a mistake.
+
+The declaration is also what keeps language-specific metrics off a language they cannot read: the
+Java-only tools (PMD, CK, the call-graph index) are gated on `ext`, not on the layer's name, and a
+layer Lizard cannot parse gets blank complexity columns rather than zeros — which is not the same
+thing, and the summary says so.
+
 Nothing above names a language, a framework or a packaging format. The reference stacks are Spring
 Boot jars with an embedded in-memory H2 and Flyway because that was convenient, not because the
 harness requires it — see `BASE_CHECKLIST.md` in any `officehq-*` base repo for one worked example,

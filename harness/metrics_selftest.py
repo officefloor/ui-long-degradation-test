@@ -385,6 +385,66 @@ def test_angular_vocabulary():
         '// example: @Component({...}) export class Foo {}\nexport const a = 1;') == "module"
 
 
+def test_vocabulary_as_configuration():
+    """A stack can declare its own idiom without a Python contribution — and the config language
+    is only adequate if it can express a vocabulary the harness already ships."""
+    import yaml
+    from . import class_shape as cs
+
+    # The ANGULAR built-in, written as configuration exactly as a third party would.
+    spec = yaml.safe_load(r"""
+    comments: c
+    default: module
+    require_parse: true
+    rules:
+      - { category: component,    code: '@Component\s*\(' }
+      - { category: pipe,         code: '@Pipe\s*\(' }
+      - { category: directive,    code: '@Directive\s*\(' }
+      - { category: route-config, code: ':\s*Routes\b|\bprovideRouter\s*\(' }
+      - { category: guard,        code: '\bCanActivate\w*\b|\bCanMatch\b|Guard(?:Fn)?\b' }
+      - { category: resolver,     code: '\bResolveFn\b|\bResolve<|Resolver\b' }
+      - { category: service,      code: '@Injectable\s*\(' }
+      - { category: model,        code: '\bexport\s+(?:interface|type|enum)\b', not_code: 'class\s' }
+    """)
+    fn, cats = cs.compile_vocabulary(spec, where="<test>")
+    assert "unparsed" in cats, cats          # require_parse adds it
+    cases = [
+        ("a/clients.ts", '@Component({template: ""}) export class C {}'),
+        ("a/clients.service.ts", '@Injectable({providedIn: "root"}) export class A { f() {} }'),
+        ("a/app.routes.ts", 'export const routes: Routes = [];'),
+        ("a/auth.guard.ts", "export const g: CanActivateFn = () => true;"),
+        ("a/m.pipe.ts", '@Pipe({name: "m"}) export class M {}'),
+        ("a/h.directive.ts", '@Directive({selector: "[h]"}) export class H {}'),
+        ("a/client.model.ts", "export interface Client { id: number }"),
+        ("a/util.ts", "export const inc = (n: number) => n + 1;"),
+        # the idiom must not be read out of a comment, in the configured path too
+        ("a/notes.ts", '// @Component({...}) export class Foo {}\nexport const a = 1;'),
+    ]
+    for path, code in cases:
+        assert fn(path, code) == cs.classify_angular(path, code), (path, fn(path, code))
+
+    # path conditions, and a `none` comment mode for a language with no C-style comments
+    pv, _ = cs.compile_vocabulary({"default": "other", "comments": "none",
+                                   "rules": [{"category": "ui", "path": "(^|/)ui/"}]})
+    assert pv("src/ui/money.ts", "x") == "ui"
+    assert pv("src/features/a.ts", "x") == "other"
+
+    # every malformed spec must fail LOUDLY: a vocabulary that classifies nothing would report
+    # "no architecture used", which is a finding rather than an error.
+    for bad in ({"rules": []}, {"rules": [{"category": "x"}]},
+                {"rules": [{"category": "x", "code": "("}]},
+                {"rules": [{"category": "x", "codez": "a"}]},
+                {"rules": [{"category": "x", "code": "a"}], "categories": ["y"]},
+                {"rules": [{"category": "x", "code": "a"}], "comments": "latex"},
+                {"nope": 1, "rules": [{"category": "x", "code": "a"}]},
+                "vue", 42):
+        try:
+            cs.compile_vocabulary(bad)
+            raise AssertionError(f"expected SystemExit for {bad!r}")
+        except SystemExit:
+            pass
+
+
 def test_declared_vocabulary_wins_over_the_extension():
     """Angular and React share an extension, so the stack must be able to SAY which it is."""
     from . import analyze, class_shape as cs

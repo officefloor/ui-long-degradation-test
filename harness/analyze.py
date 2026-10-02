@@ -582,35 +582,25 @@ def pooled_ratio(rows: list[dict], num_field: str, den_field: str):
     return num / den
 
 
-_VOCABULARIES = {
-    "angular": (class_shape.classify_angular, class_shape.ANGULAR_CATEGORIES),
-    "template": (class_shape.classify_template, class_shape.TEMPLATE_CATEGORIES),
-    "react": (class_shape.classify_frontend, class_shape.FRONTEND_CATEGORIES),
-    "java": (class_shape.classify, class_shape.CATEGORIES),
-}
-
-
-def _vocabulary(exts: tuple, declared: str | None = None):
+def _vocabulary(exts: tuple, declared=None):
     """(classifier, categories) for a layer.
 
-    An explicit `unit_vocabulary` from stack.yaml wins, because once two stacks share a LANGUAGE
-    the extension stops being enough to tell their idioms apart — Angular and React are both
-    `.ts`. Otherwise fall back to the extension, which still separates server-rendered markup
-    from a JavaScript UI from Java.
+    `unit_vocabulary` from stack.yaml wins — either a built-in NAME or an inline definition, so a
+    stack bringing an idiom the harness has never seen does not need a Python contribution
+    (harness.class_shape.compile_vocabulary). Once two stacks share a LANGUAGE the extension stops
+    being able to tell their idioms apart: Angular and React are both `.ts`.
+
+    With nothing declared, fall back to the extension, which still separates server-rendered
+    markup from a JavaScript UI from Java.
     """
-    if declared:
-        key = str(declared).strip().lower()
-        if key not in _VOCABULARIES:
-            raise SystemExit(
-                f"stack.yaml: unit_vocabulary {declared!r} is not one of "
-                f"{sorted(_VOCABULARIES)} — a vocabulary the harness does not know would file "
-                f"every unit as 'unparsed' and silently answer nothing.")
-        return _VOCABULARIES[key]
+    fn, cats = class_shape.compile_vocabulary(declared)
+    if fn is not None:
+        return fn, cats
     if any(e in (".html", ".htm") for e in exts):
-        return _VOCABULARIES["template"]
+        return class_shape.BUILTIN_VOCABULARIES["template"]
     if any(e in (".ts", ".tsx", ".js", ".jsx") for e in exts):
-        return _VOCABULARIES["react"]
-    return _VOCABULARIES["java"]
+        return class_shape.BUILTIN_VOCABULARIES["react"]
+    return class_shape.BUILTIN_VOCABULARIES["java"]
 
 
 def _classifier_for(exts: tuple, declared: str | None = None):

@@ -256,6 +256,130 @@ def classify_angular(path: str, code: str) -> str:
     return "module"
 
 
+# ── Vocabularies as CONFIGURATION ─────────────────────────────────────────────────────────────
+# The built-ins below cover the stacks in this study, but a harness meant for anyone bringing
+# their own architecture cannot require a Python contribution per idiom. A stack may therefore
+# declare its vocabulary inline in stack.yaml instead of naming a built-in:
+#
+#   unit_vocabulary:
+#     comments: c                 # c | markup | none — strip these before matching (see below)
+#     default: module             # the category when no rule matches
+#     require_parse: false        # true => lizard must parse the file, else `unparsed`
+#     categories: [component, service, route-config, model, module]   # table order (optional)
+#     rules:                      # FIRST match wins, so order them most-specific first
+#       - { category: component,    code: '@Component\s*\(' }
+#       - { category: service,      code: '@Injectable\s*\(' }
+#       - { category: route-config, code: ':\s*Routes\b' }
+#       - { category: ui-primitive, path: '(^|/)ui/' }
+#       - { category: model,        code: '\bexport\s+(interface|type|enum)\b', not_code: '\bclass\s' }
+#
+# A rule may carry `code`, `not_code`, `path` and `not_path`; every condition present must hold.
+# `code` matches the COMMENT-STRIPPED source, because a file that documents an idiom mentions it —
+# the mistake that once filed an interface as a spring-bean off its own javadoc.
+#
+# Not everything is expressible this way. The `java` built-in decides static-util vs
+# instance-class from lizard's function list and the signature lines above it, which no regex
+# reproduces. Configuration covers the decorator/marker-shaped majority; an idiom needing real
+# analysis still wants a built-in.
+_RULE_KEYS = {"category", "code", "not_code", "path", "not_path"}
+
+
+def _compile_rule(rule: dict, idx: int, where: str) -> dict:
+    if not isinstance(rule, dict):
+        raise SystemExit(f"{where}: unit_vocabulary rule #{idx + 1} must be a mapping, got "
+                         f"{type(rule).__name__}")
+    unknown = sorted(set(rule) - _RULE_KEYS)
+    if unknown:
+        raise SystemExit(f"{where}: unit_vocabulary rule #{idx + 1} has unknown key(s) {unknown}; "
+                         f"allowed: {sorted(_RULE_KEYS)}")
+    cat = str(rule.get("category") or "").strip()
+    if not cat:
+        raise SystemExit(f"{where}: unit_vocabulary rule #{idx + 1} needs a `category`")
+    out = {"category": cat}
+    for key in ("code", "not_code", "path", "not_path"):
+        pat = rule.get(key)
+        if pat is None:
+            continue
+        try:
+            out[key] = re.compile(str(pat))
+        except re.error as e:
+            raise SystemExit(f"{where}: unit_vocabulary rule #{idx + 1} ({cat}) has an invalid "
+                             f"`{key}` regex {pat!r}: {e}")
+    if len(out) == 1:
+        raise SystemExit(f"{where}: unit_vocabulary rule #{idx + 1} ({cat}) has no condition — "
+                         f"give it at least one of code/not_code/path/not_path")
+    return out
+
+
+def compile_vocabulary(spec, where: str = "stack.yaml"):
+    """(classifier, categories) from a built-in NAME or an inline definition.
+
+    Raises SystemExit with the offending rule named on any malformed spec: a vocabulary that
+    quietly classifies nothing would report "no architecture used", which is a finding, not an
+    error message.
+    """
+    if spec is None or isinstance(spec, str):
+        key = (spec or "").strip().lower()
+        if not key:
+            return None, None                      # caller falls back to the extension
+        if key not in BUILTIN_VOCABULARIES:
+            raise SystemExit(
+                f"{where}: unit_vocabulary {spec!r} is not a built-in "
+                f"({sorted(BUILTIN_VOCABULARIES)}) — name one of those, or declare the vocabulary "
+                f"inline as a mapping with `rules` (see harness/class_shape.py).")
+        return BUILTIN_VOCABULARIES[key]
+    if not isinstance(spec, dict):
+        raise SystemExit(f"{where}: unit_vocabulary must be a built-in name or a mapping, got "
+                         f"{type(spec).__name__}")
+
+    unknown = sorted(set(spec) - {"comments", "default", "require_parse", "categories", "rules"})
+    if unknown:
+        raise SystemExit(f"{where}: unit_vocabulary has unknown key(s) {unknown}")
+    rules_in = spec.get("rules")
+    if not isinstance(rules_in, list) or not rules_in:
+        raise SystemExit(f"{where}: unit_vocabulary needs a non-empty `rules` list")
+    rules = [_compile_rule(r, i, where) for i, r in enumerate(rules_in)]
+    comments = str(spec.get("comments") or "c").strip().lower()
+    if comments not in ("c", "markup", "none"):
+        raise SystemExit(f"{where}: unit_vocabulary comments must be c, markup or none "
+                         f"(got {comments!r})")
+    default = str(spec.get("default") or "module")
+    require_parse = bool(spec.get("require_parse"))
+
+    cats = spec.get("categories")
+    if cats:
+        cats = [str(c) for c in cats]
+        missing = sorted({r["category"] for r in rules} - set(cats))
+        if missing:
+            raise SystemExit(f"{where}: unit_vocabulary `categories` omits {missing}, which its "
+                             f"own rules produce — the summary table would silently drop them")
+    else:
+        cats = list(dict.fromkeys([r["category"] for r in rules] + [default]))
+    if require_parse and "unparsed" not in cats:
+        cats = cats + ["unparsed"]
+
+    def classify_configured(path: str, code: str) -> str:
+        if require_parse:
+            try:
+                lizard.analyze_file.analyze_source_code(path, code)
+            except Exception:              # noqa: BLE001 - any parse failure is "unparsed"
+                return "unparsed"
+        probe = code if comments == "none" else _strip_comments(code, markup=(comments == "markup"))
+        for r in rules:
+            if "code" in r and not r["code"].search(probe):
+                continue
+            if "not_code" in r and r["not_code"].search(probe):
+                continue
+            if "path" in r and not r["path"].search(path):
+                continue
+            if "not_path" in r and r["not_path"].search(path):
+                continue
+            return r["category"]
+        return default
+
+    return classify_configured, cats
+
+
 def audit_branch(repo: str, base: str, tip: str, src_root: str = "src/main/java",
                  exts: tuple = (".java",), classify_fn=None) -> collections.Counter:
     """Category counts over the production units this chain CREATED.
@@ -379,6 +503,18 @@ def markdown_section(results: dict[str, list[dict]], categories: list[str] | Non
         out.append(f"| {label} | " + " | ".join(means) + " | " + " | ".join(ranges) + " |")
     out.append("")
     return out
+
+
+# Named vocabularies. A stack names one of these, or declares its own inline — see
+# `compile_vocabulary`. Defined HERE, after every classifier, because a dict literal is evaluated
+# at import time: placing it earlier raised NameError on classify_frontend, which is declared below
+# audit_branch.
+BUILTIN_VOCABULARIES = {
+    "java": (classify, CATEGORIES),
+    "react": (classify_frontend, FRONTEND_CATEGORIES),
+    "angular": (classify_angular, ANGULAR_CATEGORIES),
+    "template": (classify_template, TEMPLATE_CATEGORIES),
+}
 
 
 def main() -> int:
