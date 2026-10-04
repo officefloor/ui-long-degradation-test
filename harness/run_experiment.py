@@ -191,12 +191,17 @@ def completed_checkpoints(wt: str) -> int:
     return max(done) if done else 0
 
 
-def prior_passing_from_capture(wt: str, k: int) -> set[str]:
-    """Rebuild the accumulated passing-test set from the captures committed up to cpK, so a
-    resumed chain scores regressions against the same baseline the aborted run would have used.
-    Mirrors the live rule: a gate_invalid checkpoint carries no verdict and never replaces it."""
+def prior_state_from_capture(wt: str, k: int) -> tuple[set[str], set[str] | None]:
+    """Rebuild the previous checkpoint's (passing, selected) sets from the captures committed up
+    to cpK, so a resumed chain scores against the same baseline the aborted run would have used.
+    Mirrors the live rule: a gate_invalid checkpoint carries no verdict and never replaces it.
+
+    `selected` is every test that RAN, not just the ones that passed — needed to tell a
+    replacement spec failing on arrival from one that was already there (correctness
+    .count_unsatisfied_replacements)."""
     cap_dir = os.path.join(wt, "evolve-results", "capture")
     passing: set[str] = set()
+    selected: set[str] | None = None
     for i in range(1, k + 1):
         path = os.path.join(cap_dir, f"cp{i:02d}.json")
         if not os.path.isfile(path):
@@ -205,8 +210,15 @@ def prior_passing_from_capture(wt: str, k: int) -> set[str]:
             tests = (json.load(fh).get("tests") or {})
         if tests.get("gate_invalid"):
             continue
-        passing = {t for t, ok in (tests.get("results") or {}).items() if ok}
-    return passing
+        results = tests.get("results") or {}
+        passing = {t for t, ok in results.items() if ok}
+        selected = set(results)
+    return passing, selected
+
+
+def prior_passing_from_capture(wt: str, k: int) -> set[str]:
+    """Back-compat wrapper: the passing set alone."""
+    return prior_state_from_capture(wt, k)[0]
 
 
 def verify_resume_stack(wt: str, app_cfg: dict) -> None:
@@ -679,7 +691,8 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
     shutil.rmtree(sandbox, ignore_errors=True)
 
     # Regressions are relative to the last passing suite, so a resumed chain must reload it.
-    prior_passing: set[str] = prior_passing_from_capture(wt, done) if resume else set()
+    prior_passing, prior_selected = (prior_state_from_capture(wt, done) if resume
+                                     else (set(), None))
     captures: list[dict] = []
     strict_count = regr_count = 0
 
@@ -736,9 +749,10 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
                 fh.write(outcome.console[:1_000_000])
 
         mutated = [int(m) for m in (cp.get("mutates") or [])]
-        row = correctness.outcome_row(outcome, prior_passing, mutated)
+        row = correctness.outcome_row(outcome, prior_passing, mutated, prior_selected)
         if not outcome.gate_invalid:
             prior_passing = outcome.passing
+            prior_selected = set(outcome.results)
         strict_count += 1 if row.get("strict_pass") is True else 0
         regr_count += int(row.get("regressions") or 0)
 

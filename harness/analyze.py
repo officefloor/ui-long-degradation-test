@@ -55,6 +55,13 @@ def _f(x):
         return math.nan
 
 
+def _i0(x) -> int:
+    """Integer count, treating missing/blank/NaN as 0 — for columns added after a run was
+    archived, so an older records.csv still sums instead of raising."""
+    v = _f(x)
+    return 0 if math.isnan(v) else int(v)
+
+
 def _b(x):
     return str(x).strip().lower() in ("true", "1", "yes")
 
@@ -197,6 +204,8 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
         print(f"  [{i_br}/{n_br}] {branch}: {n_cp} checkpoint(s)", flush=True)
         base_commit = caps[min(caps)].get("prev_sha")  # chain base (cp01's prev) — cum change-entropy
         prior_passing: set[str] = set()
+        prior_selected: set[str] | None = None   # what the PREVIOUS checkpoint ran, so a
+                                                 # replacement spec failing on arrival is visible
         n_noop = 0        # checkpoints the agent left unchanged -> no commit -> no structural row
         n_invalid = 0     # gates that aborted -> correctness is missing, not failed
         t_chain = time.time()
@@ -204,7 +213,8 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
             rec = caps[k]
             outcome = _outcome_from_capture(rec)
             mutated = [int(m) for m in (rec.get("mutates") or [])]
-            scored_row = correctness.outcome_row(outcome, prior_passing, mutated)
+            scored_row = correctness.outcome_row(outcome, prior_passing, mutated,
+                                                 prior_selected)
             ag = rec.get("agent") or {}
             # The STACK this row came from. results/<run_id>/ is keyed by run id alone, so
             # without this a CSV cannot be attributed to an arm — which makes a cross-arm
@@ -234,6 +244,7 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
                                         rec.get("prev_sha"), app_cfg, tools, base_commit))
             if not outcome.gate_invalid:
                 prior_passing = outcome.passing
+                prior_selected = set(outcome.results)
             else:
                 n_invalid += 1
             if not (rec.get("commit_sha") or ""):
@@ -448,8 +459,10 @@ def regression_summary(rows: list[dict]) -> dict:
     bl = sum(int(_f(r.get("behaviour_loss")) or 0) for r in graded)
     sp = sum(int(_f(r.get("seed_path")) or 0) for r in graded)
     n_mut = sum(1 for r in graded if str(r.get("checkpoint_type", "")).strip() == "mutative")
+    unsat = sum(_i0(r.get("unsatisfied_replacement")) for r in graded)
     return {"total": total, "true": true, "intended": total - true, "mutative_cps": n_mut,
             "invalid_gates": len(rows) - len(graded),
+            "unsatisfied_replacement": unsat,
             "anchor_drift": ad, "behaviour_loss": bl, "seed_path": sp}
 
 
@@ -849,6 +862,9 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
               f"(mutative checkpoints={rs['mutative_cps']}, invalid gates={rs['invalid_gates']})",
               f"- regression reasons: anchor_drift={rs['anchor_drift']} "
               f"behaviour_loss={rs['behaviour_loss']} seed_path={rs['seed_path']}",
+              f"- unsatisfied replacements: {rs['unsatisfied_replacement']} (updated prior "
+              f"specs a mutative checkpoint shipped and never satisfied — invisible to "
+              f"`regressions`, which needs a test to have passed first)",
               "", "degradation slopes (OLS on checkpoint index; chain-bootstrap 95% CI):"]
         for field, _label in PLOT_FIELDS:
             L.append(f"  - {field}: {_fmt_ci(bootstrap_slope(series_by_chain(cr, field)))}")

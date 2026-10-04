@@ -385,13 +385,55 @@ def count_regressions(prior_passing: set[str], now_passing: set[str]) -> int:
 
 
 def count_true_regressions(prior_passing: set[str], now_passing: set[str],
-                           mutated_cps) -> int:
-    """Regressions on the surface a mutative checkpoint did NOT intend to change."""
+                           mutated_cps, results: dict[str, bool] | None = None) -> int:
+    """Regressions on the surface a mutative checkpoint did NOT intend to change.
+
+    `mutates` excuses a prior rule the checkpoint deliberately REPLACED: the updated copy it
+    ships supersedes the prior spec, so the prior's test ids disappear from the suite and their
+    loss is intended. It does NOT excuse a test that the updated copy still runs and that FAILED
+    — the replacement asserting the new behaviour and not getting it is a plain failure, and
+    forgiving it hides exactly the breakage the replacement was written to pin.
+
+    So a regressed test whose checkpoint is in `mutates` is intended only when it is ABSENT from
+    this run's results. One that is present and failing counts. `results` is the current
+    {test_id: passed} map; without it the old (over-forgiving) behaviour is kept so existing
+    callers do not silently change meaning."""
     mut = {int(m) for m in (mutated_cps or ())}
-    return sum(1 for t in (prior_passing - now_passing) if test_checkpoint(t) not in mut)
+    n = 0
+    for t in (prior_passing - now_passing):
+        if test_checkpoint(t) not in mut:
+            n += 1                              # not a mutated surface: always a regression
+        elif results is not None and t in results:
+            n += 1                              # ran under the updated copy and failed
+    return n
 
 
-def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=()) -> dict:
+def count_unsatisfied_replacements(prior_selected: set[str] | None, results: dict[str, bool],
+                                   mutated_cps) -> int:
+    """Replacement specs this mutative checkpoint shipped that FAIL ON ARRIVAL.
+
+    A mutative checkpoint ships updated copies of the prior specs it revises. Those copies state
+    what the prior behaviour must become — so the checkpoint has not done its job until they
+    pass. They are invisible to every other measure: never having passed, such a test cannot be
+    a regression; and because it carries the PRIOR checkpoint's basename it scores in the
+    regression category rather than against the checkpoint's own request, so `func_p/func_t`
+    still reports the checkpoint solved.
+
+    cp49 is the case in point: it declares `mutates: [21, 47]`, ships an updated cp21 spec
+    asserting tax in the invoice amount, and that spec fails from the moment it is installed
+    ($1,000 against an expected $1,200) while cp49 reports func_p 1/1.
+
+    Counted as: tests newly present in this run, belonging to a checkpoint this one declares it
+    mutates, and failing. Needs the previous checkpoint's selected set; without it, 0."""
+    if prior_selected is None:
+        return 0
+    mut = {int(m) for m in (mutated_cps or ())}
+    return sum(1 for t, ok in results.items()
+               if not ok and t not in prior_selected and test_checkpoint(t) in mut)
+
+
+def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=(),
+                prior_selected: set[str] | None = None) -> dict:
     """Flatten a scored TestOutcome to the per-checkpoint correctness row (incl. Normalized
     Change + regressions + a reason breakdown). Called by the runner and by analyze."""
     if outcome.gate_invalid:
@@ -399,7 +441,7 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=())
             "total_selected", "strict_pass", "iso_pass", "core_pass", "core_p", "core_t",
             "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
             "normalized_change", "regressions", "true_regressions",
-            "anchor_drift", "behaviour_loss", "seed_path")}
+            "unsatisfied_replacement", "anchor_drift", "behaviour_loss", "seed_path")}
         return {"build_ok": outcome.build_ok, "gate_invalid": True, **blanks}
     mut = {int(m) for m in (mutated_cps or ())}
     reason_counts = {r.value: 0 for r in RegressionReason}
@@ -407,10 +449,13 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=())
         # only count reasons for PRIOR (regression) failures; current-checkpoint failures
         # are "not yet solved", not regressions.
         cp = test_checkpoint(tid)
-        if cp is not None and cp in mut:
-            reason_counts[RegressionReason.INTENDED.value] += 1
-        elif tid in prior_passing:
+        # Every tid here RAN and FAILED, so `mutates` does not excuse it (see
+        # count_true_regressions) — it gets its real reason. A genuinely intended loss is a
+        # prior test the updated copy replaced, which is absent from `reasons` entirely.
+        if tid in prior_passing:
             reason_counts[reason] = reason_counts.get(reason, 0) + 1
+        elif cp is not None and cp in mut:
+            reason_counts[RegressionReason.INTENDED.value] += 1
     return {
         "build_ok": outcome.build_ok,
         "gate_invalid": False,
@@ -425,7 +470,10 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=())
         "normalized_change": round(
             normalized_change(prior_passing, outcome.passing, outcome.total_selected), 4),
         "regressions": count_regressions(prior_passing, outcome.passing),
-        "true_regressions": count_true_regressions(prior_passing, outcome.passing, mutated_cps),
+        "true_regressions": count_true_regressions(prior_passing, outcome.passing, mutated_cps,
+                                                   outcome.results),
+        "unsatisfied_replacement": count_unsatisfied_replacements(
+            prior_selected, outcome.results, mutated_cps),
         "anchor_drift": reason_counts.get(RegressionReason.ANCHOR_DRIFT.value, 0),
         "behaviour_loss": reason_counts.get(RegressionReason.BEHAVIOUR_LOSS.value, 0),
         "seed_path": reason_counts.get(RegressionReason.SEED_PATH.value, 0),

@@ -54,6 +54,7 @@ def test_regression_summary_mutative():
     }]
     rs = A.regression_summary(rows)
     assert rs == {"total": 2, "true": 1, "intended": 1, "mutative_cps": 1, "invalid_gates": 0,
+                  "unsatisfied_replacement": 0,
                   "anchor_drift": 1, "behaviour_loss": 1, "seed_path": 0}, rs
 
 
