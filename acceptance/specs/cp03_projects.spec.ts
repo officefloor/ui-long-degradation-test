@@ -7,14 +7,21 @@ test.describe('projects', () => {
   test('lists projects with their client name', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
-      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
+      projects: [
+        { id: 1, name: 'Website Rebuild', clientId: 1 },
+        { id: 2, name: 'Mobile App', clientId: 1 },
+      ],
     });
     await page.goto('/');
     await page.getByTestId('nav-projects').click();
 
     await expect(page.getByTestId('projects-table')).toBeVisible();
+    // ALL the projects, not just the first — a list that silently truncates looks identical on a
+    // single-row fixture.
+    await expect(page.getByTestId(/^project-row-/)).toHaveCount(2);
     await expect(page.getByTestId('project-row-1').getByTestId('project-name')).toHaveText('Website Rebuild');
     await expect(page.getByTestId('project-row-1').getByTestId('project-client')).toHaveText('Acme Ltd');
+    await expect(page.getByTestId('project-row-2').getByTestId('project-name')).toHaveText('Mobile App');
   });
 
   test('creates a project for a client', { tag: '@core' }, async ({ page }) => {

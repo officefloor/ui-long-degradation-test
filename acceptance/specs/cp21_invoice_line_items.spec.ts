@@ -27,6 +27,11 @@ test.describe('invoice line items', () => {
     await page.getByTestId('invoice-open-1').click();
     await expect(page.getByTestId('invoice-lineitems-table')).toBeVisible();
     await expect(page.getByTestId('lineitem-row-1').getByTestId('lineitem-description')).toHaveText('Design');
+    // Each line reports its OWN figures, and its amount is quantity TIMES unit price — a line
+    // amount that ignored the quantity would be right whenever the quantity is 1.
+    await expect(page.getByTestId('lineitem-row-1').getByTestId('lineitem-qty')).toHaveText('2');
+    await expect(page.getByTestId('lineitem-row-1').getByTestId('lineitem-unitprice')).toHaveText('$50.00');
+    await expect(page.getByTestId('lineitem-row-1').getByTestId('lineitem-amount')).toHaveText('$100.00');
     await expect(page.getByTestId('invoice-amount')).toHaveText('$200.00');
   });
 
