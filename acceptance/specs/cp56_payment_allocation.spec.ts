@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
+import { auditLines } from '../support/audit';
 
 // A single lump payment from a client can be split across several of their open invoices, and each
 // invoice's balance then reflects its share. Recording a payment against a single invoice still
@@ -22,6 +23,13 @@ test.describe('payment allocation', () => {
     await page.getByTestId('payment-form-amount').fill('150');
     await page.getByTestId('payment-form-date').fill('2026-02-05');
     await page.getByTestId('payment-alloc-1').fill('100');
+
+    // A split that does not account for the whole lump is refused, and the refusal is SHOWN. If it
+    // is not, the balances the next clause is about are quietly built on money that went nowhere.
+    await page.getByTestId('payment-alloc-2').fill('40');
+    await page.getByTestId('payment-form-submit').click();
+    await expect(page.getByTestId('payment-form-error')).toBeVisible();
+
     await page.getByTestId('payment-alloc-2').fill('50');
     await page.getByTestId('payment-form-submit').click();
 
@@ -31,5 +39,10 @@ test.describe('payment allocation', () => {
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('PAID');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due-amount')).toHaveText('$50.00');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-status')).toHaveText('PARTIAL');
+
+    // Each share is recorded against the invoice it was allocated to. The balances above are right
+    // whichever invoice the record names, so only the audit channel can see this.
+    expect(auditLines()).toContain('PAYMENT_RECORDED id=1 amount=100.00');
+    expect(auditLines()).toContain('PAYMENT_RECORDED id=2 amount=50.00');
   });
 });

@@ -11,6 +11,10 @@ test.describe('printable statement', () => {
         { id: 1, projectId: 1, status: 'SENT', lineItems: [{ id: 1, description: 'A', qty: 1, unitPrice: 100 }] },
         { id: 2, projectId: 1, status: 'SENT', lineItems: [{ id: 2, description: 'B', qty: 1, unitPrice: 250 }] },
       ],
+      // Something already paid, so "the grand total they owe" is a different number from the
+      // total they were invoiced. With no payments on the statement the two agree and the
+      // headline figure can be wrong without any test noticing.
+      payments: [{ id: 1, invoiceId: 2, amount: 100, date: '2026-02-01' }],
     });
     await page.goto('/');
     await page.getByTestId('nav-clients').click();
@@ -18,6 +22,7 @@ test.describe('printable statement', () => {
     await page.getByTestId('client-statement-open').click();
 
     await expect(page.getByTestId('statement-print-view')).toBeVisible();
-    await expect(page.getByTestId('statement-grand-total')).toHaveText('$350.00');
+    // invoiced 100 + 250 = 350; paid 100 -> still owed 250
+    await expect(page.getByTestId('statement-grand-total')).toHaveText('$250.00');
   });
 });

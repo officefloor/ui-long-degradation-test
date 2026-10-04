@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
+import { auditLines } from '../support/audit';
 
 // A client that was tucked away (archived) can be brought back so they return to the main list.
 test.describe('restore client', () => {
@@ -19,5 +20,8 @@ test.describe('restore client', () => {
 
     await page.getByTestId('clients-show-archived').click(); // back to default view
     await expect(page.getByTestId('client-row-2').getByTestId('client-name')).toHaveText('Old Client');
+    // Archiving is recorded, so bringing back has to be too — otherwise the history says the
+    // client was tucked away and never came back. Invisible on screen either way.
+    expect(auditLines()).toContain('CLIENT_RESTORED id=2');
   });
 });

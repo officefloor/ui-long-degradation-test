@@ -17,5 +17,15 @@ test.describe('client unique email', () => {
 
     await expect(page.getByTestId('client-form-email-error')).toBeVisible();
     await expect(page.getByTestId(/^client-row-/)).toHaveCount(1);
+
+    // The same address with whitespace round it is the same address. Normalising before the
+    // uniqueness check is what makes that true — and it is the only part of this rule a test can
+    // reach, because the DB constraint behind it sees two genuinely different strings.
+    await page.getByTestId('client-form-name').fill('Acme Three');
+    await page.getByTestId('client-form-email').fill('  ops@acme.example  ');
+    await page.getByTestId('client-form-submit').click();
+
+    await expect(page.getByTestId('client-form-email-error')).toBeVisible();
+    await expect(page.getByTestId(/^client-row-/)).toHaveCount(1);
   });
 });

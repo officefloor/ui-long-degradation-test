@@ -5,10 +5,16 @@ import { resetAndSeed } from '../support/seed';
 test.describe('client contacts', () => {
   test('lists a client\'s contacts', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
-      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      clients: [
+        { id: 1, name: 'Acme Ltd', email: 'ops@acme.example' },
+        // A second client with a contact of its own: "on the client's page" means scoped to that
+        // client, and a single-client fixture cannot tell a scoped list from an unscoped one.
+        { id: 2, name: 'Globex', email: 'ac@globex.example' },
+      ],
       contacts: [
         { id: 1, clientId: 1, name: 'Dana Lee', email: 'dana@acme.example', role: 'Billing' },
         { id: 2, clientId: 1, name: 'Sam Ray', email: 'sam@acme.example', role: 'Project lead' },
+        { id: 3, clientId: 2, name: 'Jo Fox', email: 'jo@globex.example', role: 'Ops' },
       ],
     });
     await page.goto('/');
@@ -19,6 +25,7 @@ test.describe('client contacts', () => {
     await expect(page.getByTestId(/^contact-row-/)).toHaveCount(2);
     await expect(page.getByTestId('contact-row-1').getByTestId('contact-name')).toHaveText('Dana Lee');
     await expect(page.getByTestId('contact-row-1').getByTestId('contact-role')).toHaveText('Billing');
+    await expect(page.getByTestId('contact-row-3')).toHaveCount(0);
   });
 
   test('adds a contact to a client', { tag: '@core' }, async ({ page }) => {

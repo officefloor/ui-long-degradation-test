@@ -31,6 +31,10 @@ test.describe('invoice lifecycle', () => {
     await page.getByTestId('nav-projects').click();
     await page.getByTestId('project-open-1').click();
 
+    // Wait for the row before asserting the pay control is ABSENT: toHaveCount(0) is satisfied by
+    // a page that has not rendered the invoice list yet, so without this the assertion can never
+    // fail and the gate it is guarding is not tested at all.
+    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('DRAFT');
     await expect(page.getByTestId('invoice-pay-1')).toHaveCount(0);
     await page.getByTestId('invoice-send-1').click();
     await page.getByTestId('invoice-pay-1').click();

@@ -26,5 +26,12 @@ test.describe('edit line items', () => {
     await page.getByTestId('lineitem-remove-2').click();
     await expect(page.getByTestId(/^lineitem-row-/)).toHaveCount(1);
     await expect(page.getByTestId('invoice-amount')).toHaveText('$100.00');
+
+    // That figure is derived from the rows on this page, so it drops whether or not the server
+    // reworked what it stored. The project's invoice list reads the stored total — "update the
+    // total when I do" is a statement about that one.
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
+    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-amount')).toHaveText('$100.00');
   });
 });

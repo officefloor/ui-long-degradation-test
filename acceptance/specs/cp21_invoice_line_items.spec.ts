@@ -53,5 +53,12 @@ test.describe('invoice line items', () => {
 
     await expect(page.getByTestId(/^lineitem-row-/)).toHaveCount(1);
     await expect(page.getByTestId('invoice-amount')).toHaveText('$240.00');
+
+    // The invoice page derives that figure from the rows it is showing, so it is right even when
+    // the total the server stored was never reworked. The project's invoice list reads the stored
+    // figure, which is the one "work out the total for me" is actually about.
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
+    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-amount')).toHaveText('$240.00');
   });
 });

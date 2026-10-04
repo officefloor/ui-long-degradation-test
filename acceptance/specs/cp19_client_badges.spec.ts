@@ -5,15 +5,22 @@ import { resetAndSeed } from '../support/seed';
 test.describe('client badges', () => {
   test('shows project and contact counts', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
-      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      clients: [
+        { id: 1, name: 'Acme Ltd', email: 'ops@acme.example' },
+        // A second client carrying a project and a contact: the counts say "how many THEY have",
+        // and a system-wide count is right until somebody else owns something.
+        { id: 2, name: 'Globex', email: 'ac@globex.example' },
+      ],
       projects: [
         { id: 1, name: 'Website Rebuild', clientId: 1 },
         { id: 2, name: 'Intranet', clientId: 1 },
+        { id: 3, name: 'Globex Portal', clientId: 2 },
       ],
       contacts: [
         { id: 1, clientId: 1, name: 'Dana Lee', email: 'dana@acme.example', role: 'Billing' },
         { id: 2, clientId: 1, name: 'Sam Ray', email: 'sam@acme.example', role: 'Lead' },
         { id: 3, clientId: 1, name: 'Pat Kim', email: 'pat@acme.example', role: 'Finance' },
+        { id: 4, clientId: 2, name: 'Jo Fox', email: 'jo@globex.example', role: 'Ops' },
       ],
     });
     await page.goto('/');

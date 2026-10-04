@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
+import { auditLines } from '../support/audit';
 
 // Each project keeps a task list; tasks can be ticked off (OPEN <-> DONE).
 test.describe('project tasks', () => {
@@ -22,5 +23,8 @@ test.describe('project tasks', () => {
 
     await page.getByTestId('task-toggle-1').click();
     await expect(page.getByTestId('task-row-1').getByTestId('task-status')).toHaveText('DONE');
+    // Ticking it off is recorded. Nothing on screen shows this, so without reading the audit
+    // channel a toggle that writes no record looks exactly like one that does.
+    expect(auditLines()).toContain('TASK_TOGGLED id=1 done=true');
   });
 });
