@@ -425,7 +425,11 @@ checkpoints:
 
   - id: cp60_multi_currency
     type: mutative
-    mutates: [8, 17, 33, 40, 48, 55]
+    # 41 belongs here: cp60 replaces the single `dashboard-outstanding-total` with one
+    # `dashboard-outstanding-<CUR>` row per currency, which makes cp41's assertion on that anchor
+    # obsolete by design. It was previously undeclared, so cp41 broke at cp60 in 10 of 10 chains
+    # and was counted as a true regression rather than an intended mutation.
+    mutates: [8, 17, 33, 40, 41, 48, 55]
     test: acceptance/specs/cp60_multi_currency.spec.ts
     request: |
       Different clients pay me in different currencies. Let me set each client's currency. Show
