@@ -169,3 +169,70 @@ paths:
   work_root: ${HOME}/ui-work
   sandbox_root: ${HOME}/ui-sandbox
   results_csv: results/records.csv
+
+# ---------------------------------------------------------------------------------------------------
+# COMPREHENSION PROBE (cold reader) — the per-ACT readability/completeness check, mirrored from
+# spring-petclinic-rest-long-degradation-test. At each Act boundary a FRESH read-only agent (no
+# memory, no git history, and the acceptance specs excluded from its view) reads the evolved code
+# and (1) enumerates every rule applied to the invoice money pipeline and (2) judges how hard the
+# logic was to find/follow. `probe_recall` = fraction of that Act's expected rules the cold reader
+# could name (a crude completeness proxy); `probe_cache_read_tokens`/`probe_cost_usd` = the
+# comprehension-COST proxy (a tangled mutative codebase costs more to read). The raw answer is
+# captured (cp<NN>.probe.jsonl) for the qualitative "all rules implemented + readable" read.
+# Advisory only: a probe error never aborts the run. See docs/LONG_HORIZON_DESIGN.md.
+probe:
+  enabled: true
+  at_checkpoints: [60, 120, 180, 240, 250]   # end of Acts I, II, III, IV, V
+  question: |
+    Read the application code as it currently stands and answer WITHOUT changing anything.
+    1. List, in order, every rule, adjustment and side-effect applied when working out what a
+       customer invoice totals and what is still owed on it — line items, discounts, tax, rounding,
+       payments, credits, retention, currency and status. Name each one.
+    2. In one or two sentences, say how hard it was to find and follow that logic: is it in one
+       clear place a new developer could pick up, or scattered and tangled across the code?
+  # Crude recall ground-truth per Act boundary (case-insensitive substring match; grade properly
+  # offline). Cumulative: each Act's rules plus the prior Acts'. cp250 drops the two rules the Act V
+  # reversals REMOVE (levy, stacked discounts) and adds the finale concepts — so a stack that still
+  # surfaces a levy at cp250 failed to reverse. The absolute value is rough; the signal is the
+  # trajectory across Acts and the Angular/Spring-vs-Tanstack/OfficeFloor gap at the same boundary.
+  expected:
+    60: ["line item", "quantity", "unit price", "subtotal", "discount", "tax", "payment",
+         "amount due", "outstanding", "paid", "partial", "status", "statement", "allocation",
+         "currency", "audit", "overdue", "cancel", "sent", "due date"]
+    120: ["line item", "quantity", "unit price", "subtotal", "discount", "tax", "payment",
+          "amount due", "outstanding", "paid", "partial", "status", "statement", "allocation",
+          "currency", "audit", "overdue", "cancel", "sent", "due date",
+          "tax-free", "exempt", "levy", "inclusive", "rounding", "surcharge", "credit note",
+          "write-off", "deposit", "running balance", "fixed", "stacked", "cap", "minimum",
+          "available credit", "refund", "taxable"]
+    180: ["line item", "quantity", "unit price", "subtotal", "discount", "tax", "payment",
+          "amount due", "outstanding", "paid", "partial", "status", "statement", "allocation",
+          "currency", "audit", "overdue", "cancel", "sent", "due date",
+          "tax-free", "exempt", "levy", "inclusive", "rounding", "surcharge", "credit note",
+          "write-off", "deposit", "running balance", "fixed", "stacked", "cap", "minimum",
+          "available credit", "refund", "taxable",
+          "exchange rate", "retention", "instalment", "interest", "recurring", "credit limit",
+          "payment terms", "purchase order", "aging", "dispute", "late fee", "fx"]
+    240: ["line item", "quantity", "unit price", "subtotal", "discount", "tax", "payment",
+          "amount due", "outstanding", "paid", "partial", "status", "statement", "allocation",
+          "currency", "audit", "overdue", "cancel", "sent", "due date",
+          "tax-free", "exempt", "levy", "inclusive", "rounding", "surcharge", "credit note",
+          "write-off", "deposit", "running balance", "fixed", "stacked", "cap", "minimum",
+          "available credit", "refund", "taxable",
+          "exchange rate", "retention", "instalment", "interest", "recurring", "credit limit",
+          "payment terms", "purchase order", "aging", "dispute", "late fee", "fx",
+          "revenue", "recognition", "tax report", "profitability", "days to pay", "collection rate",
+          "year to date", "opening balance", "closing balance", "remittance", "lifetime",
+          "forecast", "target", "variance", "base currency"]
+    250: ["line item", "quantity", "unit price", "subtotal", "discount", "tax", "payment",
+          "amount due", "outstanding", "paid", "partial", "status", "statement", "allocation",
+          "currency", "audit", "overdue", "cancel", "sent", "due date",
+          "tax-free", "exempt", "inclusive", "rounding", "surcharge", "credit note",
+          "write-off", "deposit", "running balance", "fixed", "cap", "minimum",
+          "available credit", "refund", "taxable",
+          "exchange rate", "retention", "instalment", "interest", "recurring", "credit limit",
+          "payment terms", "purchase order", "aging", "dispute", "late fee", "fx",
+          "revenue", "recognition", "tax report", "profitability", "days to pay", "collection rate",
+          "year to date", "opening balance", "closing balance", "remittance", "lifetime",
+          "forecast", "target", "variance", "base currency",
+          "snapshot", "adjustment note", "reconciliation"]

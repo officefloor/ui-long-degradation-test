@@ -238,6 +238,16 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
                 "notes": "",
             }
             row.update(scored_row)
+            # Comprehension probe (cold reader), present only at the Act-boundary checkpoints.
+            pr = rec.get("probe") or {}
+            if pr:
+                _recall = pr.get("probe_recall")
+                row.update({
+                    "probe_recall": ("" if _recall is None else round(_recall, 3)),
+                    "probe_cost_usd": pr.get("probe_cost_usd"),
+                    "probe_input_tokens": pr.get("probe_input_tokens"),
+                    "probe_cache_read_tokens": pr.get("probe_cache_read_tokens"),
+                })
             # Structural erosion/impact/placement (per layer) from the checkpoint commit (§8).
             if app_cfg:
                 row.update(_metrics_row(repo, rec.get("commit_sha") or "",

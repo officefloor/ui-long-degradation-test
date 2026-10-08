@@ -161,6 +161,29 @@ slop would enter).
   as a pre-declared `expectation` (direction per metric) so each run marks its own confirmation /
   disconfirmation.
 
+## 8a. Per-act comprehension probe (cold reader)
+
+Mirrored from the REST arm's "cold-reader comprehension probe" and wired into this harness
+(`config.yaml → probe:`, the run-loop call in `run_experiment.py`, the read in `analyze.py`; the
+`agent.probe()` function already existed here, dormant). At each **Act boundary**
+(`at_checkpoints: [60, 120, 180, 240, 250]`) a **fresh, read-only, history-less** agent — the
+acceptance specs excluded from its view — reads the evolved code and (1) enumerates every rule
+applied to the invoice money pipeline and (2) judges how hard the logic was to find and follow.
+
+- `probe_recall` — fraction of that Act's expected rules the cold reader could name (a crude
+  **completeness** proxy; the expected lists are cumulative, and the cp250 list drops `levy` and
+  `stacked` because the Act V reversals remove them, so a stack still surfacing a levy there failed
+  to reverse).
+- `probe_cache_read_tokens` / `probe_cost_usd` — the **comprehension-cost** proxy: a tangled
+  mutative codebase costs more to read than an additive one that enumerates its own units.
+- `cp<NN>.probe.jsonl` — the raw answer, kept for the qualitative "all rules implemented + readable"
+  read.
+
+It is **advisory** — a probe error is logged and the run continues — and the signal is the
+trajectory across Acts plus the Angular/Spring-vs-TanStack/OfficeFloor gap at the same boundary.
+This is a comprehension *proxy*, not a pass/fail "all rules implemented" judge; read `probe_recall`
+alongside the objective acceptance gate (the specs), which is the authoritative completeness signal.
+
 ## 9. Cost & feasibility
 
 Per-checkpoint: **$1.50–$2.24** implement-only (REST paper), ~$2.25–2.75 all-in for gated/reviewed;

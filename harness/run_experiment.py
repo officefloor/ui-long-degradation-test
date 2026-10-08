@@ -51,6 +51,7 @@ CSV_FIELDS = [
     "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
     "normalized_change", "regressions", "true_regressions",
     "anchor_drift", "behaviour_loss", "seed_path",
+    "probe_recall", "probe_cost_usd", "probe_input_tokens", "probe_cache_read_tokens",
     "pinned_touched", "acceptance_touched", "notes",
 ]
 
@@ -769,12 +770,42 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         if touched_pins:
             print(f"    flags  : pinned_touched={touched_pins}", flush=True)
 
+        # Cold-reader COMPREHENSION PROBE (read-only), at probe.at_checkpoints (Act boundaries).
+        # A fresh history-less mirror with the acceptance specs EXCLUDED, so the reader judges the
+        # production code, never the tests. Advisory: any failure is recorded and the run continues.
+        probe_record = None
+        probe_cfg = cfg.get("probe") or {}
+        at = probe_cfg.get("at_checkpoints")
+        run_probe = (k in at) if at else ((k == 1) or (phase_for(k - 1, n) != phase))
+        if probe_cfg.get("enabled") and run_probe:
+            exp = probe_cfg.get("expected")
+            expected = exp.get(k) if isinstance(exp, dict) else exp
+            try:
+                mirror_source(wt, sandbox,
+                              extra_excludes=(cfg["acceptance"]["dest_subpath"].rstrip("/") + "/",))
+                pr = agent.probe(probe_cfg["question"], cwd=sandbox, model=model,
+                                 expected=expected,
+                                 capture_path=os.path.join(cap_dir, f"cp{k:02d}.probe.jsonl"),
+                                 confine=_confine_config(cfg, sandbox))
+                row.update({
+                    "probe_recall": ("" if pr["probe_recall"] is None else round(pr["probe_recall"], 3)),
+                    "probe_cost_usd": round(pr["probe_cost_usd"], 4),
+                    "probe_input_tokens": pr["probe_input_tokens"],
+                    "probe_cache_read_tokens": pr["probe_cache_read_tokens"],
+                })
+                probe_record = pr
+                print(f"    probe  : recall={row['probe_recall']} "
+                      f"cache_read_tok={pr['probe_cache_read_tokens']} cost=${pr['probe_cost_usd']:.4f}",
+                      flush=True)
+            except Exception as e:  # advisory — never let the probe abort the run
+                print(f"    probe  : SKIPPED (error: {str(e)[:160]})", flush=True)
+
         # raw capture record + stage per-checkpoint capture into COMMIT 2.
         rec = capture.checkpoint_record(
             k, cid, phase,
             {"commit": agent_sha, "reset": "", "preagent": base_for_cp,
              "prev": base_for_cp, "base": base_commit},
-            ar, outcome, None, touched_pins, [], stream_file, diff_file,
+            ar, outcome, probe_record, touched_pins, [], stream_file, diff_file,
             build_log_file=build_log_file, attempts=attempt_log,
             spec=cp["request"], prompt=prompt, ckpt_type=cp.get("type", "additive"),
             mutates=mutated, impact_gate=gate_hist, stack=stack)
