@@ -1,0 +1,74 @@
+# Area classification for the frozen Act I checkpoints (cp01-60). These entries predate the
+# `area:` field and are kept byte-stable for comparability with runs already recorded, so their
+# area lives here instead of inline. harness.checkpoint_lint reads an inline `area:` first and
+# falls back to this map. New checkpoints (cp61+) carry `area:` inline in checkpoints.yaml.
+#
+# `billing` is the core/on-spine area: the invoice money pipeline (line items -> subtotal ->
+# discount -> tax -> rounding -> total -> payments/allocation -> amount due -> status) AND every
+# screen that RE-READS those figures (statement, project budget vs invoiced, dashboard owed/
+# overdue/top-clients). A change tagged `billing` exerts erosion pressure on that one spine.
+# Everything else is off-spine (the low-pressure control region): clients, projects, jobs, tasks.
+#
+# Act I is ~53% billing (32/60); the long-horizon extension raises the whole-stream share by
+# concentrating cp61+ on the spine (see docs/LONG_HORIZON_DESIGN.md).
+areas:
+  1: clients        # cp01_clients
+  2: clients        # cp02_client_email_validation
+  3: projects       # cp03_projects
+  4: billing        # cp04_project_invoices
+  5: billing        # cp05_invoice_pay_audit
+  6: clients        # cp06_client_search
+  7: projects       # cp07_client_detail_projects
+  8: billing        # cp08_dashboard (surfaces outstanding totals)
+  9: billing        # cp09_currency_format
+  10: billing       # cp10_invoice_amount_positive
+  11: billing       # cp11_invoice_dates
+  12: billing       # cp12_invoice_sort_due
+  13: billing       # cp13_invoice_lifecycle
+  14: billing       # cp14_all_invoices
+  15: billing       # cp15_invoice_status_filter
+  16: clients       # cp16_client_contacts
+  17: billing       # cp17_outstanding_sent_only
+  18: clients       # cp18_contact_email_validation
+  19: clients       # cp19_client_badges
+  20: tasks         # cp20_project_tasks
+  21: billing       # cp21_invoice_line_items
+  22: billing       # cp22_line_items_edit
+  23: tasks         # cp23_task_filter
+  24: projects      # cp24_project_delete_audit
+  25: projects      # cp25_project_archive
+  26: projects      # cp26_project_tags
+  27: projects      # cp27_project_tag_filter
+  28: projects      # cp28_project_notes
+  29: clients       # cp29_client_archive
+  30: billing       # cp30_invoice_payments
+  31: billing       # cp31_invoice_amount_due
+  32: billing       # cp32_invoice_status_derived
+  33: billing       # cp33_client_statement
+  34: projects      # cp34_project_status
+  35: projects      # cp35_project_status_filter
+  36: projects      # cp36_client_active_projects_default
+  37: billing       # cp37_project_budget (invoiced-against = reads invoice totals)
+  38: billing       # cp38_dashboard_overdue
+  39: billing       # cp39_invoice_pagination
+  40: billing       # cp40_thousands_separator
+  41: billing       # cp41_invoice_cancel_audit
+  42: clients       # cp42_client_primary_contact
+  43: clients       # cp43_global_search
+  44: clients       # cp44_client_unique_email
+  45: clients       # cp45_client_edit
+  46: billing       # cp46_line_item_qty_unit
+  47: billing       # cp47_invoice_discount
+  48: billing       # cp48_discount_everywhere
+  49: billing       # cp49_sales_tax
+  50: projects      # cp50_combined_filter
+  51: clients       # cp51_client_sort
+  52: jobs          # cp52_project_to_job_rename
+  53: jobs          # cp53_job_code
+  54: billing       # cp54_invoice_notes
+  55: billing       # cp55_dashboard_top_clients
+  56: billing       # cp56_payment_allocation
+  57: billing       # cp57_statement_by_job
+  58: clients       # cp58_client_restore
+  59: billing       # cp59_statement_printable
+  60: billing       # cp60_multi_currency
