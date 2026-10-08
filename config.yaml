@@ -4,12 +4,12 @@
 # ${VARS} and ~ are expanded from the environment; relative paths anchor inside this repo.
 
 model: claude-opus-4-8          # the fixed coding agent. Override per run with --model
-chains: 2                       # independent runs per condition, run SEQUENTIALLY when
-                                #   --chain is omitted. 2 is the EVALUATION default: enough
-                                #   to see whether two stacks differ by more than their own
-                                #   chain-to-chain spread. Raise it (5) for the finalists,
-                                #   where the answer has to be trusted. Override per run
-                                #   with --chain N (one chain only).
+chains: 10                      # independent runs per condition, run SEQUENTIALLY when
+                                #   --chain is omitted. 10 is the EXPERIMENT default: a
+                                #   per-arm distribution stable enough to test whether two
+                                #   stacks differ by more than their own chain-to-chain
+                                #   spread. Drop it (e.g. --chain 1, or lower this value) for
+                                #   a cheap smoke/iteration run; a single chain is one run.
 active_condition: gated         # which intervention condition to run by default (see `conditions`)
 agent_timeout: 3600
 
