@@ -36,7 +36,7 @@ app:
   base_ref: base-empty              # base shell + Spring/OfficeFloor + Flyway (no tables) + scripts
   build_cmd: bin/build              # Maven build: front-end -> src/main/resources/static, then
                                     #   spring-boot repackage -> one runnable jar
-  start_cmd: bin/start              # java -jar app.jar --server.port=$PORT --spring.profiles.active=harness;
+  start_cmd: bin/start              # java -jar app.jar --server.port=$PORT --spring.profiles.active=e2e;
                                     #   Flyway migrates empty H2 up to this checkpoint's schema on
                                     #   boot; Spring serves the SPA (static/) + OfficeFloor REST
   stop_cmd: bin/stop                # kill the JVM / free PORT (in-mem H2 dies with it). Idempotent.

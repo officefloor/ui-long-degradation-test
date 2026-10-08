@@ -255,6 +255,9 @@ def mirror_source(src: str, dst: str, extra_excludes: tuple = ()) -> None:
           "--exclude=/src/main/frontend/node_modules/", "--exclude=/src/main/frontend/node/",
           "--exclude=/e2e/node_modules/", "--exclude=/.run/",
           "--exclude=/src/main/resources/static/", "--exclude=/evolve-results/",
+          # stack.yaml is harness-only metric configuration, read from base_ref — never exposed to
+          # the agent sandbox (and the exclude protects the worktree copy from --delete on copy-back).
+          "--exclude=/stack.yaml",
           "--exclude=/results/"] + [f"--exclude={e}" for e in extra_excludes]
     subprocess.run(["rsync", "-a", "--delete", *ex, src.rstrip("/") + "/", dst.rstrip("/") + "/"],
                    check=True, capture_output=True, text=True)
