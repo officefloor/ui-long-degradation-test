@@ -3,7 +3,8 @@
 # ~60 English change requests, each a full-stack change (schema + OfficeFloor server + front-end).
 # ${VARS} and ~ are expanded from the environment; relative paths anchor inside this repo.
 
-model: claude-opus-4-8          # the fixed coding agent. Override per run with --model
+model: claude-opus-5-5          # the fixed coding agent (exact id, no floating alias, so it stays
+                                #   constant across the whole run). Override per run with --model
 chains: 10                      # independent runs per condition, run SEQUENTIALLY when
                                 #   --chain is omitted. 10 is the EXPERIMENT default: a
                                 #   per-arm distribution stable enough to test whether two
