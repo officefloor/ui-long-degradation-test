@@ -44,7 +44,7 @@ CSV_FIELDS = [
     # `stack` first: a records CSV that cannot be attributed to an arm is unciteable, and
     # results/<run_id>/ is keyed by run id alone.
     "stack", "stack_origin",
-    "run_id", "branch", "condition", "chain", "checkpoint", "checkpoint_id", "phase",
+    "run_id", "model", "branch", "condition", "chain", "checkpoint", "checkpoint_id", "phase",
     "checkpoint_type", "agent_ok", "cost_usd", "input_tokens", "output_tokens",
     "num_turns", "duration_ms", "duration_api_ms", "build_ok", "gate_invalid",
     "total_selected", "strict_pass", "iso_pass", "core_pass", "core_p", "core_t",

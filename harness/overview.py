@@ -5,14 +5,15 @@ such directory back, groups the rows, and plots the arms against each other — 
 only way to see whether an architecture difference is larger than the spread between runs
 of the SAME architecture.
 
-Grouping. A row carries its own identity (`stack`, `run_id`, `condition`, `chain`), so the
-series label is built from the data rather than from directory names:
+Grouping. A row carries its own identity (`stack`, `model`, `run_id`, `condition`, `chain`), so
+the series label is built from the data rather than from directory names:
 
-  * one series per (stack, condition) — the comparison that means something, since a
-    condition change alters the prompt as well as the gate;
-  * when the same (stack, condition) appears under MORE THAN ONE run_id, the run id joins
-    the label instead of being averaged away. Two runs of one arm are a repeat measurement,
-    and collapsing them would hide the very spread this view exists to show;
+  * one series per (stack, model, condition) — the comparison that means something, since a
+    condition change alters the prompt as well as the gate, and a model change swaps the agent;
+  * when the same (stack, condition) appears under MORE THAN ONE model (a second agent) or
+    run_id, that identifier joins the label instead of being averaged away. A second model, or a
+    repeat run, is a separate measurement, and collapsing them would hide the very spread this
+    view exists to show. Comparisons (`pairs`) hold the model constant on both sides;
   * chains within a series ARE averaged per checkpoint, exactly as `analyze` does.
 
 Nothing is recomputed: this is a pure read of the CSVs `analyze` already wrote, so it costs
@@ -98,17 +99,28 @@ def load(results_dir: str) -> list[dict]:
 
 
 def series_labels(rows: list[dict]) -> dict[tuple, str]:
-    """(stack, condition, run_id) -> label. The run id appears ONLY when it is needed to
-    tell two series apart, so the common case stays readable."""
-    by_sc: dict[tuple, set] = defaultdict(set)
+    """(stack, model, condition, run_id) -> label. The model and the run id appear ONLY when
+    they are needed to tell two series of the same (stack, condition) apart, so the common case
+    stays readable. The model varies when a SECOND agent is run over the same arms — those are
+    separate series, never averaged together."""
+    info: dict[tuple, dict] = defaultdict(lambda: {"models": set(), "runs": set()})
     for r in rows:
-        by_sc[(r["stack"], r.get("condition") or "?")].add(r.get("run_id") or "?")
+        sc = (r["stack"], r.get("condition") or "?")
+        info[sc]["models"].add(r.get("model") or "?")
+        info[sc]["runs"].add(r.get("run_id") or "?")
     out: dict[tuple, str] = {}
-    for (stack, cond), runs in by_sc.items():
-        for run in runs:
-            short = stack.replace("officehq-", "")
-            out[(stack, cond, run)] = (f"{short} / {cond}" if len(runs) == 1
-                                       else f"{short} / {cond} @ {run}")
+    for r in rows:
+        stack = r["stack"]
+        cond = r.get("condition") or "?"
+        model = r.get("model") or "?"
+        run = r.get("run_id") or "?"
+        sc = info[(stack, cond)]
+        lab = f"{stack.replace('officehq-', '')} / {cond}"
+        if len(sc["models"]) > 1:
+            lab += f" / {model}"
+        if len(sc["runs"]) > 1:
+            lab += f" @ {run}"
+        out[(stack, model, cond, run)] = lab
     return out
 
 
@@ -124,7 +136,7 @@ def curves(rows: list[dict], field: str) -> dict[str, list[tuple[int, float]]]:
             cp = int(r["checkpoint"])
         except (KeyError, TypeError, ValueError):
             continue
-        key = (r["stack"], r.get("condition") or "?", r.get("run_id") or "?")
+        key = (r["stack"], r.get("model") or "?", r.get("condition") or "?", r.get("run_id") or "?")
         acc[labels[key]][cp].append(v)
     return {lab: [(cp, sum(vs) / len(vs)) for cp, vs in sorted(by_cp.items())]
             for lab, by_cp in acc.items() if by_cp}
@@ -172,22 +184,28 @@ def pairs(rows: list[dict]):
     arch: same condition, additive vs mutative stack — isolates the architecture.
     Anything else (different stack AND different condition) varies two things at once and is
     deliberately NOT judged: it could not attribute a difference to either.
+
+    The agent MODEL is held constant on both sides of every pair — a comparison that also varied
+    the model would confound it, and cross-model is the separate second-agent question. So a
+    comparison is keyed (stack, model, condition) and only forms when the models match.
     """
     seen = {}
     for r in rows:
-        seen.setdefault((r["stack"], r.get("condition") or "?"), 0)
-        seen[(r["stack"], r.get("condition") or "?")] += 1
+        k = (r["stack"], r.get("model") or "?", r.get("condition") or "?")
+        seen[k] = seen.get(k, 0) + 1
     keys = sorted(seen)
     out = []
-    for i, (s1, c1) in enumerate(keys):
-        for (s2, c2) in keys[i + 1:]:
+    for i, (s1, m1, c1) in enumerate(keys):
+        for (s2, m2, c2) in keys[i + 1:]:
+            if m1 != m2:
+                continue  # never compare across models here
             if s1 == s2 and c1 != c2:
                 # orient gated - just-solve
-                a, b = ((s1, c1), (s2, c2)) if c1 == "gated" else ((s2, c2), (s1, c1))
+                a, b = ((s1, m1, c1), (s2, m2, c2)) if c1 == "gated" else ((s2, m2, c2), (s1, m1, c1))
                 out.append(("gate", a, b))
             elif c1 == c2 and s1 != s2:
                 # orient additive - mutative: the additive arms are the non-"react" ones
-                a, b = ((s2, c2), (s1, c1)) if "react" in s1 else ((s1, c1), (s2, c2))
+                a, b = ((s2, m2, c2), (s1, m1, c1)) if "react" in s1 else ((s1, m1, c1), (s2, m2, c2))
                 out.append(("arch", a, b))
     return out
 
@@ -198,7 +216,7 @@ def judge(rows: list[dict]) -> list[str]:
 
     by_key: dict[tuple, list[dict]] = defaultdict(list)
     for r in rows:
-        by_key[(r["stack"], r.get("condition") or "?")].append(r)
+        by_key[(r["stack"], r.get("model") or "?", r.get("condition") or "?")].append(r)
 
     def level(key, field):
         vals = [_f(r.get(field)) for r in by_key[key]]
@@ -237,7 +255,8 @@ def judge(rows: list[dict]) -> list[str]:
     counter: list[tuple] = []
     for kind, a, b in pairs(rows):
         spec_map = GATE_EXPECTATION if kind == "gate" else ARCH_EXPECTATION
-        label = (f"{a[0].replace('officehq-', '')}/{a[1]} − {b[0].replace('officehq-', '')}/{b[1]}")
+        label = (f"{a[0].replace('officehq-', '')}/{a[2]} − {b[0].replace('officehq-', '')}/{b[2]}"
+                 f"  [{a[1]}]")
         if kind == "gate":
             # Same stack, same architecture: every metric is the SAME construct, so there is no
             # cross-arm tiering to apply — one table, every row counted.
@@ -323,19 +342,19 @@ def summarise(rows: list[dict]) -> list[str]:
     order = sorted(set(labels.values()))
     L = ["# Cross-arm overview", "",
          f"- series: {len(order)}", f"- rows: {len(rows)}", ""]
-    L += ["| series | stack | condition | run_id | chains | checkpoints |",
-          "|---|---|---|---|---:|---:|"]
+    L += ["| series | stack | model | condition | run_id | chains | checkpoints |",
+          "|---|---|---|---|---|---:|---:|"]
     seen: dict[str, dict] = defaultdict(lambda: {"chains": set(), "cps": set()})
     meta: dict[str, tuple] = {}
     for r in rows:
-        key = (r["stack"], r.get("condition") or "?", r.get("run_id") or "?")
+        key = (r["stack"], r.get("model") or "?", r.get("condition") or "?", r.get("run_id") or "?")
         lab = labels[key]
         meta[lab] = key
         seen[lab]["chains"].add(r.get("chain"))
         seen[lab]["cps"].add(r.get("checkpoint"))
     for lab in order:
-        stack, cond, run = meta[lab]
-        L.append(f"| {lab} | {stack} | {cond} | {run} | {len(seen[lab]['chains'])} "
+        stack, model, cond, run = meta[lab]
+        L.append(f"| {lab} | {stack} | {model} | {cond} | {run} | {len(seen[lab]['chains'])} "
                  f"| {len(seen[lab]['cps'])} |")
     L.append("")
     L += ["> Mean is over every checkpoint of every chain in the series; final is the last",
@@ -393,8 +412,8 @@ def main() -> int:
         for k in r:
             if k not in fields:
                 fields.append(k)
-    lead = [f for f in ("stack", "stack_origin", "run_id", "condition", "chain", "checkpoint")
-            if f in fields]
+    lead = [f for f in ("stack", "stack_origin", "model", "run_id", "condition", "chain",
+                        "checkpoint") if f in fields]
     fields = lead + [f for f in fields if f not in lead]
     with open(all_csv, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=fields, extrasaction="ignore")
