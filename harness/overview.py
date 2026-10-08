@@ -177,36 +177,70 @@ def plot(rows: list[dict], field: str, title: str, out_path: str) -> bool:
 MATERIAL_REL = 0.10
 
 
+# ── Pre-registered cross-arm contrasts ────────────────────────────────────────────────────────
+# With 8 arms, most stack pairs vary MORE THAN ONE thing (framework AND backend, say) and could
+# attribute a difference to neither — so the valid comparisons are declared here rather than
+# derived from the stack names. Each isolates ONE dimension by holding everything else constant,
+# and A is oriented as the treatment / more-additive side so a declared sign reads as A − B:
+#   architecture : additive vs mutative FRONT END, same framework + backend — the paper's thesis
+#   framework    : React vs Angular, same backend
+#   paradigm     : SPA vs server-rendered hypermedia (htmx), same backend
+#   backend      : OfficeFloor (or the method-split mix) vs plain Spring, same front end
+# Only `architecture` carries a directional expectation (ARCH_EXPECTATION, a set of FRONT-END
+# metrics); framework / paradigm / backend contrasts have no pre-declared per-metric direction and
+# are reported descriptively — marking one would manufacture a signal the study never predicted.
+# Stacks match by canonical short name (the "officehq-" prefix optional); a contrast whose two arms
+# are not both present in the data is simply skipped.
+CONTRASTS = [
+    ("architecture", "tanstack-officefloor", "react-officefloor"),
+    ("framework",    "tanstack-officefloor", "angular-officefloor"),
+    ("framework",    "tanstack-spring",      "angular-spring"),
+    ("paradigm",     "tanstack-officefloor", "htmx-officefloor"),
+    ("paradigm",     "tanstack-spring",      "htmx-spring"),
+    ("backend",      "tanstack-officefloor", "tanstack-spring"),
+    ("backend",      "angular-officefloor",  "angular-spring"),
+    ("backend",      "htmx-officefloor",     "htmx-spring"),
+    ("backend",      "tanstack-officefloor", "tanstack-mixed"),
+    ("backend",      "tanstack-spring",      "tanstack-mixed"),
+]
+
+
+def _short(stack: str) -> str:
+    return stack.replace("officehq-", "")
+
+
 def pairs(rows: list[dict]):
-    """The comparisons worth judging, derived from the data rather than configured.
+    """The comparisons worth judging: the pre-registered CONTRASTS, plus the `gate` control
+    (same stack, gated vs just-solve). Both sides of every pair share the agent MODEL — a
+    comparison that also varied the model would confound it, and cross-model is the separate
+    second-agent question — so a comparison is keyed (stack, model, condition).
 
-    gate: same stack, gated vs just-solve — isolates the control.
-    arch: same condition, additive vs mutative stack — isolates the architecture.
-    Anything else (different stack AND different condition) varies two things at once and is
-    deliberately NOT judged: it could not attribute a difference to either.
-
-    The agent MODEL is held constant on both sides of every pair — a comparison that also varied
-    the model would confound it, and cross-model is the separate second-agent question. So a
-    comparison is keyed (stack, model, condition) and only forms when the models match.
-    """
-    seen = {}
+    Only declared contrasts and gate pairs are returned: with 8 arms most stack pairs vary more
+    than one dimension and could attribute a difference to neither, so they are not formed."""
+    combos: dict[str, set] = defaultdict(set)   # short stack -> {(model, condition)} present
+    full_of: dict[str, str] = {}                # short stack -> full stack name as it appears
     for r in rows:
-        k = (r["stack"], r.get("model") or "?", r.get("condition") or "?")
-        seen[k] = seen.get(k, 0) + 1
-    keys = sorted(seen)
+        short = _short(r["stack"])
+        full_of[short] = r["stack"]
+        combos[short].add((r.get("model") or "?", r.get("condition") or "?"))
+
     out = []
-    for i, (s1, m1, c1) in enumerate(keys):
-        for (s2, m2, c2) in keys[i + 1:]:
-            if m1 != m2:
-                continue  # never compare across models here
-            if s1 == s2 and c1 != c2:
-                # orient gated - just-solve
-                a, b = ((s1, m1, c1), (s2, m2, c2)) if c1 == "gated" else ((s2, m2, c2), (s1, m1, c1))
-                out.append(("gate", a, b))
-            elif c1 == c2 and s1 != s2:
-                # orient additive - mutative: the additive arms are the non-"react" ones
-                a, b = ((s2, m2, c2), (s1, m1, c1)) if "react" in s1 else ((s1, m1, c1), (s2, m2, c2))
-                out.append(("arch", a, b))
+    # gate control: same stack + model, gated vs just-solve.
+    conds_of: dict[tuple, set] = defaultdict(set)
+    for short, mcs in combos.items():
+        for (m, c) in mcs:
+            conds_of[(short, m)].add(c)
+    for (short, m), conds in sorted(conds_of.items()):
+        if {"gated", "just-solve"} <= conds:
+            full = full_of[short]
+            out.append(("gate", (full, m, "gated"), (full, m, "just-solve")))
+
+    # pre-registered cross-arm contrasts: emit once per (model, condition) present in BOTH arms.
+    for kind, a_short, b_short in CONTRASTS:
+        if a_short not in combos or b_short not in combos:
+            continue
+        for (m, c) in sorted(combos[a_short] & combos[b_short]):
+            out.append((kind, (full_of[a_short], m, c), (full_of[b_short], m, c)))
     return out
 
 
@@ -251,12 +285,28 @@ def judge(rows: list[dict]) -> list[str]:
                 f"{'match' if not mark else ('CONTRADICTS' if mark == '!' else 'no diff')} |")
         return (cell, mark, pred, d)
 
+    # Only `gate` and `architecture` carry a pre-declared per-metric direction; the other
+    # cross-arm contrasts are reported descriptively (levels only, no marks).
+    KIND_SPEC = {"gate": GATE_EXPECTATION, "architecture": ARCH_EXPECTATION}
+    _HEAD_DESC = ["| metric | tier | A | B | A − B | rel |",
+                  "|---|:--:|---:|---:|---:|---:|"]
+
+    def _desc_row(a, b, field):
+        """A levels-only row (no expectation), for a contrast with no pre-declared direction."""
+        la, lb = level(a, field), level(b, field)
+        if la is None or lb is None:
+            return None
+        d = la - lb
+        scale = max(abs(la), abs(lb))
+        rel = f"{(abs(d) / scale * 100):.0f}%" if scale else "—"
+        tg = "univ" if metric_tiers.is_universal(field) else "cond"
+        return f"| {field} | {tg} | {_fmt(la)} | {_fmt(lb)} | {_fmt(d)} | {rel} |"
+
     L: list[str] = []
     counter: list[tuple] = []
     for kind, a, b in pairs(rows):
-        spec_map = GATE_EXPECTATION if kind == "gate" else ARCH_EXPECTATION
-        label = (f"{a[0].replace('officehq-', '')}/{a[2]} − {b[0].replace('officehq-', '')}/{b[2]}"
-                 f"  [{a[1]}]")
+        label = (f"{_short(a[0])}/{a[2]} − {_short(b[0])}/{b[2]}  [{a[1]}]")
+        spec_map = KIND_SPEC.get(kind)
         if kind == "gate":
             # Same stack, same architecture: every metric is the SAME construct, so there is no
             # cross-arm tiering to apply — one table, every row counted.
@@ -271,53 +321,68 @@ def judge(rows: list[dict]) -> list[str]:
                     counter.append((kind, label, field, _pred, _d, mark))
             if body:
                 L += [f"### {kind}: {label}", ""] + _HEAD + body + [""]
-            continue
-        # Cross-arm (arch): UNIVERSAL metrics headline the verdict and are the ONLY ones counted
-        # as cross-arm (dis)confirmations; CONDITIONAL metrics are shown as within-architecture
-        # diagnostics (anchored to a per-arm unit or needing a parser some arms lack), never a
-        # global ranking — the Option A policy (harness.metric_tiers, DESIGN.md §8).
-        uni, cond = [], []
-        for field in sorted(spec_map):
-            r = _judge_field(a, b, field, spec_map[field])
-            if r is None:
-                continue
-            cell, mark, _pred, _d = r
-            if metric_tiers.is_universal(field):
-                uni.append(cell)
-                if mark:
-                    counter.append((kind, label, field, _pred, _d, mark))
-            else:
-                cond.append(cell)
-        if uni:
-            L += [f"### {kind}: {label} — cross-arm verdict (universal metrics)", ""] + _HEAD + uni + [""]
-        if cond:
-            L += [f"#### {kind}: {label} — architecture-conditional (diagnostic only, NOT ranked across arms)",
-                  "",
-                  "Anchored to a per-arm unit or needing a parser some arms lack, so a cross-arm gap",
-                  "here is not apples-to-apples: read within an arm, and only across arms that share",
-                  "the construct. Not counted as a cross-arm (dis)confirmation.", ""] + _HEAD + cond + [""]
+        elif spec_map is not None:
+            # `architecture` (additive vs mutative front end): UNIVERSAL metrics headline the
+            # verdict and are the ONLY ones counted as cross-arm (dis)confirmations; CONDITIONAL
+            # metrics are shown as diagnostics (anchored to a per-arm unit or needing a parser some
+            # arms lack), never a global ranking — the Option A policy (harness.metric_tiers).
+            uni, cond = [], []
+            for field in sorted(spec_map):
+                r = _judge_field(a, b, field, spec_map[field])
+                if r is None:
+                    continue
+                cell, mark, _pred, _d = r
+                if metric_tiers.is_universal(field):
+                    uni.append(cell)
+                    if mark:
+                        counter.append((kind, label, field, _pred, _d, mark))
+                else:
+                    cond.append(cell)
+            if uni:
+                L += [f"### {kind}: {label} — cross-arm verdict (universal metrics)", ""] + _HEAD + uni + [""]
+            if cond:
+                L += [f"#### {kind}: {label} — architecture-conditional (diagnostic only, NOT ranked across arms)",
+                      "",
+                      "Anchored to a per-arm unit or needing a parser some arms lack, so a cross-arm gap",
+                      "here is not apples-to-apples: read within an arm, and only across arms that share",
+                      "the construct. Not counted as a cross-arm (dis)confirmation.", ""] + _HEAD + cond + [""]
+        else:
+            # framework / paradigm / backend: no per-metric direction was pre-declared, so report
+            # levels only — never marked against an expectation (that would be a manufactured
+            # signal). Tier-tagged so a reader still knows which gaps are cross-arm comparable.
+            rows_u = [x for x in (_desc_row(a, b, f) for f, _ in FIELDS if metric_tiers.is_universal(f)) if x]
+            rows_c = [x for x in (_desc_row(a, b, f) for f, _ in FIELDS if not metric_tiers.is_universal(f)) if x]
+            if rows_u or rows_c:
+                L += [f"### {kind}: {label} — descriptive (no direction pre-declared for a {kind} contrast)",
+                      "",
+                      f"A {kind} change has no pre-declared per-metric direction here, so these are levels",
+                      "only, not matched against an expectation. `univ` metrics are cross-arm comparable;",
+                      "`cond` ones are per-arm diagnostics — read with care (blank sides are dropped).", ""]
+                L += _HEAD_DESC + rows_u + rows_c + [""]
     if not L:
         return []
     head = ["## Declared expectations",
             "",
-            "Each metric's direction was declared in code (harness.analyze GATE_EXPECTATION /",
-            "ARCH_EXPECTATION) rather than chosen after reading the run, so the harness marks its",
-            "own disconfirmations instead of leaving them to be noticed. `gate` holds the stack",
-            "constant and varies the condition; `arch` holds the condition and varies the stack.",
-            "A pair that varies BOTH is not judged — it could not attribute a difference to either.",
+            "The comparisons are PRE-REGISTERED (harness.overview CONTRASTS) so each isolates ONE",
+            "dimension; a pair that would vary two things at once is not formed. `gate` holds the",
+            "stack and varies the condition (GATE_EXPECTATION); `architecture` holds framework and",
+            "backend and varies the additive-vs-mutative FRONT END (ARCH_EXPECTATION). Those two",
+            "carry a pre-declared per-metric direction, so the harness marks its own",
+            "disconfirmations. `framework`, `paradigm` and `backend` contrasts have NO pre-declared",
+            "direction and are reported descriptively (levels only) — marking one would manufacture",
+            "a signal the study never predicted.",
             "",
-            "These are LEVELS (means over every checkpoint of every chain). There is no",
-            "significance test across stacks here and none is implied: with two chains per series",
-            "the within-arm spread can exceed a between-arm difference, so read a direction as a",
-            "direction. `analyze`'s own tables carry the chain-bootstrap CIs. A gap below",
+            "These are LEVELS (means over every checkpoint of every chain). There is no significance",
+            "test across stacks here and none is implied: with few chains per series the within-arm",
+            "spread can exceed a between-arm difference, so read a direction as a direction.",
+            "`analyze`'s own tables carry the chain-bootstrap CIs. A gap below",
             f"{int(MATERIAL_REL * 100)}% of the larger magnitude is not counted as a direction at all.",
             "",
-            "For `arch` (cross-arm) the metrics are TIERED (harness.metric_tiers): the verdict ranks",
-            "only on UNIVERSAL metrics — correctness, cost, the probe, and git-only structural",
-            "measures (hot_*, reedit_*, file-level impact, dup_*) that mean the same thing in every",
-            "technology. ARCHITECTURE-CONDITIONAL metrics (parser-based erosion/wmc/impact-fns,",
-            "the per-arm entry-surface and additive-unit anchors, wired-node and boundary columns)",
-            "are shown as diagnostics only and are not counted as cross-arm (dis)confirmations.",
+            "Cross-arm metrics are TIERED (harness.metric_tiers): a verdict ranks only on UNIVERSAL",
+            "metrics — correctness, cost, the probe, and git-only structural measures (hot_*,",
+            "reedit_*, file-level impact, dup_*) that mean the same thing in every technology.",
+            "CONDITIONAL metrics (parser erosion/wmc/impact-fns, per-arm entry-surface / additive-unit",
+            "anchors, wired-node and boundary columns) are diagnostics only, never a cross-arm ranking.",
             ""]
     if counter:
         head_c = ["### counter-signals", "",
