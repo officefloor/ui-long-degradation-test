@@ -1,7 +1,11 @@
 # ui-long-degradation-test — Python harness deps (mirror the REST arm, minus Java bits).
-PyYAML
-numpy
-matplotlib
-lizard            # front-end structural metrics (TS/TSX/Vue readers) — also used by impact-gate
+# PINNED to exact versions: a metric produced by a different build of a tool is not comparable
+# with runs already recorded, and lizard in particular drives the structural columns.
+PyYAML==6.0.3
+numpy==2.5.3
+matplotlib==3.11.2
+lizard==1.24.1     # front-end/back-end structural metrics (TS/TSX readers) — also used by impact-gate
 # impact-gate is installed separately (see README / ~/ImpactGate), lizard-only.
-# Node/Playwright toolchain is pinned in tools/ (see config.yaml: tools).
+# Node/Playwright toolchain is pinned in the stack repos (pom.xml node.version, e2e/package.json);
+# jscpd + ast-grep in tools/package.json; PMD/ck in tools/{pmd,ck}-version.txt; the JRE in
+# tools/java-version.txt (and capture.py records the live `java -version` per run). See config.yaml.

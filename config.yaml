@@ -134,13 +134,24 @@ tools:
   pmd_metrics_rules: pmd-rules/java-metrics.xml   # cognitive/NPath VALUES + GodClass/DataClass verdicts
   ck: tools/ck/ck.jar          # Chidamber-Kemerer suite — DOWNLOADED by setup.sh, pinned by
                                #   tools/ck-version.txt + ck-sha256.txt (unset -> ck_* blank)
-  # jscpd + ast-grep are pinned in tools/package.json and lizard in requirements.txt; still to
-  # pin for a real study: node, playwright (stack repo e2e/package.json), JRE, pmd, ck
+  # PINS (a different build of a tool makes a run incomparable, so these are checked, not assumed):
+  #   jscpd + ast-grep -> tools/package.json; lizard + numpy/matplotlib/PyYAML -> requirements.txt
+  #   (exact versions); PMD -> tools/pmd-version.txt; ck -> tools/ck-version.txt + ck-sha256.txt;
+  #   node + npm -> each stack's pom.xml (node.version / npm.version); Playwright -> the stack's
+  #   e2e/package.json; JRE -> tools/java-version.txt (capture.py also records the live
+  #   `java -version` per run as the audit trail).
 
 # Filesystem confinement for the agent turn (Linux Landlock; no root/bwrap). Identical to the REST
 # arm; fails CLOSED — every turn calls landlock.verify_denied() on the withheld material and
 # refuses to start if any is reachable. Check support here:
 #   .venv/bin/python -c 'from harness import landlock; print(landlock.abi_version())'  # >=1
+#
+# NETWORK POLICY: internet is ALLOWED during the agent turn. Confinement is FILESYSTEM-ONLY — its
+# sole job is to stop the blind agent reading withheld material by walking the filesystem from /
+# (the harness repo, checkpoints.yaml, work_root's .git history of the sequence, Trash). The agent
+# needs egress to reach the model API, the Maven/npm registries, and each architecture's own
+# reference docs (OfficeFloor / TanStack / Spring / React / htmx), so NO network namespace, proxy,
+# or egress block is applied anywhere — and none should be added.
 isolation:
   # Pinned files are restored to authored before the gate (DESIGN.md §15). Pin only the FIXED
   # operational scaffolding — NOT the evolving app code (incl. the /__test__ endpoint, which

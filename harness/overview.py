@@ -29,6 +29,8 @@ import math
 import os
 from collections import defaultdict
 
+from . import metric_tiers
+
 try:
     import matplotlib
     matplotlib.use("Agg")
@@ -203,44 +205,78 @@ def judge(rows: list[dict]) -> list[str]:
         vals = [v for v in vals if v is not None]
         return (sum(vals) / len(vals)) if vals else None
 
+    _HEAD = ["| metric | predicted | A | B | A − B | rel | verdict |",
+             "|---|:--:|---:|---:|---:|---:|:--:|"]
+
+    def _judge_field(a, b, field, spec):
+        """One table row for a field, or None when a side carries no value (blank != 0)."""
+        la, lb = level(a, field), level(b, field)
+        if la is None or lb is None:
+            return None
+        d = la - lb
+        # LEVEL only: this module has no chain bootstrap across stacks, so there is no
+        # significance test and none is implied.
+        #
+        # That absence needs a MATERIALITY band. The REST arm counts a direction only when it
+        # survives FDR, so a non-significant difference reads as "no difference"; here there
+        # is no such filter, and on a continuous metric an exact 0 never occurs — so every
+        # `no difference` prediction would be flagged as contradicted, which it was: cost_usd
+        # by two cents. A difference below MATERIAL_REL of the larger magnitude is therefore
+        # treated as no direction at all, which is the honest reading of an untested gap.
+        scale = max(abs(la), abs(lb))
+        material = scale > 0 and abs(d) / scale >= MATERIAL_REL
+        obs = 0 if (d == 0 or not material) else (1 if d > 0 else -1)
+        mark = expectation_mark(spec, obs)
+        pred = {1: "higher", -1: "lower", 0: "no difference"}[spec[0]]
+        rel = f"{(abs(d) / scale * 100):.0f}%" if scale else "—"
+        cell = (f"| {field} | {pred} | {_fmt(la)} | {_fmt(lb)} | {_fmt(d)} | {rel} | "
+                f"{'match' if not mark else ('CONTRADICTS' if mark == '!' else 'no diff')} |")
+        return (cell, mark, pred, d)
+
     L: list[str] = []
     counter: list[tuple] = []
     for kind, a, b in pairs(rows):
         spec_map = GATE_EXPECTATION if kind == "gate" else ARCH_EXPECTATION
         label = (f"{a[0].replace('officehq-', '')}/{a[1]} − {b[0].replace('officehq-', '')}/{b[1]}")
-        body = []
-        for field in sorted(spec_map):
-            la, lb = level(a, field), level(b, field)
-            if la is None or lb is None:
-                continue
-            d = la - lb
-            spec = spec_map[field]
-            # LEVEL only: this module has no chain bootstrap across stacks, so there is no
-            # significance test and none is implied.
-            #
-            # That absence needs a MATERIALITY band. The REST arm counts a direction only when it
-            # survives FDR, so a non-significant difference reads as "no difference"; here there
-            # is no such filter, and on a continuous metric an exact 0 never occurs — so every
-            # `no difference` prediction would be flagged as contradicted, which it was: cost_usd
-            # by two cents. A difference below MATERIAL_REL of the larger magnitude is therefore
-            # treated as no direction at all, which is the honest reading of an untested gap.
-            scale = max(abs(la), abs(lb))
-            material = scale > 0 and abs(d) / scale >= MATERIAL_REL
-            obs = 0 if (d == 0 or not material) else (1 if d > 0 else -1)
-            mark = expectation_mark(spec, obs)
-            pred = {1: "higher", -1: "lower", 0: "no difference"}[spec[0]]
-            rel = f"{(abs(d) / scale * 100):.0f}%" if scale else "—"
-            body.append(f"| {field} | {pred} | {_fmt(la)} | {_fmt(lb)} | {_fmt(d)} | {rel} | "
-                        f"{'match' if not mark else ('CONTRADICTS' if mark == '!' else 'no diff')} |")
-            if mark:
-                counter.append((kind, label, field, pred, d, mark))
-        if not body:
+        if kind == "gate":
+            # Same stack, same architecture: every metric is the SAME construct, so there is no
+            # cross-arm tiering to apply — one table, every row counted.
+            body = []
+            for field in sorted(spec_map):
+                r = _judge_field(a, b, field, spec_map[field])
+                if r is None:
+                    continue
+                cell, mark, _pred, _d = r
+                body.append(cell)
+                if mark:
+                    counter.append((kind, label, field, _pred, _d, mark))
+            if body:
+                L += [f"### {kind}: {label}", ""] + _HEAD + body + [""]
             continue
-        L += [f"### {kind}: {label}", "",
-              "| metric | predicted | A | B | A − B | rel | verdict |",
-              "|---|:--:|---:|---:|---:|---:|:--:|"]
-        L += body
-        L.append("")
+        # Cross-arm (arch): UNIVERSAL metrics headline the verdict and are the ONLY ones counted
+        # as cross-arm (dis)confirmations; CONDITIONAL metrics are shown as within-architecture
+        # diagnostics (anchored to a per-arm unit or needing a parser some arms lack), never a
+        # global ranking — the Option A policy (harness.metric_tiers, DESIGN.md §8).
+        uni, cond = [], []
+        for field in sorted(spec_map):
+            r = _judge_field(a, b, field, spec_map[field])
+            if r is None:
+                continue
+            cell, mark, _pred, _d = r
+            if metric_tiers.is_universal(field):
+                uni.append(cell)
+                if mark:
+                    counter.append((kind, label, field, _pred, _d, mark))
+            else:
+                cond.append(cell)
+        if uni:
+            L += [f"### {kind}: {label} — cross-arm verdict (universal metrics)", ""] + _HEAD + uni + [""]
+        if cond:
+            L += [f"#### {kind}: {label} — architecture-conditional (diagnostic only, NOT ranked across arms)",
+                  "",
+                  "Anchored to a per-arm unit or needing a parser some arms lack, so a cross-arm gap",
+                  "here is not apples-to-apples: read within an arm, and only across arms that share",
+                  "the construct. Not counted as a cross-arm (dis)confirmation.", ""] + _HEAD + cond + [""]
     if not L:
         return []
     head = ["## Declared expectations",
@@ -256,6 +292,13 @@ def judge(rows: list[dict]) -> list[str]:
             "the within-arm spread can exceed a between-arm difference, so read a direction as a",
             "direction. `analyze`'s own tables carry the chain-bootstrap CIs. A gap below",
             f"{int(MATERIAL_REL * 100)}% of the larger magnitude is not counted as a direction at all.",
+            "",
+            "For `arch` (cross-arm) the metrics are TIERED (harness.metric_tiers): the verdict ranks",
+            "only on UNIVERSAL metrics — correctness, cost, the probe, and git-only structural",
+            "measures (hot_*, reedit_*, file-level impact, dup_*) that mean the same thing in every",
+            "technology. ARCHITECTURE-CONDITIONAL metrics (parser-based erosion/wmc/impact-fns,",
+            "the per-arm entry-surface and additive-unit anchors, wired-node and boundary columns)",
+            "are shown as diagnostics only and are not counted as cross-arm (dis)confirmations.",
             ""]
     if counter:
         head_c = ["### counter-signals", "",
@@ -298,12 +341,17 @@ def summarise(rows: list[dict]) -> list[str]:
     L += ["> Mean is over every checkpoint of every chain in the series; final is the last",
           "> checkpoint's chain-mean. A blank means the series carries no value for that",
           "> field — for a server-rendered arm the parser-derived front-end columns are blank",
-          "> by construction, which is not the same as zero.", ""]
+          "> by construction, which is not the same as zero.",
+          ">",
+          "> Each field is tagged `[universal]` (cross-arm comparable) or `[architecture-conditional]`",
+          "> (per-arm unit / parser some arms lack — compare within an arm, not as a ranking); see",
+          "> harness.metric_tiers.", ""]
     for field, title in FIELDS:
         cs = curves(rows, field)
         if not cs:
             continue
-        L += [f"## {title}  (`{field}`)", "",
+        tg = "universal" if metric_tiers.is_universal(field) else "architecture-conditional"
+        L += [f"## {title}  (`{field}`) — [{tg}]", "",
               "| series | mean | final | points |", "|---|---:|---:|---:|"]
         for lab in order:
             pts = cs.get(lab)
