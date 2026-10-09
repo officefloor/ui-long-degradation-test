@@ -63,9 +63,14 @@ STACK=~/officehq-react-officefloor
 ```sh
 # does a stack satisfy the app contract? run this BEFORE a run, not after.
 ./verify-stack.sh --repo $STACK            # static: environment + contract, seconds
-./verify-stack.sh --repo $STACK --smoke    # also build, start, probe and stop it (minutes)
+./verify-stack.sh --repo $STACK --smoke    # also RUN the toolchain confined (seconds), then
+                                           #   build, start, probe and stop the app (minutes)
 # the one prerequisite table, on its own:
 .venv/bin/python -m harness.doctor --config config.yaml --repo $STACK
+# does python/node/npm/java/mvn actually RUN inside the Landlock ruleset, and are ~/.m2, ~/.npm
+# and ~/.cache writable there? Observed by forking each under the real ruleset, not inferred
+# from paths — a tool the driver can run is not necessarily one the confined agent can run.
+.venv/bin/python -m harness.doctor --config config.yaml --confined-smoke
 ```
 
 ```sh

@@ -320,6 +320,108 @@ def check_confined_toolchain(cfg: dict) -> list[Finding]:
     return out
 
 
+# ── EXECUTING the toolchain under the real ruleset ────────────────────────────────────────────
+# check_confined_toolchain above infers reachability from paths. That is a proxy: it sees the
+# binary's realpath, not the files the tool opens once it is running (a JDK whose JAVA_HOME
+# lies outside /usr, Maven's conf/, a relocated npm cache). The only way to know the toolchain
+# works confined is to run it confined, which is what this does — forking each tool with the
+# SAME preexec_fn agent.run_agent uses. Opt-in (--confined-smoke) because it costs a few
+# seconds of forking; wired into ./verify-stack.sh --smoke, where the slow checks already live.
+#
+# (name, argv, what it costs inside the turn, severity on failure)
+CONFINED_PROBES = [
+    ("python3", ["python3", "-c", "import json, os, sysconfig; print('ok')"],
+     "the agent cannot run python in its turn", DEGRADES),
+    ("node", ["node", "-e", "console.log('ok')"],
+     "the front-end build and the Playwright suite", BLOCKING),
+    ("npm", ["npm", "--version"],
+     "`npm ci` — the front-end build in every checkpoint", BLOCKING),
+    ("java", ["java", "-version"],
+     "builds and runs the Spring Boot app the gate tests", BLOCKING),
+    ("mvn", ["mvn", "-v"],
+     "the Maven build, IF the stack calls `mvn` rather than its own ./mvnw", DEGRADES),
+]
+
+# Proves the caches are WRITABLE under the ruleset, not merely present and nominally in the rw
+# list. Touch-and-remove a dotfile; contents are never read or altered.
+_WRITE_PROBE = ('f="$1/.harness-confined-probe.$$"; : > "$f" || exit 1; '
+                'rm -f "$f" || exit 1; echo ok')
+
+
+def confined_smoke(cfg: dict, timeout: int = 60) -> list[Finding]:
+    """Run python / node / npm / java / mvn, and a write into each cache, INSIDE the real
+    Landlock ruleset. Answers "does the toolchain work confined?" by observation rather than
+    by inference — this is the check that would have caught the pyvenv.cfg failure directly."""
+    allow = _effective_allowlist(cfg)
+    if allow is None:
+        return [Finding("confined smoke", "smoke", DEGRADES, OK, detail="skipped",
+                        consequence="confinement is off, so there is nothing to smoke-test")]
+    ro, rw = allow
+    from . import landlock
+    env = _agent_env()
+    path = env.get("PATH") or ""
+    out: list[Finding] = []
+
+    # cwd must itself be reachable confined; /tmp is on the rw list and always exists, whereas
+    # sandbox_root does not exist until a run creates it.
+    import tempfile
+    try:
+        cwd = tempfile.mkdtemp(prefix="harness-confined-smoke-", dir="/tmp")
+    except OSError as e:
+        return [Finding("confined smoke", "smoke", BLOCKING, BROKEN,
+                        detail=f"cannot create a scratch dir under /tmp ({e})",
+                        consequence="the smoke test could not run")]
+
+    def run(argv, label, why, sev, cmd_path_check=True):
+        if cmd_path_check and not shutil.which(argv[0], path=path):
+            out.append(Finding(label, "smoke", DEGRADES, MISSING,
+                               detail="not on the agent's PATH — not run",
+                               consequence=f"{why} — unless the stack supplies its own"))
+            return
+        try:
+            r = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, text=True,
+                               timeout=timeout, preexec_fn=landlock.make_preexec(ro, rw))
+        except subprocess.TimeoutExpired:
+            out.append(Finding(label, "smoke", sev, BROKEN, detail=f"timed out after {timeout}s",
+                               consequence=f"EACCES or a hang inside the agent turn: {why}"))
+            return
+        except Exception as e:                                  # noqa: BLE001
+            # preexec_fn raising means the ruleset itself could not be applied.
+            out.append(Finding(label, "smoke", BLOCKING, BROKEN,
+                               detail=f"confinement could not be applied ({e})",
+                               consequence="the agent turn would refuse to start",
+                               remedy="check Landlock support (doctor reports the ABI)"))
+            return
+        if r.returncode == 0:
+            first = next((ln.strip() for ln in (r.stdout or r.stderr).splitlines()
+                          if ln.strip()), "ok")
+            out.append(Finding(label, "smoke", sev, OK, detail=first[:60], consequence=why))
+        else:
+            tail = ((r.stderr or r.stdout) or "").strip().splitlines()
+            msg = tail[-1][:160] if tail else f"exit {r.returncode}"
+            out.append(Finding(label, "smoke", sev, BROKEN,
+                               detail=f"exit {r.returncode}: {msg}",
+                               consequence=f"FAILS inside the agent turn: {why}",
+                               remedy="grant what it needs via isolation.agent_confinement."
+                                      "extra_ro_binds / extra_rw_binds in config.yaml"))
+
+    try:
+        for label, argv, why, sev in CONFINED_PROBES:
+            run(argv, f"run {label}", why, sev)
+        for disp, why in CONFINED_CACHES:
+            d = os.path.expanduser(disp)
+            if not os.path.isdir(d):
+                out.append(Finding(f"write {disp}", "smoke", BLOCKING, MISSING,
+                                   detail="does not exist", consequence=why,
+                                   remedy=f"mkdir -p {disp}   (./setup.sh does this)"))
+                continue
+            run(["/bin/sh", "-c", _WRITE_PROBE, "sh", d], f"write {disp}",
+                why, BLOCKING, cmd_path_check=False)
+    finally:
+        shutil.rmtree(cwd, ignore_errors=True)
+    return out
+
+
 # ── stack: what a --repo must provide, checked against the COMMITTED base_ref ─────────────────
 def _git(repo: str, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
@@ -440,6 +542,7 @@ _ICON = {OK: "ok      ", MISSING: "MISSING ", BROKEN: "BROKEN  "}
 def render(findings: list[Finding], show_ok: bool = True) -> list[str]:
     lines = []
     for group, title in (("env", "environment"), ("confined", "confined agent toolchain"),
+                         ("smoke", "confined execution smoke"),
                          ("analysis", "analysis tooling"), ("stack", "stack contract")):
         rows = [f for f in findings if f.group == group]
         if not rows:
@@ -479,6 +582,10 @@ def main() -> int:
     ap.add_argument("--repo", help="also check this stack repo against the contract")
     ap.add_argument("--condition", help="gated | just-solve (decides if impact-gate is required)")
     ap.add_argument("--quiet", action="store_true", help="only show problems")
+    ap.add_argument("--confined-smoke", action="store_true",
+                    help="also RUN python/node/npm/java/mvn and a cache write inside the real "
+                         "Landlock ruleset (seconds). Proves the toolchain works confined "
+                         "instead of inferring it from paths.")
     ap.add_argument("--phase", choices=("setup", "run"), default="run",
                     help="setup: do not fail over things you are not expected to have yet "
                          "(the agent token). Default: run.")
@@ -501,6 +608,8 @@ def main() -> int:
         cfg["tools"] = tools
 
     findings = check_environment(cfg, args.condition, phase=args.phase)
+    if args.confined_smoke:
+        findings += confined_smoke(cfg)
     if args.repo:
         repo = os.path.realpath(os.path.expanduser(args.repo))
         pins = (cfg.get("isolation") or {}).get("pin_files") or []

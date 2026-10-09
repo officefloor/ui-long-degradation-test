@@ -12,7 +12,8 @@
 # Usage:  ./verify-stack.sh --repo <stack-repo> [--smoke] [--condition gated|just-solve] [--quiet]
 #           --repo <dir>   the stack to check (~/officehq-<frontend>-<backend>). REQUIRED, and
 #                          never read from config.yaml — same reasoning as every other command.
-#           --smoke        also build, start, probe and stop the app (minutes, no agent, no cost)
+#           --smoke        also RUN the toolchain confined (seconds), then build, start, probe
+#                          and stop the app (minutes, no agent, no cost)
 #           --condition    decides whether impact-gate counts as blocking (default: gated)
 #           --quiet        only report problems
 #
@@ -39,7 +40,13 @@ done
 REPO="${REPO/#\~/$HOME}"
 
 # Static checks: environment + the stack contract, from the one prerequisite table.
-$PY -m harness.doctor --config config.yaml --repo "$REPO" --condition "$COND" $QUIET
+# With --smoke, also RUN the toolchain inside the real Landlock ruleset (seconds): a tool the
+# driver can run is not necessarily one the confined agent can run, and inferring that from
+# paths alone misses what a tool opens at runtime. It runs here, before the app smoke's
+# blocking-problem gate, because it needs no token and no built app.
+CONFINED=""
+[ "$SMOKE" = 1 ] && CONFINED="--confined-smoke"
+$PY -m harness.doctor --config config.yaml --repo "$REPO" --condition "$COND" $QUIET $CONFINED
 static=$?
 
 if [ "$SMOKE" != 1 ]; then
