@@ -8,6 +8,7 @@ results/
 capture/
 test-results/
 playwright-report/
+blog/
 
 # Downloaded by setup.sh, pinned by tools/*-version.txt (+ ck-sha256.txt). Large, and
 # reproducible from the pins, so not committed.
