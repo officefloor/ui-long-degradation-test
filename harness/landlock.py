@@ -95,8 +95,13 @@ def default_allowlist(sandbox: str, cfg_dir: str | None, home: str | None = None
           os.path.join(home, ".config"),
           os.path.join(home, ".sdkman")]
     rw = ["/tmp", "/dev",
-          os.path.join(home, ".m2"),
-          os.path.join(home, ".cache"),
+          os.path.join(home, ".m2"),      # shared Maven repo (deps + the plugin's node/npm archives)
+          os.path.join(home, ".npm"),     # npm cacache — `npm ci` reads/writes it every build (the
+                                          #   stack excludes node_modules from the mirror, so each turn
+                                          #   re-runs `npm ci`); without this it EACCES under Landlock.
+                                          #   No withheld specs/history here, so no blindness risk — same
+                                          #   justification as ~/.m2.
+          os.path.join(home, ".cache"),   # Playwright browser binaries (~/.cache/ms-playwright) etc.
           sandbox]
     if cfg_dir:
         rw.append(cfg_dir)
