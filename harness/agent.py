@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -409,7 +410,9 @@ def probe(question: str, cwd: str, model: str, expected: Optional[list[str]] = N
     recall = None
     if expected:
         text = res.result_text.lower()
-        hits = sum(1 for e in expected if e.lower() in text)
+        # Word-boundary match, not bare substring: a short keyword like "cap"/"fx"/"tax" otherwise
+        # hits capture/prefix/taxable and inflates recall. Advisory metric; grade properly offline.
+        hits = sum(1 for e in expected if re.search(r"\b" + re.escape(e.lower()) + r"\b", text))
         recall = hits / len(expected)
     return {
         "probe_cost_usd": res.cost_usd,

@@ -1,6 +1,6 @@
 # ui-long-degradation-test configuration. STUB — fill in as the harness is built.
 # Models the OfficeHQ change loop (DESIGN.md): ONE application, grown from a near-empty base by
-# ~60 English change requests, each a full-stack change (schema + OfficeFloor server + front-end).
+# ~250 English change requests, each a full-stack change (schema + OfficeFloor server + front-end).
 # ${VARS} and ~ are expanded from the environment; relative paths anchor inside this repo.
 
 model: claude-opus-5-5          # the fixed coding agent (exact id, no floating alias, so it stays

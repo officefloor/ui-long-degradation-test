@@ -56,7 +56,10 @@ CSV_FIELDS = [
 ]
 
 NEUTRAL_SPEC = "acceptance.spec.ts"   # the single agent-visible spec, name carries no cpNN hint
-_CP_TOKEN = re.compile(r"cp\d+", re.IGNORECASE)
+_CP_TOKEN = re.compile(r"\bcp\d{2,}\b", re.IGNORECASE)   # a real sequence token is cp01..cp250
+                                                         # (2+ digits, word-boundaried); narrowing
+                                                         # avoids false aborts on incidental "cpN"
+                                                         # substrings while still catching leaks.
 
 OAUTH_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
 
@@ -261,6 +264,33 @@ def verify_resume_stack(wt: str, app_cfg: dict) -> None:
                 f"--resume: this chain was started against {key}={was!r}, but --repo resolves to "
                 f"{now!r}. Resuming would mix two stacks into one branch. Re-run with the original "
                 f"stack, or start a new run_id for this one.")
+
+
+def _stage_capture_file(src: str, dst: str, cap_bytes: int = 2_000_000) -> None:
+    """Copy a capture artifact into the committed tree, capping a large .jsonl stream so a
+    250-checkpoint x many-chain run of uncapped agent streams does not bloat the branch
+    indefinitely. Whole leading lines are kept within the byte budget (each retained line stays
+    valid JSON) and a final marker records the truncation; non-stream and small files copy
+    verbatim, so cpNN.json (the scored capture) is never touched."""
+    try:
+        oversized = src.endswith(".jsonl") and os.path.getsize(src) > cap_bytes
+    except OSError:
+        oversized = False
+    if not oversized:
+        shutil.copy2(src, dst)
+        return
+    kept, used = [], 0
+    with open(src, "r", encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            b = len(line.encode("utf-8", "replace"))
+            if used + b > cap_bytes:
+                break
+            kept.append(line)
+            used += b
+    with open(dst, "w", encoding="utf-8") as out:
+        out.writelines(kept)
+        out.write('{"_truncated": true, "kept_lines": %d, "orig_bytes": %d}\n'
+                  % (len(kept), os.path.getsize(src)))
 
 
 def mirror_source(src: str, dst: str, extra_excludes: tuple = ()) -> None:
@@ -479,10 +509,19 @@ def _confine_config(cfg: dict, sandbox: str) -> dict | None:
     wr = (cfg.get("paths") or {}).get("work_root")
     if wr:
         sentinels.append(wr)
+    sents = [s for s in sentinels if os.path.exists(s)]
+    if not sents:
+        # verify_denied only runs when there is something to check; an empty set would skip the
+        # fail-closed self-check silently. If NONE of the withheld sentinels resolve, HARNESS_ROOT
+        # is wrong (or the specs moved) — refuse rather than confine against bad assumptions.
+        raise RuntimeError(
+            "confinement enabled but no blind-guarantee sentinels resolved "
+            f"(checked: {sentinels}) — refusing to run; verify_denied would have nothing to check. "
+            "Check HARNESS_ROOT / paths.work_root.")
     return {"enabled": True,
             "ro": ro + list(iso.get("extra_ro_binds", [])),
             "rw": rw + list(iso.get("extra_rw_binds", [])),
-            "sentinels": [s for s in sentinels if os.path.exists(s)]}
+            "sentinels": sents}
 
 
 def _run_agent_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, prompt: str,
@@ -852,7 +891,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         os.makedirs(wt_cap, exist_ok=True)
         for f in os.listdir(cap_dir):
             if f.startswith(f"cp{k:02d}."):
-                shutil.copy2(os.path.join(cap_dir, f), os.path.join(wt_cap, f))
+                _stage_capture_file(os.path.join(cap_dir, f), os.path.join(wt_cap, f))
         captures.append(rec)
 
         # normalise: clear the installed gate specs (gitignored anyway) + restore pins.

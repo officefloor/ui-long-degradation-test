@@ -1,5 +1,5 @@
 # The ordered, cumulative checkpoint stream. Each is applied on top of the committed result of the
-# previous one, GROWING ONE APP FROM A NEAR-EMPTY BASE (no tables at cp01) via ~60 plain-English
+# previous one, GROWING ONE APP FROM A NEAR-EMPTY BASE (no tables at cp01) via ~250 plain-English
 # change requests. Domain: a generic business app — CLIENTS, PROJECTS (renamed to JOBS at cp52),
 # INVOICES — what an OfficeHQ user actually builds. See DESIGN.md.
 #
