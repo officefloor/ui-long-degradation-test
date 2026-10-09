@@ -186,6 +186,137 @@ def check_environment(cfg: dict, condition: str | None = None,
                                consequence=f"BLANK: {family}"))
         else:
             out.append(Finding(key, "analysis", ANALYSIS, OK, consequence=family))
+
+    # Whether the agent can actually RUN the toolchain once confined. Here rather than in a
+    # caller so every entry point (setup.sh, the run preflight, verify-stack.sh, analyze) gets
+    # it without restating the list — the drift this module exists to prevent.
+    out += check_confined_toolchain(cfg)
+    return out
+
+
+# ── the toolchain INSIDE the confined agent turn ──────────────────────────────────────────────
+# A tool the DRIVER can run is not necessarily a tool the AGENT can run. The agent turn is
+# Landlock-confined to the sandbox + an allowlist, and landlock._apply SKIPS any path that does
+# not exist when the ruleset is built — so a tool resolving outside the allowlist fails with
+# EACCES *inside the turn only*: invisibly, mid-run, after the agent has already been paid for.
+# The angular-spring run found this the expensive way (every `python` call in the turn died on a
+# leaked harness venv), which is why it is checked up front here rather than discovered again.
+#
+# Resolution uses the AGENT's PATH, not the driver's, and the SAME allowlist the turn applies.
+#
+# (command, what it costs inside the turn, severity when it resolves OUTSIDE the allowlist)
+CONFINED_TOOLS = [
+    ("python3", "the agent cannot run python in its turn (scripts, ad-hoc checks)", DEGRADES),
+    ("node", "the front-end build and the Playwright suite", BLOCKING),
+    ("npm", "`npm ci` — the front-end build in every checkpoint", BLOCKING),
+    ("java", "builds and runs the Spring Boot app the gate tests", BLOCKING),
+    ("mvn", "the Maven build, IF the stack calls `mvn` rather than its own ./mvnw", DEGRADES),
+]
+
+# Caches the confined turn must be able to WRITE, and which must therefore EXIST when the
+# ruleset is built: landlock._apply skips an absent path, and $HOME itself is on neither list,
+# so a missing ~/.m2 means a confined Maven cannot even create it — every build then fails.
+# setup.sh creates these for exactly this reason.
+CONFINED_CACHES = [
+    ("~/.m2", "Maven's local repository — every build reads and writes it"),
+    ("~/.npm", "npm's cacache — `npm ci` writes it on every checkpoint's build"),
+    ("~/.cache", "Playwright browser binaries (~/.cache/ms-playwright)"),
+]
+
+
+def _agent_env() -> dict:
+    """The environment the AGENT turn gets — NOT the driver's. Resolving against the driver's
+    PATH would check the wrong binaries (e.g. the harness venv's python, which is precisely
+    what the turn cannot load). Single source of truth: agent.strip_harness_python_env."""
+    try:
+        from . import agent
+        return agent.strip_harness_python_env(dict(os.environ))
+    except Exception:                                           # noqa: BLE001
+        return dict(os.environ)
+
+
+def _effective_allowlist(cfg: dict) -> tuple[list[str], list[str]] | None:
+    """The (ro, rw) the turn actually enforces: run_experiment._confine_config (which carries
+    the config's extra_*_binds) unioned with landlock.default_allowlist, which agent.run_agent
+    adds around it. Reused rather than restated so this check cannot drift from what is
+    enforced. None when confinement is off or cannot be determined."""
+    iso = ((cfg.get("isolation") or {}).get("agent_confinement") or {})
+    if not iso.get("enabled") or os.environ.get("HARNESS_NO_CONFINE"):
+        return None
+    sandbox = (cfg.get("paths") or {}).get("sandbox_root") or "~/ui-sandbox"
+    sandbox = os.path.expanduser(os.path.expandvars(str(sandbox)))
+    try:
+        from . import landlock, run_experiment      # deferred: run_experiment imports doctor
+        ro, rw = landlock.default_allowlist(sandbox, None)
+        conf = run_experiment._confine_config(cfg, sandbox)
+        if conf:
+            ro = list(ro) + list(conf.get("ro") or [])
+            rw = list(rw) + list(conf.get("rw") or [])
+    except Exception:                                           # noqa: BLE001
+        # _confine_config fails closed on its own (no Landlock, unresolved sentinels) and
+        # check_environment already reports that; fall back to the base allowlist so the
+        # toolchain question still gets an answer.
+        try:
+            from . import landlock
+            ro, rw = landlock.default_allowlist(sandbox, None)
+        except Exception:                                       # noqa: BLE001
+            return None
+    return [str(p) for p in ro], [str(p) for p in rw]
+
+
+def check_confined_toolchain(cfg: dict) -> list[Finding]:
+    """Will python / maven / npm (and node / java) actually RUN inside the confined turn?
+
+    Reports, per tool, the binary the agent would resolve and whether its real path is inside
+    the Landlock allowlist — plus the caches the turn must be able to write."""
+    allow = _effective_allowlist(cfg)
+    if allow is None:
+        return [Finding("confinement", "confined", DEGRADES, OK, detail="off",
+                        consequence="agent turns run unconfined — toolchain reachability "
+                                    "is not restricted")]
+    ro, rw = allow
+    roots = ro + rw
+    from .agent import _under as _path_under      # ONE containment predicate, shared with agent
+    env = _agent_env()
+    path = env.get("PATH") or ""
+    out: list[Finding] = []
+
+    for cmd, why, sev in CONFINED_TOOLS:
+        exe = shutil.which(cmd, path=path)
+        if not exe:
+            out.append(Finding(cmd, "confined", DEGRADES, MISSING,
+                               detail="not on the agent's PATH",
+                               consequence=f"{why} — unless the stack supplies its own "
+                                           f"(./mvnw and frontend-maven-plugin do)",
+                               remedy=f"{package_manager() or 'install'} {cmd}".strip()))
+            continue
+        real = os.path.realpath(exe)
+        if any(_path_under(real, r) for r in roots):
+            where = exe if real == exe else f"{exe} -> {real}"
+            out.append(Finding(cmd, "confined", sev, OK, detail=where, consequence=why))
+        else:
+            out.append(Finding(cmd, "confined", sev, BROKEN,
+                               detail=f"{real} is OUTSIDE the Landlock allowlist",
+                               consequence=f"EACCES inside the agent turn only: {why}",
+                               remedy="add its root to isolation.agent_confinement."
+                                      "extra_ro_binds in config.yaml (a version manager such "
+                                      "as nvm/pyenv/sdkman installs outside /usr and /opt)"))
+
+    for disp, why in CONFINED_CACHES:
+        d = os.path.expanduser(disp)
+        if not os.path.isdir(d):
+            out.append(Finding(disp, "confined", BLOCKING, MISSING,
+                               detail="does not exist, so Landlock binds no rule for it",
+                               consequence=f"the confined turn cannot create it either "
+                                           f"($HOME is not writable): {why}",
+                               remedy=f"mkdir -p {disp}   (./setup.sh does this)"))
+        elif not any(_path_under(d, r) for r in rw):
+            out.append(Finding(disp, "confined", BLOCKING, BROKEN,
+                               detail="exists but is not in the writable allowlist",
+                               consequence=f"read-only inside the turn: {why}",
+                               remedy="add it to isolation.agent_confinement.extra_rw_binds"))
+        else:
+            out.append(Finding(disp, "confined", BLOCKING, OK, detail="writable", consequence=why))
     return out
 
 
@@ -308,8 +439,8 @@ _ICON = {OK: "ok      ", MISSING: "MISSING ", BROKEN: "BROKEN  "}
 
 def render(findings: list[Finding], show_ok: bool = True) -> list[str]:
     lines = []
-    for group, title in (("env", "environment"), ("analysis", "analysis tooling"),
-                         ("stack", "stack contract")):
+    for group, title in (("env", "environment"), ("confined", "confined agent toolchain"),
+                         ("analysis", "analysis tooling"), ("stack", "stack contract")):
         rows = [f for f in findings if f.group == group]
         if not rows:
             continue

@@ -27,6 +27,24 @@ echo "venv + tools ready. Run the harness with:  .venv/bin/python -m harness.<mo
 echo "Self-check:  .venv/bin/python -m harness.quality_selftest"
 echo
 
+# ── Caches the CONFINED agent turn must be able to write ──────────────────────────────────────
+# The agent turn is Landlock-confined (DESIGN.md §15) and landlock._apply SKIPS any allowlist
+# path that does not exist when the ruleset is built. $HOME itself is on neither list, so a
+# cache dir that is merely ABSENT cannot be created from inside the turn either — Maven, npm and
+# Playwright then fail with EACCES mid-run, per checkpoint, after the agent has been paid for.
+# Creating them here is what makes the allowlist entries bind. Idempotent; never touches
+# contents. harness.doctor re-checks all three (confined agent toolchain) and tells you which
+# tool breaks if one is missing.
+echo
+echo "== confined-turn caches =="
+for d in "$HOME/.m2" "$HOME/.npm" "$HOME/.cache"; do
+  if [ -d "$d" ]; then
+    echo "   ${d/#"$HOME"/\~} already present"
+  else
+    mkdir -p "$d" && echo "   ${d/#"$HOME"/\~} created (Landlock binds no rule for an absent path)"
+  fi
+done
+
 # ── Things this script INSTALLS ───────────────────────────────────────────────────────────────
 # Everything below is pinned by a file in tools/ and downloaded idempotently, so a second run is
 # a no-op and every machine computes the same numbers. A metric produced by a different build of
