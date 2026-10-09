@@ -137,8 +137,14 @@ fi
 # the two had already drifted — this file checked PMD but not `fuser`, the run preflight the
 # reverse — which is the worst kind of bug to hand a newcomer: setup.sh says all-ok and the run
 # then refuses. Each finding carries its consequence and the install command for THIS machine.
+#
+# --confined-smoke makes setup PROVE the toolchain, rather than report that its paths look
+# right: it forks python/node/npm/java/mvn and a write into each cache under the real Landlock
+# ruleset. It belongs here because the caches created above are only half the job — a tool that
+# resolves outside the allowlist, or a JDK/Maven whose runtime files do, fails EACCES inside the
+# agent turn ONLY, per checkpoint, after the agent has been paid for. Costs a few seconds.
 echo
-./.venv/bin/python -m harness.doctor --config config.yaml --phase setup
+./.venv/bin/python -m harness.doctor --config config.yaml --phase setup --confined-smoke
 doctor=$?
 
 cat <<'NEXT'
@@ -149,5 +155,9 @@ Next:
   ./verify-stack.sh --repo ~/officehq-<stack> --smoke   # does the stack satisfy the contract?
   export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)  # long-lived; a run spans hours
   .venv/bin/python -m harness.run_experiment --config config.yaml --repo ~/officehq-<stack>
+
+Re-run the confined-toolchain smoke on its own (seconds, no stack or token needed) — it is
+what proves python, Maven and npm actually RUN inside the agent's Landlock environment:
+  .venv/bin/python -m harness.doctor --config config.yaml --confined-smoke
 NEXT
 exit $doctor
