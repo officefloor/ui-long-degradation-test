@@ -82,8 +82,8 @@ def test_boundary_and_impact_on_diff():
                                                         "src/main/frontend/ui/**"],
                                            "backend": ["src/main/resources/officefloor/**"]}}}
         bv = metrics.boundary_violations(tmp, prev, cur, cfg)
-        assert bv["frontend_boundary"] == 1, bv       # routes.ts touched
-        assert bv["backend_boundary"] == 0, bv
+        assert bv["frontend_boundary"] == 1, bv       # routes.ts touched (surface present)
+        assert bv["backend_boundary"] is None, bv     # no officefloor/ files here -> blank, not 0
 
         match = metrics._matcher(["src/main/frontend/**/*.{ts,tsx}"])
         br = metrics.blast_radius(tmp, prev, cur, match)

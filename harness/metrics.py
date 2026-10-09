@@ -202,8 +202,13 @@ def _parse_blob(worktree: str, ref: str, path: str) -> dict:
             for f in fl}
 
 
-def _changed_ranges(worktree: str, prev_ref: str, cur_ref: str, path: str) -> list[tuple[int, int]]:
-    txt = _git(worktree, ["diff", "-U0", prev_ref, cur_ref, "--", path])
+def _changed_ranges(worktree: str, prev_ref: str, cur_ref: str, path: str,
+                    prev_path: str | None = None) -> list[tuple[int, int]]:
+    # For a renamed file (prev_path != path) diff the two BLOBS directly, so the content delta is
+    # seen across the rename; git blame/diff on the new path at prev_ref would otherwise fail.
+    tgt = ([f"{prev_ref}:{prev_path}", f"{cur_ref}:{path}"] if prev_path and prev_path != path
+           else [prev_ref, cur_ref, "--", path])
+    txt = _git(worktree, ["diff", "-U0", *tgt])
     ranges = []
     for m in re.finditer(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", txt, re.M):
         a = int(m.group(1)); b = int(m.group(2)) if m.group(2) else 1
@@ -246,28 +251,35 @@ def impact_stats(worktree: str, prev_ref: str, cur_ref: str,
         ns = _git(worktree, ["diff", "--name-status", "-M", "-C", prev_ref, cur_ref])
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return dict(blank)
-    new_files, mod_files, allf = [], [], set()
+    new_files, mod_files, allf = [], [], set()   # mod_files: (cur_path, prev_path)
     for line in ns.splitlines():
         parts = line.split("\t")
         if len(parts) < 2:
             continue
-        status, path = parts[0], parts[-1]
-        if not match(path):
+        status = parts[0]
+        if status.startswith(("R", "C")) and len(parts) >= 3:
+            prev_path, cur_path = parts[1], parts[2]
+        else:
+            prev_path = cur_path = parts[-1]
+        if not match(cur_path):
             continue
-        allf.add(path)
-        (new_files if status.startswith("A") else mod_files).append(path)
+        allf.add(cur_path)
+        if status.startswith("A"):
+            new_files.append(cur_path)
+        else:
+            mod_files.append((cur_path, prev_path))
     files_changed = len(allf)
     mutation = addition = 0.0
     n_new = n_mut = n_ren = 0
     for path in new_files:
         for f in _parse_blob(worktree, cur_ref, path).values():
             addition += 1 * f["cc"] * max(1, f["nloc"]); n_new += 1
-    for path in mod_files:
-        ranges = _changed_ranges(worktree, prev_ref, cur_ref, path)
+    for cur_path, prev_path in mod_files:
+        ranges = _changed_ranges(worktree, prev_ref, cur_ref, cur_path, prev_path)
         if not ranges:
             continue
-        cur = _parse_blob(worktree, cur_ref, path)
-        prev = _parse_blob(worktree, prev_ref, path)
+        cur = _parse_blob(worktree, cur_ref, cur_path)
+        prev = _parse_blob(worktree, prev_ref, prev_path)
         wmc_prev = sum(v["cc"] for v in prev.values())
         disappeared = [n for n in prev if n not in cur]
         for name, f in cur.items():
@@ -299,11 +311,21 @@ def boundary_violations(worktree: str, prev_ref: str, cur_ref: str, cfg: dict) -
     present = [l for l in LAYERS if l in ((cfg.get("app") or {}).get("source_globs") or {})] or list(LAYERS)
     try:
         names = [f for f in _git(worktree, ["diff", "--name-only", prev_ref, cur_ref]).splitlines() if f.strip()]
+        tracked = [f for f in _git(worktree, ["ls-files"]).splitlines() if f.strip()]
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return {f"{lyr}_boundary": None for lyr in present}
     out = {}
     for lyr in present:
-        match = _matcher(shared.get(lyr) or [], exclude_tests=False)
+        globs = shared.get(lyr) or []
+        match = _matcher(globs, exclude_tests=False)
+        # BLANK != 0: shared_surfaces is a config fallback and its globs are not tailored per
+        # stack, so a layer whose declared surface matches NO file in THIS stack was not measured —
+        # report None, never a 0 that reads as "measured, no violation" (DESIGN.md §8). A surface
+        # that exists but was not touched this checkpoint is a real 0.
+        if not globs or not any(match(f) for f in tracked):
+            out[f"{lyr}_boundary"] = None
+            out[f"{lyr}_boundary_files"] = ""
+            continue
         hits = [f for f in names if match(f)]
         out[f"{lyr}_boundary"] = len(hits)
         out[f"{lyr}_boundary_files"] = ";".join(hits)
@@ -375,15 +397,20 @@ def change_spread(worktree: str, prev_ref: str, cur_ref: str,
 
 
 def _prev_changed_ranges(worktree: str, prev_ref: str, cur_ref: str,
-                         path: str) -> list[tuple[int, int]]:
+                         path: str, prev_path: str | None = None) -> list[tuple[int, int]]:
     """The line ranges of `path` AT prev_ref that this diff replaced or deleted.
 
     `_changed_ranges` gives the `+` side (what the checkpoint wrote). This gives the `-` side:
     the lines that were already there and are now gone. That is the side that says whether the
     checkpoint disturbed settled code, and unlike the function-scoped measures it needs no
-    parser — so it works for a layer Lizard cannot read (templates, HTML)."""
+    parser — so it works for a layer Lizard cannot read (templates, HTML).
+
+    `prev_path` is the file's path at prev_ref when it was renamed this checkpoint; diffing the
+    blobs directly keeps the `-` side (and its line numbers, for blame) correct across the rename."""
+    tgt = ([f"{prev_ref}:{prev_path}", f"{cur_ref}:{path}"] if prev_path and prev_path != path
+           else [prev_ref, cur_ref, "--", path])
     try:
-        out = _git(worktree, ["diff", "-U0", prev_ref, cur_ref, "--", path])
+        out = _git(worktree, ["diff", "-U0", *tgt])
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return []
     ranges = []
@@ -456,11 +483,17 @@ def reedit_line_stats(worktree: str, prev_ref: str, cur_ref: str, base_commit: s
         cur_sha = _git(worktree, ["rev-parse", cur_ref]).strip()
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return dict(blank)
-    modified = []
+    modified = []   # (cur_path, prev_path); prev_path differs from cur_path only for a rename (R)
     for line in ns.splitlines():
         parts = line.split("\t")
-        if len(parts) >= 2 and not parts[0].startswith("A") and match(parts[-1]):
-            modified.append(parts[-1])
+        if len(parts) < 2 or parts[0].startswith("A"):
+            continue
+        if parts[0].startswith("R") and len(parts) >= 3:
+            prev_path, cur_path = parts[1], parts[2]
+        else:
+            prev_path = cur_path = parts[-1]
+        if match(cur_path):
+            modified.append((cur_path, prev_path))
     if not modified:
         return {**blank, "reedit_lines_removed": 0, "reedit_lines_settled": 0,
                 "reedit_lines_touched": 0}
@@ -472,13 +505,13 @@ def reedit_line_stats(worktree: str, prev_ref: str, cur_ref: str, base_commit: s
     scaled = bool(cps) and cur_cp is not None
     removed = settled = touched = 0
     ages: list[int] = []
-    for path in modified:
-        ranges = _prev_changed_ranges(worktree, prev_ref, cur_ref, path)
-        for a, r in _numstat_pairs(worktree, prev_ref, cur_ref, path):
+    for cur_path, prev_path in modified:
+        ranges = _prev_changed_ranges(worktree, prev_ref, cur_ref, cur_path, prev_path)
+        for a, r in _numstat_pairs(worktree, prev_ref, cur_ref, cur_path, prev_path):
             touched += a + r
         if not ranges:
             continue
-        blame = _blame_line_commits(worktree, prev_ref, path)
+        blame = _blame_line_commits(worktree, prev_ref, prev_path)   # blame the OLD path at prev_ref
         for start, end in ranges:
             for ln in range(start, end + 1):
                 removed += 1
@@ -504,10 +537,14 @@ def reedit_line_stats(worktree: str, prev_ref: str, cur_ref: str, base_commit: s
             "reedit_age_max": (max(ages) if ages else None)}
 
 
-def _numstat_pairs(worktree: str, prev_ref: str, cur_ref: str, path: str):
-    """(added, removed) line counts for one path in this diff; [] for a binary file."""
+def _numstat_pairs(worktree: str, prev_ref: str, cur_ref: str, path: str, prev_path: str | None = None):
+    """(added, removed) line counts for one path in this diff; [] for a binary file. For a renamed
+    file (prev_path != path) the two blobs are diffed directly so the count is the real content
+    delta, not the whole file counted as added."""
+    tgt = ([f"{prev_ref}:{prev_path}", f"{cur_ref}:{path}"] if prev_path and prev_path != path
+           else [prev_ref, cur_ref, "--", path])
     try:
-        out = _git(worktree, ["diff", "--numstat", prev_ref, cur_ref, "--", path])
+        out = _git(worktree, ["diff", "--numstat", *tgt])
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return []
     pairs = []

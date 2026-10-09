@@ -49,7 +49,7 @@ CSV_FIELDS = [
     "num_turns", "duration_ms", "duration_api_ms", "build_ok", "gate_invalid",
     "total_selected", "strict_pass", "iso_pass", "core_pass", "core_p", "core_t",
     "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
-    "normalized_change", "regressions", "true_regressions",
+    "normalized_change", "regressions", "true_regressions", "unsatisfied_replacement",
     "anchor_drift", "behaviour_loss", "seed_path",
     "probe_recall", "probe_cost_usd", "probe_input_tokens", "probe_cache_read_tokens",
     "pinned_touched", "acceptance_touched", "notes",
@@ -164,8 +164,12 @@ def make_worktree(app_cfg: dict, work_root: str, condition: str, chain: int,
         else:
             os.makedirs(os.path.dirname(wt), exist_ok=True)
             git(["-C", repo, "worktree", "add", wt, branch])
-        # Drop anything the aborted run left staged/half-mirrored; committed work is kept.
-        git(["-C", wt, "reset", "--hard", "HEAD"])
+        # Reset to the last COMPLETED checkpoint boundary (its 'cpNN reset' commit), not HEAD —
+        # a crash between COMMIT 1 (cpNN agent) and COMMIT 2 (cpNN reset) leaves HEAD on an orphan
+        # agent/refactor commit, and keeping it would make the redo's base that orphan. Falls back
+        # to base_ref when nothing has completed yet. Discards the orphan + any staged/half-mirror.
+        reset_to = _last_reset_sha(wt) or app_cfg["base_ref"]
+        git(["-C", wt, "reset", "--hard", reset_to])
         subprocess.run(["git", "-C", wt, "clean", "-fd"], capture_output=True, text=True)
         return wt, branch
     if os.path.isdir(wt):
@@ -190,6 +194,18 @@ def completed_checkpoints(wt: str) -> int:
             (_RESET_COMMIT.match(line) for line in git(["-C", wt, "log", "--format=%s"]).splitlines())
             if m]
     return max(done) if done else 0
+
+
+def _last_reset_sha(wt: str) -> str | None:
+    """SHA of the most recent 'cpNN reset' commit (the last fully-completed checkpoint boundary),
+    or None if the branch has none yet. Used on resume to discard any orphan 'cpNN agent'/refactor
+    commits a crash left between COMMIT 1 and COMMIT 2 — otherwise the redo would rebuild the next
+    checkpoint on top of its own already-implemented code and record a near-empty, corrupt delta."""
+    for line in git(["-C", wt, "log", "--format=%H %s"]).splitlines():
+        sha, _, subj = line.partition(" ")
+        if _RESET_COMMIT.match(subj):
+            return sha
+    return None
 
 
 def prior_state_from_capture(wt: str, k: int) -> tuple[set[str], set[str] | None]:
@@ -426,19 +442,29 @@ def _layer_src_dirs(cfg: dict) -> list[str]:
 
 
 def _confine_config(cfg: dict, sandbox: str) -> dict | None:
-    """Landlock confine dict for the agent turn, or None to run unconfined. Falls back to
-    unconfined (with a warning) if Landlock is unavailable — the mirror-based hiding of
-    prior specs is the primary blind mechanism; §15 confinement is the belt-and-braces."""
+    """Landlock confine dict for the agent turn, or None to run unconfined.
+
+    FAILS CLOSED: if confinement is enabled but Landlock is unavailable, this RAISES rather than
+    running unconfined — the sandbox mirror hides prior specs INSIDE the sandbox but does NOT stop
+    an unconfined agent reading the withheld acceptance specs / checkpoints.yaml / other chains'
+    history by absolute path, so an unconfined run silently breaks blindness. The only way to run
+    unconfined is the explicit HARNESS_NO_CONFINE escape, which now warns loudly."""
     if os.environ.get("HARNESS_NO_CONFINE"):
-        return None  # debug escape: run the agent unconfined (mirror still hides prior specs)
+        print("    [warn] HARNESS_NO_CONFINE set — agent turn runs UNCONFINED. Blindness then "
+              "relies on the sandbox mirror ONLY; absolute-path reads of withheld specs/history "
+              "are NOT blocked. Unset it for a real run.", flush=True)
+        return None  # explicit debug escape
     iso = (cfg.get("isolation") or {}).get("agent_confinement") or {}
     if not iso.get("enabled"):
         return None
     if landlock.abi_version() < 1:
-        print("    [warn] agent_confinement enabled but Landlock unavailable — running "
-              "UNCONFINED (prior specs still hidden by the sandbox mirror). §15 not enforced.",
-              flush=True)
-        return None
+        raise RuntimeError(
+            "isolation.agent_confinement.enabled, but Landlock is unavailable (abi<1): refusing "
+            "to run UNCONFINED — the sandbox mirror does not block an agent reading withheld "
+            "acceptance specs/checkpoints.yaml/other-chain history by absolute path, so an "
+            "unconfined turn would silently break the blind-agent guarantee. Run on a "
+            "Landlock-capable kernel (Linux 5.13+), or set HARNESS_NO_CONFINE to explicitly "
+            "accept an unconfined run.")
     # toolchain the agent needs to build+serve+test: JRE/node/opt under /usr,/opt (in the
     # default allowlist); add caches + maven/npm/playwright dirs writable.
     home = os.path.expanduser("~")
@@ -680,7 +706,16 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         "base_ref": app_cfg["base_ref"], "base_commit": base_commit, "app_repo": app_cfg["repo"],
         # The stack's own origin, so a chain branch can be tied to the remote it lives on.
         "app_origin": app_cfg.get("origin"), "stack": os.path.basename(app_cfg["repo"]),
-        "resumed_at": lo if resume else None})
+        "resumed_at": lo if resume else None,
+        # Blindness audit trail, committed with the run manifest: whether confinement was requested
+        # and the Landlock ABI actually available on the host, so a run's blindness is provable
+        # post-hoc rather than assumed.
+        "confinement": {
+            "requested": bool(((cfg.get("isolation") or {}).get("agent_confinement") or {})
+                              .get("enabled")) and not os.environ.get("HARNESS_NO_CONFINE"),
+            "landlock_abi": landlock.abi_version(),
+            "no_confine_env": bool(os.environ.get("HARNESS_NO_CONFINE")),
+        }})
     if not resume:
         commit_run_manifest(wt, branch, run_id, condition, chain, prov, cfg.get("_snapshot"))
 

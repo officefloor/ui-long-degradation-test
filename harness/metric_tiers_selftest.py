@@ -18,18 +18,20 @@ def _check():
 
     # Concrete, load-bearing classifications (the point of the policy).
     universal = [
-        "strict_pass", "true_regressions", "normalized_change", "cost_usd", "num_turns",
+        "strict_pass", "iso_pass", "true_regressions", "normalized_change", "cost_usd", "num_turns",
         "probe_recall",
         "frontend_hot_share", "backend_hot_share",
-        "frontend_reedit_lines_rate", "backend_reedit_age_mean", "frontend_reedit_rate",
+        "frontend_reedit_lines_rate", "backend_reedit_age_mean",
         "frontend_dup_density", "backend_dup_density", "frontend_dup_cross_area_pairs",
-        "frontend_impact_files_changed",
+        "frontend_impact_files_changed", "frontend_impact_new_files",
     ]
     conditional = [
         "frontend_erosion", "backend_erosion",
         "frontend_wmc_max", "frontend_wmc_handler", "backend_erosion_handler",
         "frontend_existing_fns_modified",
         "frontend_impact_composite", "frontend_impact_mutation", "frontend_impact_addition",
+        "frontend_impact_renames",                              # Lizard+Jaccard function count
+        "frontend_reedit_rate", "backend_reedit_body_lines",    # reedit_stats: Lizard function overlap
         "frontend_fnpkg_count", "frontend_fnpkg_nloc_max",
         "backend_node_cc_median", "backend_node_exclusive_share", "backend_config_loc",
         "frontend_boundary", "backend_boundary",
@@ -46,6 +48,17 @@ def _check():
     assert not (mt.UNIVERSAL_BASES & mt.CONDITIONAL_BASES), "a base is in both tier sets"
     for b in mt.UNIVERSAL_BASES:
         assert not b.startswith(mt._CONDITIONAL_PREFIXES), f"universal base hits a conditional family: {b}"
+
+    # Every run-level (non-structural) universal base must be a REAL emitted column — this is the
+    # check that would have caught `selected_pass`/`intended_regressions` (which are not emitted;
+    # the column is `iso_pass`, and there is no intended_regressions column). Structural bases
+    # (hot_/reedit_/impact_/dup_) are layer-prefixed metrics added by metrics.compute_all, not in
+    # CSV_FIELDS, so they are exempt from this particular check.
+    from .run_experiment import CSV_FIELDS
+    _struct = ("hot_", "reedit_", "impact_", "dup_")
+    for b in mt.UNIVERSAL_BASES:
+        if not b.startswith(_struct):
+            assert b in CSV_FIELDS, f"universal base {b!r} is not an emitted CSV column"
 
     # Every metric named in the live declarations must classify (fail-safe: unknown -> conditional,
     # so this cannot raise, but it exercises the whole surface and catches an empty import).

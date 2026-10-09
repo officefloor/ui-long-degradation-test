@@ -112,9 +112,10 @@ def check_environment(cfg: dict, condition: str | None = None,
             remedy = f"{pm} {pkg}" if pm else f"install {pkg} with your package manager"
             out.append(Finding(cmd, "env", sev, MISSING, consequence=why, remedy=remedy))
 
-    # Landlock is a KERNEL feature, not a package. Absence is not fatal — the agent turn falls
-    # back to unconfined and the sandbox mirror still hides prior specs — but §15 is then not
-    # enforced for the WHOLE run, which deserves saying once rather than per checkpoint.
+    # Landlock is a KERNEL feature, not a package. When agent_confinement is enabled its absence
+    # is BLOCKING: the run fails closed rather than unconfined, because the sandbox mirror does not
+    # stop an unconfined agent reading withheld specs/history by absolute path (it would silently
+    # break the blind-agent guarantee, §15). HARNESS_NO_CONFINE is the explicit, loud opt-out.
     enabled = ((cfg.get("isolation") or {}).get("agent_confinement") or {}).get("enabled")
     if enabled and not os.environ.get("HARNESS_NO_CONFINE"):
         try:
@@ -126,10 +127,11 @@ def check_environment(cfg: dict, condition: str | None = None,
             out.append(Finding("landlock", "env", DEGRADES, OK,
                                detail=f"ABI {abi}", consequence="agent turns are confined (§15)"))
         else:
-            out.append(Finding("landlock", "env", DEGRADES, MISSING,
-                               consequence="agent turns run UNCONFINED; §15 not enforced",
-                               remedy="needs Linux 5.13+ with Landlock enabled; it is a kernel "
-                                      "feature, not a package"))
+            out.append(Finding("landlock", "env", BLOCKING, MISSING,
+                               consequence="agent_confinement enabled but Landlock unavailable; "
+                                           "the run FAILS CLOSED (refuses to run unconfined)",
+                               remedy="run on Linux 5.13+ with Landlock enabled, or set "
+                                      "HARNESS_NO_CONFINE to explicitly accept an unconfined run"))
 
     # The agent turn itself. Blocking for a run; merely "not yet" during setup.
     token_sev = DEGRADES if phase == "setup" else BLOCKING

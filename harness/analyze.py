@@ -46,6 +46,9 @@ except Exception:
 # evolve/<run_id>/<condition>/chain<n>  (UI arm: no per-arm segment)
 _BRANCH_RE = re.compile(r"^evolve/([^/]+)/([^/]+)/chain(\d+)$")
 MIN_EVENTS = 5
+LEVEL_MATERIAL_REL = 0.10   # a between-condition LEVEL gap below this fraction of the larger
+                            # magnitude is not a direction (mirrors overview.MATERIAL_REL) — without
+                            # it any nonzero gap flags a counter-signal (e.g. cost_usd by two cents).
 
 
 def _f(x):
@@ -136,7 +139,11 @@ def _outcome_from_capture(rec: dict) -> correctness.TestOutcome:
     mutated = {int(m) for m in (rec.get("mutates") or [])}
     for d in detail:
         if not d.get("passed", True) and d.get("test_id"):
-            outcome.reasons[d["test_id"]] = correctness._classify(d, mutated)
+            # Classify the REAL reason (no `mutated` excuse): the reason breakdown is only read for
+            # PRIOR-passing failures, which are true regressions and must get anchor_drift/
+            # behaviour_loss/seed_path — never "intended", which would drop them (outcome_row counts
+            # the intended-change display separately via the mutates set).
+            outcome.reasons[d["test_id"]] = correctness._classify(d, set())
     return outcome
 
 
@@ -333,6 +340,9 @@ def bootstrap_slope(chain_series, n_boot: int = 2000, seed: int = 0):
     if not chains:
         return (math.nan, math.nan, math.nan)
     point = _mean_curve_slope(chain_series, chains)
+    if len(chains) < 2:
+        # One chain resamples to itself every time → a zero-width CI that would falsely "exclude 0".
+        return (point, math.nan, math.nan)
     rng = np.random.default_rng(seed)
     slopes = []
     for _ in range(n_boot):
@@ -353,6 +363,9 @@ def bootstrap_diff_slope(rows_a: list[dict], rows_b: list[dict], field: str,
         return (math.nan, math.nan, math.nan)
     ka, kb = list(sa), list(sb)
     point = _mean_curve_slope(sa, ka) - _mean_curve_slope(sb, kb)
+    if len(ka) < 2 or len(kb) < 2:
+        # A side with one chain resamples to itself → degenerate CI; report the point, CI n/a.
+        return (point, math.nan, math.nan)
     rng = np.random.default_rng(seed)
     diffs = []
     for _ in range(n_boot):
@@ -456,7 +469,7 @@ def zero_regression_rate(rows: list[dict], field: str = "regressions") -> float:
     for r in scored(rows):
         c = int(r["chain"])
         seen.add(c)
-        per_chain[c] += int(_f(r.get(field)) or 0)
+        per_chain[c] += _i0(r.get(field))
     if not seen:
         return math.nan
     return sum(1 for c in seen if per_chain[c] == 0) / len(seen)
@@ -897,8 +910,8 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
                      f" {tot_n:.0f} of {tot_d:.0f} lines)")
 
         L += ["", "cost/effort:",
-              f"  - total agent cost: ${sum(_f(r.get('cost_usd')) or 0 for r in cr):.4f}",
-              f"  - total turns: {int(sum(_f(r.get('num_turns')) or 0 for r in cr))}", ""]
+              f"  - total agent cost: ${sum(_num(r.get('cost_usd')) for r in cr):.4f}",
+              f"  - total turns: {int(sum(_num(r.get('num_turns')) for r in cr))}", ""]
 
     conds = sorted(by_cond)
     if len(conds) >= 2:
@@ -930,14 +943,21 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
                 mark = ""
             else:
                 dim = spec[1]
+                # LEVEL observation, materiality-gated: a gap below LEVEL_MATERIAL_REL of the larger
+                # magnitude is NOT a direction (untested here — no cross-condition significance test
+                # on levels), so a trivial difference is not flagged as a counter-signal.
+                lvl = 0
+                if ldiff and la is not None and lb is not None:
+                    scale = max(abs(la), abs(lb))
+                    if scale > 0 and abs(ldiff) / scale >= LEVEL_MATERIAL_REL:
+                        lvl = 1 if ldiff > 0 else -1
                 if dim == "slope":
                     obs = 0 if (excl != "yes" or m == 0) else (1 if m > 0 else -1)
                 elif dim == "level":
-                    obs = 0 if not ldiff else (1 if ldiff > 0 else -1)
+                    obs = lvl
                 else:
                     o1 = 0 if (excl != "yes" or m == 0) else (1 if m > 0 else -1)
-                    o2 = 0 if not ldiff else (1 if ldiff > 0 else -1)
-                    obs = o1 if o1 == o2 else (o1 or o2)
+                    obs = o1 if o1 == lvl else (o1 or lvl)
                 mark = expectation_mark(spec, obs)
                 if mark:
                     counter.append((field, spec, m, ldiff, mark))

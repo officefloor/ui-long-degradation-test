@@ -6,8 +6,10 @@ technologies, and treating them alike is a construct-validity error:
   UNIVERSAL  — derived from the commit history/diffs or from the run itself, with the SAME
                definition for every arm and layer regardless of language or architecture:
                correctness and cost, the comprehension probe, and the git-only structural
-               measures (hot_* churn concentration, reedit_* settled-code destruction,
-               file-level impact counts, and jscpd dup_* which reads any text incl. Thymeleaf).
+               measures (hot_* churn concentration, the parser-free reedit_LINE_* settled-code
+               destruction, file-level impact counts, and jscpd dup_* which reads any text incl.
+               Thymeleaf). The function-scoped reedit_rate/body/prior and impact_renames are
+               Lizard-derived, hence CONDITIONAL, not universal.
                "A file reopened 10 times" or "80 settled lines deleted" means the same thing in
                React, Angular, htmx HTML, OfficeFloor YAML and Spring Java — so these can carry a
                cross-arm RANKING.
@@ -38,8 +40,8 @@ _LAYER_PREFIXES = ("frontend_", "backend_")
 
 # Bases that ARE cross-arm comparable. Everything not here is conditional (see module docstring).
 UNIVERSAL_BASES: frozenset[str] = frozenset({
-    # --- run outcome: scored from capture, not from code structure ---
-    "strict_pass", "selected_pass", "regressions", "true_regressions", "intended_regressions",
+    # --- run outcome: scored from capture, not from code structure (emitted column names) ---
+    "strict_pass", "iso_pass", "regressions", "true_regressions",
     "anchor_drift", "behaviour_loss", "seed_path", "normalized_change",
     "unsatisfied_replacement",
     # --- cost / effort ---
@@ -47,11 +49,13 @@ UNIVERSAL_BASES: frozenset[str] = frozenset({
     # --- comprehension probe (same question put to every arm) ---
     "probe_recall", "probe_cost_usd", "probe_input_tokens", "probe_cache_read_tokens",
     # --- git-only structural: no parser, so comparable across technologies (metrics.py) ---
+    # NB: only the reedit_LINE family is parser-free; reedit_rate/body/prior come from reedit_stats
+    # (Lizard function overlap) and are CONDITIONAL. impact_renames is a Lizard+Jaccard function
+    # count and is CONDITIONAL; only the file-level impact counts are universal.
     "hot_share", "hot_top_edits",
-    "reedit_rate", "reedit_body_lines", "reedit_prior_lines",
     "reedit_lines_rate", "reedit_lines_removed", "reedit_lines_settled", "reedit_lines_touched",
     "reedit_age_mean", "reedit_age_max",
-    "impact_files_changed", "impact_new_files", "impact_renames",
+    "impact_files_changed", "impact_new_files",
     # --- duplication: jscpd reads any text (every arm declares a jscpd_format, incl. html) ---
     "dup_density", "dup_evolved_density", "dup_cross_area_pairs",
 })
@@ -65,6 +69,8 @@ CONDITIONAL_BASES: frozenset[str] = frozenset({
     "impact_composite", "impact_mutation", "impact_addition", "impact_new_fns", "impact_mut_fns",
     "wmc_handler", "erosion_handler", "entry_cc", "existing_fns_modified",
     "config_loc", "boundary", "verbosity",
+    "reedit_rate", "reedit_body_lines", "reedit_prior_lines",  # reedit_stats: Lizard function overlap
+    "impact_renames",                                          # Lizard+Jaccard function count
 })
 _CONDITIONAL_PREFIXES = ("pmd_", "ck_", "wmcdist_", "node_", "fnpkg_")
 
