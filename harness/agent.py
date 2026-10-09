@@ -6,7 +6,11 @@
 #   Landlock confinement. Language/paradigm-agnostic. Expected to stay verbatim.
 #
 # This is a copy, not a shared library (see DESIGN.md §13). To pull upstream
-# fixes: diff against the sibling repo at the SHA above. When a 3rd arm appears,
+# fixes: diff against the sibling repo at the SHA above.
+#
+# LOCAL CHANGE (not yet upstream): `strip_harness_python_env` keeps the harness's
+#   own venv out of the agent turn. Port it back to the sibling repo — the bug it
+#   fixes is in the vendored original too. When a 3rd arm appears,
 # extract these into a shared `long-degradation-core` package.
 # ---------------------------------------------------------------------------
 """Wrapper around headless Claude Code (`claude -p`), streaming its output.
@@ -83,6 +87,79 @@ def _seed_clean_config_dir() -> Optional[str]:
     shutil.copy2(src, dst)
     os.chmod(dst, 0o600)
     return cfg
+
+
+# The harness's own Python environment must not reach the agent turn. See
+# `strip_harness_python_env`.
+_HARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _under(path: str, root: str) -> bool:
+    """Is `path` inside `root`? Resolved, and separator-aware (so `/a/venv-x`
+    is not treated as inside `/a/venv`)."""
+    if not path:
+        return False
+    try:
+        path = os.path.realpath(path)
+        root = os.path.realpath(root)
+    except OSError:
+        return False
+    return path == root or path.startswith(root + os.sep)
+
+
+def harness_python_env_leaks(env: Optional[dict] = None) -> list[str]:
+    """The env var names in `env` that `strip_harness_python_env` would change.
+    Single source of truth so the run and the captured agent-env profile can't
+    drift (capture.agent_env records this)."""
+    env = os.environ if env is None else env
+    names = []
+    if env.get("VIRTUAL_ENV"):
+        names.append("VIRTUAL_ENV")
+    for var in ("PATH", "PYTHONPATH"):
+        val = env.get(var) or ""
+        if any(_under(e, _HARNESS_ROOT) for e in val.split(os.pathsep) if e):
+            names.append(var)
+    if _under(env.get("PYTHONHOME", ""), _HARNESS_ROOT):
+        names.append("PYTHONHOME")
+    return names
+
+
+def strip_harness_python_env(env: dict) -> dict:
+    """Remove the harness's own Python environment from the agent's env, in place.
+
+    The driver may be launched from an ACTIVATED venv, which puts VIRTUAL_ENV and
+    `<harness>/.venv/bin` (first) into the environment that `os.environ.copy()`
+    then hands the agent. Inside the confined turn that makes `python` resolve to
+    the harness venv's interpreter, whose `site` module must read
+    `<harness>/.venv/pyvenv.cfg` — withheld material, so Landlock denies it and
+    EVERY `python` call the agent makes dies with
+    `PermissionError: [Errno 13] ... pyvenv.cfg`.
+
+    Confinement is doing its job there; the defect is the env pointing the agent at
+    an interpreter it is forbidden to load. Two reasons to strip it:
+
+      * COMPARABILITY. Without this, launch style (`source .venv/bin/activate`
+        vs calling `.venv/bin/python` by path) silently decides whether the agent
+        can run python at all — an uncontrolled difference between runs that are
+        meant to be compared arm to arm.
+      * BLINDNESS. VIRTUAL_ENV hands a blind agent the harness repo path. Contents
+        stay sealed either way, but the path should not be in view.
+
+    Only harness-owned entries go: the system PATH (node, npm, java, `claude`) is
+    untouched, so the toolchain the agent needs is unaffected."""
+    env.pop("VIRTUAL_ENV", None)
+    for var in ("PATH", "PYTHONPATH"):
+        val = env.get(var)
+        if not val:
+            continue
+        kept = [e for e in val.split(os.pathsep) if e and not _under(e, _HARNESS_ROOT)]
+        if kept:
+            env[var] = os.pathsep.join(kept)
+        else:
+            env.pop(var, None)
+    if _under(env.get("PYTHONHOME", ""), _HARNESS_ROOT):
+        env.pop("PYTHONHOME", None)
+    return env
 
 
 def invocation_flags(model: str, allowed_tools: Optional[str] = None) -> list[str]:
@@ -263,7 +340,7 @@ def run_agent(prompt: str, cwd: str, model: str, timeout: int = 3600,
     # so nothing (memory, history, session state) leaks across checkpoints, chains
     # or arms. Removed in `finally`; the real ~/.claude is untouched.
     cfg_dir = _seed_clean_config_dir()
-    child_env = os.environ.copy()
+    child_env = strip_harness_python_env(os.environ.copy())
     if cfg_dir:
         child_env["CLAUDE_CONFIG_DIR"] = cfg_dir
 

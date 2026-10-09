@@ -135,6 +135,11 @@ def agent_env(cfg: dict) -> dict:
         "mcp_servers": mcp,                  # server NAMES only (no configs/tokens)
         "env_var_names": sorted(k for k in os.environ
                                 if k.startswith(("CLAUDE", "ANTHROPIC"))),  # names, no values
+        # Harness-owned Python env stripped from the agent turn (agent.py). NAMES
+        # only. Recorded because it is a control: an inherited harness venv makes
+        # `python` unusable inside the confined turn, so a run where this was NOT
+        # applied is not comparable with one where it was.
+        "python_env_stripped": agent.harness_python_env_leaks(),
     }
 
 
