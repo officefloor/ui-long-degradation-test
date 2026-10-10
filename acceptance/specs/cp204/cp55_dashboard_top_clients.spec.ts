@@ -6,6 +6,7 @@ import { resetAndSeed } from '../support/seed';
 test.describe('dashboard top clients', () => {
   test('ranks clients by outstanding, shown in their currency', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
+      fxRates: [{ currency: 'EUR', date: '2026-02-01', rate: 1.10 }],
       clients: [
         { id: 1, name: 'Acme Ltd', email: 'a@ex.example', currency: 'EUR' },
         { id: 2, name: 'Globex', email: 'b@ex.example', currency: 'EUR' },
@@ -17,9 +18,9 @@ test.describe('dashboard top clients', () => {
         { id: 3, name: 'C', clientId: 3 },
       ],
       invoices: [
-        { id: 1, projectId: 1, status: 'SENT', lineItems: [{ id: 1, description: 'x', qty: 1, unitPrice: 100 }] },
-        { id: 2, projectId: 2, status: 'SENT', lineItems: [{ id: 2, description: 'y', qty: 1, unitPrice: 300 }] },
-        { id: 3, projectId: 3, status: 'SENT', lineItems: [{ id: 3, description: 'z', qty: 1, unitPrice: 200 }] },
+        { id: 1, projectId: 1, status: 'SENT', issueDate: '2026-02-01', lineItems: [{ id: 1, description: 'x', qty: 1, unitPrice: 100 }] },
+        { id: 2, projectId: 2, status: 'SENT', issueDate: '2026-02-01', lineItems: [{ id: 2, description: 'y', qty: 1, unitPrice: 300 }] },
+        { id: 3, projectId: 3, status: 'SENT', issueDate: '2026-02-01', lineItems: [{ id: 3, description: 'z', qty: 1, unitPrice: 200 }] },
       ],
     });
     await page.goto('/');
