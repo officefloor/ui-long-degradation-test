@@ -136,7 +136,13 @@ fi
 # than metrics.py is not comparing like with like, and the pinned version exists specifically
 # because 1.24.x scores any change to an @Entity/@Table class as 0 (see requirements.txt and
 # harness/parser_selftest.py, which checks BOTH stacks and fails the run closed).
-LIZARD_PIN="$(grep -iE '^lizard[=<>~]' "$HARNESS_DIR/requirements.txt" || echo lizard)"
+# Take the requirement ONLY, not the trailing comment: pip parses a requirements FILE
+# (comments and all) but rejects a comment inside a command-line argument. The sibling repo
+# has the same extraction and gets away with it purely because its lizard line carries no
+# inline comment -- port this fix back.
+LIZARD_PIN="$(grep -iE '^lizard[=<>~]' "$HARNESS_DIR/requirements.txt" \
+              | head -1 | sed 's/[[:space:]]*#.*$//' | tr -d '[:space:]')"
+[ -n "$LIZARD_PIN" ] || LIZARD_PIN=lizard
 if [ -x "$IG_SRC/.venv/bin/pip" ]; then
   echo "   pinning $LIZARD_PIN in the impact-gate venv ($IG_SRC/.venv)"
   "$IG_SRC/.venv/bin/pip" install --quiet "$LIZARD_PIN" && echo "   pinned" \
