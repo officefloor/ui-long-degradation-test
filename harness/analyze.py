@@ -569,6 +569,269 @@ def plot_metric(groups: dict, field: str, title: str, out_path: str) -> None:
     plt.close()
 
 
+# Trajectory plots ONLY — kept out of PLOT_FIELDS because that list also drives the summary's
+# slope table and the between-condition comparison, and ~100 more rows there would bury the
+# headline. These are the REST arm's figure set, mapped onto the per-layer columns this harness
+# already records. A field a layer does not compute (CK/PMD/Halstead/MI are Java-only) yields no
+# series, and plot_metric then writes no file rather than an empty frame.
+_LAYER_NAME = {"frontend": "Front-end", "backend": "Backend"}
+_EXTRA_PLOT_BASES = [
+    # Amount — how much code and complexity exists.
+    ("total_cc", "total cyclomatic complexity"),
+    ("total_files", "files"),
+    ("total_fns", "functions"),
+    ("total_dirs", "directories"),
+    ("source_loc", "source lines of code"),
+    ("evolved_loc", "lines in the evolving footprint"),
+    ("files_created", "files created per checkpoint"),
+    ("files_modified", "files modified per checkpoint"),
+    ("dirs_touched", "directories touched per checkpoint"),
+    # Where the complexity sits.
+    ("wmc_max", "WMC of the heaviest unit"),
+    ("wmc_median", "median WMC per unit"),
+    ("hotspot_cc", "CC of the hottest function"),
+    ("hotspot_nloc", "NLOC of the hottest function"),
+    ("entry_cc", "CC of the entry function"),
+    ("over_threshold", "functions over the CC threshold"),
+    ("ccdist_file_gini", "Gini of CC across files"),
+    ("ccdist_file_hhi", "HHI of CC across files"),
+    ("ccdist_file_hnorm", "normalised entropy of CC across files"),
+    ("ccdist_file_top1", "share of CC in the heaviest file"),
+    ("ccdist_file_top5", "share of CC in the heaviest 5 files"),
+    ("ccdist_fn_gini", "Gini of CC across functions"),
+    ("ccdist_fn_hhi", "HHI of CC across functions"),
+    ("ccdist_dir_hhi", "HHI of CC across directories"),
+    ("cogdist_fn_hhi", "HHI of cognitive complexity across functions"),
+    ("wmcdist_class_hhi", "HHI of WMC across classes"),
+    ("voldist_file_hhi", "HHI of Halstead volume across files"),
+    # Where the change lands.
+    ("change_entropy_norm", "normalised entropy of change (per checkpoint)"),
+    ("change_top1", "share of change in one file (per checkpoint)"),
+    ("cum_change_entropy_norm", "normalised entropy of cumulative change"),
+    ("cum_change_files", "files ever changed"),
+    ("cum_change_hhi", "HHI of cumulative change"),
+    ("cum_change_top1", "share of cumulative change in one file"),
+    ("cum_change_top5", "share of cumulative change in 5 files"),
+    ("reedit_rate", "re-edit rate (share of changed lines that were settled)"),
+    ("impact_mutation", "impact: mutation component"),
+    ("impact_addition", "impact: addition component"),
+    # Duplication detail.
+    ("dup_cross_file_ratio", "share of clone pairs spanning files"),
+    ("dup_cross_package_pairs", "clone pairs spanning packages"),
+    ("dup_largest_lines", "largest clone (lines)"),
+    # Chidamber-Kemerer (Java).
+    ("ck_wmc_total", "CK WMC total"),
+    ("ck_cbo_mean", "CK coupling between objects (mean)"),
+    ("ck_cbo_max", "CK coupling between objects (max)"),
+    ("ck_rfc_mean", "CK response for class (mean)"),
+    ("ck_rfc_max", "CK response for class (max)"),
+    ("ck_lcom_mean", "CK LCOM (mean)"),
+    ("ck_lcom_max", "CK LCOM (max)"),
+    ("ck_lcom_star_mean", "CK LCOM* (mean)"),
+    ("ck_tcc_mean", "CK tight class cohesion (mean)"),
+    ("ck_lcc_mean", "CK loose class cohesion (mean)"),
+    ("ck_dit_mean", "CK depth of inheritance (mean)"),
+    ("ck_fanout_mean", "CK fan-out (mean)"),
+    ("ck_fanin_max", "CK fan-in (max)"),
+    # PMD (Java).
+    ("pmd_god_classes", "PMD god classes"),
+    ("pmd_data_classes", "PMD data classes"),
+    ("pmd_demeter_violations", "PMD Law of Demeter violations"),
+    ("pmd_cognitive_total", "PMD cognitive complexity (total)"),
+    ("pmd_cognitive_max", "PMD cognitive complexity (max)"),
+    ("pmd_npath_total", "PMD NPath (total)"),
+    ("pmd_npath_max", "PMD NPath (max)"),
+    # Maintainability.
+    ("mi_mean", "maintainability index (mean)"),
+    ("mi_min", "maintainability index (min)"),
+    ("halstead_volume", "Halstead volume"),
+    ("halstead_effort", "Halstead effort"),
+    # Front-end additive units.
+    ("fnpkg_cc_max", "most complex additive unit (CC)"),
+    ("fnpkg_nloc_avg", "mean additive unit size (NLOC)"),
+]
+EXTRA_PLOT_FIELDS = (
+    [(f"{layer}_{base}", f"{_LAYER_NAME[layer]} {label}")
+     for layer in ("frontend", "backend") for base, label in _EXTRA_PLOT_BASES]
+    + [("num_turns", "Agent turns per checkpoint"),
+       ("output_tokens", "Agent output tokens per checkpoint"),
+       ("duration_api_ms", "Agent API time per checkpoint (ms)")])
+
+# Tip values per chain, one panel per field (see plot_chain_strip).
+STRIP_FIELDS = ["backend_ccdist_file_top5", "backend_cum_change_top5", "backend_wmc_handler",
+                "frontend_ccdist_file_top5", "frontend_cum_change_top5", "frontend_wmc_handler"]
+
+
+def _mean_series(rows: list[dict], field: str):
+    acc = _bucket_by_checkpoint(series_by_chain(rows, field))
+    ks = sorted(acc)
+    return ks, [float(np.mean(acc[k])) for k in ks]
+
+
+def _cond_colors(groups: dict) -> dict:
+    # The default colour cycle in condition order, so a condition keeps the colour plot_metric
+    # gives it.
+    cyc = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    return {c: cyc[i % len(cyc)] for i, c in enumerate(sorted(groups))}
+
+
+def _despine(ax) -> None:
+    ax.grid(True, alpha=0.18, linewidth=0.6)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+
+
+def plot_conservation(groups: dict, layer: str, out_path: str) -> None:
+    """Amount against placement for one layer: is complexity conserved while its placement
+    diverges? Two stacked panels sharing x, never a dual axis — the quantities have different
+    units, and two y-scales on one frame invite the eye to read a relationship from scaling."""
+    if not HAVE_MPL:
+        return
+    top_choices = [(f"{layer}_total_cc", "AMOUNT — total cyclomatic complexity"),
+                   (f"{layer}_source_loc", "AMOUNT — source lines (fallback: total_cc absent)")]
+    bottom_choices = [(f"{layer}_ccdist_file_top5",
+                       "PLACEMENT — share of all CC in the heaviest 5 files"),
+                      (f"{layer}_cum_change_top5", "PLACEMENT — share of all change in 5 files")]
+
+    def _pick(choices):
+        for field, label in choices:
+            if any(series_by_chain(r, field) for r in groups.values()):
+                return field, label
+        return None, None
+    top, top_label = _pick(top_choices)
+    bottom, bottom_label = _pick(bottom_choices)
+    if not top or not bottom:
+        return
+    colors = _cond_colors(groups)
+    fig, axes = plt.subplots(2, 1, figsize=(7.2, 6.4), sharex=True)
+    for ax, field, label in ((axes[0], top, top_label), (axes[1], bottom, bottom_label)):
+        for cond, rows in sorted(groups.items()):
+            ks, mean = _mean_series(rows, field)
+            if not ks:
+                continue
+            ax.plot(ks, mean, linewidth=2, color=colors[cond], label=cond)
+            if len(ks) > 1:
+                ax.annotate(f"{mean[-1]:.4g}", (ks[-1], mean[-1]), textcoords="offset points",
+                            xytext=(4, 0), fontsize=8, color="#52514e", va="center")
+        ax.set_title(label, fontsize=10, loc="left")
+        ax.set_ylabel(field, fontsize=9)
+        _despine(ax)
+    axes[1].set_xlabel("checkpoint")
+    axes[0].legend(fontsize=8, frameon=False)
+    fig.suptitle(f"{_LAYER_NAME[layer]}: complexity amount vs placement", fontsize=12)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=130)
+    plt.close(fig)
+
+
+def plot_lorenz(groups: dict, layer: str, out_path: str) -> None:
+    """Lorenz curve of CC across files at the chain tips — how to SHOW a Gini. Each
+    condition's curve is the mean of its chains' tip curves; the diagonal is equality."""
+    if not HAVE_MPL:
+        return
+    field = f"{layer}_ccdist_file_lorenz"
+    colors = _cond_colors(groups)
+    fig, ax = plt.subplots(figsize=(6.2, 5.2))
+    drew = False
+    for cond, rows in sorted(groups.items()):
+        tips: dict[int, dict] = {}
+        for r in rows:
+            if r.get(field):
+                c, k = int(r["chain"]), int(r["checkpoint"])
+                if c not in tips or k > int(tips[c]["checkpoint"]):
+                    tips[c] = r
+        curves, nfiles = [], []
+        for tip in tips.values():
+            try:
+                curves.append([float(x) for x in tip[field].split(",")])
+            except (ValueError, AttributeError):
+                continue
+            nf = _f(tip.get(f"{layer}_total_files"))
+            if not math.isnan(nf):
+                nfiles.append(nf)
+        if not curves:
+            continue
+        width = min(len(c) for c in curves)
+        mean = [float(np.mean([c[i] for c in curves])) for i in range(width)]
+        xs = [i / (width - 1) for i in range(width)]
+        lbl = cond + (f" ({np.mean(nfiles):.0f} files)" if nfiles else "")
+        ax.plot(xs, mean, linewidth=2, marker="o", markersize=4, color=colors[cond], label=lbl)
+        drew = True
+    if not drew:
+        plt.close(fig)
+        return
+    ax.plot([0, 1], [0, 1], linewidth=1, linestyle="--", color="#9b9a93",
+            label="perfect equality")
+    ax.set_xlabel("cumulative share of files (least complex first)")
+    ax.set_ylabel("cumulative share of total cyclomatic complexity")
+    ax.set_title(f"{_LAYER_NAME[layer]}: Lorenz curve of CC across files (chain tips)",
+                 fontsize=11)
+    _despine(ax)
+    ax.legend(fontsize=8, frameon=False, loc="upper left")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=130)
+    plt.close(fig)
+
+
+def plot_chain_strip(groups: dict, fields: list[str], out_path: str) -> None:
+    """One dot per chain at its tip, bar = condition mean. A mean curve hides the spread
+    between chains, and with ten chains from one prompt the spread is itself a finding."""
+    if not HAVE_MPL:
+        return
+    fields = [f for f in fields if any(series_by_chain(r, f) for r in groups.values())]
+    if not fields:
+        return
+    colors = _cond_colors(groups)
+    fig, axes = plt.subplots(1, len(fields), figsize=(2.6 * len(fields) + 1.4, 4.0))
+    if len(fields) == 1:
+        axes = [axes]
+    for ax, field in zip(axes, fields):
+        labels = []
+        for i, (cond, rows) in enumerate(sorted(groups.items())):
+            tips = [pts[-1][1] for pts in series_by_chain(rows, field).values() if pts]
+            if not tips:
+                continue
+            jitter = (np.random.default_rng(0).random(len(tips)) - 0.5) * 0.18
+            ax.scatter([i + j for j in jitter], tips, s=34, alpha=0.85, color=colors[cond],
+                       edgecolors="#fcfcfb", linewidths=0.8)
+            ax.hlines(float(np.mean(tips)), i - 0.28, i + 0.28, color=colors[cond],
+                      linewidth=2)
+            labels.append((i, cond))
+        ax.set_xticks([i for i, _ in labels])
+        ax.set_xticklabels([c for _, c in labels], fontsize=8, rotation=20)
+        ax.set_title(field, fontsize=9)
+        ax.grid(True, axis="y", alpha=0.18, linewidth=0.6)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+    fig.suptitle("Per-chain values at the chain tip (bar = condition mean)", fontsize=11)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=130)
+    plt.close(fig)
+
+
+def write_plots(by_cond: dict, out_dir: str) -> list[str]:
+    """Every figure for a run; returns the names of the PNGs actually written."""
+    if not HAVE_MPL:
+        return []
+    fields = PLOT_FIELDS + EXTRA_PLOT_FIELDS
+    print(f"plotting {len(fields)} metric(s) + purpose-built figures", flush=True)
+    for i_pf, (field, label) in enumerate(fields, 1):
+        print(f"  [{i_pf}/{len(fields)}] {field}", flush=True)
+        plot_metric(by_cond, field, label, os.path.join(out_dir, f"{field}.png"))
+    # Purpose-built figures are best-effort: one failing must not lose the rest of the analysis.
+    custom = [(f"{layer}_{name}", lambda p, fn=fn, layer=layer: fn(by_cond, layer, p))
+              for layer in ("frontend", "backend")
+              for name, fn in (("conservation", plot_conservation), ("lorenz", plot_lorenz))]
+    custom.append(("chain_strip", lambda p: plot_chain_strip(by_cond, STRIP_FIELDS, p)))
+    for name, draw in custom:
+        try:
+            draw(os.path.join(out_dir, f"{name}.png"))
+        except Exception as exc:                   # noqa: BLE001 - reported, not raised
+            print(f"  ({name} figure failed: {exc})", flush=True)
+    names = [f for f, _ in fields] + [n for n, _ in custom]
+    return [n for n in names if os.path.isfile(os.path.join(out_dir, f"{n}.png"))]
+
+
 # ---------------------------------------------------------------------------
 
 
@@ -1073,11 +1336,13 @@ def main() -> int:
     by_cond: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         by_cond[group_key(r)].append(r)
-    print(f"plotting {len(PLOT_FIELDS)} metric(s)"
-          + ("" if HAVE_MPL else "  (matplotlib missing: skipped)"), flush=True)
-    for i_pf, (field, label) in enumerate(PLOT_FIELDS, 1):
-        print(f"  [{i_pf}/{len(PLOT_FIELDS)}] {field}", flush=True)
-        plot_metric(by_cond, field, label, os.path.join(out_dir, f"{field}.png"))
+    if not HAVE_MPL:
+        print("matplotlib missing: plots skipped", flush=True)
+    written = write_plots(by_cond, out_dir)
+    if written:
+        with open(summary_path, "a") as fh:
+            fh.write(f"\n## Plots ({len(written)})\n\n"
+                     + "\n".join(f"- `{n}.png`" for n in written) + "\n")
 
     print(f"wrote {summary_path}", flush=True)
     print(f"wrote {csv_path}", flush=True)
