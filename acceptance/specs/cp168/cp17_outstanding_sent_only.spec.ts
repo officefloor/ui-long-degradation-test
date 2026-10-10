@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// UPDATED outstanding spec (carries the discounted, sent-only, per-currency rule forward, adds that
-// written-off invoices are excluded from what a client owes).
+// UPDATED outstanding spec (carries the discounted, sent-only, per-currency rule and the separate
+// drafts figure forward, adds that written-off invoices are excluded from what a client owes).
 test.describe('outstanding counts sent invoices only', () => {
   test('outstanding is discounted, excludes drafts, and is per currency', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -16,6 +16,7 @@ test.describe('outstanding counts sent invoices only', () => {
     await page.goto('/');
     await page.getByTestId('nav-dashboard').click();
     await expect(page.getByTestId('dashboard-outstanding-USD')).toHaveText('$180.00');
+    await expect(page.getByTestId('dashboard-drafts-total')).toHaveText('$50.00');
   });
 
   test('excludes written-off invoices from outstanding', { tag: '@functionality' }, async ({ page }) => {

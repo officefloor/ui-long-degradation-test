@@ -36,7 +36,9 @@ checkpoints:
     type: additive
     test: acceptance/specs/cp02_client_email_validation.spec.ts
     request: |
-      Every client needs an email. Do not let me save one without a proper email address.
+      Every client needs an email. Do not let me save one without a proper email address, like
+      name@company.com. Something like name@company, with nothing after the company name, is a
+      typo and should be refused too.
 
   - id: cp03_projects
     type: additive
@@ -88,7 +90,8 @@ checkpoints:
     type: additive
     test: acceptance/specs/cp10_invoice_amount_positive.spec.ts
     request: |
-      Do not let me add an invoice for nothing. The amount has to be more than zero.
+      Do not let me add an invoice for nothing, or for a silly amount by mistake. The amount has to
+      be more than zero and no more than $100,000.
 
   - id: cp11_invoice_dates
     type: additive
@@ -136,12 +139,16 @@ checkpoints:
     test: acceptance/specs/cp17_outstanding_sent_only.spec.ts
     request: |
       The money I am owed should only count invoices I have actually sent. Do not count drafts.
+      Show me what is sitting in drafts as a separate figure, so I know what I still need to send.
 
   - id: cp18_contact_email_validation
     type: additive
     test: acceptance/specs/cp18_contact_email_validation.spec.ts
     request: |
-      Contacts need a good email too. Do not let me save one with a bad email.
+      Contacts need a good email too. Do not let me save one with a bad email. And do not let me add
+      the same person twice to one client: two of a client's contacts cannot share an email, even if
+      it is typed with different capital letters. Different clients can each have a contact with
+      the same email.
 
   - id: cp19_client_badges
     type: additive
@@ -288,7 +295,8 @@ checkpoints:
     test: acceptance/specs/cp40_thousands_separator.spec.ts
     request: |
       For bigger amounts put commas in. Show it like $1,234.50. Do this everywhere an amount shows,
-      including on the invoices and on the client statement.
+      including on the invoices and on the client statement. And let me type amounts with commas
+      too, like 1,234.50, when I enter a price.
 
   - id: cp41_invoice_cancel_audit
     type: additive
@@ -341,7 +349,8 @@ checkpoints:
     test: acceptance/specs/cp48_discount_everywhere.spec.ts
     request: |
       Make sure that discount shows up everywhere I check what is owed. That means the invoice, the
-      statement and the home screen.
+      statement and the home screen. On the client's statement also show the total discount they
+      have been given.
 
   - id: cp49_sales_tax
     type: mutative
@@ -356,6 +365,7 @@ checkpoints:
     test: acceptance/specs/cp50_combined_filter.spec.ts
     request: |
       Let me filter by two things at once. For example active projects that have a certain label.
+      Keep my filters when I open a project and come back to the list.
 
   - id: cp51_client_sort
     type: additive
@@ -535,7 +545,8 @@ checkpoints:
     area: billing
     test: acceptance/specs/cp71_tax_rounding_per_line.spec.ts
     request: |
-      Round the tax to the nearest cent on each taxable line. I do not want long trailing decimals.
+      Round the tax to the nearest cent on each taxable line, and make the invoice's tax the sum of
+      those rounded line taxes. I do not want long trailing decimals.
 
   - id: cp72_round_per_line_then_sum
     type: mutative
@@ -667,8 +678,9 @@ checkpoints:
     mutates: [21, 80]
     test: acceptance/specs/cp88_line_level_discount_in_subtotal.spec.ts
     request: |
-      When a charge line has its own discount, the invoice subtotal should already have that taken
-      off before the invoice discount and tax are worked out.
+      Let me take a flat dollar amount off a single charge line too, not only a percentage. Either
+      way, the invoice subtotal should already have the line discounts taken off before the invoice
+      discount and tax are worked out.
 
   - id: cp89_minimum_charge
     type: additive
@@ -699,7 +711,9 @@ checkpoints:
     test: acceptance/specs/cp92_adjustments_everywhere.spec.ts
     request: |
       Everywhere I check what a client owes — the invoice, their statement and the home screen — it
-      must take account of every discount and every surcharge, not just the percentage discount.
+      must take account of every discount and every surcharge, not just the percentage discount. On
+      the statement show the total discounts and the total surcharges as well, so I can see how the
+      amount owed was reached.
 
   # ---- B3 (cp93-108): credits, write-offs, deposits ---------------------------------------------
   - id: cp93_credit_note
@@ -731,7 +745,7 @@ checkpoints:
     test: acceptance/specs/cp96_status_with_credits.spec.ts
     request: |
       Work out an invoice's status from its payments AND any credit notes. If a credit clears what
-      is left, treat it as settled, not still owing.
+      is left, treat it as paid, not still owing.
 
   - id: cp97_write_off
     type: additive
@@ -921,7 +935,9 @@ checkpoints:
     request: |
       Every amount I see anywhere — on an invoice, a statement, the home screen, the aging view and
       the tax summary — must be shown with the same rounding, the same thousands separators and the
-      right currency. No screen should show money differently from another.
+      right currency. Also let me choose in my settings whether amounts show the currency symbol
+      (€1,234.50) or the currency code (EUR 1,234.50); keep the symbol unless I change it. Whatever I
+      pick must be used for every amount on every screen.
 
 # ===================================================================================================
 # ACT III (cp121-180): "money over time" — currency depth, payments & allocation, retentions,
@@ -966,8 +982,9 @@ checkpoints:
     area: billing
     test: acceptance/specs/cp125_multiple_partial_payments.spec.ts
     request: |
-      Let me record several part payments against one invoice over time, and always show what is
-      still left.
+      Let me record several part payments against one invoice over time, and let me correct a part
+      payment I recorded wrongly — change its amount or delete it. Always show what is still left
+      and the right status.
 
   - id: cp126_invoice_payment_history
     type: additive
@@ -1005,7 +1022,7 @@ checkpoints:
     area: billing
     test: acceptance/specs/cp130_retention_separate.spec.ts
     request: |
-      Show the retained amount separately from what the client owes me right now.
+      On the invoice list show the retained amount separately from what the client owes me right now.
 
   - id: cp131_release_retention
     type: additive
@@ -1020,7 +1037,9 @@ checkpoints:
     mutates: [31]
     test: acceptance/specs/cp132_due_excludes_retention.spec.ts
     request: |
-      The amount due on an invoice should not include retention that has not been released yet.
+      Retention I have not released yet should not count as owed anywhere I check what a client
+      owes — the amount due on the invoice, their statement, their aging and the home-screen totals.
+      Once I release it, it counts again.
 
   - id: cp133_instalment_plan
     type: additive
@@ -1168,8 +1187,9 @@ checkpoints:
     mutates: [96]
     test: acceptance/specs/cp152_status_with_write_off.spec.ts
     request: |
-      When part of an invoice is written off, work its status out from what is genuinely still owed
-      after the write-off.
+      When an invoice is only cleared because I wrote the rest off, don't show it as PAID — show it
+      as SETTLED so I can tell it apart from invoices paid in full. If something is still owed after
+      a part write-off, keep it part paid. Invoices cleared by payments and credit notes are still paid.
 
   - id: cp153_foreign_payment
     type: additive
@@ -1207,14 +1227,15 @@ checkpoints:
     area: billing
     test: acceptance/specs/cp157_payment_terms.spec.ts
     request: |
-      Let me set payment terms for a client, like net 30 days.
+      Let me set payment terms for a client on their page, like net 30 days, and show them there.
 
   - id: cp158_due_date_from_terms
     type: additive
     area: billing
     test: acceptance/specs/cp158_due_date_from_terms.spec.ts
     request: |
-      Work out an invoice's due date from the client's payment terms and the invoice date.
+      Work out an invoice's due date from the client's payment terms and the invoice date, including
+      for new invoices I raise.
 
   - id: cp159_client_contact_history
     type: additive
@@ -1229,8 +1250,8 @@ checkpoints:
     mutates: [11]
     test: acceptance/specs/cp160_due_date_derived.spec.ts
     request: |
-      Let the due date come from the payment terms by default, but still let me override it on a
-      single invoice.
+      Let the due date come from the payment terms by default, but let me change it on a single
+      invoice afterwards, and put it back to the terms date if I change my mind.
 
   - id: cp161_settlement_rebate
     type: additive
@@ -1289,7 +1310,9 @@ checkpoints:
     mutates: [17]
     test: acceptance/specs/cp168_outstanding_excludes.spec.ts
     request: |
-      What a client owes should count only sent invoices that are not cancelled and not written off.
+      What a client owes should count only sent invoices that are not cancelled and not written off,
+      and it should leave out the part of an invoice I wrote off. On a client's page show how much I
+      have written off for them in total — whole invoices and parts.
 
   - id: cp169_po_number
     type: additive
@@ -1326,7 +1349,8 @@ checkpoints:
     area: billing
     test: acceptance/specs/cp173_statement_aged.spec.ts
     request: |
-      On the statement show how the balance breaks down by age — current, 30, 60 and 90 days.
+      On the statement show how the balance breaks down by age — current, 30 to 60, 60 to 90, and
+      over 90 days overdue.
 
   - id: cp174_email_statement
     type: additive
@@ -1378,7 +1402,9 @@ checkpoints:
     mutates: [32]
     test: acceptance/specs/cp180_disputed_status.spec.ts
     request: |
-      Show disputed invoices with their own status and keep them out of the normal overdue chase.
+      Show disputed invoices with their own status, and keep them out of the overdue chase — they
+      should not count in the home screen's overdue figures or its overdue age buckets, even though
+      they still count as owed.
 
 # ===================================================================================================
 # ACT IV (cp181-240): "rollups reuse the calc" — revenue, tax, aging and dashboard reporting. Every
@@ -1415,7 +1441,8 @@ checkpoints:
     test: acceptance/specs/cp184_statement_one_money_rule.spec.ts
     request: |
       Make sure every figure on the statement uses the same rounding and currency rule as the
-      invoices themselves, so nothing is a cent out.
+      invoices themselves, so nothing is a cent out — even for a currency that rounds to the
+      nearest five cents.
 
   - id: cp185_revenue_trend
     type: additive
@@ -1459,7 +1486,9 @@ checkpoints:
     area: billing
     test: acceptance/specs/cp190_tax_collected_vs_base.spec.ts
     request: |
-      On the tax report show the taxable base alongside the tax collected.
+      On the tax report show the taxable base alongside the tax collected, and show my tax-free
+      sales for the period separately so I can see everything I billed split into taxed and
+      untaxed.
 
   - id: cp191_export_client_list
     type: additive
@@ -1512,6 +1541,7 @@ checkpoints:
     test: acceptance/specs/cp197_kpi_outstanding.spec.ts
     request: |
       On the home screen show total outstanding across all currencies converted to my home currency.
+      Let me click it to see the invoices that make it up, each converted into my home currency.
 
   - id: cp198_kpi_days_to_pay
     type: additive
@@ -1638,7 +1668,8 @@ checkpoints:
     test: acceptance/specs/cp214_unallocated_as_credit.spec.ts
     request: |
       If a payment is more than the invoices it was put against, show the leftover as the client's
-      credit.
+      credit. On a client's page show where their available credit comes from — each deposit, credit
+      note and overpaid payment — with how much of each is still unused.
 
   - id: cp215_client_lifetime_value
     type: additive
@@ -1682,7 +1713,9 @@ checkpoints:
     mutates: [117]
     test: acceptance/specs/cp220_aging_by_due_date.spec.ts
     request: |
-      Work the aging out from each invoice's due date, not the date it was raised.
+      Work the aging out from each invoice's due date, not the date it was raised. In a client's
+      aging, show invoices that aren't due yet as their own "not yet due" amount instead of counting
+      them as current.
 
   - id: cp221_budget_target
     type: additive
@@ -1784,7 +1817,7 @@ checkpoints:
     area: billing
     test: acceptance/specs/cp234_dashboard_base_currency.spec.ts
     request: |
-      Let me choose which currency the home-screen totals are shown in.
+      Let me choose which currency the outstanding total on the home screen is shown in.
 
   - id: cp235_top_overdue_clients
     type: additive
@@ -1799,8 +1832,10 @@ checkpoints:
     mutates: [200]
     test: acceptance/specs/cp236_dashboard_all_base_currency.spec.ts
     request: |
-      Show every money figure on the home screen in the base currency I chose, converting
-      consistently.
+      Show every money total on the home screen in the base currency I chose, converted the same way
+      as the outstanding total — billings, collections, overdue amounts, the top lists, the 30-day
+      forecast and the invoices behind the outstanding total. Each client's own-currency amount in
+      the top clients list and the per-currency outstanding lines can stay in their own currency.
 
   - id: cp237_client_financial_summary
     type: additive
@@ -1829,8 +1864,10 @@ checkpoints:
     mutates: [200]
     test: acceptance/specs/cp240_dashboard_one_rule.spec.ts
     request: |
-      Every figure on the home screen must use the base currency, the same rounding, and leave out
-      written-off and disputed invoices — one consistent rule across the whole screen.
+      Every figure on the home screen — including the top clients lists and the invoices behind the
+      outstanding total — must use the base currency, the same rounding, and leave out written-off
+      and disputed invoices: one consistent rule across the whole screen. The disputed figure itself
+      still counts disputed invoices, but show it in the base currency too.
 
 # ===================================================================================================
 # ACT V (cp241-250): "stress finale" — whole-stack consistency sweeps and two REVERSALS. The
@@ -1898,8 +1935,9 @@ checkpoints:
     mutates: [47, 84, 90]
     test: acceptance/specs/cp248_single_discount.spec.ts
     request: |
-      I only want one discount per invoice again. Collapse any stacked discounts back to a single
-      discount and remove the ability to add more than one.
+      I only want one discount per invoice again. Collapse any stacked discounts on the invoice back
+      to a single discount and remove the ability to add more than one. A charge line's own discount
+      stays as it is.
 
   - id: cp249_amounts_match_totals
     type: additive

@@ -8,6 +8,29 @@ test.describe('partial write-off', () => {
     await resetAndSeed({
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
       projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
+      invoices: [{ id: 1, projectId: 1, status: 'SENT', lineItems: [{ id: 1, description: 'Work', qty: 1, unitPrice: 100 }] }],
+    });
+    await page.goto('/');
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
+    await page.getByTestId('invoice-open-1').click();
+
+    await page.getByTestId('invoice-partial-write-off-amount').fill('40');
+    await page.getByTestId('invoice-partial-write-off-submit').click();
+
+    await expect(page.getByTestId('invoice-write-off-amount')).toHaveText('$40.00');
+    await expect(page.getByTestId('invoice-due-amount')).toHaveText('$60.00');
+
+    // The rest is still owed on the project's invoice list.
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
+    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due-amount')).toHaveText('$60.00');
+  });
+
+  test('shows a part already written off', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [{ id: 1, projectId: 1, status: 'SENT', writeOff: 40, lineItems: [{ id: 1, description: 'Work', qty: 1, unitPrice: 100 }] }],
     });
     await page.goto('/');

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // UPDATED for cp60 (mutates 17): outstanding still counts SENT invoices only using the discounted
-// amount, now reported under the client's own currency.
+// amount, now reported under the client's own currency; carries the separate drafts figure forward.
 test.describe('outstanding counts sent invoices only', () => {
   test('outstanding is discounted, excludes drafts, and is per currency', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -16,5 +16,6 @@ test.describe('outstanding counts sent invoices only', () => {
     await page.goto('/');
     await page.getByTestId('nav-dashboard').click();
     await expect(page.getByTestId('dashboard-outstanding-USD')).toHaveText('$180.00');
+    await expect(page.getByTestId('dashboard-drafts-total')).toHaveText('$50.00');
   });
 });

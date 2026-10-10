@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// UPDATED status-with-credits spec (carries the credit-settles-balance rule forward, adds partial
-// write-off): a write-off of the remaining balance, alongside payments, settles the invoice.
+// UPDATED status-with-credits spec (carries the credit-settles-balance rule forward: a credit that
+// clears the rest still reads PAID; adds partial write-off: an invoice cleared only because the rest
+// was written off reads SETTLED, not PAID).
 test.describe('status accounts for credits', () => {
   test('a credit that clears the balance settles the invoice', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -32,6 +33,6 @@ test.describe('status accounts for credits', () => {
     await page.getByTestId('project-open-1').click();
 
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due-amount')).toHaveText('$0.00');
-    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('PAID');
+    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('SETTLED');
   });
 });

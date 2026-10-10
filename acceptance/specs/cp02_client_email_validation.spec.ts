@@ -30,6 +30,21 @@ test.describe('client email validation', () => {
     await expect(page.getByTestId(/^client-row-/)).toHaveCount(0);
   });
 
+  // A browser's own email check (and most email validators) accept "hi@good": the domain has no
+  // dot, so it cannot be a real company address.
+  test('rejects an address with no dot in the domain', { tag: '@error' }, async ({ page }) => {
+    await resetAndSeed({ clients: [] });
+    await page.goto('/');
+    await page.getByTestId('nav-clients').click();
+
+    await page.getByTestId('client-form-name').fill('Dotless Co');
+    await page.getByTestId('client-form-email').fill('hi@good');
+    await page.getByTestId('client-form-submit').click();
+
+    await expect(page.getByTestId('client-form-email-error')).toBeVisible();
+    await expect(page.getByTestId(/^client-row-/)).toHaveCount(0);
+  });
+
   test('accepts a valid email', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({ clients: [] });
     await page.goto('/');

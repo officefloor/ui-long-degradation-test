@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// A tax report for a period, broken down by tax rate, showing the taxable base and tax per rate.
+// A tax report for a period, broken down by tax rate, showing the tax charged at each rate.
 test.describe('tax report by rate', () => {
   test('breaks tax down by rate', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

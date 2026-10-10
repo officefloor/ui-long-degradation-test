@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// An aging report across all clients: how much is current, 30-60, and over 60 days overdue.
+// An aging report across all clients: how much is current, 30-60, 60-90 and over 90 days overdue.
 test.describe('aging report', () => {
   test('totals outstanding into age buckets across clients', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -15,9 +15,10 @@ test.describe('aging report', () => {
         { id: 2, name: 'B', clientId: 2 },
       ],
       invoices: [
-        { id: 1, projectId: 1, status: 'SENT', dueDate: '2026-02-25', lineItems: [{ id: 1, description: 'x', qty: 1, unitPrice: 100 }] },
-        { id: 2, projectId: 2, status: 'SENT', dueDate: '2026-01-20', lineItems: [{ id: 2, description: 'y', qty: 1, unitPrice: 200 }] },
-        { id: 3, projectId: 2, status: 'SENT', dueDate: '2025-12-01', lineItems: [{ id: 3, description: 'z', qty: 1, unitPrice: 300 }] },
+        { id: 1, projectId: 1, status: 'SENT', dueDate: '2026-02-25', lineItems: [{ id: 1, description: 'x', qty: 1, unitPrice: 100 }] }, // 4 days
+        { id: 2, projectId: 2, status: 'SENT', dueDate: '2026-01-20', lineItems: [{ id: 2, description: 'y', qty: 1, unitPrice: 200 }] }, // 40 days
+        { id: 3, projectId: 2, status: 'SENT', dueDate: '2025-11-20', lineItems: [{ id: 3, description: 'z', qty: 1, unitPrice: 300 }] }, // 101 days
+        { id: 4, projectId: 1, status: 'SENT', dueDate: '2025-12-16', lineItems: [{ id: 4, description: 'w', qty: 1, unitPrice: 400 }] }, // 75 days
       ],
     });
     await page.goto('/');
@@ -26,6 +27,7 @@ test.describe('aging report', () => {
 
     await expect(page.getByTestId('aging-report-current')).toHaveText('$100.00');
     await expect(page.getByTestId('aging-report-30-60')).toHaveText('$200.00');
-    await expect(page.getByTestId('aging-report-60-plus')).toHaveText('$300.00');
+    await expect(page.getByTestId('aging-report-60-90')).toHaveText('$400.00');
+    await expect(page.getByTestId('aging-report-90-plus')).toHaveText('$300.00');
   });
 });

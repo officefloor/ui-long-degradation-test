@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// Retained money is shown separately from what the client owes now: the amount due excludes the
-// unreleased retention.
+// Retained money is shown separately from what the client owes now: the invoice list shows the
+// retained amount in its own place, and the amount due excludes the unreleased retention.
 test.describe('retention shown separately', () => {
   test('due excludes the unreleased retention', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -16,5 +16,6 @@ test.describe('retention shown separately', () => {
 
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-amount')).toHaveText('$1,000.00');
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due-amount')).toHaveText('$900.00');
+    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-retained-amount')).toHaveText('$100.00');
   });
 });

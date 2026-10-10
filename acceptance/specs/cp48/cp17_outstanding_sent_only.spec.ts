@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // UPDATED (discount flows through): outstanding still counts SENT invoices only, now using the
-// discounted amount.
+// discounted amount; carries the separate drafts figure forward.
 test.describe('outstanding counts sent invoices only', () => {
   test('outstanding is discounted and excludes drafts', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -16,5 +16,6 @@ test.describe('outstanding counts sent invoices only', () => {
     await page.goto('/');
     await page.getByTestId('nav-dashboard').click();
     await expect(page.getByTestId('dashboard-outstanding-total')).toHaveText('$180.00');
+    await expect(page.getByTestId('dashboard-drafts-total')).toHaveText('$50.00');
   });
 });

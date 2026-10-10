@@ -20,7 +20,7 @@ test.describe('invoice dates', () => {
 
   test('the due date defaults from the client terms unless overridden', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
-      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example', paymentTermsDays: 30 }],
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example', paymentTermsDays: 14 }],
       projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [
         { id: 1, projectId: 1, status: 'SENT', issueDate: '2026-01-01', lineItems: [{ id: 1, description: 'A', qty: 1, unitPrice: 100 }] },
@@ -31,7 +31,7 @@ test.describe('invoice dates', () => {
     await page.getByTestId('nav-projects').click();
     await page.getByTestId('project-open-1').click();
 
-    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due')).toHaveText('2026-01-31');
+    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due')).toHaveText('2026-01-15');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due')).toHaveText('2026-01-10');
   });
 });
