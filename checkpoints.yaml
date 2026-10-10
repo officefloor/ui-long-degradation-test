@@ -1895,7 +1895,7 @@ checkpoints:
   - id: cp248_single_discount
     type: mutative
     area: billing
-    mutates: [47]
+    mutates: [47, 84, 90]
     test: acceptance/specs/cp248_single_discount.spec.ts
     request: |
       I only want one discount per invoice again. Collapse any stacked discounts back to a single
