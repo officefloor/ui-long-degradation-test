@@ -8,9 +8,11 @@
 # This is a copy, not a shared library (see DESIGN.md §13). To pull upstream
 # fixes: diff against the sibling repo at the SHA above.
 #
-# LOCAL CHANGE (not yet upstream): `strip_harness_python_env` keeps the harness's
-#   own venv out of the agent turn. Port it back to the sibling repo — the bug it
-#   fixes is in the vendored original too. When a 3rd arm appears,
+# LOCAL CHANGES (not yet upstream) — port both back to the sibling repo, which has
+#   the same bugs:
+#     * `strip_harness_python_env` keeps the harness's own venv out of the agent turn.
+#     * `_seed_clean_config_dir` still isolates when only CLAUDE_CODE_OAUTH_TOKEN is
+#       present (headless/CI), instead of silently dropping memory isolation. When a 3rd arm appears,
 # extract these into a shared `long-degradation-core` package.
 # ---------------------------------------------------------------------------
 """Wrapper around headless Claude Code (`claude -p`), streaming its output.
@@ -70,23 +72,45 @@ def _source_config_dir() -> str:
     return os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
 
 
-def _seed_clean_config_dir() -> Optional[str]:
-    """Create a throwaway config dir seeded with only the login credentials, and
-    return its path (caller sets CLAUDE_CONFIG_DIR to it and removes it after).
+_OAUTH_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
 
-    Returns None if the login file can't be found, in which case the caller runs
-    under the inherited config (a loud warning is printed) rather than failing the
-    whole run over an environment quirk."""
+
+def _seed_clean_config_dir() -> Optional[str]:
+    """Create a throwaway config dir for ONE agent turn and return its path (the caller
+    sets CLAUDE_CONFIG_DIR to it and removes it after).
+
+    Seeded with the login credentials when they exist. When they do not but
+    CLAUDE_CODE_OAUTH_TOKEN is set, the dir is still created EMPTY: the token in the
+    child's env is sufficient to authenticate `claude -p`, so the login file is needed
+    for auth not at all — only the isolation is, and that is the thing worth keeping.
+
+    This is the headless/CI case, and it used to fail quietly. `claude setup-token` prints
+    a long-lived token and SAVES NOTHING, so a fresh host (an EC2 box, a container) that
+    exports the token has no ~/.claude/.credentials.json at all. The old code returned None
+    there, the caller then left CLAUDE_CONFIG_DIR unset, and the turn ran under the
+    inherited ~/.claude — so Claude Code's auto-memory wrote project "learnings" that LATER
+    CHECKPOINTS recalled, breaking the context-free condition the whole design rests on
+    (see the module docstring). The run still looked healthy: one warning, no failure.
+
+    Returns None only when there is neither a login file nor a token — a genuinely broken
+    environment, which require_long_lived_token() already refuses to start a run in."""
     src = os.path.join(_source_config_dir(), _LOGIN_FILE)
-    if not os.path.isfile(src):
-        print(f"    [isolation] WARNING: no {_LOGIN_FILE} at {src}; "
-              f"running under inherited ~/.claude (memory NOT isolated)", flush=True)
-        return None
     cfg = tempfile.mkdtemp(prefix="pe-claude-cfg-")
-    dst = os.path.join(cfg, _LOGIN_FILE)
-    shutil.copy2(src, dst)
-    os.chmod(dst, 0o600)
-    return cfg
+    if os.path.isfile(src):
+        dst = os.path.join(cfg, _LOGIN_FILE)
+        shutil.copy2(src, dst)
+        os.chmod(dst, 0o600)
+        return cfg
+    if (os.environ.get(_OAUTH_TOKEN_ENV) or "").strip():
+        # Headless: authenticate from the env token, isolate via the empty dir.
+        print(f"    [isolation] no {_LOGIN_FILE} at {src}; authenticating from "
+              f"{_OAUTH_TOKEN_ENV} and isolating in a fresh config dir", flush=True)
+        return cfg
+    os.rmdir(cfg)
+    print(f"    [isolation] WARNING: no {_LOGIN_FILE} at {src} and no "
+          f"{_OAUTH_TOKEN_ENV}; running under inherited ~/.claude (memory NOT isolated)",
+          flush=True)
+    return None
 
 
 # The harness's own Python environment must not reach the agent turn. See
