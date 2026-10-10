@@ -223,6 +223,19 @@ def check_environment(cfg: dict, condition: str | None = None,
                                                "mid-run",
                                    remedy="./setup.sh installs both into tools/ (pinned)"))
 
+    # The harness-owned files (TEST.md, the shared seed helper) are installed into every app; one
+    # that is missing would leave the app without its testing contract, or the gate without the
+    # test-data replay, so the run would be held to a different contract than its provenance says.
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for dst, src in ((cfg.get("acceptance") or {}).get("harness_files") or {}).items():
+        if os.path.isfile(os.path.join(root, src)):
+            out.append(Finding(f"harness file {dst}", "env", BLOCKING, OK, detail=src))
+        else:
+            out.append(Finding(f"harness file {dst}", "env", BLOCKING, MISSING, integrity=True,
+                               detail=f"{src} not found",
+                               consequence="the app would not get its testing contract (TEST.md)",
+                               remedy=f"restore {src} in the harness repo"))
+
     # Whether the agent can actually RUN the toolchain once confined. Here rather than in a
     # caller so every entry point (setup.sh, the run preflight, verify-stack.sh, analyze) gets
     # it without restating the list — the drift this module exists to prevent.
@@ -552,7 +565,7 @@ def check_stack(repo: str, base_ref: str, pins: list[str] | None = None) -> list
         else:
             add(f"pinned {pin}", MISSING, consequence="isolation.pin_files names it, so the "
                 "harness cannot restore it before the gate — an agent edit to it (e.g. "
-                "weakening the seed check in e2e/support/seed.ts) would REACH the gate",
+                "changing how e2e/support/audit.ts reads the audit file) would REACH the gate",
                 remedy=f"add {pin}", sev=DEGRADES, integ=True)
 
     # near-empty, and no generated code committed
