@@ -11,10 +11,15 @@ test.describe('archive a project', () => {
       projects: [
         { id: 1, name: 'Website Rebuild', clientId: 1 },
         { id: 2, name: 'Intranet', clientId: 1 },
+        { id: 3, name: 'Old Brochure', clientId: 1, archived: true },
       ],
     });
     await page.goto('/');
     await page.getByTestId('nav-projects').click();
+
+    // A project that is already archived starts off the list.
+    await expect(page.getByTestId('project-row-2')).toBeVisible();
+    await expect(page.getByTestId('project-row-3')).toHaveCount(0);
 
     await page.getByTestId('project-archive-1').click();
     await expect(page.getByTestId('project-row-1')).toHaveCount(0);
@@ -23,5 +28,6 @@ test.describe('archive a project', () => {
     // It is retained: revealing archived projects brings it back.
     await page.getByTestId('projects-show-archived').click();
     await expect(page.getByTestId('project-row-1')).toBeVisible();
+    await expect(page.getByTestId('project-row-3')).toBeVisible();
   });
 });

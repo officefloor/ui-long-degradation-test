@@ -21,6 +21,7 @@ are deferred. Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -32,7 +33,7 @@ from datetime import datetime
 
 import yaml
 
-from . import (agent, capture, correctness, doctor, expand_path, impact_gate, landlock,
+from . import (agent, capture, correctness, doctor, expand_path, fixtures, impact_gate, landlock,
                metrics, parser_selftest, quality_gate, stack_label, stack_layer_options,
                stack_layers, stack_repo)
 
@@ -49,6 +50,7 @@ CSV_FIELDS = [
     "total_selected", "strict_pass", "iso_pass", "core_pass", "core_p", "core_t",
     "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
     "normalized_change", "regressions", "true_regressions", "unsatisfied_replacement",
+    "seed_contract_failures",
     "anchor_drift", "behaviour_loss", "seed_path",
     "probe_recall", "probe_cost_usd", "probe_input_tokens", "probe_cache_read_tokens",
     "pinned_touched", "acceptance_touched", "notes",
@@ -340,30 +342,13 @@ def mirror_source(src: str, dst: str, extra_excludes: tuple = ()) -> None:
 
 
 def _own_spec(cp: dict) -> str:
-    """The checkpoint's OWN spec (the only one the agent may see) — its `test`, or the
-    first entry of an explicit `tests` list."""
-    return cp["test"] if cp.get("test") else list(cp.get("tests") or [None])[0]
+    """The checkpoint's OWN spec (the only one the agent may see)."""
+    return fixtures.own_spec(cp)
 
 
 def _spec_entries(cp: dict) -> list[str]:
-    """Repo-root-relative spec paths a checkpoint installs: its OWN spec, PLUS any updated
-    copies of prior specs it ships. A mutative checkpoint drops those updated copies in a
-    sibling `cp<NN>/` folder next to the specs (auto-discovered here, installed by basename so
-    they win over the prior originals); an explicit `tests:` list is also honoured for
-    back-compat."""
-    own = _own_spec(cp)
-    entries: list[str] = [own] if own else []
-    base_dir = os.path.dirname(own) if own else ""
-    override_rel = os.path.join(base_dir, f"cp{int(cp['n']):02d}")
-    override_abs = os.path.join(HARNESS_ROOT, override_rel)
-    if os.path.isdir(override_abs):
-        for fn in sorted(os.listdir(override_abs)):
-            if fn.endswith(".spec.ts"):
-                entries.append(os.path.join(override_rel, fn))
-    for e in (cp.get("tests") or []):
-        if e not in entries:
-            entries.append(e)
-    return entries
+    """Repo-root-relative spec paths a checkpoint installs (see fixtures.spec_entries)."""
+    return fixtures.spec_entries(cp, HARNESS_ROOT)
 
 
 def _authored_specs(checkpoints: list[dict], k: int) -> dict[str, str]:
@@ -410,9 +395,80 @@ def _neutralize_spec(text: str) -> str:
     return text
 
 
+# --- harness-owned files (TEST.md, the shared seed helper) -------------------------------------
+# One copy, maintained here and installed into every stack at every checkpoint, so all stacks are
+# held to the same testing contract and a stack repo never carries its own (drifting) version.
+# The agent may not change them: edits are flagged like pinned files and never copied back.
+
+FIXTURE_CONTRACT = os.path.join(".run", "fixture-contract.json")
+SEED_CONTRACT_RESULT = os.path.join(".run", "seed-contract-result.json")
+
+
+def harness_files(cfg: dict) -> dict[str, str]:
+    """{path in the app -> absolute source in the harness} from acceptance.harness_files."""
+    return {dst: os.path.join(HARNESS_ROOT, src)
+            for dst, src in ((cfg.get("acceptance") or {}).get("harness_files") or {}).items()}
+
+
+def harness_files_provenance(cfg: dict) -> dict:
+    """What was installed: per file its harness source and sha256 (for provenance.json)."""
+    return {dst: {"source": os.path.relpath(src, HARNESS_ROOT), "sha256": capture._sha256(src)}
+            for dst, src in harness_files(cfg).items()}
+
+
+def install_harness_files(dst_root: str, cfg: dict, cp: dict | None = None) -> None:
+    """Copy the harness-owned files into an app tree; with a checkpoint, also write the
+    test-data contract its seed helper replays (TEST.md §3.4) and drop any stale result."""
+    for dst, src in harness_files(cfg).items():
+        out = os.path.join(dst_root, dst)
+        os.makedirs(os.path.dirname(out) or dst_root, exist_ok=True)
+        shutil.copyfile(src, out)
+    for stale in (FIXTURE_CONTRACT, SEED_CONTRACT_RESULT):
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(os.path.join(dst_root, stale))
+    if cp is not None and cp.get("_fixture_contract") is not None:
+        capture.write_json(os.path.join(dst_root, FIXTURE_CONTRACT), cp["_fixture_contract"])
+
+
+def harness_files_touched(tree: str, cfg: dict) -> list[str]:
+    """Harness-owned files the agent changed in its sandbox (flagged with the pinned files)."""
+    out = []
+    for dst, src in harness_files(cfg).items():
+        p = os.path.join(tree, dst)
+        if not os.path.isfile(p) or open(p, "rb").read() != open(src, "rb").read():
+            out.append(dst)
+    return out
+
+
+def copy_back_excludes(cfg: dict) -> tuple:
+    """Paths never copied from the sandbox back to the worktree: the installed specs and the
+    harness-owned files (so an agent edit to either cannot reach the gate or the branch)."""
+    return (cfg["acceptance"]["dest_subpath"].rstrip("/") + "/",
+            *(f"/{d}" for d in harness_files(cfg)))
+
+
+def verify_resume_harness_files(wt: str, cfg: dict) -> None:
+    """Refuse to resume under a different TEST.md / seed helper than the chain started with:
+    later checkpoints would be held to a different contract than earlier ones."""
+    with open(os.path.join(wt, "evolve-results", "provenance.json")) as fh:
+        was = json.load(fh).get("harness_files")
+    if was is None:                       # manifest predates harness-owned files
+        return
+    now = harness_files_provenance(cfg)
+    changed = sorted(d for d in set(was) | set(now)
+                     if (was.get(d) or {}).get("sha256") != (now.get(d) or {}).get("sha256"))
+    if changed:
+        raise RuntimeError(
+            f"--resume: the harness-owned file(s) {changed} differ from the versions this chain was "
+            f"started with (provenance.json harness_files). Resuming would test later checkpoints "
+            f"against a different contract. Restore them, or start a new run_id.")
+
+
 def install_agent_view(sandbox: str, cfg: dict, cp: dict) -> None:
     """Sandbox e2e/specs holds EXACTLY the current checkpoint's own spec, neutralised to
-    acceptance.spec.ts (no prior specs, no cpNN hint) — the blind view."""
+    acceptance.spec.ts (no prior specs, no cpNN hint) — the blind view — plus the harness-owned
+    files and the test-data contract (earlier fixtures: data only, never their tests)."""
+    install_harness_files(sandbox, cfg, cp)
     dest = _specs_dest(sandbox, cfg)
     os.makedirs(dest, exist_ok=True)
     _clear_specs(dest)
@@ -615,7 +671,7 @@ def _impact_gated_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, t
     max_review = int(igc.get("max_review_turns", 2))
     qcfg = igc.get("quality_gate") or {}
     quality_dirs = _layer_src_dirs(cfg)
-    acc_excl = (cfg["acceptance"]["dest_subpath"].rstrip("/") + "/",)
+    acc_excl = copy_back_excludes(cfg)
     refactor_tpl = igc.get("refactor_prompt") or REFACTOR_TEMPLATE
     review_tpl = igc.get("review_prompt") or REVIEW_TEMPLATE
     k = cp["n"]
@@ -717,6 +773,18 @@ def _impact_gated_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, t
 # --- capture commits ----------------------------------------------------------
 
 
+def commit_harness_files(wt: str, cfg: dict) -> None:
+    """Start the chain from base + the harness-owned files, in their own commit, so no agent
+    diff ever contains them and the branch shows exactly which TEST.md the app was built to."""
+    install_harness_files(wt, cfg)
+    paths = list(harness_files(cfg))
+    if not paths:
+        return
+    subprocess.run(["git", "-C", wt, "add", "-f", "--", *paths], capture_output=True, text=True)
+    subprocess.run(["git", "-C", wt, "commit", "-m", "harness: install the testing contract (TEST.md) "
+                    "and seed helper", "--", *paths], capture_output=True, text=True)
+
+
 def commit_run_manifest(wt: str, branch: str, run_id: str, condition: str, chain: int,
                         provenance: dict, snapshot: dict | None) -> None:
     out = os.path.join(wt, "evolve-results")
@@ -767,6 +835,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
     done = 0
     if resume:
         verify_resume_stack(wt, app_cfg)
+        verify_resume_harness_files(wt, cfg)
         done = completed_checkpoints(wt)
         lo = max(lo, done + 1)
         print(f"    resume : cp01..cp{done:02d} already committed; continuing at cp{lo:02d}"
@@ -783,6 +852,8 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         # The stack's own origin, so a chain branch can be tied to the remote it lives on.
         "app_origin": app_cfg.get("origin"), "stack": os.path.basename(app_cfg["repo"]),
         "resumed_at": lo if resume else None,
+        # The testing contract (TEST.md) and seed helper this chain was held to, by hash.
+        "harness_files": harness_files_provenance(cfg),
         # Blindness audit trail, committed with the run manifest: whether confinement was requested
         # and the Landlock ABI actually available on the host, so a run's blindness is provable
         # post-hoc rather than assumed.
@@ -793,6 +864,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
             "no_confine_env": bool(os.environ.get("HARNESS_NO_CONFINE")),
         }})
     if not resume:
+        commit_harness_files(wt, cfg)
         commit_run_manifest(wt, branch, run_id, condition, chain, prov, cfg.get("_snapshot"))
 
     cap_dir = wt + "-capture"
@@ -823,6 +895,9 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         print(f"    stack  : {label}", flush=True)
         print(f"    request: {cp['request'].strip().splitlines()[0]}", flush=True)
 
+        # The data earlier checkpoints seeded, which the app must still store (TEST.md §3.4).
+        cp["_fixture_contract"] = fixtures.fixture_contract(checkpoints, k, HARNESS_ROOT)
+
         base_for_cp = git(["-C", wt, "rev-parse", "HEAD"])
         stream_file = f"cp{k:02d}.agent.jsonl"
         prompt = template.replace("{request}", cp["request"].strip())
@@ -837,7 +912,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
             ar, attempt_log = _run_agent_turn(cfg, wt, sandbox, cp, model, prompt, cap_dir, stream_file)
             # copy the agent's PRODUCTION result back (sandbox e2e/specs excluded: specs are the
             # harness's, not the agent's delta).
-            mirror_source(sandbox, wt, extra_excludes=(cfg["acceptance"]["dest_subpath"].rstrip("/") + "/",))
+            mirror_source(sandbox, wt, extra_excludes=copy_back_excludes(cfg))
             git(["-C", wt, "add", "-A"])
 
         diff_file = f"cp{k:02d}.agent.diff"
@@ -845,7 +920,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
             fh.write(subprocess.run(["git", "-C", wt, "diff", "--cached", base_for_cp],
                                     capture_output=True, text=True).stdout)
 
-        touched_pins = _pins_touched(wt, cfg)
+        touched_pins = _pins_touched(wt, cfg) + harness_files_touched(sandbox, cfg)
         # COMMIT 1 — the pure agent delta (incl. any pinned edit, which is flagged).
         subprocess.run(["git", "-C", wt, "commit", "-m", f"cp{k:02d} agent {cid}"],
                        capture_output=True, text=True)
@@ -853,6 +928,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
 
         # GATE prep: restore pins to base, install the full cp01..cpK suite, drop stale build.
         _restore_pins_to_base(wt, app_cfg, cfg)
+        install_harness_files(wt, cfg, cp)
         install_measurement_suite(wt, cfg, checkpoints, k)
         shutil.rmtree(os.path.join(wt, "target"), ignore_errors=True)
 
@@ -934,6 +1010,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         # normalise: clear the installed gate specs (gitignored anyway) + restore pins.
         _clear_specs(_specs_dest(wt, cfg))
         _restore_pins_to_base(wt, app_cfg, cfg)
+        install_harness_files(wt, cfg)
         # COMMIT 2 — reset (normalisation + capture). Two-commit boundary.
         git(["-C", wt, "add", "-A"])
         subprocess.run(["git", "-C", wt, "commit", "--allow-empty", "-m", f"cp{k:02d} reset {cid}"],

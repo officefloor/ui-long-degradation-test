@@ -175,6 +175,8 @@ cat <<'NEXT'
 Next:
   .venv/bin/python -m harness.quality_selftest          # tools see clones and smells
   .venv/bin/python -m harness.metrics_selftest          # structural metrics
+  .venv/bin/python -m harness.fixtures_selftest         # test-data contract (TEST.md)
+  .venv/bin/python -m harness.checkpoint_lint --config config.yaml  # stream defects
   ./verify-stack.sh --repo ~/officehq-<stack> --smoke   # does the stack satisfy the contract?
   export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)  # long-lived; a run spans hours
   .venv/bin/python -m harness.run_experiment --config config.yaml --repo ~/officehq-<stack>

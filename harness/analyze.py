@@ -136,6 +136,7 @@ def _outcome_from_capture(rec: dict) -> correctness.TestOutcome:
     outcome.build_ok = bool(t.get("build_ok", True))
     outcome.detail = detail
     outcome.gate_invalid = False
+    outcome.seed_contract = t.get("seed_contract")
     mutated = {int(m) for m in (rec.get("mutates") or [])}
     for d in detail:
         if not d.get("passed", True) and d.get("test_id"):

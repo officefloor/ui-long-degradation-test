@@ -10,10 +10,15 @@ test.describe('archive a client', () => {
       clients: [
         { id: 1, name: 'Acme Ltd', email: 'ops@acme.example' },
         { id: 2, name: 'Globex', email: 'ac@globex.example' },
+        { id: 3, name: 'Initech', email: 'hello@initech.example', archived: true },
       ],
     });
     await page.goto('/');
     await page.getByTestId('nav-clients').click();
+
+    // A client that is already archived starts off the list.
+    await expect(page.getByTestId('client-row-2')).toBeVisible();
+    await expect(page.getByTestId('client-row-3')).toHaveCount(0);
 
     await page.getByTestId('client-archive-1').click();
     await expect(page.getByTestId('client-row-1')).toHaveCount(0);

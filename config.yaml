@@ -97,6 +97,14 @@ acceptance:
   audit_file: .run/audit.log       # second assertion channel (DESIGN.md §3): audited side-effects
                                    # are written one-record-per-line here; specs read it (support/
                                    # audit.ts). /__test__/reset clears it. bin/start+bin/e2e set AUDIT_FILE.
+  # Harness-owned files installed into every stack at every checkpoint ({path in app: source here}).
+  # TEST.md is the single statement of the testing contract that each stack's CLAUDE.md/AGENTS.md
+  # points to; seed.ts is the shared seed helper, which replays earlier checkpoints' fixtures
+  # (TEST.md §3.4). Their sha256s are recorded in provenance.json; agent edits are flagged and
+  # never copied back.
+  harness_files:
+    TEST.md: acceptance/TEST.md
+    e2e/support/seed.ts: acceptance/support/seed.ts
   agent_test_cmd: bin/e2e          # the command the AGENT runs to test as it works (DESIGN.md §15):
                                    # build + app.start + run the VISIBLE spec(s) only + app.stop.
                                    # Pinned so agent edits to it don't reach the gate.
@@ -168,8 +176,10 @@ isolation:
   # check makes a broken /__test__ contract visible) and audit.ts reads the audit file. The EVOLVING
   # seed surface is the SERVER /__test__ endpoint in the app, not these clients, so pinning them stops
   # an agent weakening the check to mask a seed-path regression (restored to base_ref before the gate).
+  # e2e/support/seed.ts is no longer pinned to the stack's base: the harness owns it (see
+  # acceptance.harness_files), so every stack runs the same seed helper and contract replay.
   pin_files: ["AGENTS.md", "CLAUDE.md", "bin/build", "bin/start", "bin/stop", "bin/e2e",
-              "e2e/support/seed.ts", "e2e/support/audit.ts"]
+              "e2e/support/audit.ts"]
   agent_confinement:
     enabled: true
     # The agent runs the WHOLE app to test (DESIGN.md §15), so the toolchain must be on the

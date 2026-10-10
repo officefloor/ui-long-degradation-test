@@ -118,24 +118,19 @@ passed in, and nothing but exit status and HTTP comes back out.
 
 ## 4. Behaviour is exposed through `data-testid`; data is arranged through `/__test__`
 
-- Every element a test acts on, and every value it reads back, carries a `data-testid`
-  (DESIGN.md §3). Tests bind to these **only** — never CSS classes, DOM structure, or visible copy.
-- **A `data-testid` is immutable public API once introduced** — never rename/remove one; a drift
-  is an anchor-drift regression (DESIGN.md §6).
-- **Seeding is per-spec via a profile-guarded test-support endpoint** (`POST /__test__/reset` +
-  `POST /__test__/seed`), called from each spec's `beforeEach` (DESIGN.md §9). Unlike the scripts
-  in §3, this endpoint **evolves with the schema** (it is app code, not pinned); a change that
-  breaks a prior spec's seed is a *seed-path* regression unless declared `intended` (§6).
-- **Audit / side-effect behaviour is written to a known file** (the `Audit` service →
-  `app.audit.file`; `bin/start`/`bin/e2e` set `AUDIT_FILE`), one record per line, and specs assert
-  it via `e2e/support/audit.ts`. This is the only non-UI assertion channel and is a stable contract
-  like `data-testid`. `/__test__/reset` also clears this file so each spec starts clean.
-- The harness drives the served UI at `http://localhost:$PORT` and **asserts only through the UI
-  and the known audit file** — never the domain API, the database, arbitrary logs, or internal
-  state. Seeding is Arrange, not Assert. So
-  the whole stack — schema, OfficeFloor, front-end — can be rewritten freely as long as the
-  user-visible behaviour holds. That freedom is exactly what the experiment measures (DESIGN.md
-  §14).
+The testing contract — `data-testid` rules, the audit file, and the `/__test__` endpoints (reset,
+seed that stores every field or refuses, and the read-back the harness uses to replay earlier
+checkpoints' test data) — is stated once, in **[acceptance/TEST.md](../acceptance/TEST.md)**. The
+harness installs it as `TEST.md` in the app at every checkpoint (with the shared
+`e2e/support/seed.ts`), records its sha256 in `provenance.json`, and a stack's `CLAUDE.md` /
+`AGENTS.md` refer to it rather than restating it. A new stack implements TEST.md; nothing in this
+section adds to it.
+
+The harness drives the served UI at `http://localhost:$PORT` and **asserts only through the UI and
+the known audit file** — never the domain API, the database, arbitrary logs, or internal state. The
+read-back endpoint is used only to check that test data was stored, never to assert behaviour. So
+the whole stack — schema, server, front-end — can be rewritten freely as long as the user-visible
+behaviour holds. That freedom is exactly what the experiment measures (DESIGN.md §14).
 
 ## 5. It must run inside Landlock (the agent runs it too)
 

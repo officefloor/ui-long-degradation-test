@@ -304,6 +304,8 @@ def checkpoint_record(k: int, cp_id: str, phase: str, shas: dict, agent_result,
             # suite-wide regression. Persisted so the hole survives into re-analysis.
             "gate_invalid": outcome.gate_invalid,
             "gate_attempts": outcome.gate_attempts,
+            # TEST.md §3.4: earlier checkpoints' fixtures replayed and read back before the suite.
+            "seed_contract": getattr(outcome, "seed_contract", None),
         },
         "probe": probe,
         "pinned_touched": pinned_touched,

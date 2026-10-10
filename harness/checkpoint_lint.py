@@ -34,6 +34,8 @@ import sys
 
 import yaml
 
+from . import fixtures
+
 _ID_NUM = re.compile(r"cp0*(\d+)")
 
 
@@ -154,6 +156,18 @@ def main() -> int:
                 + (" ..." if len(pattern_bad) > 10 else "")
                 + "  (relax with --no-cadence-pattern to check the ratio only).")
 
+    # ---- 3. test data the agent could not know to store (TEST.md, Test data) ---------------
+    # Over the WHOLE stream, not the window: a replacement copy that seeds a field no visible spec
+    # has seeded makes a hidden spec fail on data the agent never had a reason to store.
+    harness_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    numbered = [dict(cp, n=i) for i, cp in enumerate(checkpoints, 1)]
+    hidden = fixtures.hidden_field_violations(numbered, harness_root)
+    if hidden:
+        problems.append(
+            f"test data: {len(hidden)} replacement cop(ies) seed a field no visible spec has "
+            f"seeded yet — seed it in that checkpoint's own spec:\n      "
+            + "\n      ".join(hidden))
+
     # ---- report ---------------------------------------------------------------------------
     by_area: dict[str, int] = {}
     for cp in window:
@@ -168,6 +182,7 @@ def main() -> int:
     print("  by area          : " + ", ".join(f"{a}={c}" for a, c in sorted(by_area.items(), key=lambda kv: -kv[1])))
     if untagged:
         print(f"  untagged         : {len(untagged)}")
+    print(f"  hidden test data : {len(hidden)} replacement field(s) unseen by a visible spec")
     print()
 
     if problems:
@@ -175,7 +190,7 @@ def main() -> int:
         for p in problems:
             print(f"  - {p}")
         return 1
-    print("OK — stream is concentrated and the cadence is realistic.")
+    print("OK — stream is concentrated, the cadence is realistic, and every seeded field is visible first.")
     return 0
 
 

@@ -10,8 +10,8 @@ test.describe('due date derived from terms', () => {
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example', paymentTermsDays: 30 }],
       projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [
-        { id: 1, projectId: 1, status: 'SENT', issuedDate: '2026-01-01', lineItems: [{ id: 1, description: 'A', qty: 1, unitPrice: 100 }] },
-        { id: 2, projectId: 1, status: 'SENT', issuedDate: '2026-01-01', dueDate: '2026-01-10', lineItems: [{ id: 2, description: 'B', qty: 1, unitPrice: 100 }] },
+        { id: 1, projectId: 1, status: 'SENT', issueDate: '2026-01-01', lineItems: [{ id: 1, description: 'A', qty: 1, unitPrice: 100 }] },
+        { id: 2, projectId: 1, status: 'SENT', issueDate: '2026-01-01', dueDate: '2026-01-10', lineItems: [{ id: 2, description: 'B', qty: 1, unitPrice: 100 }] },
       ],
     });
     await page.goto('/');

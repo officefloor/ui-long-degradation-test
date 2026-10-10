@@ -9,7 +9,7 @@ test.describe('levy removed', () => {
     await resetAndSeed({
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
       projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
-      invoices: [{ id: 1, projectId: 1, status: 'DRAFT', taxPct: 20, levyPct: 5, lineItems: [{ id: 1, description: 'Work', qty: 1, unitPrice: 200 }] }],
+      invoices: [{ id: 1, projectId: 1, status: 'DRAFT', taxPct: 20, lineItems: [{ id: 1, description: 'Work', qty: 1, unitPrice: 200 }] }],
     });
     await page.goto('/');
     await page.getByTestId('nav-projects').click();

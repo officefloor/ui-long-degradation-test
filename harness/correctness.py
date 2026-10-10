@@ -60,6 +60,9 @@ class TestOutcome:
     total_selected: int = 0
     gate_invalid: bool = False
     gate_attempts: int = 0
+    # TEST.md §3.4 replay of earlier checkpoints' fixtures: {ok, checked, failures} or None when
+    # the checkpoint had no contract (cp01, or a run from before the contract existed).
+    seed_contract: dict | None = None
     core_pass: int = 0
     core_total: int = 0
     error_pass: int = 0
@@ -291,6 +294,17 @@ def _app_alive(base_url: str) -> bool:
         return False
 
 
+def read_seed_contract(worktree: str) -> dict | None:
+    """The seed helper's replay result for this run, or None if no contract was installed."""
+    try:
+        with open(os.path.join(worktree, ".run", "seed-contract-result.json")) as fh:
+            r = json.load(fh)
+        return {"ok": bool(r.get("ok")), "checked": int(r.get("checked") or 0),
+                "failures": list(r.get("failures") or [])}
+    except (FileNotFoundError, json.JSONDecodeError, ValueError):
+        return None
+
+
 def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
                   attempt: int) -> tuple[dict | None, str, str]:
     """Serve the app, run the installed suite once, and judge whether the run is scoreable.
@@ -299,15 +313,21 @@ def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
     os.makedirs(os.path.dirname(json_out), exist_ok=True)
     # A report left by an earlier run must never be read as this run's: when Playwright crashed
     # before writing (cp58 of run 202610100208) the previous checkpoint's report was scored.
-    with contextlib.suppress(FileNotFoundError):
-        os.remove(json_out)
+    seed_result = os.path.join(worktree, ".run", "seed-contract-result.json")
+    for stale in (json_out, seed_result):
+        with contextlib.suppress(FileNotFoundError):
+            os.remove(stale)
     expected = _installed_spec_files(e2e_dir)
     try:
         with serve(worktree, cfg) as app:
             env = os.environ.copy()
             env.update({"PORT": str(app.port), "BASE_URL": app.base_url,
                         "AUDIT_FILE": os.path.join(worktree, ".run", "audit.log"),
-                        "PLAYWRIGHT_JSON_OUTPUT_NAME": json_out})
+                        "PLAYWRIGHT_JSON_OUTPUT_NAME": json_out,
+                        # Record the test-data contract replay; never fail a spec on it here —
+                        # the gate scores it as its own column, not as regressions.
+                        "SEED_CONTRACT": "report",
+                        "RUN_DIR": os.path.join(worktree, ".run")})
             # --workers=1 is REQUIRED, not an optimisation: the full accumulated suite spans many
             # spec files that all drive ONE shared app + in-memory H2 via /__test__/reset+seed
             # (Arrange per test). Playwright's default is multi-worker and `fullyParallel:false`
@@ -388,6 +408,7 @@ def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
     outcome.detail = detail
     outcome.console = console
     outcome.gate_attempts = attempt
+    outcome.seed_contract = read_seed_contract(worktree)
     if reproducible_death:
         outcome.error = f"{problem} on both attempts — scored as the code under test"
     # reason breakdown for failed PRIOR tests (regressions); mutated set filled by caller-side
@@ -510,7 +531,8 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=(),
             "total_selected", "strict_pass", "iso_pass", "core_pass", "core_p", "core_t",
             "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
             "normalized_change", "regressions", "true_regressions",
-            "unsatisfied_replacement", "anchor_drift", "behaviour_loss", "seed_path")}
+            "unsatisfied_replacement", "seed_contract_failures", "anchor_drift", "behaviour_loss",
+            "seed_path")}
         return {"build_ok": outcome.build_ok, "gate_invalid": True, **blanks}
     mut = {int(m) for m in (mutated_cps or ())}
     reason_counts = {r.value: 0 for r in RegressionReason}
@@ -543,6 +565,9 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=(),
                                                    outcome.results),
         "unsatisfied_replacement": count_unsatisfied_replacements(
             prior_selected, outcome.results, mutated_cps),
+        # Blank when there was no contract to check, so "not checked" never reads as "clean".
+        "seed_contract_failures": ("" if outcome.seed_contract is None
+                                   else len(outcome.seed_contract.get("failures") or [])),
         "anchor_drift": reason_counts.get(RegressionReason.ANCHOR_DRIFT.value, 0),
         "behaviour_loss": reason_counts.get(RegressionReason.BEHAVIOUR_LOSS.value, 0),
         "seed_path": reason_counts.get(RegressionReason.SEED_PATH.value, 0),
