@@ -395,9 +395,10 @@ def _neutralize_spec(text: str) -> str:
     return text
 
 
-# --- harness-owned files (TEST.md, the shared seed helper) -------------------------------------
-# One copy, maintained here and installed into every stack at every checkpoint, so all stacks are
-# held to the same testing contract and a stack repo never carries its own (drifting) version.
+# --- harness-owned files (AGENTS.md, the agent service's shim, the shared seed helper) ----------
+# One copy, maintained here and installed into every stack at every checkpoint, so all stacks get
+# the same working rules and testing contract and a stack repo never carries its own (drifting)
+# version, nor anything specific to the AI service.
 # The agent may not change them: edits are flagged like pinned files and never copied back.
 
 FIXTURE_CONTRACT = os.path.join(".run", "fixture-contract.json")
@@ -405,9 +406,11 @@ SEED_CONTRACT_RESULT = os.path.join(".run", "seed-contract-result.json")
 
 
 def harness_files(cfg: dict) -> dict[str, str]:
-    """{path in the app -> absolute source in the harness} from acceptance.harness_files."""
-    return {dst: os.path.join(HARNESS_ROOT, src)
-            for dst, src in ((cfg.get("acceptance") or {}).get("harness_files") or {}).items()}
+    """{path in the app -> absolute source in the harness}: acceptance.harness_files plus the agent
+    service's agent.instruction_files (how that service finds AGENTS.md)."""
+    declared = {**((cfg.get("acceptance") or {}).get("harness_files") or {}),
+                **((cfg.get("agent") or {}).get("instruction_files") or {})}
+    return {dst: os.path.join(HARNESS_ROOT, src) for dst, src in declared.items()}
 
 
 def harness_files_provenance(cfg: dict) -> dict:
@@ -418,7 +421,7 @@ def harness_files_provenance(cfg: dict) -> dict:
 
 def install_harness_files(dst_root: str, cfg: dict, cp: dict | None = None) -> None:
     """Copy the harness-owned files into an app tree; with a checkpoint, also write the
-    test-data contract its seed helper replays (TEST.md §3.4) and drop any stale result."""
+    test-data contract its seed helper replays (AGENTS.md §4.4) and drop any stale result."""
     for dst, src in harness_files(cfg).items():
         out = os.path.join(dst_root, dst)
         os.makedirs(os.path.dirname(out) or dst_root, exist_ok=True)
@@ -448,7 +451,7 @@ def copy_back_excludes(cfg: dict) -> tuple:
 
 
 def verify_resume_harness_files(wt: str, cfg: dict) -> None:
-    """Refuse to resume under a different TEST.md / seed helper than the chain started with:
+    """Refuse to resume under a different AGENTS.md / shim / seed helper than the chain started with:
     later checkpoints would be held to a different contract than earlier ones."""
     with open(os.path.join(wt, "evolve-results", "provenance.json")) as fh:
         was = json.load(fh).get("harness_files")
@@ -482,7 +485,7 @@ def install_agent_view(sandbox: str, cfg: dict, cp: dict) -> None:
 
 def _restore_pins_to_base(wt: str, app_cfg: dict, cfg: dict) -> None:
     """Restore pinned scaffolding in the worktree to its base_ref version (agent edits to
-    bin/*, CLAUDE.md, AGENTS.md must not sway the gate or accumulate)."""
+    bin/* or DESIGN.md must not sway the gate or accumulate)."""
     for pf in cfg.get("isolation", {}).get("pin_files", []):
         r = subprocess.run(["git", "-C", wt, "checkout", app_cfg["base_ref"], "--", pf],
                            capture_output=True, text=True)
@@ -504,18 +507,18 @@ def _pins_touched(wt: str, cfg: dict) -> list[str]:
 
 PROMPT_TEMPLATE = """You are implementing ONE change to this application.
 
-FIRST read CLAUDE.md — it states the working rules, the project layout, and the data-testid
-conventions. Follow it.
+FIRST read AGENTS.md — it states the working rules and how the app is tested, and sends you to
+DESIGN.md for this implementation's stack and conventions. Follow both.
 
 THE CHANGE REQUEST:
 {request}
 
 Your work is verified by an automated Playwright UI test already installed under e2e/specs/.
-Read that spec: it declares the exact data-testid anchors, values, and any audit records it
-expects — match them. Run `bin/e2e` to build the app, start it, and run the test as you work;
-iterate until it passes. Implement the full-stack change (database migration + OfficeFloor
-server + front-end). Do NOT edit the pinned scaffolding (bin/build, bin/start, bin/stop,
-bin/e2e, CLAUDE.md, AGENTS.md) or the test spec.
+Read that spec: it declares the exact data-testid anchors, values, test data and any audit
+records it expects — match them. Run `bin/e2e` to build the app, start it, and run the test as
+you work; iterate until it passes. Change whatever the request needs across the app — its stored
+data, its server and its front end. Do NOT edit bin/build, bin/start, bin/stop, bin/e2e,
+AGENTS.md, CLAUDE.md, DESIGN.md, e2e/support/ or the test spec.
 """
 
 
@@ -530,8 +533,8 @@ The upcoming change this should make easier:
 Where complexity concentrated (simplify/restructure these; do not just move code around or copy it):
 {flagged}
 
-Read CLAUDE.md for the conventions. Do not edit the pinned scaffolding (bin/*, CLAUDE.md, AGENTS.md)
-or the test spec. You can run `bin/e2e` to confirm behaviour is preserved.
+Read AGENTS.md and DESIGN.md for the conventions. Do not edit bin/*, AGENTS.md, CLAUDE.md,
+DESIGN.md, e2e/support/ or the test spec. You can run `bin/e2e` to confirm behaviour is preserved.
 """
 
 REVIEW_TEMPLATE = """Your refactor introduced code-quality problems that must be fixed (they defeat
@@ -775,14 +778,14 @@ def _impact_gated_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, t
 
 def commit_harness_files(wt: str, cfg: dict) -> None:
     """Start the chain from base + the harness-owned files, in their own commit, so no agent
-    diff ever contains them and the branch shows exactly which TEST.md the app was built to."""
+    diff ever contains them and the branch shows exactly which AGENTS.md the app was built to."""
     install_harness_files(wt, cfg)
     paths = list(harness_files(cfg))
     if not paths:
         return
     subprocess.run(["git", "-C", wt, "add", "-f", "--", *paths], capture_output=True, text=True)
-    subprocess.run(["git", "-C", wt, "commit", "-m", "harness: install the testing contract (TEST.md) "
-                    "and seed helper", "--", *paths], capture_output=True, text=True)
+    subprocess.run(["git", "-C", wt, "commit", "-m", "harness: install AGENTS.md (working rules + testing "
+                    "contract), the agent shim and the seed helper", "--", *paths], capture_output=True, text=True)
 
 
 def commit_run_manifest(wt: str, branch: str, run_id: str, condition: str, chain: int,
@@ -852,7 +855,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         # The stack's own origin, so a chain branch can be tied to the remote it lives on.
         "app_origin": app_cfg.get("origin"), "stack": os.path.basename(app_cfg["repo"]),
         "resumed_at": lo if resume else None,
-        # The testing contract (TEST.md) and seed helper this chain was held to, by hash.
+        # The instruction files (AGENTS.md, agent shim) and seed helper this chain had, by hash.
         "harness_files": harness_files_provenance(cfg),
         # Blindness audit trail, committed with the run manifest: whether confinement was requested
         # and the Landlock ABI actually available on the host, so a run's blindness is provable
@@ -895,7 +898,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         print(f"    stack  : {label}", flush=True)
         print(f"    request: {cp['request'].strip().splitlines()[0]}", flush=True)
 
-        # The data earlier checkpoints seeded, which the app must still store (TEST.md §3.4).
+        # The data earlier checkpoints seeded, which the app must still store (AGENTS.md §4.4).
         cp["_fixture_contract"] = fixtures.fixture_contract(checkpoints, k, HARNESS_ROOT)
 
         base_for_cp = git(["-C", wt, "rev-parse", "HEAD"])

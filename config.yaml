@@ -79,11 +79,20 @@ conditions:
   just-solve:         # ungated control — plain "implement this request", no ImpactGate refactor
     # prompt_template only
 
+# The AI service that plays the agent. Only the harness knows about it: the stacks carry no
+# service-specific file. instruction_files are what this service needs in the app to find the
+# harness-owned AGENTS.md (Claude Code auto-loads CLAUDE.md, which imports AGENTS.md); a service
+# that reads AGENTS.md natively needs none. Installed, hashed and protected like harness_files.
+agent:
+  service: claude-code
+  instruction_files:
+    CLAUDE.md: acceptance/agents/claude-code/CLAUDE.md
+
 prompt_strategies:
   just-solve:
     # template: |
-    #   <the constant prompt; the data-testid immutability rule + how to run ./e2e live in the
-    #    pinned CLAUDE.md/AGENTS.md. {request} is the checkpoint's plain-English change request.>
+    #   <the constant prompt; the working rules + the testing contract live in the harness-owned
+    #    AGENTS.md. {request} is the checkpoint's plain-English change request.>
 
 # Correctness oracle: build the app, bring the whole app up on app.port, drive with Playwright
 # bound to data-testid ONLY (DESIGN.md §3, §5, §9, §14).
@@ -98,12 +107,12 @@ acceptance:
                                    # are written one-record-per-line here; specs read it (support/
                                    # audit.ts). /__test__/reset clears it. bin/start+bin/e2e set AUDIT_FILE.
   # Harness-owned files installed into every stack at every checkpoint ({path in app: source here}).
-  # TEST.md is the single statement of the testing contract that each stack's CLAUDE.md/AGENTS.md
-  # points to; seed.ts is the shared seed helper, which replays earlier checkpoints' fixtures
-  # (TEST.md §3.4). Their sha256s are recorded in provenance.json; agent edits are flagged and
-  # never copied back.
+  # AGENTS.md is the one instruction file, identical in every stack: the working rules and the
+  # testing contract; it sends the agent to the stack's own DESIGN.md for stack specifics. seed.ts
+  # is the shared seed helper, which replays earlier checkpoints' fixtures (AGENTS.md §4.4). Their
+  # sha256s are recorded in provenance.json; agent edits are flagged and never copied back.
   harness_files:
-    TEST.md: acceptance/TEST.md
+    AGENTS.md: acceptance/AGENTS.md
     e2e/support/seed.ts: acceptance/support/seed.ts
   agent_test_cmd: bin/e2e          # the command the AGENT runs to test as it works (DESIGN.md §15):
                                    # build + app.start + run the VISIBLE spec(s) only + app.stop.
@@ -178,7 +187,9 @@ isolation:
   # an agent weakening the check to mask a seed-path regression (restored to base_ref before the gate).
   # e2e/support/seed.ts is no longer pinned to the stack's base: the harness owns it (see
   # acceptance.harness_files), so every stack runs the same seed helper and contract replay.
-  pin_files: ["AGENTS.md", "CLAUDE.md", "bin/build", "bin/start", "bin/stop", "bin/e2e",
+  # AGENTS.md / CLAUDE.md are harness-owned (acceptance.harness_files, agent.instruction_files);
+  # DESIGN.md is the stack's own guidance, restored from its base like the scripts.
+  pin_files: ["DESIGN.md", "bin/build", "bin/start", "bin/stop", "bin/e2e",
               "e2e/support/audit.ts"]
   agent_confinement:
     enabled: true

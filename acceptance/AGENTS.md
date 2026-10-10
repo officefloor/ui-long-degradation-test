@@ -1,32 +1,39 @@
-# How this app is tested
+# Working in this app
 
-<!-- TEST.md version 1. Maintained by the ui-long-degradation-test harness and copied into the app by
-     it; do not edit the copy in the app — it is replaced at every checkpoint, and the copy that was
-     used is recorded (path + sha256) in evolve-results/provenance.json. -->
+<!-- AGENTS.md version 1. Maintained by the ui-long-degradation-test harness and copied into every
+     app by it, identical for every stack. Do not edit the copy in the app: it is replaced at every
+     checkpoint, and the copy that was used is recorded (path + sha256) in
+     evolve-results/provenance.json. Stack-specific guidance lives in the app's own DESIGN.md. -->
 
-This file is the testing contract for the app. It is the same for every implementation, whatever
-its stack. `CLAUDE.md` / `AGENTS.md` refer here instead of repeating it.
+## 1. How you work
 
-Your change is checked by an automated Playwright test that drives the running app through its UI.
-The test is in `e2e/specs/`. `bin/e2e` builds the app, starts it, runs the test and stops it — run
-it as you work and iterate until it passes. Do not edit the test, `bin/*`, `e2e/support/*`,
-`CLAUDE.md`, `AGENTS.md` or this file.
+- Implement the ONE change request you have been given. A single change may span the stored data
+  and its schema, the server, and the front end.
+- **Read `DESIGN.md` first.** It describes this implementation — its stack, layout and conventions
+  — and how to do things in it. Follow it.
+- Your change is checked by an automated Playwright test that drives the running app through its
+  UI. The test is in `e2e/specs/`. **Run `bin/e2e`** to build the app, start it, run the test and
+  stop it — run it as you work and iterate until it passes.
+- **Do not edit** the test, `bin/*`, `e2e/support/*`, `AGENTS.md`, `CLAUDE.md` or `DESIGN.md`.
 
-## 1. The UI is tested only through `data-testid`
+The rest of this file is how the app is tested. It is the same for every implementation of this
+app.
+
+## 2. The UI is tested only through `data-testid`
 
 - Every element a test acts on, and every value it reads back, carries a `data-testid`. Tests use
   these only — never CSS classes, page structure, or visible wording.
 - **A `data-testid` is a permanent public API.** Once it exists, never rename or remove it. Match
   exactly the `data-testid` values, and the values shown in them, that your test expects.
 
-## 2. Side effects are tested through the audit file
+## 3. Side effects are tested through the audit file
 
 Behaviour that is not visible on screen (for example "record that this happened") is written to the
 audit file, one record per line, through the app's audit service. `bin/start` and `bin/e2e` set its
 path in `AUDIT_FILE`; tests read it with `e2e/support/audit.ts`. Write records exactly in the form
 your test expects.
 
-## 3. Test data
+## 4. Test data
 
 Every test arranges its own data. Before each test, `e2e/support/seed.ts`:
 
@@ -37,7 +44,7 @@ There is no shared dataset: two tests never see each other's data. The endpoints
 and you extend them as the app grows. They exist only under the test profile that `bin/start` uses,
 and the app itself must never call them.
 
-### 3.1 The fixture
+### 4.1 The fixture
 
 A fixture is a JSON object. Each top-level key is a collection of rows (`clients`, `projects`,
 `invoices`, ...), a settings object, or a single value:
@@ -61,7 +68,7 @@ A fixture is a JSON object. Each top-level key is a collection of rows (`clients
   current date for everything date-dependent (overdue, ageing, windows, "this week"). Without it the
   app uses the real date.
 
-### 3.2 `POST /__test__/seed` stores every field, or refuses
+### 4.2 `POST /__test__/seed` stores every field, or refuses
 
 - Store **every** field the fixture gives. A field the app cannot store must be refused with
   **HTTP 400** and a message naming it — never silently ignored. A dropped field makes a test fail
@@ -69,7 +76,7 @@ A fixture is a JSON object. Each top-level key is a collection of rows (`clients
 - When a later change makes a field mean something new, keep accepting it and give it its new
   meaning.
 
-### 3.3 `GET /__test__/fixture` reads the data back
+### 4.3 `GET /__test__/fixture` reads the data back
 
 Returns what is stored, in the same shape and with the same field names the fixture used, so that
 seeding a fixture and reading it back returns every field that was seeded, with the same value.
@@ -81,7 +88,7 @@ seeding a fixture and reading it back returns every field that was seeded, with 
 - Extra fields and extra rows (defaults, derived values) are fine. After `POST /__test__/reset` the
   read-back is empty: `{}` or empty collections.
 
-### 3.4 Earlier test data is replayed before your test
+### 4.4 Earlier test data is replayed before your test
 
 Before the first test runs, `bin/e2e` replays the test data that earlier checkpoints used — the data
 only, never their tests. For each earlier fixture it resets, seeds the fixture, reads it back with

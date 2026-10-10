@@ -60,7 +60,7 @@ class TestOutcome:
     total_selected: int = 0
     gate_invalid: bool = False
     gate_attempts: int = 0
-    # TEST.md §3.4 replay of earlier checkpoints' fixtures: {ok, checked, failures} or None when
+    # AGENTS.md §4.4 replay of earlier checkpoints' fixtures: {ok, checked, failures} or None when
     # the checkpoint had no contract (cp01, or a run from before the contract existed).
     seed_contract: dict | None = None
     core_pass: int = 0

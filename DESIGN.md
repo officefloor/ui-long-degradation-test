@@ -556,7 +556,7 @@ browser at it." That has three consequences worth stating.
 ### One agent test command, running only the visible spec
 
 The agent is given a single command — `acceptance.agent_test_cmd` (e.g. `./e2e`), pinned into the
-app and documented in the pinned `CLAUDE.md`. It builds the app, brings it up via `app.start`, runs
+app and documented in the harness-owned `AGENTS.md`. It builds the app, brings it up via `app.start`, runs
 the **currently-visible spec(s) only** (which `beforeEach` reset+seed via `/__test__`), and tears
 down (`app.stop`). Blind holds by construction: the agent can only run what it can see (its own
 checkpoint's spec), never the withheld priors. This is exactly the REST arm's condition — the agent
@@ -566,7 +566,8 @@ iterates against its own test — moved to a served, full-stack app.
 
 The agent running its spec is for its **own iteration only**. Correctness/regression scoring is
 unchanged: after the turn, the harness restores the **pinned operational scaffolding** — the
-`bin/start`/`bin/stop` scripts, the `./e2e` command, and `CLAUDE.md`/`AGENTS.md` — and the visible
+`bin/start`/`bin/stop` scripts, the `./e2e` command and the stack's `DESIGN.md`, reinstalls the
+harness-owned `AGENTS.md` (and the agent service's shim, e.g. `CLAUDE.md`) — and the visible
 specs to authored, then runs the **full cp01..cpK suite** (`correctness.run_tests`). The
 *application code* the agent wrote (schema migrations, OfficeFloor server, front-end, and the
 evolving `/__test__` seed endpoint) is the agent's delta and is kept; only the fixed scaffolding

@@ -10,9 +10,10 @@
 - The agent, while working, sees ONLY the current checkpoint's spec (blind; DESIGN.md
   §4). The full cp01..cpK suite runs afterwards as the regression gate, never shown to
   the agent (tests-as-living-spec; DESIGN.md §7).
-- The testing contract the app is built to — `data-testid`, the audit file, and the `/__test__`
-  seed + read-back endpoints — is [TEST.md](./TEST.md). The harness installs it, with
-  `support/seed.ts`, into every app at every checkpoint. `support/seed.ts` replays the fixtures of
+- The working rules and testing contract the app is built to — `data-testid`, the audit file, and
+  the `/__test__` seed + read-back endpoints — are [AGENTS.md](./AGENTS.md). The harness installs
+  it, with `support/seed.ts` and the agent service's shim (`agents/<service>/`), into every app at
+  every checkpoint; the stack's own `DESIGN.md` carries its stack-specific guidance. `support/seed.ts` replays the fixtures of
   earlier checkpoints (`harness.fixtures.fixture_contract`) before the first spec, and
   `harness.checkpoint_lint` refuses a stream whose replacement copies seed a field no visible spec
   has seeded yet.

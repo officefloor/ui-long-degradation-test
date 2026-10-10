@@ -20,7 +20,7 @@ The runner's job is split in two:
     recorded at the instant the agent runs: the agent envelope (cost/tokens/
     model/turns), the full event stream, the RAW per-test results, the compiler
     output, and the pre-normalisation agent diff (the true agent delta, before
-    CLAUDE.md is pinned back and the acceptance tests are reset). Plus a run
+    DESIGN.md is pinned back, the harness-owned AGENTS.md is reinstalled and the acceptance tests are reset). Plus a run
     provenance manifest (model, harness SHA, tool versions).
 
   * DERIVE (harness/metrics.py + analyze) — everything else. Erosion,
@@ -304,7 +304,7 @@ def checkpoint_record(k: int, cp_id: str, phase: str, shas: dict, agent_result,
             # suite-wide regression. Persisted so the hole survives into re-analysis.
             "gate_invalid": outcome.gate_invalid,
             "gate_attempts": outcome.gate_attempts,
-            # TEST.md §3.4: earlier checkpoints' fixtures replayed and read back before the suite.
+            # AGENTS.md §4.4: earlier checkpoints' fixtures replayed and read back before the suite.
             "seed_contract": getattr(outcome, "seed_contract", None),
         },
         "probe": probe,

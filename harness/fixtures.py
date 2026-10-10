@@ -1,4 +1,4 @@
-"""Test-data (fixture) contract, derived from the specs themselves (TEST.md §Test data).
+"""Test-data (fixture) contract, derived from the specs themselves (AGENTS.md §4).
 
 Every spec arranges its own data with `resetAndSeed({...})`. The app's seed endpoint is agent
 code, so nothing stops a later change from silently dropping a field an earlier spec seeds —

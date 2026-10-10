@@ -156,7 +156,7 @@ def main() -> int:
                 + (" ..." if len(pattern_bad) > 10 else "")
                 + "  (relax with --no-cadence-pattern to check the ratio only).")
 
-    # ---- 3. test data the agent could not know to store (TEST.md, Test data) ---------------
+    # ---- 3. test data the agent could not know to store (AGENTS.md §4) ---------------
     # Over the WHOLE stream, not the window: a replacement copy that seeds a field no visible spec
     # has seeded makes a hidden spec fail on data the agent never had a reason to store.
     harness_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

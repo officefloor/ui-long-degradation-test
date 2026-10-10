@@ -88,17 +88,21 @@ def test_harness_files_install_flag_edits_and_never_copy_back():
     from . import run_experiment as r
     with tempfile.TemporaryDirectory() as app:
         cfg = {"acceptance": {"dest_subpath": "e2e/specs",
-                              "harness_files": {"TEST.md": "acceptance/TEST.md",
-                                                "e2e/support/seed.ts": "acceptance/support/seed.ts"}}}
+                              "harness_files": {"AGENTS.md": "acceptance/AGENTS.md",
+                                                "e2e/support/seed.ts": "acceptance/support/seed.ts"}},
+               "agent": {"instruction_files": {"CLAUDE.md": "acceptance/agents/claude-code/CLAUDE.md"}}}
         cp = {"_fixture_contract": {"checkpoint": 2, "data_sets": [{"spec": "s", "test": "t", "fixture": {}}]}}
         r.install_harness_files(app, cfg, cp)
         assert r.harness_files_touched(app, cfg) == []
         assert json.load(open(os.path.join(app, r.FIXTURE_CONTRACT)))["checkpoint"] == 2
-        open(os.path.join(app, "TEST.md"), "a").write("\nagent edit\n")
-        assert r.harness_files_touched(app, cfg) == ["TEST.md"]
-        assert set(r.copy_back_excludes(cfg)) == {"e2e/specs/", "/TEST.md", "/e2e/support/seed.ts"}
+        assert open(os.path.join(app, "CLAUDE.md")).read().strip() == "@AGENTS.md"
+        open(os.path.join(app, "AGENTS.md"), "a").write("\nagent edit\n")
+        assert r.harness_files_touched(app, cfg) == ["AGENTS.md"]
+        assert set(r.copy_back_excludes(cfg)) == {"e2e/specs/", "/AGENTS.md", "/CLAUDE.md",
+                                                  "/e2e/support/seed.ts"}
         prov = r.harness_files_provenance(cfg)
-        assert prov["TEST.md"]["source"] == "acceptance/TEST.md" and len(prov["TEST.md"]["sha256"]) == 64
+        assert prov["AGENTS.md"]["source"] == "acceptance/AGENTS.md" and len(prov["AGENTS.md"]["sha256"]) == 64
+        assert prov["CLAUDE.md"]["source"] == "acceptance/agents/claude-code/CLAUDE.md"
         # Re-installing without a checkpoint restores the file and removes the stale contract.
         r.install_harness_files(app, cfg)
         assert r.harness_files_touched(app, cfg) == []

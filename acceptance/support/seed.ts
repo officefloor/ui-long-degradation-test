@@ -1,4 +1,4 @@
-// Shared per-spec data setup (TEST.md §3). Maintained by the harness and installed into every app;
+// Shared per-spec data setup (AGENTS.md §4). Maintained by the harness and installed into every app;
 // do not edit the copy in the app. Each spec RESETS then SEEDS via the app's /__test__ endpoints —
 // this is Arrange, not Assert. Specs still ASSERT only through the UI (data-testid).
 //
@@ -7,7 +7,7 @@
 // would surface later as confusing, misattributed assertion failures. We throw here so the break is
 // attributed to the seed contract.
 //
-// TEST-DATA CONTRACT (TEST.md §3.4): before the first spec seeds anything, the fixtures of earlier
+// TEST-DATA CONTRACT (AGENTS.md §4.4): before the first spec seeds anything, the fixtures of earlier
 // checkpoints (the harness writes them to .run/fixture-contract.json — data only, never their
 // assertions) are replayed: reset, seed, read back with GET /__test__/fixture, and every seeded
 // field must come back with the same value. That catches a seed endpoint that stopped storing a
@@ -75,7 +75,7 @@ async function checkContractOnce(api: APIRequestContext): Promise<void> {
   })();
   const res = await checked;
   if (res && !res.ok && MODE === 'enforce') {
-    throw new Error(`test-data contract: ${res.failures.length} problem(s) (TEST.md §3.4)\n`
+    throw new Error(`test-data contract: ${res.failures.length} problem(s) (AGENTS.md §4.4)\n`
       + res.failures.slice(0, 20).join('\n'));
   }
 }
@@ -87,7 +87,7 @@ async function readBack(api: APIRequestContext): Promise<unknown> {
   // An unimplemented route typically falls through to the SPA's index.html with a 200.
   if (!(r.headers()['content-type'] ?? '').includes('json')) {
     throw new ReadBackMissing('GET /__test__/fixture does not return JSON — implement the read-back '
-      + '(TEST.md §3.3) so earlier test data can be checked');
+      + '(AGENTS.md §4.3) so earlier test data can be checked');
   }
   return r.json();
 }
@@ -116,7 +116,7 @@ async function replay(api: APIRequestContext, sets: DataSet[]): Promise<string[]
   return out;
 }
 
-// ---- comparison (TEST.md §3.4: numbers by value, dates as yyyy-mm-dd, rows by id) -----------
+// ---- comparison (AGENTS.md §4.4: numbers by value, dates as yyyy-mm-dd, rows by id) -----------
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const NUMERIC = /^-?\d+(\.\d+)?$/;

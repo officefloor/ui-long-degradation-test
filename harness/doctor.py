@@ -223,17 +223,19 @@ def check_environment(cfg: dict, condition: str | None = None,
                                                "mid-run",
                                    remedy="./setup.sh installs both into tools/ (pinned)"))
 
-    # The harness-owned files (TEST.md, the shared seed helper) are installed into every app; one
-    # that is missing would leave the app without its testing contract, or the gate without the
-    # test-data replay, so the run would be held to a different contract than its provenance says.
+    # The harness-owned files (AGENTS.md, the agent shim, the shared seed helper) are installed into
+    # every app; one that is missing would leave the app without its instructions or testing
+    # contract, or the gate without the test-data replay.
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    for dst, src in ((cfg.get("acceptance") or {}).get("harness_files") or {}).items():
+    declared = {**((cfg.get("acceptance") or {}).get("harness_files") or {}),
+                **((cfg.get("agent") or {}).get("instruction_files") or {})}
+    for dst, src in declared.items():
         if os.path.isfile(os.path.join(root, src)):
             out.append(Finding(f"harness file {dst}", "env", BLOCKING, OK, detail=src))
         else:
             out.append(Finding(f"harness file {dst}", "env", BLOCKING, MISSING, integrity=True,
                                detail=f"{src} not found",
-                               consequence="the app would not get its testing contract (TEST.md)",
+                               consequence="the app would not get its instructions / testing contract",
                                remedy=f"restore {src} in the harness repo"))
 
     # Whether the agent can actually RUN the toolchain once confined. Here rather than in a
@@ -567,6 +569,15 @@ def check_stack(repo: str, base_ref: str, pins: list[str] | None = None) -> list
                 "harness cannot restore it before the gate — an agent edit to it (e.g. "
                 "changing how e2e/support/audit.ts reads the audit file) would REACH the gate",
                 remedy=f"add {pin}", sev=DEGRADES, integ=True)
+
+    # The instruction files are harness-owned (SUT_CONTRACT §4): a stack's own copy would be
+    # overwritten at every checkpoint, so any guidance in it never reaches the agent.
+    for own in ("AGENTS.md", "CLAUDE.md"):
+        if own in tree:
+            add(f"no own {own}", BROKEN, f"{own} committed at {base_ref}",
+                "the harness installs its own AGENTS.md (and the service shim) over it, so its "
+                "content never reaches the agent", remedy=f"move stack-specific guidance to "
+                "DESIGN.md and delete {own}".replace("{own}", own), sev=DEGRADES)
 
     # near-empty, and no generated code committed
     migs = [f for f in tree
