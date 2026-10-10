@@ -149,6 +149,30 @@ def field_paths(fixture, prefix: str = "") -> set[str]:
     return out
 
 
+# Words that describe the harness's own process (hidden replacement copies, mutates lists) rather
+# than the feature. The agent sees only its own spec; such a comment sent it looking for files it
+# cannot see, and cp09's named earlier checkpoints ("mutates: [4, 8]").
+_PROCESS_LEAK = re.compile(r"sibling|override folder|updated cop(?:y|ies)|shipped updated|"
+                           r"\bmutates\b|\bmutative\b", re.I)
+
+
+def process_leaks(text: str) -> list[str]:
+    """Harness-process phrases in a spec the agent will see (empty when clean)."""
+    return sorted({m.group(0).lower() for m in _PROCESS_LEAK.finditer(text)})
+
+
+def own_spec_leaks(checkpoints: list[dict], harness_root: str) -> list[str]:
+    """Checkpoints whose OWN (agent-visible) spec mentions the harness's process."""
+    out = []
+    for cp in checkpoints:
+        own = own_spec(cp)
+        if own:
+            hits = process_leaks(open(os.path.join(harness_root, own)).read())
+            if hits:
+                out.append(f"cp{cp['n']:02d} {os.path.basename(own)}: mentions {', '.join(hits)}")
+    return out
+
+
 def own_spec(cp: dict) -> str:
     """The checkpoint's OWN spec (the only one the agent may see) — its `test`, or the
     first entry of an explicit `tests` list."""

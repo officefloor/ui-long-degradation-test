@@ -109,6 +109,14 @@ def test_harness_files_install_flag_edits_and_never_copy_back():
         assert not os.path.exists(os.path.join(app, r.FIXTURE_CONTRACT))
 
 
+def test_process_leaks_flag_harness_wording_not_behaviour():
+    assert f.process_leaks("An updated copy of the discount spec ships in the sibling override folder.") \
+        == ["override folder", "sibling", "updated copy"]
+    assert f.process_leaks("// MUTATIVE change: shipped updated (mutates: [4, 8])") \
+        == ["mutates", "mutative", "shipped updated"]
+    assert f.process_leaks("Stacked discounts collapse to a single discount.") == []
+
+
 def test_seed_contract_column_is_blank_when_nothing_was_checked():
     o = c.score_results({"cp01_a.spec.ts::x": True}, 1)
     assert c.outcome_row(o, set())["seed_contract_failures"] == ""

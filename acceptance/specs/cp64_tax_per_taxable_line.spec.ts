@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the sales-tax rule). The tax is now worked out from only the TAXABLE line
-// amounts; tax-free lines are excluded from the tax base. The invoice total is subtotal (all
-// lines) minus discount plus tax (taxable base times the rate). invoice-taxable-base reports what
-// the tax was charged on. This checkpoint ships an updated sales-tax spec in its sibling override
-// folder, reflecting the revised rule.
+// The tax is now worked out from only the TAXABLE line amounts; tax-free lines are excluded from
+// the tax base. The invoice total is subtotal (all lines) minus discount plus tax (taxable base
+// times the rate). invoice-taxable-base reports what the tax was charged on.
 test.describe('tax from taxable lines only', () => {
   test('excludes tax-free lines from the tax', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

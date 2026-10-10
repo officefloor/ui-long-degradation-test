@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the top-clients rule). Top clients are ranked by their balance converted to the
-// home currency, so clients in different currencies compare correctly. An updated top-clients spec
-// ships in the sibling override folder.
+// Top clients are ranked by their balance converted to the home currency, so clients in different
+// currencies compare correctly.
 test.describe('top clients by converted balance', () => {
   test('ranks across currencies by the converted home balance', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

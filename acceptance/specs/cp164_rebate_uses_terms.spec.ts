@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the early-payment-discount rule). The early-payment window comes from the
-// client's payment terms rather than a fixed day count. An updated early-payment spec ships in the
-// sibling override folder.
+// The early-payment window comes from the client's payment terms rather than a fixed day count.
 test.describe('early-payment window from terms', () => {
   test('uses the client terms for the early-payment offer', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

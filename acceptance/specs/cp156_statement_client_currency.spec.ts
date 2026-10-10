@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the statement rule). The statement shows amounts in the client's own currency
-// with a converted home-currency total at the foot. An updated statement spec ships in the sibling
-// override folder.
+// The statement shows amounts in the client's own currency with a converted home-currency total at
+// the foot.
 test.describe('statement in client currency', () => {
   test('shows the client currency and a converted home total', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the payment-allocation rule). A client's deposit can be put toward their
-// invoices the same way a payment is split, and each invoice's balance drops by its share. An
-// updated copy of the allocation spec ships in the sibling override folder.
+// A client's deposit can be put toward their invoices the same way a payment is split, and each
+// invoice's balance drops by its share.
 test.describe('deposit allocation', () => {
   test('allocates a deposit across invoices', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

@@ -1,10 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the discount-everywhere rule). Everywhere money owed is shown now reflects every
-// discount AND every surcharge, not only the percentage discount. An updated copy of the
-// discount-everywhere spec ships in the sibling override folder. Here 200 less a 10% discount (20)
-// plus a 30 surcharge = 210 owed.
+// Everywhere money owed is shown now reflects every discount AND every surcharge, not only the
+// percentage discount. Here 200 less a 10% discount (20) plus a 30 surcharge = 210 owed.
 test.describe('adjustments everywhere', () => {
   test('outstanding reflects discounts and surcharges', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

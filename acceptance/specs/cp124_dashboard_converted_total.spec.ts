@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the multi-currency rule). The home screen gains one grand total in the home
-// currency, converting each invoice at its own date's rate, while the per-currency rows stay.
+// The home screen gains one grand total in the home currency, converting each invoice at its own
+// date's rate, while the per-currency rows stay.
 test.describe('dashboard converted grand total', () => {
   test('shows a home-currency grand total across currencies', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

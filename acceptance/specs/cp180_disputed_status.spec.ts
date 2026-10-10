@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the derived-status rule). A disputed invoice shows its own distinct status and
-// still counts as owed, but is kept out of the normal overdue chase. An updated status spec ships
-// in the sibling override folder.
+// A disputed invoice shows its own distinct status and still counts as owed, but is kept out of the
+// normal overdue chase.
 test.describe('disputed status', () => {
   test('a disputed invoice shows a distinct status and still counts as owed', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

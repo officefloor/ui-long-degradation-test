@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the sales-tax rule). A second tax (a levy) can sit on top of the sales tax.
-// Both are worked out on the taxable base and both are added to the total. The levy shows as its
-// own line (invoice-tax-levy); the primary tax stays invoice-tax. Ships an updated sales-tax spec
-// in its sibling override folder that carries the taxable-lines rule forward and adds the levy.
+// A second tax (a levy) can sit on top of the sales tax. Both are worked out on the taxable base
+// and both are added to the total. The levy shows as its own line (invoice-tax-levy); the primary
+// tax stays invoice-tax.
 test.describe('second tax (levy)', () => {
   test('adds a levy on top of the sales tax', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

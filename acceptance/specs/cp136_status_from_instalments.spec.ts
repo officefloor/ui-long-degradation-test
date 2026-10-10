@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the derived-status rule). An invoice on an instalment plan is BEHIND when a due
-// instalment is unpaid against the reference date. An updated status spec ships in the sibling
-// override folder.
+// An invoice on an instalment plan is BEHIND when a due instalment is unpaid against the reference
+// date.
 test.describe('status from instalments', () => {
   test('an overdue unpaid instalment shows the invoice as behind', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

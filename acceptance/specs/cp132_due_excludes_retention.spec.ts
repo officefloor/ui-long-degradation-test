@@ -1,8 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the amount-due rule). The amount due excludes retention that has not been
-// released. An updated amount-due spec ships in the sibling override folder.
+// The amount due excludes retention that has not been released.
 test.describe('due excludes retention', () => {
   test('unreleased retention is not part of the amount due', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

@@ -388,10 +388,16 @@ def install_measurement_suite(wt: str, cfg: dict, checkpoints: list[dict], k: in
 
 def _neutralize_spec(text: str) -> str:
     """Strip any cpNN token so the agent's one visible spec carries no sequence hint; a
-    leak guard raises if one survives (the specs are authored cpNN-free in content)."""
+    leak guard raises if one survives (the specs are authored cpNN-free in content). It also
+    refuses a spec that describes the harness's process — hidden replacement copies, mutates
+    lists — which the agent cannot see and would go looking for."""
     if _CP_TOKEN.search(text):
         # our specs contain no cpNN in content; if one appears, fail loudly rather than leak.
         raise RuntimeError("spec content leaks a cpNN token; neutralise it before install")
+    leaks = fixtures.process_leaks(text)
+    if leaks:
+        raise RuntimeError(f"spec content describes the hidden suite ({', '.join(leaks)}); "
+                           "describe the behaviour only")
     return text
 
 

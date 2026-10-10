@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE REVERSAL: the second tax (the levy) is scrapped. Invoices show only the one tax again,
-// the levy line is gone, and totals work out as if the levy never existed. An invoice that once
-// would have carried a levy now totals subtotal + tax: 200 + 20% = 240, with no levy line present.
+// The second tax (the levy) is scrapped. Invoices show only the one tax again, the levy line is
+// gone, and totals work out as if the levy never existed. An invoice that once would have carried a
+// levy now totals subtotal + tax: 200 + 20% = 240, with no levy line present.
 test.describe('levy removed', () => {
   test('no levy line and the total excludes it', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

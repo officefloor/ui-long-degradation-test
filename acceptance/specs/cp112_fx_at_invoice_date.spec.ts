@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the multi-currency rule). A foreign invoice's home-currency figure uses the
-// exchange rate from the invoice's own date; the per-currency totals stay separate as before. An
-// updated copy of the multi-currency spec ships in the sibling override folder. Here a €100 invoice
-// dated when the rate was 1.1 converts to $110.
+// A foreign invoice's home-currency figure uses the exchange rate from the invoice's own date; the
+// per-currency totals stay separate as before. Here a €100 invoice dated when the rate was 1.1
+// converts to $110.
 test.describe('convert at invoice date', () => {
   test('uses the invoice-date rate for the home figure', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

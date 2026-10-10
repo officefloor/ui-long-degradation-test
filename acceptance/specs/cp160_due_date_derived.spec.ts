@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the invoice-dates rule). The due date defaults from the client's payment terms,
-// but an explicit due date on an invoice still overrides it. An updated dates spec ships in the
-// sibling override folder.
+// The due date defaults from the client's payment terms, but an explicit due date on an invoice
+// still overrides it.
 test.describe('due date derived from terms', () => {
   test('terms drive the due date unless overridden', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

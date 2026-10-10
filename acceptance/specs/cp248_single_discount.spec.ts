@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE REVERSAL: only one discount per invoice is allowed again. Stacked discounts collapse to
-// a single discount, and the affordance to add another discount is gone. A single 10% discount on
-// 200 shows $20.00 off for a total of $180.00, with no add-another control.
+// Only one discount per invoice is allowed again. Stacked discounts collapse to a single discount,
+// and the affordance to add another discount is gone. A single 10% discount on 200 shows $20.00 off
+// for a total of $180.00, with no add-another control.
 test.describe('single discount only', () => {
   test('one discount, no way to add another', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

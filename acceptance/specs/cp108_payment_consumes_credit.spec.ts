@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the status-with-credits and deposit-allocation rules). One payment can settle
-// several invoices, using up any deposit or credit first and leaving any surplus as credit, with
-// every balance reconciling. Updated copies of those specs ship in the sibling override folder.
-// Here a 50 deposit plus a 120 payment settle two 100 invoices (170 of 200), leaving 30 owing.
+// One payment can settle several invoices, using up any deposit or credit first and leaving any
+// surplus as credit, with every balance reconciling. Here a 50 deposit plus a 120 payment settle
+// two 100 invoices (170 of 200), leaving 30 owing.
 test.describe('payment consumes credit', () => {
   test('a deposit then a payment settle invoices and reconcile', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

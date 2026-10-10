@@ -168,6 +168,14 @@ def main() -> int:
             f"seeded yet — seed it in that checkpoint's own spec:\n      "
             + "\n      ".join(hidden))
 
+    # ---- 4. the agent's own spec must not describe the hidden suite -------------------------
+    leaks = fixtures.own_spec_leaks(numbered, harness_root)
+    if leaks:
+        problems.append(
+            f"visible specs: {len(leaks)} own spec(s) describe the harness's process (replacement "
+            f"copies, mutates) — the agent cannot see those; describe the behaviour only:\n      "
+            + "\n      ".join(leaks))
+
     # ---- report ---------------------------------------------------------------------------
     by_area: dict[str, int] = {}
     for cp in window:
@@ -183,6 +191,7 @@ def main() -> int:
     if untagged:
         print(f"  untagged         : {len(untagged)}")
     print(f"  hidden test data : {len(hidden)} replacement field(s) unseen by a visible spec")
+    print(f"  visible-spec leak: {len(leaks)} own spec(s) describe the hidden suite")
     print()
 
     if problems:

@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the thousands-separator and multi-currency rules). Every amount, on every
-// screen, is shown with the same rounding, the same thousands separators and the right currency.
-// Updated copies of those specs ship in the sibling override folder. Here one euro client's large
-// balance reads identically on the invoice list, the statement and the home screen.
+// Every amount, on every screen, is shown with the same rounding, the same thousands separators and
+// the right currency. Here one euro client's large balance reads identically on the invoice list,
+// the statement and the home screen.
 test.describe('one money rule everywhere', () => {
   test('the same amount reads identically across screens', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

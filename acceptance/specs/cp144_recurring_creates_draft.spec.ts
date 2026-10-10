@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the invoice-lifecycle rule). A due recurring schedule generates its invoice as
-// a DRAFT to review, not a finished one. An updated lifecycle spec ships in the sibling override
-// folder.
+// A due recurring schedule generates its invoice as a DRAFT to review, not a finished one.
 test.describe('recurring creates a draft', () => {
   test('generating a due recurring invoice produces a draft', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

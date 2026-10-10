@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the dashboard-overdue rule). The overdue figure is split into age buckets by
-// how overdue each invoice is, measured against the reference date. An updated overdue spec ships
-// in the sibling override folder.
+// The overdue figure is split into age buckets by how overdue each invoice is, measured against the
+// reference date.
 test.describe('overdue buckets', () => {
   test('splits overdue into age buckets', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

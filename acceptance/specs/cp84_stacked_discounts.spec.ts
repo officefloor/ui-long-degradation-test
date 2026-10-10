@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the discount rule). An invoice can carry several discounts at once; each is
-// shown and their combined effect comes off before tax. An updated copy of the discount spec ships
-// in the sibling override folder. Here 10% of 200 (20) plus a flat 20 = 40 combined.
+// An invoice can carry several discounts at once; each is shown and their combined effect comes off
+// before tax. Here 10% of 200 (20) plus a flat 20 = 40 combined.
 test.describe('stacked discounts', () => {
   test('shows each discount and the combined total', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

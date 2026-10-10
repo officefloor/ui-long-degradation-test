@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the statement rule). A statement can be run for a date range with an opening
-// and a closing balance that reconcile. An updated statement spec ships in the sibling override
-// folder.
+// A statement can be run for a date range with an opening and a closing balance that reconcile.
 test.describe('statement date range', () => {
   test('opening and closing balances reconcile over a range', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the statement rule). The statement becomes a running account: invoices,
-// payments, credits and deposits listed in date order with a running balance. An updated copy of
-// the statement spec ships in the sibling override folder.
+// The statement becomes a running account: invoices, payments, credits and deposits listed in date
+// order with a running balance.
 test.describe('statement running balance', () => {
   test('lists entries in date order with a running balance', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

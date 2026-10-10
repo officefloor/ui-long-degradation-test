@@ -1,10 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the derived-status and payment-allocation rules). An invoice's status is worked
-// out from its payments AND its credit notes: if a credit clears what is left, it is settled rather
-// than still owing. Updated copies of the status and allocation specs ship in the sibling override
-// folder. Here 100 with a 40 payment and a 60 credit is fully settled.
+// An invoice's status is worked out from its payments AND its credit notes: if a credit clears what
+// is left, it is settled rather than still owing. Here 100 with a 40 payment and a 60 credit is
+// fully settled.
 test.describe('status accounts for credits', () => {
   test('a credit that clears the balance settles the invoice', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

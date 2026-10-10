@@ -1,8 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the derived-status rule). A write-off of the remaining balance, alongside
-// payments, settles the invoice. An updated status spec ships in the sibling override folder.
+// A write-off of the remaining balance, alongside payments, settles the invoice.
 test.describe('status with write-off', () => {
   test('a write-off of the remainder settles the invoice', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

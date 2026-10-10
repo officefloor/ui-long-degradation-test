@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises payment allocation). One payment can be split across invoices in different
-// currencies; each share is converted at the payment's date so every invoice's balance is right in
-// its own currency.
+// One payment can be split across invoices in different currencies; each share is converted at the
+// payment's date so every invoice's balance is right in its own currency.
 test.describe('cross-currency allocation', () => {
   test('splits a payment across invoices in two currencies', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

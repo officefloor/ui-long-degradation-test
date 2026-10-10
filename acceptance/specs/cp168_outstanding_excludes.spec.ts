@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the outstanding rule). What a client owes counts only sent invoices that are
-// not cancelled and not written off. An updated outstanding spec ships in the sibling override
-// folder.
+// What a client owes counts only sent invoices that are not cancelled and not written off.
 test.describe('outstanding excludes written-off', () => {
   test('written-off invoices drop out of outstanding', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

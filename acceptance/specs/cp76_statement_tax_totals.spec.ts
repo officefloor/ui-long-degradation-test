@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the statement and statement-by-job rules). The statement now also shows tax —
-// per job and across the whole statement — alongside the amounts owed. Updated copies of the
-// statement specs ship in the sibling override folder.
+// The statement now also shows tax — per job and across the whole statement — alongside the amounts
+// owed.
 test.describe('statement tax totals', () => {
   test('shows tax per job and overall on the statement', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

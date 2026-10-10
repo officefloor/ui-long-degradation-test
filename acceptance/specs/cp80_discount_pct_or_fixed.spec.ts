@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the discount rule and the discount-everywhere rule). An invoice discount may be
-// either a percentage or a flat amount; either way it comes off before tax and is shown clearly.
-// Updated copies of the discount specs ship in the sibling override folder.
+// An invoice discount may be either a percentage or a flat amount; either way it comes off before
+// tax and is shown clearly.
 test.describe('percentage or fixed discount', () => {
   test('a fixed-amount discount comes off before tax', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

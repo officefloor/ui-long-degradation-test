@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (revises the invoice-lifecycle rule). Sending an invoice that would take a client over
-// their credit limit is blocked with a warning and the invoice stays a draft. An updated lifecycle
-// spec ships in the sibling override folder.
+// Sending an invoice that would take a client over their credit limit is blocked with a warning and
+// the invoice stays a draft.
 test.describe('block over credit limit', () => {
   test('refuses to send over the limit and warns', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
