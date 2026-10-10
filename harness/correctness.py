@@ -242,6 +242,106 @@ def _classify(detail_row: dict, mutated_cps: set[int]) -> str:
     return RegressionReason.BEHAVIOUR_LOSS.value
 
 
+# Playwright exits 0 when every test passed and 1 when some failed; anything else (a signal shows
+# as a negative code) means the runner itself broke, so the report says nothing about the code.
+_PW_NORMAL_EXITS = (0, 1)
+# A failure caused by the test RUNNER, not the app under test.
+_RUNNER_CRASH = re.compile(r"worker process exited unexpectedly", re.I)
+_APP_DIED = "app was no longer healthy"
+
+
+def gate_problem(returncode: int | None, report: dict | None, expected_files: set[str],
+                 app_alive: bool) -> str:
+    """Why a finished Playwright run cannot be scored, or "" if it can.
+
+    Pure (no I/O) so the rules are unit-tested. A run is unscoreable when the runner crashed,
+    no report was produced, a spec file that was installed is missing from the report (a
+    truncated or stale report), a test died with the runner, or the app was no longer up
+    afterwards (every later test then fails on a dead server and measures nothing)."""
+    if report is None:
+        return f"no parseable Playwright JSON report (exit {returncode})"
+    if returncode not in _PW_NORMAL_EXITS:
+        return f"playwright exited abnormally ({returncode})"
+    results, detail = _flatten_pw_json(report)
+    if not results:
+        return "gate produced no test results"
+    reported = {tid.split("::", 1)[0] for tid in results}
+    missing = sorted(expected_files - reported)
+    if missing:
+        return (f"report is missing {len(missing)} installed spec file(s), e.g. {missing[0]}"
+                " — truncated or stale")
+    crashed = [d["test_id"] for d in detail if _RUNNER_CRASH.search(d.get("failure") or "")]
+    if crashed:
+        return f"playwright worker crashed during {crashed[0]}"
+    if not app_alive:
+        return f"{_APP_DIED} after the run — it died mid-gate"
+    return ""
+
+
+def _installed_spec_files(e2e_dir: str) -> set[str]:
+    specs = os.path.join(e2e_dir, "specs")
+    return {f for f in os.listdir(specs) if f.endswith(".spec.ts")} if os.path.isdir(specs) else set()
+
+
+def _app_alive(base_url: str) -> bool:
+    try:
+        with urllib.request.urlopen(base_url.rstrip("/") + "/actuator/health", timeout=10) as r:
+            return r.status == 200
+    except (urllib.error.URLError, OSError, ValueError):
+        return False
+
+
+def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
+                  attempt: int) -> tuple[dict | None, str, str]:
+    """Serve the app, run the installed suite once, and judge whether the run is scoreable.
+    Returns (report, problem, console); problem is "" for a scoreable run."""
+    json_out = os.path.join(worktree, ".run", "pw-report.json")
+    os.makedirs(os.path.dirname(json_out), exist_ok=True)
+    # A report left by an earlier run must never be read as this run's: when Playwright crashed
+    # before writing (cp58 of run 202610100208) the previous checkpoint's report was scored.
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(json_out)
+    expected = _installed_spec_files(e2e_dir)
+    try:
+        with serve(worktree, cfg) as app:
+            env = os.environ.copy()
+            env.update({"PORT": str(app.port), "BASE_URL": app.base_url,
+                        "AUDIT_FILE": os.path.join(worktree, ".run", "audit.log"),
+                        "PLAYWRIGHT_JSON_OUTPUT_NAME": json_out})
+            # --workers=1 is REQUIRED, not an optimisation: the full accumulated suite spans many
+            # spec files that all drive ONE shared app + in-memory H2 via /__test__/reset+seed
+            # (Arrange per test). Playwright's default is multi-worker and `fullyParallel:false`
+            # only serialises WITHIN a file, so different files would run concurrently and their
+            # reset/seed calls would stomp on each other — producing false cross-file regressions
+            # that grow with the suite. One worker = fully serial = the reset/seed isolation holds.
+            cmd = ["npx", "playwright", "test", "--reporter=json", "--workers=1",
+                   f"--output={os.path.join(worktree, '.run', 'pw-artifacts')}"]
+            try:
+                p = subprocess.run(cmd, cwd=e2e_dir, env=env, capture_output=True, text=True,
+                                   timeout=(cfg.get("acceptance") or {}).get("test_timeout", 1800))
+            except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
+                return None, f"playwright failed to launch/timed out: {e}", \
+                    console + f"\n[playwright launch/timeout] {e}"
+            console += f"\n$ {' '.join(cmd)}  (attempt {attempt}, exit {p.returncode})\n" \
+                + (p.stdout or "")[-20000:] + (p.stderr or "")[-4000:]
+            alive = _app_alive(app.base_url)
+            # --reporter=json writes to PLAYWRIGHT_JSON_OUTPUT_NAME; fall back to stdout.
+            report = None
+            if os.path.isfile(json_out):
+                try:
+                    report = json.load(open(json_out))
+                except (json.JSONDecodeError, OSError):
+                    report = None
+            if report is None:
+                try:
+                    report = json.loads(p.stdout)
+                except (json.JSONDecodeError, TypeError):
+                    report = None
+    except RuntimeError as e:
+        return None, f"serve failed: {e}", console + f"\n[serve] {e}"
+    return report, gate_problem(p.returncode, report, expected, alive), console
+
+
 def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
     """Build the app, serve it, run the Playwright specs present in e2e (the driver has
     installed the full cp01..cpK suite), parse + score. Assertions are UI + audit only."""
@@ -266,61 +366,30 @@ def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
             return TestOutcome(build_ok=True, gate_invalid=True, gate_attempts=1,
                                error=f"e2e dep install error ({' '.join(step)}): {e}", console=console)
 
-    json_out = os.path.join(worktree, ".run", "pw-report.json")
-    os.makedirs(os.path.dirname(json_out), exist_ok=True)
-    outcome = TestOutcome(build_ok=True)
-    try:
-        with serve(worktree, cfg) as app:
-            env = os.environ.copy()
-            env.update({"PORT": str(app.port), "BASE_URL": app.base_url,
-                        "AUDIT_FILE": os.path.join(worktree, ".run", "audit.log"),
-                        "PLAYWRIGHT_JSON_OUTPUT_NAME": json_out})
-            # --workers=1 is REQUIRED, not an optimisation: the full accumulated suite spans many
-            # spec files that all drive ONE shared app + in-memory H2 via /__test__/reset+seed
-            # (Arrange per test). Playwright's default is multi-worker and `fullyParallel:false`
-            # only serialises WITHIN a file, so different files would run concurrently and their
-            # reset/seed calls would stomp on each other — producing false cross-file regressions
-            # that grow with the suite. One worker = fully serial = the reset/seed isolation holds.
-            cmd = ["npx", "playwright", "test", "--reporter=json", "--workers=1",
-                   f"--output={os.path.join(worktree, '.run', 'pw-artifacts')}"]
-            try:
-                p = subprocess.run(cmd, cwd=e2e_dir, env=env, capture_output=True, text=True,
-                                   timeout=(cfg.get("acceptance") or {}).get("test_timeout", 1800))
-            except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
-                return TestOutcome(build_ok=True, gate_invalid=True, gate_attempts=1,
-                                   error=f"playwright failed to launch/timed out: {e}",
-                                   console=console + f"\n[playwright launch/timeout] {e}")
-            console += "\n$ " + " ".join(cmd) + "\n" + (p.stdout or "") + (p.stderr or "")
-            # --reporter=json writes to PLAYWRIGHT_JSON_OUTPUT_NAME; fall back to stdout.
-            report = None
-            if os.path.isfile(json_out):
-                try:
-                    report = json.load(open(json_out))
-                except (json.JSONDecodeError, OSError):
-                    report = None
-            if report is None:
-                try:
-                    report = json.loads(p.stdout)
-                except (json.JSONDecodeError, TypeError):
-                    report = None
-    except RuntimeError as e:
-        return TestOutcome(build_ok=True, gate_invalid=True, gate_attempts=1,
-                           error=f"serve failed: {e}", console=console + f"\n[serve] {e}")
-
-    if not report:
-        return TestOutcome(build_ok=True, gate_invalid=True, gate_attempts=1,
-                           error="no parseable Playwright JSON report", console=console)
+    # One clean retry for an INFRASTRUCTURE failure (app never ready, app died mid-run, a crashed
+    # Playwright, an incomplete report). A genuine test failure on a healthy app is never retried —
+    # that would let a real regression be re-rolled until it passes.
+    # An app that dies on BOTH attempts is reproducible, so it is the code under test, not the
+    # host: that run is scored (its tests fail) rather than voided.
+    problem = ""
+    for attempt in (1, 2):
+        report, problem, console = _gate_attempt(worktree, e2e_dir, cfg, console, attempt)
+        if not problem:
+            break
+        console += f"\n[gate attempt {attempt}] {problem}"
+    reproducible_death = attempt == 2 and problem.startswith(_APP_DIED)
+    if problem and not reproducible_death:
+        return TestOutcome(build_ok=True, gate_invalid=True, gate_attempts=attempt,
+                           error=problem, console=console)
 
     results, detail = _flatten_pw_json(report)
-    if not results:
-        return TestOutcome(build_ok=True, gate_invalid=True, gate_attempts=1,
-                           error="gate produced no test results", console=console)
-
     cats = {d["test_id"]: d["category"] for d in detail}
     outcome = score_results(results, checkpoint_k, cats)
     outcome.detail = detail
     outcome.console = console
-    outcome.gate_attempts = 1
+    outcome.gate_attempts = attempt
+    if reproducible_death:
+        outcome.error = f"{problem} on both attempts — scored as the code under test"
     # reason breakdown for failed PRIOR tests (regressions); mutated set filled by caller-side
     # true_regressions math — reasons here are advisory.
     mutated: set[int] = set()

@@ -116,6 +116,51 @@ def test_outcome_row_reports_unsatisfied_replacement():
     assert row["strict_pass"] is False, row
 
 
+def _pw_report(tests: dict[str, tuple[str, str]]) -> dict:
+    """A minimal Playwright JSON report: {"file::title": (status, error message)}."""
+    suites: dict[str, list] = {}
+    for tid, (status, err) in tests.items():
+        f, title = tid.split("::", 1)
+        res = {"status": status, "duration": 1}
+        if err:
+            res["errors"] = [{"message": err}]
+        suites.setdefault(f, []).append({"title": title, "titlePath": [title],
+                                         "tests": [{"tags": [], "results": [res]}]})
+    return {"suites": [{"file": f, "specs": specs} for f, specs in suites.items()]}
+
+
+_OK = {"cp01_a.spec.ts::lists": ("passed", ""), "cp02_b.spec.ts::adds": ("failed", "expected 2")}
+
+
+def test_gate_scores_a_healthy_run_with_failures():
+    # A genuine failure on a healthy app is scoreable (and so never retried).
+    assert c.gate_problem(1, _pw_report(_OK), {"cp01_a.spec.ts", "cp02_b.spec.ts"}, True) == ""
+
+
+def test_gate_rejects_missing_report():
+    assert "no parseable" in c.gate_problem(-11, None, {"cp01_a.spec.ts"}, True)
+
+
+def test_gate_rejects_abnormal_exit():
+    assert "abnormally" in c.gate_problem(-11, _pw_report(_OK), {"cp01_a.spec.ts", "cp02_b.spec.ts"}, True)
+
+
+def test_gate_rejects_a_report_missing_an_installed_spec():
+    # The stale-report case: the report on disk does not cover what this checkpoint installed.
+    p = c.gate_problem(1, _pw_report(_OK), {"cp01_a.spec.ts", "cp02_b.spec.ts", "cp03_c.spec.ts"}, True)
+    assert "missing 1 installed spec" in p and "cp03_c.spec.ts" in p, p
+
+
+def test_gate_rejects_a_runner_crash():
+    rep = _pw_report({**_OK, "cp02_b.spec.ts::adds": ("failed", "Error: worker process exited unexpectedly (code=null, signal=SIGSEGV)")})
+    assert "worker crashed" in c.gate_problem(1, rep, {"cp01_a.spec.ts", "cp02_b.spec.ts"}, True)
+
+
+def test_gate_rejects_an_app_that_died():
+    p = c.gate_problem(1, _pw_report(_OK), {"cp01_a.spec.ts", "cp02_b.spec.ts"}, False)
+    assert p.startswith(c._APP_DIED), p
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for t in tests:
