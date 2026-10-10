@@ -59,6 +59,13 @@ app:
   # erosion questions are answered without any list by metrics.hot_surface (which files the run
   # keeps reopening) and metrics.reedit_line_stats (how much settled code a checkpoint destroyed,
   # and how old it was) — both git-only, so they compare across technologies.
+  # FALLBACK ONLY, exactly as source_globs above. A shared surface is a property of the
+  # technology's LAYOUT, so each stack declares its own in stack.yaml:
+  #     layers:
+  #       frontend: { root: ..., ext: [...], shared_surfaces: ["src/main/frontend/src/app/app.routes.ts"] }
+  # The globs below are react/officefloor-shaped and match NOTHING in an Angular/Spring stack, so
+  # both layers reported BLANK on all 108 rows of run 202610100208 — the metric correctly refusing
+  # to measure an absent surface, but no boundary data for that arm. Declare it per stack instead.
   shared_surfaces:                  # boundary-violation targets, both layers (metrics.boundary_violations)
     frontend: ["src/main/frontend/router/**", "src/main/frontend/ui/**"]
     backend:  ["src/main/resources/officefloor/**"]   # wiring/config the backend shouldn't need to churn

@@ -304,8 +304,30 @@ def impact_stats(worktree: str, prev_ref: str, cur_ref: str,
 
 def boundary_violations(worktree: str, prev_ref: str, cur_ref: str, cfg: dict) -> dict:
     """Format-neutral co-metric: changed files matching each layer's shared_surfaces globs.
-    A purely-additive change (new files only) scores 0 (DESIGN.md §8)."""
-    shared = (cfg.get("app") or {}).get("shared_surfaces") or {}
+    A purely-additive change (new files only) scores 0 (DESIGN.md §8).
+
+    The surface is declared by the STACK — `layers.<layer>.shared_surfaces` in its own
+    stack.yaml — with the harness config's `app.shared_surfaces` as fallback. Same reasoning
+    that moved `source_globs` there (see harness.stack_layers): a shared surface is a property
+    of the technology's layout, so one harness-level list cannot fit many stacks. It did not
+    fit: config.yaml declares `src/main/frontend/router/**` and
+    `src/main/resources/officefloor/**`, neither of which exists in an Angular/Spring stack, so
+    BOTH layers reported blank on all 108 rows of run 202610100208 — the metric correctly
+    declining to measure a surface that is not there, but no boundary data for the arm.
+    """
+    app = cfg.get("app") or {}
+    fallback = app.get("shared_surfaces") or {}
+    layers = app.get("layers") or {}
+
+    def surfaces_for(layer: str) -> list:
+        """Stack declaration first, config fallback second."""
+        spec = layers.get(layer) or {}
+        declared = spec.get("shared_surfaces") if isinstance(spec, dict) else None
+        if declared:
+            return list(declared) if isinstance(declared, (list, tuple)) else [declared]
+        return list(fallback.get(layer) or [])
+
+    shared = {lyr: surfaces_for(lyr) for lyr in LAYERS}
     # Only the layers this stack actually declares: a backend-only stack must not be given empty
     # frontend_* columns, which would read as "measured and found nothing".
     present = [l for l in LAYERS if l in ((cfg.get("app") or {}).get("source_globs") or {})] or list(LAYERS)
