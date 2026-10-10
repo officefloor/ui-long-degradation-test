@@ -7,6 +7,7 @@ import { resetAndSeed } from '../support/seed';
 test.describe('early-payment window from terms', () => {
   test('uses the client terms for the early-payment offer', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
+      asOf: '2026-02-05',
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example', paymentTermsDays: 30, earlyPaymentWindowDays: 10 }],
       projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [{

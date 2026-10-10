@@ -6,6 +6,7 @@ import { resetAndSeed } from '../support/seed';
 test.describe('settlement rebate', () => {
   test('shows the settlement rebate offered', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
+      asOf: '2026-02-15',
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
       projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       invoices: [{ id: 1, projectId: 1, status: 'SENT', rebatePct: 2, dueDate: '2026-03-01',
