@@ -3,7 +3,8 @@ import { resetAndSeed } from '../support/seed';
 
 // UPDATED (money shows "$"; invoice amounts are now built from line items). A project still lists
 // its invoices with a total, but each invoice's amount comes from its line items, and a new invoice
-// is created then given line items rather than a single typed amount.
+// is given line items rather than a single typed amount; its amount then shows in the project's
+// invoice list and in the project total.
 test.describe('project invoices', () => {
   test('a project shows its invoices and their total', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
@@ -41,5 +42,11 @@ test.describe('project invoices', () => {
     await page.getByTestId('lineitem-form-submit').click();
 
     await expect(page.getByTestId('invoice-amount')).toHaveText('$250.00');
+
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
+    await expect(page.getByTestId(/^invoice-row-/)).toHaveCount(1);
+    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-amount')).toHaveText('$250.00');
+    await expect(page.getByTestId('project-invoices-total')).toHaveText('$250.00');
   });
 });

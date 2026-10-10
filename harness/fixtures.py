@@ -231,6 +231,45 @@ def fixture_contract(checkpoints: list[dict], k: int, harness_root: str) -> dict
     return {"checkpoint": k, "excluded_mutated": sorted(mutated), "data_sets": sets}
 
 
+def test_titles(path: str) -> list[str]:
+    """Test titles in a spec, in order (the part of a test id after `<basename>::`)."""
+    return [m.group(2) for m in _TEST_TITLE.finditer(open(path).read())]
+
+
+def undeclared_retirements(checkpoints: list[dict], harness_root: str) -> list[str]:
+    """Tests a replacement copy drops without its checkpoint saying so in `retires:`.
+
+    A copy fully replaces the earlier spec from its checkpoint on, so a test it leaves out is gone
+    from the gate for the rest of the chain. That is right when the request changed the behaviour
+    (cp32 retiring manual payment) and silent coverage loss when it did not (cp40's line-items copy
+    dropping 'adding a line item increases the invoice total'). `retires:` makes the first explicit;
+    anything else is reported. Entries are test ids: `<spec basename>::<test title>`."""
+    in_force: dict[str, str] = {}
+    out: list[str] = []
+    for cp in checkpoints:
+        entries = spec_entries(cp, harness_root)
+        retires = set(cp.get("retires") or [])
+        for e in entries:
+            base, path = os.path.basename(e), os.path.join(harness_root, e)
+            prev = in_force.get(base)
+            if prev is not None:
+                kept = set(test_titles(path))
+                for title in test_titles(prev):
+                    if title not in kept and f"{base}::{title}" not in retires:
+                        out.append(f"cp{cp['n']:02d} drops {base}::{title}")
+            in_force[base] = path
+        mutated = {int(m) for m in (cp.get("mutates") or [])}
+        for r in sorted(retires):
+            base, _, title = r.partition("::")
+            if base not in {os.path.basename(e) for e in entries}:
+                out.append(f"cp{cp['n']:02d} retires {r}, but ships no copy of {base}")
+            m = re.match(r"cp(\d+)_", base)
+            if m and int(m.group(1)) not in mutated:
+                # Scoring treats a vanished test as intended only when its checkpoint is mutated.
+                out.append(f"cp{cp['n']:02d} retires {r}, but {int(m.group(1))} is not in its mutates")
+    return out
+
+
 def hidden_field_violations(checkpoints: list[dict], harness_root: str) -> list[str]:
     """Replacement copies that seed a field no VISIBLE spec has seeded up to their checkpoint.
 

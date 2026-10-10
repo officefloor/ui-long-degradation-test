@@ -176,6 +176,14 @@ def main() -> int:
             f"copies, mutates) — the agent cannot see those; describe the behaviour only:\n      "
             + "\n      ".join(leaks))
 
+    # ---- 5. a replacement copy may drop an earlier test only if `retires:` says so ---------
+    dropped = fixtures.undeclared_retirements(numbered, harness_root)
+    if dropped:
+        problems.append(
+            f"coverage: {len(dropped)} test(s) dropped by a replacement copy without a `retires:` "
+            f"entry — restore the test in the copy, or list it under that checkpoint's retires:\n      "
+            + "\n      ".join(dropped))
+
     # ---- report ---------------------------------------------------------------------------
     by_area: dict[str, int] = {}
     for cp in window:
@@ -192,6 +200,7 @@ def main() -> int:
         print(f"  untagged         : {len(untagged)}")
     print(f"  hidden test data : {len(hidden)} replacement field(s) unseen by a visible spec")
     print(f"  visible-spec leak: {len(leaks)} own spec(s) describe the hidden suite")
+    print(f"  dropped coverage : {len(dropped)} test(s) dropped without a retires: entry")
     print()
 
     if problems:

@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// UPDATED (emails must be unique): the clients list still excludes archived clients, and creating a
-// client with a fresh, unique email still works.
+// UPDATED (emails must be unique): the clients list still excludes archived clients and shows each
+// active client's name and email; creating a client from an empty list still works, and creating a
+// client with a fresh, unique email alongside an existing one works too.
 test.describe('clients', () => {
   test('lists seeded clients, excluding archived', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
@@ -14,8 +15,28 @@ test.describe('clients', () => {
     });
     await page.goto('/');
     await page.getByTestId('nav-clients').click();
+    await expect(page.getByTestId('clients-table')).toBeVisible();
     await expect(page.getByTestId(/^client-row-/)).toHaveCount(2);
+    await expect(page.getByTestId('client-row-1').getByTestId('client-name')).toHaveText('Acme Ltd');
+    await expect(page.getByTestId('client-row-1').getByTestId('client-email')).toHaveText('ops@acme.example');
+    await expect(page.getByTestId('client-row-2').getByTestId('client-name')).toHaveText('Globex');
     await expect(page.getByTestId('client-row-3')).toHaveCount(0);
+  });
+
+  test('creates a client', { tag: '@core' }, async ({ page }) => {
+    await resetAndSeed({ clients: [] });
+    await page.goto('/');
+    await page.getByTestId('nav-clients').click();
+    await expect(page.getByTestId('clients-empty')).toBeVisible();
+
+    await page.getByTestId('client-form-name').fill('Initech');
+    await page.getByTestId('client-form-email').fill('billing@initech.example');
+    await page.getByTestId('client-form-submit').click();
+
+    await expect(page.getByTestId(/^client-row-/)).toHaveCount(1);
+    const row = page.getByTestId(/^client-row-/).first();
+    await expect(row.getByTestId('client-name')).toHaveText('Initech');
+    await expect(row.getByTestId('client-email')).toHaveText('billing@initech.example');
   });
 
   test('creates a client with a unique email', { tag: '@core' }, async ({ page }) => {

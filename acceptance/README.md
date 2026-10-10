@@ -7,6 +7,10 @@
 - `data-testid` values are immutable public API once introduced (DESIGN.md §3).
 - A mutative checkpoint ships updated copies of the prior specs it changes under a
   `specs/cpNN/` subdir (the `mutates` discipline; DESIGN.md §6).
+- A copy fully replaces the earlier version from its checkpoint on, so it must carry forward every
+  test and check that still holds. A test it drops on purpose (the request changed that behaviour)
+  is listed under the checkpoint's `retires:` as `<spec basename>::<test title>`;
+  `harness.checkpoint_lint` refuses a copy that drops a test without one.
 - The agent, while working, sees ONLY the current checkpoint's spec (blind; DESIGN.md
   §4). The full cp01..cpK suite runs afterwards as the regression gate, never shown to
   the agent (tests-as-living-spec; DESIGN.md §7).

@@ -1,8 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
+import { auditLines } from '../support/audit';
 
 // UPDATED payment-allocation spec (carries the payment split forward, adds deposit allocation): a
-// deposit can be allocated across invoices the same way a payment is.
+// lump payment splits across several invoices and each balance and status reflects its share; a
+// split that leaves part of the payment unallocated is refused with a visible error; each share is
+// audited against its invoice; and a deposit can be allocated across invoices the same way.
 test.describe('payment allocation', () => {
   test('splits one payment across two invoices', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -21,13 +24,25 @@ test.describe('payment allocation', () => {
     await page.getByTestId('payment-form-amount').fill('150');
     await page.getByTestId('payment-form-date').fill('2026-02-05');
     await page.getByTestId('payment-alloc-1').fill('100');
+
+    // Shares that leave part of the payment unallocated are refused, and the refusal is SHOWN.
+    await page.getByTestId('payment-alloc-2').fill('40');
+    await page.getByTestId('payment-form-submit').click();
+    await expect(page.getByTestId('payment-form-error')).toBeVisible();
+
     await page.getByTestId('payment-alloc-2').fill('50');
     await page.getByTestId('payment-form-submit').click();
 
     await page.getByTestId('nav-projects').click();
     await page.getByTestId('project-open-1').click();
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due-amount')).toHaveText('$0.00');
+    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('PAID');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due-amount')).toHaveText('$50.00');
+    await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-status')).toHaveText('PARTIAL');
+
+    // Each share is recorded against the invoice it was allocated to.
+    expect(auditLines()).toContain('PAYMENT_RECORDED id=1 amount=100.00');
+    expect(auditLines()).toContain('PAYMENT_RECORDED id=2 amount=50.00');
   });
 
   test('allocates a deposit across invoices', { tag: '@functionality' }, async ({ page }) => {

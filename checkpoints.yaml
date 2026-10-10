@@ -108,6 +108,9 @@ checkpoints:
   - id: cp13_invoice_lifecycle
     type: mutative
     mutates: [5]
+    retires:
+      - "cp05_invoice_pay_audit.spec.ts::marking an invoice paid updates its status"
+      - "cp05_invoice_pay_audit.spec.ts::paying an invoice writes an audit record"
     test: acceptance/specs/cp13_invoice_lifecycle.spec.ts
     request: |
       Invoices should move through stages. First a draft. Then I send it. Then it gets paid. Keep a
@@ -165,6 +168,8 @@ checkpoints:
   - id: cp21_invoice_line_items
     type: mutative
     mutates: [4]
+    retires:
+      - "cp04_project_invoices.spec.ts::adds an invoice to a project"
     test: acceptance/specs/cp21_invoice_line_items.spec.ts
     request: |
       I do not want to type one figure for an invoice. Let me list the things I am charging for.
@@ -191,6 +196,10 @@ checkpoints:
   - id: cp25_project_archive
     type: mutative
     mutates: [3, 7, 24]
+    retires:
+      - "cp03_projects.spec.ts::lists projects with their client name"
+      - "cp07_client_detail_projects.spec.ts::lists the client's projects"
+      - "cp24_project_delete_audit.spec.ts::deleting removes the project and records it"
     test: acceptance/specs/cp25_project_archive.spec.ts
     request: |
       Do not really delete a project. Just tuck it away so it drops off my lists. Keep it off the
@@ -218,6 +227,9 @@ checkpoints:
   - id: cp29_client_archive
     type: mutative
     mutates: [1, 6]
+    retires:
+      - "cp01_clients.spec.ts::lists seeded clients"
+      - "cp06_client_search.spec.ts::filters clients by name"
     test: acceptance/specs/cp29_client_archive.spec.ts
     request: |
       Let me tuck away clients I no longer work with. They should drop off my list and my search.
@@ -239,6 +251,10 @@ checkpoints:
   - id: cp32_invoice_status_derived
     type: mutative
     mutates: [5, 13, 31]
+    retires:
+      - "cp05_invoice_pay_audit.spec.ts::paying a sent invoice updates its status"
+      - "cp05_invoice_pay_audit.spec.ts::paying a sent invoice writes an audit record"
+      - "cp31_invoice_amount_due.spec.ts::shows the amount still due after payments"
     test: acceptance/specs/cp32_invoice_status_derived.spec.ts
     request: |
       Work out for me whether an invoice is paid, part paid or still owing. Base it on the payments
@@ -266,6 +282,8 @@ checkpoints:
   - id: cp36_client_active_projects_default
     type: mutative
     mutates: [7]
+    retires:
+      - "cp07_client_detail_projects.spec.ts::lists the client's projects, excluding archived"
     test: acceptance/specs/cp36_client_active_projects_default.spec.ts
     request: |
       On a client's page show me just their active projects by default. Give me a way to also see
@@ -292,6 +310,8 @@ checkpoints:
   - id: cp40_thousands_separator
     type: mutative
     mutates: [9, 21, 33]
+    retires:
+      - "cp09_currency_format.spec.ts::invoice amounts and totals show a currency symbol"
     test: acceptance/specs/cp40_thousands_separator.spec.ts
     request: |
       For bigger amounts put commas in. Show it like $1,234.50. Do this everywhere an amount shows,
@@ -346,6 +366,9 @@ checkpoints:
   - id: cp48_discount_everywhere
     type: mutative
     mutates: [17, 31, 33]
+    retires:
+      - "cp31_invoice_amount_due.spec.ts::shows the amount due and a partial status when part paid"
+      - "cp33_client_statement.spec.ts::shows the total owed with commas"
     test: acceptance/specs/cp48_discount_everywhere.spec.ts
     request: |
       Make sure that discount shows up everywhere I check what is owed. That means the invoice, the
@@ -355,6 +378,8 @@ checkpoints:
   - id: cp49_sales_tax
     type: mutative
     mutates: [21, 47]
+    retires:
+      - "cp47_invoice_discount.spec.ts::shows subtotal, discount and final total"
     test: acceptance/specs/cp49_sales_tax.spec.ts
     request: |
       Let me add sales tax on top. Work it out after the discount. The amount shown for each invoice
@@ -408,7 +433,7 @@ checkpoints:
 
   - id: cp56_payment_allocation
     type: mutative
-    mutates: [30, 31, 32]
+    mutates: [30]
     test: acceptance/specs/cp56_payment_allocation.spec.ts
     request: |
       Sometimes a client pays one lump sum for several invoices. Let me split that payment across
@@ -440,7 +465,19 @@ checkpoints:
     # obsolete by design. It was previously undeclared, so cp41 broke at cp60 in 10 of 10 chains
     # and was counted as a true regression rather than an intended mutation.
     mutates: [8, 17, 33, 40, 41, 48, 55]
+    retires:
+      - "cp08_dashboard.spec.ts::shows counts and the outstanding total"
+      - "cp17_outstanding_sent_only.spec.ts::outstanding is discounted and excludes drafts"
+      - "cp33_client_statement.spec.ts::the total owed uses discounted amounts"
+      - "cp40_thousands_separator.spec.ts::shows commas in large amounts"
+      - "cp48_discount_everywhere.spec.ts::the outstanding total uses the discounted amount"
     test: acceptance/specs/cp60_multi_currency.spec.ts
+    retires:
+      - "cp08_dashboard.spec.ts::shows counts and the outstanding total"
+      - "cp17_outstanding_sent_only.spec.ts::outstanding is discounted and excludes drafts"
+      - "cp33_client_statement.spec.ts::the total owed uses discounted amounts"
+      - "cp40_thousands_separator.spec.ts::shows commas in large amounts"
+      - "cp48_discount_everywhere.spec.ts::the outstanding total uses the discounted amount"
     request: |
       Different clients pay me in different currencies. Let me set each client's currency. Show
       their money in that currency everywhere I see it, including on their statement. On the home
@@ -490,6 +527,8 @@ checkpoints:
     type: mutative
     area: billing
     mutates: [49]
+    retires:
+      - "cp49_sales_tax.spec.ts::adds tax after the discount"
     test: acceptance/specs/cp64_tax_per_taxable_line.spec.ts
     request: |
       Work out the tax from only the charge lines that are taxable, not the whole invoice. The tax
@@ -520,6 +559,8 @@ checkpoints:
     type: mutative
     area: billing
     mutates: [49]
+    retires:
+      - "cp49_sales_tax.spec.ts::adds tax after the discount (all lines taxable)"
     test: acceptance/specs/cp68_second_tax.spec.ts
     request: |
       In some places there is a second tax on top, like a levy. Let me add a second tax rate as
@@ -551,7 +592,7 @@ checkpoints:
   - id: cp72_round_per_line_then_sum
     type: mutative
     area: billing
-    mutates: [21, 49]
+    mutates: [21]
     test: acceptance/specs/cp72_round_per_line_then_sum.spec.ts
     request: |
       Work out and round each line to the cent first, then add the lines up. Do the same for the
@@ -582,7 +623,7 @@ checkpoints:
   - id: cp76_statement_tax_totals
     type: mutative
     area: billing
-    mutates: [33, 57]
+    mutates: [57]
     test: acceptance/specs/cp76_statement_tax_totals.spec.ts
     request: |
       On a client's statement show the tax as well — the tax for each job and the tax across the
@@ -614,6 +655,8 @@ checkpoints:
     type: mutative
     area: billing
     mutates: [47, 48]
+    retires:
+      - "cp48_discount_everywhere.spec.ts::the outstanding total uses the discounted amount per currency"
     test: acceptance/specs/cp80_discount_pct_or_fixed.spec.ts
     request: |
       An invoice discount should be either a percentage or a flat amount — my choice. Either way take
@@ -834,7 +877,7 @@ checkpoints:
   - id: cp108_payment_consumes_credit
     type: mutative
     area: billing
-    mutates: [96, 100]
+    mutates: [56, 100]
     test: acceptance/specs/cp108_payment_consumes_credit.spec.ts
     request: |
       When a client pays, let one payment settle several invoices and use up any deposit or credit
@@ -930,7 +973,7 @@ checkpoints:
   - id: cp120_one_money_rule_everywhere
     type: mutative
     area: billing
-    mutates: [40, 60]
+    mutates: [40]
     test: acceptance/specs/cp120_one_money_rule_everywhere.spec.ts
     request: |
       Every amount I see anywhere — on an invoice, a statement, the home screen, the aging view and
@@ -972,6 +1015,8 @@ checkpoints:
     type: mutative
     area: billing
     mutates: [60]
+    retires:
+      - "cp60_multi_currency.spec.ts::home screen keeps totals separate per currency"
     test: acceptance/specs/cp124_dashboard_converted_total.spec.ts
     request: |
       On the home screen also give me one grand total in my home currency, converting each invoice
@@ -1903,7 +1948,19 @@ checkpoints:
     type: mutative
     area: billing
     mutates: [49, 68, 119, 192, 241]
+    retires:
+      - "cp119_tax_summary_report.spec.ts::splits the total into main tax and levy"
+      - "cp192_tax_split_primary_levy.spec.ts::totals the main tax and the levy separately"
+      - "cp49_sales_tax.spec.ts::adds a levy on top when one applies"
+      - "cp49_sales_tax.spec.ts::adds tax after the discount (all lines taxable, no levy)"
+      - "cp68_second_tax.spec.ts::adds a levy on top of the sales tax"
     test: acceptance/specs/cp244_remove_levy.spec.ts
+    retires:
+      - "cp119_tax_summary_report.spec.ts::splits the total into main tax and levy"
+      - "cp192_tax_split_primary_levy.spec.ts::totals the main tax and the levy separately"
+      - "cp49_sales_tax.spec.ts::adds a levy on top when one applies"
+      - "cp49_sales_tax.spec.ts::adds tax after the discount (all lines taxable, no levy)"
+      - "cp68_second_tax.spec.ts::adds a levy on top of the sales tax"
     request: |
       The second tax is being scrapped. Remove the levy entirely — invoices should show only the one
       tax again and every total should work out as if the levy never existed.
@@ -1933,6 +1990,10 @@ checkpoints:
     type: mutative
     area: billing
     mutates: [47, 84, 90]
+    retires:
+      - "cp47_invoice_discount.spec.ts::several discounts combine"
+      - "cp84_stacked_discounts.spec.ts::shows each discount and the combined total"
+      - "cp90_total_savings.spec.ts::sums the discounts into a savings figure"
     test: acceptance/specs/cp248_single_discount.spec.ts
     request: |
       I only want one discount per invoice again. Collapse any stacked discounts on the invoice back

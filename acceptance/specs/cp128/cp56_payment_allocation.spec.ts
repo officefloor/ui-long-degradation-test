@@ -1,8 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
+import { auditLines } from '../support/audit';
 
 // UPDATED payment-allocation spec (carries the payment split and deposit allocation forward, adds
-// splitting across invoices in different currencies, converting each share at the payment date).
+// splitting across invoices in different currencies, converting each share at the payment date). A
+// split still shows each invoice's balance and status and audits each share against its invoice; a
+// part of the payment left over is kept as credit (cp108), so it is not refused.
 test.describe('payment allocation', () => {
   test('splits one payment across two invoices', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -21,13 +24,20 @@ test.describe('payment allocation', () => {
     await page.getByTestId('payment-form-amount').fill('150');
     await page.getByTestId('payment-form-date').fill('2026-02-05');
     await page.getByTestId('payment-alloc-1').fill('100');
+
     await page.getByTestId('payment-alloc-2').fill('50');
     await page.getByTestId('payment-form-submit').click();
 
     await page.getByTestId('nav-projects').click();
     await page.getByTestId('project-open-1').click();
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due-amount')).toHaveText('$0.00');
+    await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('PAID');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due-amount')).toHaveText('$50.00');
+    await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-status')).toHaveText('PARTIAL');
+
+    // Each share is recorded against the invoice it was allocated to.
+    expect(auditLines()).toContain('PAYMENT_RECORDED id=1 amount=100.00');
+    expect(auditLines()).toContain('PAYMENT_RECORDED id=2 amount=50.00');
   });
 
   test('allocates a deposit across invoices', { tag: '@functionality' }, async ({ page }) => {

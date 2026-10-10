@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// UPDATED (clients can be archived): search excludes archived clients even when they match.
+// UPDATED (clients can be archived): search excludes archived clients even when they match; clearing
+// the box shows every active client again.
 test.describe('client search', () => {
   test('filters clients by name and skips archived matches', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -19,6 +20,10 @@ test.describe('client search', () => {
     await page.getByTestId('client-search').fill('glob');
     await expect(page.getByTestId(/^client-row-/)).toHaveCount(1);
     await expect(page.getByTestId('client-row-2').getByTestId('client-name')).toHaveText('Globex');
+    await expect(page.getByTestId('client-row-4')).toHaveCount(0);
+
+    await page.getByTestId('client-search').fill('');
+    await expect(page.getByTestId(/^client-row-/)).toHaveCount(3);
     await expect(page.getByTestId('client-row-4')).toHaveCount(0);
   });
 });

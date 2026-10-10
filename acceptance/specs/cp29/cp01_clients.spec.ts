@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// UPDATED (clients can be archived): the clients list excludes archived clients by default.
+// UPDATED (clients can be archived): the clients list excludes archived clients by default; every
+// active client is still listed with its own name and email.
 test.describe('clients', () => {
   test('lists seeded clients, excluding archived', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
@@ -17,6 +18,8 @@ test.describe('clients', () => {
     await expect(page.getByTestId('clients-table')).toBeVisible();
     await expect(page.getByTestId(/^client-row-/)).toHaveCount(2);
     await expect(page.getByTestId('client-row-1').getByTestId('client-name')).toHaveText('Acme Ltd');
+    await expect(page.getByTestId('client-row-1').getByTestId('client-email')).toHaveText('ops@acme.example');
+    await expect(page.getByTestId('client-row-2').getByTestId('client-name')).toHaveText('Globex');
     await expect(page.getByTestId('client-row-3')).toHaveCount(0);
   });
 

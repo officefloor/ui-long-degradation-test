@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // UPDATED (active-by-default): a client's page lists only their ACTIVE, non-archived projects by
-// default. Carries forward the archived exclusion.
+// default, ALL of them, and none of another client's. Carries forward the archived exclusion.
 test.describe('client detail', () => {
   test("lists the client's active projects by default", { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
@@ -15,6 +15,7 @@ test.describe('client detail', () => {
         { id: 2, name: 'Mobile App', clientId: 1, status: 'ACTIVE', archived: true },
         { id: 4, name: 'Old Site', clientId: 1, status: 'FINISHED' },
         { id: 3, name: 'Intranet', clientId: 2, status: 'ACTIVE' },
+        { id: 5, name: 'Support Retainer', clientId: 1, status: 'ACTIVE' },
       ],
     });
     await page.goto('/');
@@ -22,8 +23,12 @@ test.describe('client detail', () => {
     await page.getByTestId('client-open-1').click();
 
     const owned = page.getByTestId('client-projects-table');
-    await expect(owned.getByTestId(/^project-row-/)).toHaveCount(1);
+    await expect(owned).toBeVisible();
+    await expect(owned.getByTestId(/^project-row-/)).toHaveCount(2);
     await expect(owned.getByTestId('project-row-1').getByTestId('project-name')).toHaveText('Website Rebuild');
+    await expect(owned.getByTestId('project-row-5').getByTestId('project-name')).toHaveText('Support Retainer');
+    // Client 2's project is not shown here.
+    await expect(owned.getByTestId('project-row-3')).toHaveCount(0);
     await expect(owned.getByTestId('project-row-2')).toHaveCount(0);
     await expect(owned.getByTestId('project-row-4')).toHaveCount(0);
   });

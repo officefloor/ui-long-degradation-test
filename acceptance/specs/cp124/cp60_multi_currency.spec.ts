@@ -45,5 +45,7 @@ test.describe('multi currency', () => {
     await expect(page.getByTestId('dashboard-outstanding-USD')).toHaveText('$100.00');
     await expect(page.getByTestId('dashboard-outstanding-EUR')).toHaveText('€200.00');
     await expect(page.getByTestId('dashboard-outstanding-home')).toHaveText('$320.00');
+    // The converted grand total is its own figure; there is still no unconverted sum of currencies.
+    await expect(page.getByTestId('dashboard-outstanding-total')).toHaveCount(0);
   });
 });

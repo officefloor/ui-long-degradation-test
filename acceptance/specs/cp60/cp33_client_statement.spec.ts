@@ -1,9 +1,41 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// UPDATED for cp60 (mutates 33): the statement still groups invoices by job and totals discounted
-// amounts with commas, now shown in the client's own currency.
+// UPDATED statement spec (client currency): the statement still lists only this client's invoices
+// with the total still owed (amount less payments; a client with no currency set shows dollars),
+// and totals discounted amounts with commas in the client's own currency.
 test.describe('client statement', () => {
+  test('shows the client\'s invoices and the total owed', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      clients: [
+        { id: 1, name: 'Acme Ltd', email: 'ops@acme.example' },
+        // Another client with an invoice of their own: "all THEIR invoices" cannot be told apart
+        // from "all invoices" while only one client has any.
+        { id: 2, name: 'Globex', email: 'ac@globex.example' },
+      ],
+      projects: [
+        { id: 1, name: 'Website Rebuild', clientId: 1 },
+        { id: 2, name: 'Globex Portal', clientId: 2 },
+      ],
+      invoices: [
+        { id: 1, projectId: 1, status: 'SENT', lineItems: [{ id: 1, description: 'A', qty: 1, unitPrice: 100 }] },
+        { id: 2, projectId: 1, status: 'SENT', lineItems: [{ id: 2, description: 'B', qty: 1, unitPrice: 200 }] },
+        { id: 3, projectId: 2, status: 'SENT', lineItems: [{ id: 3, description: 'C', qty: 1, unitPrice: 999 }] },
+      ],
+      payments: [{ id: 1, invoiceId: 2, amount: 50, date: '2026-02-01' }],
+    });
+    await page.goto('/');
+    await page.getByTestId('nav-clients').click();
+    await page.getByTestId('client-open-1').click();
+    await page.getByTestId('client-statement-open').click();
+
+    await expect(page.getByTestId('client-statement-table')).toBeVisible();
+    await expect(page.getByTestId(/^statement-invoice-row-/)).toHaveCount(2);
+    await expect(page.getByTestId('statement-invoice-row-3')).toHaveCount(0);
+    // due: invoice 1 = 100, invoice 2 = 200 - 50 = 150 -> total 250
+    await expect(page.getByTestId('client-outstanding-total')).toHaveText('$250.00');
+  });
+
   test('the total owed uses discounted amounts in the client currency', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example', currency: 'EUR' }],

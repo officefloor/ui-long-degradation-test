@@ -109,6 +109,21 @@ def test_harness_files_install_flag_edits_and_never_copy_back():
         assert not os.path.exists(os.path.join(app, r.FIXTURE_CONTRACT))
 
 
+def test_a_copy_may_drop_a_test_only_if_retired():
+    with tempfile.TemporaryDirectory() as root:
+        S = "acceptance/specs"
+        specs = {f"{S}/cp01_a.spec.ts": _spec("keep", "{}") + _spec("gone", "{}"),
+                 f"{S}/cp02_b.spec.ts": _spec("b", "{}"),
+                 f"{S}/cp02/cp01_a.spec.ts": _spec("keep", "{}")}
+        cps = _stream(root, specs, [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
+                                    {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts", "mutates": [1]}])
+        assert f.undeclared_retirements(cps, root) == ["cp02 drops cp01_a.spec.ts::gone"]
+        cps[1]["retires"] = ["cp01_a.spec.ts::gone"]
+        assert f.undeclared_retirements(cps, root) == []
+        cps[1]["retires"] = ["cp09_x.spec.ts::nope"]
+        assert any("ships no copy" in v for v in f.undeclared_retirements(cps, root))
+
+
 def test_process_leaks_flag_harness_wording_not_behaviour():
     assert f.process_leaks("An updated copy of the discount spec ships in the sibling override folder.") \
         == ["override folder", "sibling", "updated copy"]

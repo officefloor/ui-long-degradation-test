@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// UPDATED discount spec (carries percentage and fixed forward, adds stacking): an invoice may carry
-// several discounts; each is shown and their combined total comes off before tax.
+// UPDATED discount spec (carries percentage and fixed, the subtotal and the tax breakdown forward,
+// adds stacking): an invoice may carry several discounts; each is shown and their combined total
+// comes off before tax.
 test.describe('invoice discount', () => {
   test('a percentage discount', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -15,6 +16,7 @@ test.describe('invoice discount', () => {
     await page.getByTestId('project-open-1').click();
     await page.getByTestId('invoice-open-1').click();
 
+    await expect(page.getByTestId('invoice-subtotal')).toHaveText('$200.00');
     await expect(page.getByTestId('invoice-discount')).toHaveText('$20.00');
     await expect(page.getByTestId('invoice-amount')).toHaveText('$180.00');
   });
@@ -51,5 +53,23 @@ test.describe('invoice discount', () => {
 
     await expect(page.getByTestId('invoice-discount')).toHaveText('$40.00');
     await expect(page.getByTestId('invoice-amount')).toHaveText('$160.00');
+  });
+
+  test('shows subtotal, discount, tax and final total', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
+      invoices: [{ id: 1, projectId: 1, status: 'DRAFT', discountPct: 10, taxPct: 20, lineItems: [{ id: 1, description: 'Work', qty: 1, unitPrice: 200 }] }],
+    });
+    await page.goto('/');
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
+    await page.getByTestId('invoice-open-1').click();
+
+    // the discount comes off before tax: (200 - 20) + 20% = 216
+    await expect(page.getByTestId('invoice-subtotal')).toHaveText('$200.00');
+    await expect(page.getByTestId('invoice-discount')).toHaveText('$20.00');
+    await expect(page.getByTestId('invoice-tax')).toHaveText('$36.00');
+    await expect(page.getByTestId('invoice-amount')).toHaveText('$216.00');
   });
 });
