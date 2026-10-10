@@ -92,8 +92,12 @@ def _seed_clean_config_dir() -> Optional[str]:
     CHECKPOINTS recalled, breaking the context-free condition the whole design rests on
     (see the module docstring). The run still looked healthy: one warning, no failure.
 
-    Returns None only when there is neither a login file nor a token — a genuinely broken
-    environment, which require_long_lived_token() already refuses to start a run in."""
+    RAISES when there is neither a login file nor a token. It used to warn and return None,
+    letting the turn run under the inherited ~/.claude — which silently drops the per-call
+    memory isolation the context-free condition depends on. A warning is not a guard for
+    that: a run is days long, the line scrolls past in the first minute, and the records it
+    then produces are not comparable with any other run. Fail loudly instead; there is no
+    legitimate configuration in which a run should proceed from here."""
     src = os.path.join(_source_config_dir(), _LOGIN_FILE)
     cfg = tempfile.mkdtemp(prefix="pe-claude-cfg-")
     if os.path.isfile(src):
@@ -107,10 +111,12 @@ def _seed_clean_config_dir() -> Optional[str]:
               f"{_OAUTH_TOKEN_ENV} and isolating in a fresh config dir", flush=True)
         return cfg
     os.rmdir(cfg)
-    print(f"    [isolation] WARNING: no {_LOGIN_FILE} at {src} and no "
-          f"{_OAUTH_TOKEN_ENV}; running under inherited ~/.claude (memory NOT isolated)",
-          flush=True)
-    return None
+    raise RuntimeError(
+        f"no {_LOGIN_FILE} at {src} and no {_OAUTH_TOKEN_ENV}: refusing to run the agent "
+        f"turn. Without either, CLAUDE_CONFIG_DIR cannot be isolated per call, so Claude "
+        f"Code's auto-memory would carry project 'learnings' from one checkpoint into the "
+        f"next and break the context-free condition the experiment rests on. Either log in "
+        f"(`claude /login`) or export {_OAUTH_TOKEN_ENV}=$(claude setup-token).")
 
 
 # The harness's own Python environment must not reach the agent turn. See

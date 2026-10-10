@@ -35,12 +35,27 @@ OK, MISSING, BROKEN = "ok", "missing", "broken"
 
 
 class Finding:
-    __slots__ = ("name", "group", "severity", "status", "detail", "consequence", "remedy")
+    """`integrity=True` marks a finding whose failure CORRUPTS what the experiment measures,
+    as opposed to merely blanking a column. The distinction exists because the severities are
+    shared by four entry points with different tolerances: when you are diagnosing a machine
+    (setup.sh, verify-stack.sh) a mis-declared handler_pattern or an unpinned bin/e2e is
+    something to report and move on from, but a RUN that starts anyway spends days producing
+    numbers that measure the wrong thing. run_experiment.preflight refuses to start on any
+    bad integrity finding; the reporting entry points ignore the flag.
 
-    def __init__(self, name, group, severity, status, detail="", consequence="", remedy=""):
+    Integrity is NOT the same as severity. A missing PMD is BLOCKING for nothing and blanks
+    pmd_* columns, but `analyze` recomputes metrics from the commits afterwards — install PMD
+    later and re-run it. Nothing is lost, so it is not an integrity finding."""
+
+    __slots__ = ("name", "group", "severity", "status", "detail", "consequence", "remedy",
+                 "integrity")
+
+    def __init__(self, name, group, severity, status, detail="", consequence="", remedy="",
+                 integrity=False):
         self.name, self.group, self.severity = name, group, severity
         self.status, self.detail = status, detail
         self.consequence, self.remedy = consequence, remedy
+        self.integrity = integrity
 
     @property
     def bad(self) -> bool:
@@ -49,6 +64,11 @@ class Finding:
     @property
     def fatal(self) -> bool:
         return self.bad and self.severity == BLOCKING
+
+    @property
+    def corrupting(self) -> bool:
+        """Bad AND it changes what gets measured — a run must not start."""
+        return self.bad and self.integrity
 
 
 # ── the package manager, named once so every remedy is copy-pasteable ────────────────────────
@@ -187,6 +207,22 @@ def check_environment(cfg: dict, condition: str | None = None,
         else:
             out.append(Finding(key, "analysis", ANALYSIS, OK, consequence=family))
 
+    # jscpd + ast-grep are listed above as ANALYSIS (they blank dup_*/verbosity columns), but
+    # the `gated` condition ALSO shells out to them for the refactor quality gate, mid-run. Absent
+    # there, run_experiment prints "tools did not run; not enforced" and the intervention quietly
+    # becomes a different intervention — the one thing a gated-vs-ungated contrast cannot absorb.
+    # So for a gated run they are blocking AND integrity, while staying advisory everywhere else.
+    if condition == "gated" and ((cfg.get("impact_gate") or {}).get("quality_gate")
+                                 or {}).get("enabled", True):
+        for key in ("jscpd", "astgrep"):
+            if not _have(str(tools.get(key) or "")):
+                out.append(Finding(f"quality-gate {key}", "env", DEGRADES, MISSING,
+                                   integrity=True,
+                                   consequence="the `gated` refactor quality gate silently "
+                                               "becomes unenforced, changing the intervention "
+                                               "mid-run",
+                                   remedy="./setup.sh installs both into tools/ (pinned)"))
+
     # Whether the agent can actually RUN the toolchain once confined. Here rather than in a
     # caller so every entry point (setup.sh, the run preflight, verify-stack.sh, analyze) gets
     # it without restating the list — the drift this module exists to prevent.
@@ -295,7 +331,7 @@ def check_confined_toolchain(cfg: dict) -> list[Finding]:
             where = exe if real == exe else f"{exe} -> {real}"
             out.append(Finding(cmd, "confined", sev, OK, detail=where, consequence=why))
         else:
-            out.append(Finding(cmd, "confined", sev, BROKEN,
+            out.append(Finding(cmd, "confined", sev, BROKEN, integrity=True,
                                detail=f"{real} is OUTSIDE the Landlock allowlist",
                                consequence=f"EACCES inside the agent turn only: {why}",
                                remedy="add its root to isolation.agent_confinement."
@@ -430,8 +466,9 @@ def _git(repo: str, *args: str) -> subprocess.CompletedProcess:
 def check_stack(repo: str, base_ref: str, pins: list[str] | None = None) -> list[Finding]:
     out: list[Finding] = []
 
-    def add(name, status, detail="", consequence="", remedy="", sev=BLOCKING):
-        out.append(Finding(name, "stack", sev, status, detail, consequence, remedy))
+    def add(name, status, detail="", consequence="", remedy="", sev=BLOCKING, integ=False):
+        out.append(Finding(name, "stack", sev, status, detail, consequence, remedy,
+                           integrity=integ))
 
     if _git(repo, "rev-parse", "--is-inside-work-tree").returncode != 0:
         add("git repo", MISSING, repo, "the harness worktrees the stack per chain")
@@ -499,10 +536,10 @@ def check_stack(repo: str, base_ref: str, pins: list[str] | None = None) -> list
                                for i in range(len(parts), 0, -1))
                 if not anchored:
                     add(f"{lyr}.{key}", BROKEN, f"stem {stem!r} does not exist at {base_ref}",
-                        "the declared additive unit would never be found", sev=DEGRADES)
+                        "the declared additive unit would never be found", sev=DEGRADES, integ=True)
                 elif root and not g.startswith(root.rstrip("/") + "/"):
                     add(f"{lyr}.{key}", BROKEN, f"not under root {root!r}",
-                        "it would measure another layer", sev=DEGRADES)
+                        "it would measure another layer", sev=DEGRADES, integ=True)
                 else:
                     add(f"{lyr}.{key}", OK, g, sev=DEGRADES)
     except SystemExit as e:
@@ -513,23 +550,28 @@ def check_stack(repo: str, base_ref: str, pins: list[str] | None = None) -> list
         if pin in tree:
             add(f"pinned {pin}", OK, sev=DEGRADES)
         else:
-            add(f"pinned {pin}", MISSING, consequence="isolation.pin_files names it",
-                remedy=f"add {pin}", sev=DEGRADES)
+            add(f"pinned {pin}", MISSING, consequence="isolation.pin_files names it, so the "
+                "harness cannot restore it before the gate — an agent edit to it (e.g. "
+                "weakening the seed check in e2e/support/seed.ts) would REACH the gate",
+                remedy=f"add {pin}", sev=DEGRADES, integ=True)
 
     # near-empty, and no generated code committed
     migs = [f for f in tree
             if f.startswith("src/main/resources/db/migration/") and f.endswith(".sql")]
     if migs:
         add("near-empty", BROKEN, f"{len(migs)} domain migration(s) at {base_ref}",
-            "the base must start with no domain schema (SUT_CONTRACT §1)", sev=DEGRADES)
+            "the base must start with no domain schema (SUT_CONTRACT §1) — the run would not "
+            "be growing an application from empty, so it is not comparable with one that did",
+            sev=DEGRADES, integ=True)
     else:
         add("near-empty", OK, sev=DEGRADES)
 
     gen = [f for f in tree if f.endswith(".gen.ts") or "/static/assets/" in f]
     if gen:
         add("generated code", BROKEN, f"{len(gen)} tracked, e.g. {gen[0]}",
-            "committed build output swamps every diff-derived metric",
-            remedy="gitignore it and `git rm --cached`", sev=DEGRADES)
+            "committed build output swamps every diff-derived metric (churn, re-edit rate, "
+            "impact) — the numbers would be dominated by regenerated artefacts",
+            remedy="gitignore it and `git rm --cached`", sev=DEGRADES, integ=True)
     else:
         add("generated code", OK, sev=DEGRADES)
     return out

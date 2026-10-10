@@ -64,7 +64,7 @@ _CP_TOKEN = re.compile(r"\bcp\d{2,}\b", re.IGNORECASE)   # a real sequence token
 OAUTH_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
 
 
-def preflight(cfg: dict, condition: str) -> None:
+def preflight(cfg: dict, condition: str, allow_degraded: bool = False) -> None:
     """Refuse to start unless everything the RUN needs is present.
 
     A run is hours of wall clock and real money, so every blocker is reported TOGETHER — one
@@ -73,9 +73,21 @@ def preflight(cfg: dict, condition: str) -> None:
     hand-maintained lists had already drifted, and for a harness handed to strangers that drift
     is the bug (setup.sh says all-ok, then the run refuses).
 
-    Policy here: anything doctor marks BLOCKING is fatal; everything else is a warning, because
-    a missing metrics tool is an analyse concern and a missing quality-gate tool degrades loudly
-    to "not enforced".
+    Policy here, in two tiers:
+
+      * BLOCKING          the run cannot physically complete -> fatal, always.
+      * bad + integrity   the run WOULD complete and produce numbers that measure the wrong
+                          thing (doctor.Finding.corrupting) -> fatal too.
+      * anything else     a warning: a missing metrics tool blanks a column that `analyze`
+                          can fill in later from the commits, so nothing is lost.
+
+    The integrity tier exists because the old policy warned and continued. A run is days of
+    wall clock and, at 10 chains, four figures of agent spend; discovering afterwards that an
+    unpinned bin/e2e let the agent weaken its own seed check, or that a mis-rooted
+    handler_pattern measured the other layer the whole time, is not recoverable by re-running
+    `analyze`. A line of scrollback at hour zero is not an adequate guard for that, so the run
+    now refuses. `--allow-degraded` overrides it for a deliberate smoke test, and says so
+    loudly in the log so the resulting records are never mistaken for experiment data.
     """
     findings = doctor.check_environment(cfg, condition)
     repo = (cfg.get("app") or {}).get("repo")
@@ -84,20 +96,34 @@ def preflight(cfg: dict, condition: str) -> None:
             repo, (cfg.get("app") or {}).get("base_ref") or "base-empty",
             (cfg.get("isolation") or {}).get("pin_files") or [])
 
+    corrupting = [f for f in findings if f.corrupting and not f.fatal]
     for f in findings:
-        if f.bad and not f.fatal:
+        if f.bad and not f.fatal and f not in corrupting:
             print(f"  [warn] {f.name}: {f.consequence}"
                   + (f" ({f.detail})" if f.detail else "")
                   + (f" -> {f.remedy}" if f.remedy else ""), flush=True)
+
     fatal = [f for f in findings if f.fatal]
-    if fatal:
+    stop = fatal + ([] if allow_degraded else corrupting)
+    if stop:
         print("\nFATAL: the run cannot start — fix all of these:", flush=True)
-        for f in fatal:
+        for f in stop:
+            tag = "" if f.fatal else "  [would CORRUPT the results]"
             print(f"  - {f.name}: {f.consequence}"
-                  + (f" ({f.detail})" if f.detail else ""), flush=True)
+                  + (f" ({f.detail})" if f.detail else "") + tag, flush=True)
             if f.remedy:
                 print(f"      {f.remedy}", flush=True)
+        if corrupting and not fatal:
+            print("\nThese do not stop the run from completing — they stop it from MEANING\n"
+                  "anything. Fix them, or pass --allow-degraded for a throwaway smoke test.",
+                  flush=True)
         raise SystemExit(2)
+    if corrupting and allow_degraded:
+        print("\n  !! --allow-degraded: starting with " + str(len(corrupting)) +
+              " integrity problem(s) ACCEPTED. These records are NOT experiment data:",
+              flush=True)
+        for f in corrupting:
+            print(f"       {f.name}: {f.consequence}", flush=True)
     print("  preflight: ok", flush=True)
 
 
@@ -250,9 +276,11 @@ def verify_resume_stack(wt: str, app_cfg: dict) -> None:
     the repo path and on the `origin` remote, either of which is enough to catch the mistake."""
     prov_path = os.path.join(wt, "evolve-results", "provenance.json")
     if not os.path.isfile(prov_path):
-        print("    resume : WARNING no evolve-results/provenance.json on the branch; "
-              "cannot verify the stack", flush=True)
-        return
+        raise SystemExit(
+            "FATAL: --resume but the chain branch has no evolve-results/provenance.json, so the\n"
+            "stack, model and condition it was started with CANNOT be verified. Continuing would\n"
+            "silently splice checkpoints from a different experiment onto this chain, and nothing\n"
+            "downstream could separate them again. Start a fresh --run-id instead.")
     with open(prov_path) as fh:
         prov = json.load(fh)
     for key, now in (("app_repo", app_cfg["repo"]), ("app_origin", app_cfg.get("origin"))):
@@ -641,7 +669,17 @@ def _impact_gated_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, t
         if qcfg.get("enabled", True):
             for qt in range(max_review + 1):
                 quality = quality_gate.review(wt, quality_dirs, cfg.get("tools") or {}, qcfg)
-                if not quality.ran or quality.passed:
+                if not quality.ran:
+                    # preflight makes this unreachable for a gated run (doctor marks jscpd +
+                    # ast-grep blocking there). If it happens anyway the tools went away
+                    # mid-run, and continuing would quietly turn the intervention into a
+                    # different one for the rest of the chain.
+                    raise RuntimeError(
+                        f"quality gate could not run ({quality.reason}) — the `gated` "
+                        f"condition's refactor review is part of the intervention, so "
+                        f"continuing would change what this chain is measuring. Fix the "
+                        f"tooling and --resume.")
+                if quality.passed:
                     if quality.ran:
                         print(f"    quality-gate: refactor {refactors} clean"
                               + (f" after {qt} review turn(s)" if qt else ""), flush=True)
@@ -929,6 +967,11 @@ def main() -> int:
     ap.add_argument("--resume", action="store_true",
                     help="continue an existing chain branch from its last committed checkpoint "
                          "instead of recreating it at base_ref (same --run-id and --chain)")
+    ap.add_argument("--allow-degraded", action="store_true",
+                    help="start even when preflight finds a problem that would CORRUPT the "
+                         "results (an unpinned file, a mis-rooted handler_pattern, committed "
+                         "build output). For a throwaway smoke test only — the run says so in "
+                         "its log and the records are not experiment data.")
     ap.add_argument("--allow-short-token", action="store_true",
                     help="skip the long-lived-token check (local smoke tests only)")
     args = ap.parse_args()
@@ -969,7 +1012,7 @@ def main() -> int:
     # --allow-short-token keeps its original meaning: skip only the token requirement.
     if args.allow_short_token:
         os.environ.setdefault(OAUTH_TOKEN_ENV, "skipped-by---allow-short-token")
-    preflight(cfg, condition)
+    preflight(cfg, condition, allow_degraded=args.allow_degraded)
     # ast-grep rules live in the harness repo but the quality gate runs with cwd in the worktree,
     # so resolve to an absolute path here.
     ar_rules = (cfg.get("tools") or {}).get("astgrep_rules")

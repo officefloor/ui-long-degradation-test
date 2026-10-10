@@ -107,8 +107,13 @@ def test_verify_resume_stack():
     # A manifest written before a field existed cannot be compared on it — skip, never refuse.
     rx.verify_resume_stack(_prov_wt({"app_repo": REPO}), {"repo": REPO, "origin": GH})
     print("  ok  missing app_origin skipped")
-    rx.verify_resume_stack(_prov_wt(None), {"repo": REPO, "origin": GH})
-    print("  ok  absent provenance warns, does not refuse")
+    # No manifest at all is NOT the same as a manifest missing one field: nothing about the
+    # chain can be verified, so a resume onto it could splice in checkpoints from a different
+    # stack/model/condition with nothing downstream able to separate them. This used to warn
+    # and continue, which for a multi-day run is no guard at all.
+    _refuses("absent provenance refused",
+             lambda: rx.verify_resume_stack(_prov_wt(None), {"repo": REPO, "origin": GH}),
+             exc=SystemExit, contains="provenance.json")
 
 
 def test_stack_repo_validation():
