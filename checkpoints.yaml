@@ -1865,7 +1865,7 @@ checkpoints:
   - id: cp244_remove_levy
     type: mutative
     area: billing
-    mutates: [49]
+    mutates: [49, 68, 119, 192, 241]
     test: acceptance/specs/cp244_remove_levy.spec.ts
     request: |
       The second tax is being scrapped. Remove the levy entirely — invoices should show only the one
