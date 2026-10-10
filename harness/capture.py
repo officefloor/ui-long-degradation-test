@@ -45,6 +45,7 @@ import subprocess
 import sys
 
 from . import agent
+from . import impact_gate as impact_gate_mod
 
 # External files that govern the agent's tools/permissions (user + machine level;
 # project-level `.claude`/`.mcp.json` already travel in the checkpoint commits).
@@ -163,9 +164,14 @@ def impact_gate_provenance(cfg: dict) -> dict | None:
     exists to catch. Recording the probe (and the gate's lizard version next to the
     harness's in `tool_versions`) makes that visible in the run, not months later."""
     igc = cfg.get("impact_gate") or {}
-    cmd = igc.get("cmd")
-    if not cmd:
+    if not igc:
         return None
+    # Resolve the cmd the SAME way score() does. Keying this on a CONFIGURED cmd meant
+    # that a run relying on impact_gate.default_cmd() -- which config.yaml does, with
+    # `cmd:` commented out -- recorded NO gate provenance at all: run 202610100208 has
+    # no impact_gate block and parser_probe null for every checkpoint, so the control
+    # for the intervention is missing from the record while the gate itself ran fine.
+    cmd = impact_gate_mod._cmd(cfg)
     git_sha = ""
     exe = cmd[0]
     if os.sep in exe:                       # a path (not a bare PATH name) -> try its repo

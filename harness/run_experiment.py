@@ -33,9 +33,8 @@ from datetime import datetime
 import yaml
 
 from . import (agent, capture, correctness, doctor, expand_path, impact_gate, landlock,
-               metrics,
-               quality_gate, stack_label, stack_layer_options, stack_layers,
-               stack_repo)
+               metrics, parser_selftest, quality_gate, stack_label, stack_layer_options,
+               stack_layers, stack_repo)
 
 HARNESS_DIR = os.path.dirname(os.path.abspath(__file__))
 HARNESS_ROOT = os.path.dirname(HARNESS_DIR)   # the ui-long-degradation-test repo root
@@ -1013,6 +1012,26 @@ def main() -> int:
     if args.allow_short_token:
         os.environ.setdefault(OAUTH_TOKEN_ENV, "skipped-by---allow-short-token")
     preflight(cfg, condition, allow_degraded=args.allow_degraded)
+
+    # FAIL CLOSED on a blind Java parser, before the first (expensive) agent turn. lizard's
+    # @Entity/@Table regression makes an annotated class yield ZERO functions — no error, the
+    # file is simply not there — so every function-based metric reads "no complexity, no
+    # change" for it and no change inside it could ever fail the gate. On the stack under test
+    # that is 79 of 189 backend files (55% of backend lines), Invoice.java among them. The
+    # probe is a change of exactly that shape, asserted end to end against BOTH parsers (this
+    # harness's in-process lizard and the gate CLI's own), and its result is recorded in the
+    # run's provenance so a blind run can never be mistaken for a clean one later.
+    try:
+        cfg.setdefault("impact_gate", {})["_parser_probe"] = parser_selftest.require(
+            cfg, gated=(condition == "gated"))
+    except parser_selftest.ParserBlind as e:
+        print(f"\nFATAL: {e}", file=sys.stderr, flush=True)
+        raise SystemExit(2)
+    except impact_gate.ImpactGateError as e:
+        print(f"\nFATAL: the impact-gate CLI could not be probed ({e}) — a gated run cannot "
+              f"start without a demonstrated ability to see annotated classes.",
+              file=sys.stderr, flush=True)
+        raise SystemExit(2)
     # ast-grep rules live in the harness repo but the quality gate runs with cwd in the worktree,
     # so resolve to an absolute path here.
     ar_rules = (cfg.get("tools") or {}).get("astgrep_rules")

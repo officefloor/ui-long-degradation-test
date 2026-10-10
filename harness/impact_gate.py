@@ -89,7 +89,14 @@ def _write_measure_config(app_cfg: dict, layer: str) -> str:
     ignore = _other_layer_ignore(app_cfg, layer)
     fd, path = tempfile.mkstemp(prefix=f"ig-{layer}-", suffix=".yml")
     with os.fdopen(fd, "w") as fh:
-        fh.write("ignore:\n" + "".join(f'  - "{g}"\n' for g in ignore))
+        # `ignore: []` when there is nothing to exclude. A bare "ignore:" key with no
+        # items is not a list and impact-gate exits 1 on MeasureConfig.load — which
+        # happens for any stack declaring a SINGLE layer (stack_layers explicitly
+        # allows that: "a headless API has no front end").
+        if ignore:
+            fh.write("ignore:\n" + "".join(f'  - "{g}"\n' for g in ignore))
+        else:
+            fh.write("ignore: []\n")
     return path
 
 
