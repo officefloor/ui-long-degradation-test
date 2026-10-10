@@ -247,6 +247,9 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
                 "notes": "",
             }
             row.update(scored_row)
+            # Own spec already passing before the agent changed anything (pre_change_check).
+            pc = rec.get("pre_change_check") or {}
+            row["own_pass_before"] = "" if pc.get("own_pass_before") is None else pc["own_pass_before"]
             # Comprehension probe (cold reader), present only at the Act-boundary checkpoints.
             pr = rec.get("probe") or {}
             if pr:
@@ -474,6 +477,26 @@ def zero_regression_rate(rows: list[dict], field: str = "regressions") -> float:
     if not seen:
         return math.nan
     return sum(1 for c in seen if per_chain[c] == 0) / len(seen)
+
+
+def pre_change_lines(rows: list[dict]) -> list[str]:
+    """Summary lines for pre_change_check: checkpoints whose own spec passed before the agent
+    changed anything (they still ran), and strict-pass over the checkpoints that needed a change.
+    Silent for runs that predate the check."""
+    checked = [r for r in rows if str(r.get("own_pass_before", "")) != ""]
+    if not checked:
+        return []
+    early = [r for r in checked if _b(r.get("own_pass_before"))]
+    by_chain: dict[int, list[str]] = defaultdict(list)
+    for r in early:
+        by_chain[int(r["chain"])].append(f"cp{int(r['checkpoint']):02d}")
+    needed = [r for r in scored(rows) if not _b(r.get("own_pass_before"))]
+    lines = [f"- own spec already passing before the change: {len(early)}/{len(checked)} checked "
+             f"(they still ran; tighten these checkpoints)"]
+    lines += [f"  - chain {c}: {', '.join(cps)}" for c, cps in sorted(by_chain.items())]
+    lines.append(f"- strict-pass over checkpoints that needed a change: "
+                 f"{sum(1 for r in needed if _b(r.get('strict_pass')))}/{len(needed)}")
+    return lines
 
 
 def regression_summary(rows: list[dict]) -> dict:
@@ -1152,8 +1175,9 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
               f"behaviour_loss={rs['behaviour_loss']} seed_path={rs['seed_path']}",
               f"- unsatisfied replacements: {rs['unsatisfied_replacement']} (updated prior "
               f"specs a mutative checkpoint shipped and never satisfied — invisible to "
-              f"`regressions`, which needs a test to have passed first)",
-              "", "degradation slopes (OLS on checkpoint index; chain-bootstrap 95% CI):"]
+              f"`regressions`, which needs a test to have passed first)"]
+        L += pre_change_lines(cr)
+        L += ["", "degradation slopes (OLS on checkpoint index; chain-bootstrap 95% CI):"]
         for field, _label in PLOT_FIELDS:
             L.append(f"  - {field}: {_fmt_ci(bootstrap_slope(series_by_chain(cr, field)))}")
         L += ["", "pooled ratios (sum numerator / sum denominator over the run — quote THESE "
