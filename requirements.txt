@@ -4,7 +4,23 @@
 PyYAML==6.0.3
 numpy==2.5.3
 matplotlib==3.11.2
-lizard==1.24.1     # front-end/back-end structural metrics (TS/TSX readers) — also used by impact-gate
+# PINNED BACK to 1.23.0, not bumped. lizard 1.24.0 regressed its Java state machine and
+# 1.24.1 does NOT fix it: a bare annotation followed by a parenthesised one at class level
+# (`@Entity` then `@Table(...)`, or `@RestController` then `@RequestMapping(...)`) loses the
+# second `@`, the class declaration is consumed as a method body, and the WHOLE FILE parses to
+# zero functions. Nothing errors — the file is simply not there, so it measures as "no
+# complexity, no change" in every structural column AND in every impact-gate verdict on it.
+#
+# Measured on officehq-angular-spring at cp178: 79 of 189 backend files invisible, 5,293 of
+# 9,675 lines (55% of the backend) — Invoice.java (811 lines, the money pipeline),
+# TestSupportController.java (491, the most-edited file in the project), every JPA entity and
+# every @RestController. backend_erosion read 0.0000 for the whole run partly because of it.
+#
+# The SAME pin must hold in the impact-gate CLI's own venv when it has one (setup.sh applies it
+# there too), because the gate is graded against a baseline built with THIS lizard. Here the
+# gate is installed into this venv, so one pin covers both. Before bumping, run:
+#     .venv/bin/python -m harness.parser_selftest --config config.yaml
+lizard==1.23.0     # front-end/back-end structural metrics (TS/TSX readers) — also used by impact-gate
 # impact-gate is installed separately (see README / ~/ImpactGate), lizard-only.
 # Node/Playwright toolchain is pinned in the stack repos (pom.xml node.version, e2e/package.json);
 # jscpd + ast-grep in tools/package.json; PMD/ck in tools/{pmd,ck}-version.txt; the JRE in

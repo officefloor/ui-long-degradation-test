@@ -131,6 +131,23 @@ else
   echo "     or set IMPACT_GATE_SRC=/path/to/ImpactGate and re-run ./setup.sh"
 fi
 
+# The gate CLI may instead run from ImpactGate's OWN venv (config.yaml impact_gate.cmd), which
+# the pip above never sees — so pin the same lizard there. A gate measured by a different parser
+# than metrics.py is not comparing like with like, and the pinned version exists specifically
+# because 1.24.x scores any change to an @Entity/@Table class as 0 (see requirements.txt and
+# harness/parser_selftest.py, which checks BOTH stacks and fails the run closed).
+LIZARD_PIN="$(grep -iE '^lizard[=<>~]' "$HARNESS_DIR/requirements.txt" || echo lizard)"
+if [ -x "$IG_SRC/.venv/bin/pip" ]; then
+  echo "   pinning $LIZARD_PIN in the impact-gate venv ($IG_SRC/.venv)"
+  "$IG_SRC/.venv/bin/pip" install --quiet "$LIZARD_PIN" && echo "   pinned" \
+    || echo "   ! could not pin lizard there — run harness.parser_selftest before trusting a gated run"
+fi
+
+# Both parsers must see annotated classes, or every metric and verdict on them reads 0.
+echo
+echo "== java parser self-test (fails CLOSED; a run refuses to start if blind) =="
+./.venv/bin/python -m harness.parser_selftest --config config.yaml || true
+
 # ── Everything else: reported by the ONE prerequisite table ──────────────────────────────────
 # harness/doctor.py is the single source of truth, shared with run_experiment's preflight,
 # analyze's tool check and ./verify-stack.sh. It used to be a list maintained here as well, and
