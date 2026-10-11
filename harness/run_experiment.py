@@ -594,9 +594,12 @@ def _confine_config(cfg: dict, sandbox: str) -> dict | None:
     ro = ["/usr", "/opt", "/etc"]
     # Sentinels the confined agent MUST NOT be able to read — verify_denied refuses to run the
     # turn if any is reachable (fail-closed blind guarantee, §15): the harness repo holds the
-    # FUTURE specs + checkpoints.yaml, and work_root holds other checkpoints' worktrees (.git
-    # history of the sequence). Neither is in the allowlist, so both should already be denied.
+    # FUTURE specs + checkpoints.yaml (and the stream's design and reference model, which describe
+    # every later rule), and work_root holds other checkpoints' worktrees (.git history of the
+    # sequence). Neither is in the allowlist, so both should already be denied.
     sentinels = [os.path.join(HARNESS_ROOT, "acceptance", "specs"),
+                 os.path.join(HARNESS_ROOT, "acceptance", "reference"),
+                 os.path.join(HARNESS_ROOT, "acceptance", "WORKSPACE.md"),
                  os.path.join(HARNESS_ROOT, "checkpoints.yaml")]
     wr = (cfg.get("paths") or {}).get("work_root")
     if wr:

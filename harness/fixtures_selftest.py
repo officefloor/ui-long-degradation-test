@@ -124,6 +124,20 @@ def test_a_copy_may_drop_a_test_only_if_retired():
         assert any("ships no copy" in v for v in f.undeclared_retirements(cps, root))
 
 
+def test_screen_violations_flag_other_urls_and_nav_clicks():
+    with tempfile.TemporaryDirectory() as root:
+        S = "acceptance/specs"
+        ok = "await page.goto('/');\n    await page.getByTestId('client-row-1').click();"
+        specs = {f"{S}/cp01_a.spec.ts": _spec("a", "{}", pre=ok),
+                 f"{S}/cp02_b.spec.ts": _spec("b", "{}", pre="await page.goto('/invoices');"),
+                 f"{S}/cp03_c.spec.ts": _spec("c", "{}", pre="await page.getByTestId('nav-clients').click();")}
+        cps = _stream(root, specs, [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
+                                    {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts"},
+                                    {"id": "cp03_c", "test": f"{S}/cp03_c.spec.ts"}])
+        v = f.screen_violations(cps, root)
+        assert len(v) == 2 and v[0].startswith("cp02") and "/invoices" in v[0] and "nav-" in v[1], v
+
+
 def test_process_leaks_flag_harness_wording_not_behaviour():
     assert f.process_leaks("An updated copy of the discount spec ships in the sibling override folder.") \
         == ["override folder", "sibling", "updated copy"]

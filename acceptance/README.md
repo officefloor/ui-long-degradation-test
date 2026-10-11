@@ -1,7 +1,12 @@
 # acceptance/ — the Playwright specs (the living spec; DESIGN.md §3, §7)
 
-- One spec per checkpoint under `specs/`, named `cpNN_<slug>.spec.ts`, selectable so
-  the gate runs only cp01..cpK at checkpoint K.
+- The stream design every checkpoint is written against is [WORKSPACE.md](./WORKSPACE.md): one
+  screen at `/`, three entities, every fourth checkpoint mutative, at least three algorithms per
+  act. Every expected figure comes from `reference/` (`algorithms.py`, `model.py`) or carries its
+  arithmetic in a comment; `reference/vocabulary.md` lists the testids, fixture fields, audit lines
+  and rules in force. The agent never sees any of this.
+- One spec per checkpoint under `specs/`, named `cpNN_<slug>.spec.ts` (`cpNNN_` from 100), selectable
+  so the gate runs only cp01..cpK at checkpoint K.
 - Specs bind ONLY to `data-testid` attributes — never CSS classes, DOM structure, tag
   nesting, or visible copy — so one suite validates any candidate front-end.
 - `data-testid` values are immutable public API once introduced (DESIGN.md §3).

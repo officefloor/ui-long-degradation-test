@@ -7,7 +7,9 @@ application from scratch** under a long sequence of plain-English change request
 
 - **One application evolves.** It starts from a near-empty base — a base front-end shell, Spring
   with the OfficeFloor plugin, and an empty in-memory H2 database (no tables) — and is grown by
-  ~60 English change requests. Each request is a **full-stack change**: schema migration +
+  250 English change requests, all on one screen (the invoice workspace) over three entities
+  (client, invoice, payment), designed to overstress the architecture early and keep loading it
+  (see [acceptance/WORKSPACE.md](./acceptance/WORKSPACE.md)). Each request is a **full-stack change**: schema migration +
   OfficeFloor server + front-end + its acceptance test. Nothing is held constant.
 - **The app is one embedded Spring Boot jar** (OfficeFloor plugin + in-memory H2 + the SPA served
   as static files), one JVM — so it runs under the agent's Landlock sandbox. The harness mirrors
@@ -99,8 +101,10 @@ needs real network + loopback (no sandbox).
 
 ## Status
 
-Working: the base repo (`~/officehq-react-officefloor`), all 60 checkpoints (`checkpoints.yaml` +
-`acceptance/specs`, incl. the 16 mutative overrides), the driver (`run_experiment` — blind
+Working: the stack repos (`~/officehq-*`, branch `base-empty`), all 250 checkpoints
+(`checkpoints.yaml` + `acceptance/specs`, every fourth mutative with its updated copies, at least
+three algorithms per act; exact figures from `acceptance/reference/`; rewritten in place in October
+2026, so earlier runs are not comparable), the driver (`run_experiment` — blind
 two-commit loop, `just-solve` and `gated` conditions, fail-closed token guard), the UI gate
 (`correctness` — build/serve/Playwright + scoring), `analyze` (Zero-Regression Rate, EvoScore,
 slopes), `metrics` (per-layer structural erosion), and the `gated`/ImpactGate refactor loop.

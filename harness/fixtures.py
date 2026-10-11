@@ -161,6 +161,29 @@ def process_leaks(text: str) -> list[str]:
     return sorted({m.group(0).lower() for m in _PROCESS_LEAK.finditer(text)})
 
 
+_GOTO = re.compile(r"""page\.goto\(\s*(['"`])(.*?)\1""")
+_NAV = re.compile(r"""getByTestId\(\s*(['"`])nav-""")
+
+
+def screen_violations(checkpoints: list[dict], harness_root: str) -> list[str]:
+    """Own specs that leave the one screen: open any URL other than '/' or click a nav-* entry
+    (acceptance/WORKSPACE.md §3). Hidden copies are checked too, since they replay the same UI."""
+    out = []
+    for cp in checkpoints:
+        for e in spec_entries(cp, harness_root):
+            path = os.path.join(harness_root, e)
+            if not os.path.isfile(path):
+                out.append(f"cp{cp['n']:02d} {e}: spec file missing")
+                continue
+            src = open(path).read()
+            urls = {m.group(2) for m in _GOTO.finditer(src)} - {"/"}
+            if urls:
+                out.append(f"cp{cp['n']:02d} {os.path.basename(e)}: opens {sorted(urls)}")
+            if _NAV.search(src):
+                out.append(f"cp{cp['n']:02d} {os.path.basename(e)}: clicks a nav-* entry")
+    return out
+
+
 def own_spec_leaks(checkpoints: list[dict], harness_root: str) -> list[str]:
     """Checkpoints whose OWN (agent-visible) spec mentions the harness's process."""
     out = []

@@ -1,7 +1,7 @@
 # Checkpoint stream restructure — plan
 
-Status: **decisions recorded (section 7); not yet applied.** Nothing in `checkpoints.yaml` or `acceptance/specs` changes until
-this plan is approved. There is one harness and one stream: `checkpoints.yaml` and
+Status: **applied (October 2026).** `checkpoints.yaml` and `acceptance/specs` are the stream this
+plan describes; its specification is `acceptance/WORKSPACE.md`. There is one harness and one stream: `checkpoints.yaml` and
 `acceptance/specs` are rewritten in place. Earlier runs, and the stream they used, stay available
 in git history.
 

@@ -389,6 +389,9 @@ decay); "ui" marks that the tests — the stable contract across the churn — d
   feature screens like invoices-for-a-project, and audit rules). Each request is satisfiable as a
   full-stack change (schema + server + UI, + audit file where relevant) — an app built from
   nothing, so early checkpoints create the first tables (owners), then projects, then invoices.
+  *Superseded (October 2026):* the stream is now one invoice workspace over clients, invoices and
+  payments, with no projects and no other screens, to concentrate the load
+  (`acceptance/WORKSPACE.md`, `docs/STREAM_RESTRUCTURE_PLAN.md`).
 - **Checkpoint authoring:** each checkpoint = an English request (to the AI) + an experimenter-
   authored `cpNN` spec (the objective gate, with the `data-testid` contract). Load the sequence
   with reuse-pressure or nothing erodes and the experiment proves nothing.
