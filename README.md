@@ -83,14 +83,15 @@ STACK=~/officehq-react-officefloor
 ./analyze-all.sh 202610020135          # only this run id, across whichever repos hold it
 ```
 
-The default condition is `gated` (`active_condition` in `config.yaml`). It runs the OfficeHQ
-ImpactGate loop. After each implement turn the staged diff is scored per layer. A checkpoint
+The default condition is `just-solve` (`active_condition` in `config.yaml`): the ungated control,
+where the agent implements each request with no ImpactGate refactor. Pass `--condition gated` to
+run the OfficeHQ ImpactGate loop. After each implement turn the staged diff is scored per layer. A checkpoint
 blocks and triggers a refactor turn when the change impact is over `block_percentile`, OR when the
 cognitive gate flags a method it touched. The cognitive gate is on by default (`impact_gate.cognitive_max`).
 It blocks a method whose Cognitive Complexity (Campbell 2018) exceeds the threshold. It catches
 deeply nested, hard to read methods that the change impact percentile cannot see. It needs an
 impact-gate build with the `--cognitive-max` flag. Set `impact_gate.cognitive_max: null` to turn
-it off, or pass `--condition just-solve` to run the ungated control.
+it off.
 
 `config.yaml` points `app.repo` at a base repo (a stack, e.g. `~/officehq-react-officefloor`); each
 run commits its checkpoints to an `evolve/<run_id>/…` branch there. Anything that builds/serves/tests

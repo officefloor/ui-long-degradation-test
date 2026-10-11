@@ -11,7 +11,8 @@ chains: 10                      # independent runs per condition, run SEQUENTIAL
                                 #   stacks differ by more than their own chain-to-chain
                                 #   spread. Drop it (e.g. --chain 1, or lower this value) for
                                 #   a cheap smoke/iteration run; a single chain is one run.
-active_condition: gated         # which intervention condition to run by default (see `conditions`)
+active_condition: just-solve    # which intervention condition to run by default (see `conditions`);
+                                #   pass --condition gated for the ImpactGate loop
 agent_timeout: 3600
 
 checkpoints_file: checkpoints.yaml
