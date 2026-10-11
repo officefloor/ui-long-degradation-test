@@ -1000,8 +1000,8 @@ checkpoints:
     area: billing
     test: acceptance/specs/cp122_invoice_converted_home.spec.ts
     request: |
-      On a foreign invoice show what it comes to in my home currency, using the rate for the
-      invoice's date.
+      When there is no exchange rate for a foreign invoice's exact date, use the most recent rate
+      before it, and show which date's rate was used.
 
   - id: cp123_client_language
     type: additive
