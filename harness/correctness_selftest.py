@@ -161,6 +161,20 @@ def test_gate_rejects_an_app_that_died():
     assert p.startswith(c._APP_DIED), p
 
 
+def test_classify_runner_failures_as_infrastructure():
+    row = lambda msg: {"test_id": "cp01_a.spec.ts::x", "passed": False, "failure": msg}
+    I, S, A, B = (c.RegressionReason.INFRASTRUCTURE.value, c.RegressionReason.SEED_PATH.value,
+                  c.RegressionReason.ANCHOR_DRIFT.value, c.RegressionReason.BEHAVIOUR_LOSS.value)
+    # a dead app refuses the reset: infrastructure, not a seed bug
+    assert c._classify(row("apiRequestContext.post: connect ECONNREFUSED 127.0.0.1:3000 /__test__/reset"), set()) == I
+    assert c._classify(row("Error: worker process exited unexpectedly (code=null, signal=SIGSEGV)"), set()) == I
+    assert c._classify(row("page.goto: Target page, context or browser has been closed"), set()) == I
+    # a real seed error, a missing element and a wrong value keep their labels
+    assert c._classify(row("seed contract broken: POST /__test__/seed returned HTTP 400 — unknown field"), set()) == S
+    assert c._classify(row("Expected string: \"$10.00\" Received: <element(s) not found>"), set()) == A
+    assert c._classify(row("Expected string: \"PAID\" Received string: \" PAID Credited\""), set()) == B
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for t in tests:

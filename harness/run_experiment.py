@@ -51,7 +51,7 @@ CSV_FIELDS = [
     "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
     "normalized_change", "regressions", "true_regressions", "unsatisfied_replacement",
     "seed_contract_failures", "own_pass_before",
-    "anchor_drift", "behaviour_loss", "seed_path",
+    "anchor_drift", "behaviour_loss", "seed_path", "infrastructure",
     "probe_recall", "probe_cost_usd", "probe_input_tokens", "probe_cache_read_tokens",
     "pinned_touched", "acceptance_touched", "notes",
 ]

@@ -506,12 +506,13 @@ def regression_summary(rows: list[dict]) -> dict:
     ad = sum(int(_f(r.get("anchor_drift")) or 0) for r in graded)
     bl = sum(int(_f(r.get("behaviour_loss")) or 0) for r in graded)
     sp = sum(int(_f(r.get("seed_path")) or 0) for r in graded)
+    inf = sum(_i0(r.get("infrastructure")) for r in graded)   # absent before this label existed
     n_mut = sum(1 for r in graded if str(r.get("checkpoint_type", "")).strip() == "mutative")
     unsat = sum(_i0(r.get("unsatisfied_replacement")) for r in graded)
     return {"total": total, "true": true, "intended": total - true, "mutative_cps": n_mut,
             "invalid_gates": len(rows) - len(graded),
             "unsatisfied_replacement": unsat,
-            "anchor_drift": ad, "behaviour_loss": bl, "seed_path": sp}
+            "anchor_drift": ad, "behaviour_loss": bl, "seed_path": sp, "infrastructure": inf}
 
 
 PLOT_FIELDS = [
@@ -1172,7 +1173,8 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
         L += [f"- regressions: total={rs['total']} true={rs['true']} intended={rs['intended']} "
               f"(mutative checkpoints={rs['mutative_cps']}, invalid gates={rs['invalid_gates']})",
               f"- regression reasons: anchor_drift={rs['anchor_drift']} "
-              f"behaviour_loss={rs['behaviour_loss']} seed_path={rs['seed_path']}",
+              f"behaviour_loss={rs['behaviour_loss']} seed_path={rs['seed_path']} "
+              f"infrastructure={rs['infrastructure']}",
               f"- unsatisfied replacements: {rs['unsatisfied_replacement']} (updated prior "
               f"specs a mutative checkpoint shipped and never satisfied — invisible to "
               f"`regressions`, which needs a test to have passed first)"]

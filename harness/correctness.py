@@ -38,9 +38,13 @@ _HEALTH_UP = re.compile(r'"status"\s*:\s*"UP"')
 
 
 class RegressionReason(str, Enum):
-    ANCHOR_DRIFT = "anchor_drift"      # element present + working, data-testid changed/removed
-    BEHAVIOUR_LOSS = "behaviour_loss"  # the feature (UI or audit record) genuinely broke
-    SEED_PATH = "seed_path"            # beforeEach reset+seed via /__test__ failed (schema/API drift)
+    # The element the test acts on or reads is not on the page: a removed or renamed data-testid,
+    # or a feature that is missing or broken. (Not proof of a renamed anchor — the cp87 and cp55
+    # regressions of run 202610100208 were missing features reported this way.)
+    ANCHOR_DRIFT = "anchor_drift"
+    BEHAVIOUR_LOSS = "behaviour_loss"  # the element is there but the value/action/audit is wrong
+    SEED_PATH = "seed_path"            # reset/seed via /__test__ returned an error
+    INFRASTRUCTURE = "infrastructure"  # the runner or the connection failed, not the app's logic
     INTENDED = "intended"              # a prior rule this mutative checkpoint deliberately changed
 
 
@@ -228,13 +232,25 @@ def _flatten_pw_json(report: dict) -> tuple[dict[str, bool], list[dict]]:
     return results, detail
 
 
+# A failure of the runner or the connection rather than of the app's behaviour. Checked before
+# seed_path: a dead app makes /__test__/reset refuse the connection, which is not a seed bug (run
+# 202610100208's cp68: one JVM death, 58 tests labelled seed_path).
+_INFRASTRUCTURE = re.compile(
+    r"ECONNREFUSED|ECONNRESET|socket hang up|net::ERR_CONNECTION|"
+    r"(?:page|context|browser|target)[^|]{0,40}(?:has been closed|crashed)|"
+    r"worker process exited unexpectedly", re.I)
+
+
 def _classify(detail_row: dict, mutated_cps: set[int]) -> str:
     """Best-effort reason for a failed test (DESIGN.md §6). Correctness of pass/fail and
     regression counts does not depend on this — it is for the reason breakdown only."""
     cp = test_checkpoint(detail_row["test_id"])
     if cp is not None and cp in mutated_cps:
         return RegressionReason.INTENDED.value
-    f = (detail_row.get("failure") or "").lower()
+    raw = detail_row.get("failure") or ""
+    if _INFRASTRUCTURE.search(raw):
+        return RegressionReason.INFRASTRUCTURE.value
+    f = raw.lower()
     if "__test__" in f or "beforeeach" in f or "/reset" in f or "/seed" in f:
         return RegressionReason.SEED_PATH.value
     # A locator that resolved to nothing / count 0 hints the anchor moved; otherwise the
@@ -532,7 +548,7 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=(),
             "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
             "normalized_change", "regressions", "true_regressions",
             "unsatisfied_replacement", "seed_contract_failures", "anchor_drift", "behaviour_loss",
-            "seed_path")}
+            "seed_path", "infrastructure")}
         return {"build_ok": outcome.build_ok, "gate_invalid": True, **blanks}
     mut = {int(m) for m in (mutated_cps or ())}
     reason_counts = {r.value: 0 for r in RegressionReason}
@@ -571,4 +587,5 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=(),
         "anchor_drift": reason_counts.get(RegressionReason.ANCHOR_DRIFT.value, 0),
         "behaviour_loss": reason_counts.get(RegressionReason.BEHAVIOUR_LOSS.value, 0),
         "seed_path": reason_counts.get(RegressionReason.SEED_PATH.value, 0),
+        "infrastructure": reason_counts.get(RegressionReason.INFRASTRUCTURE.value, 0),
     }
