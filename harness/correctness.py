@@ -63,6 +63,11 @@ class TestOutcome:
     reasons: dict[str, str] = field(default_factory=dict)   # {failed_test_id: RegressionReason}
     total_selected: int = 0
     gate_invalid: bool = False
+    # The code under test produced no working app: it did not build, never became ready, or died
+    # mid-gate on both attempts. That checkpoint has no per-test verdict (every prior test would
+    # read as a regression, hundreds from one break), so it is reported in its own column, left
+    # out of the regression counts, and the baseline stays with the last working checkpoint.
+    app_broken: bool = False
     gate_attempts: int = 0
     # AGENTS.md §4.4 replay of earlier checkpoints' fixtures: {ok, checked, failures} or None when
     # the checkpoint had no contract (cp01, or a run from before the contract existed).
@@ -267,6 +272,8 @@ _PW_NORMAL_EXITS = (0, 1)
 # A failure caused by the test RUNNER, not the app under test.
 _RUNNER_CRASH = re.compile(r"worker process exited unexpectedly", re.I)
 _APP_DIED = "app was no longer healthy"
+_SERVE_FAILED = "serve failed"
+_BUILD_INFRA = "[build launch/timeout]"
 
 
 def gate_problem(returncode: int | None, report: dict | None, expected_files: set[str],
@@ -284,6 +291,15 @@ def gate_problem(returncode: int | None, report: dict | None, expected_files: se
     results, detail = _flatten_pw_json(report)
     if not results:
         return "gate produced no test results"
+    if len(detail) != len(results):
+        # two tests with one id would overwrite each other's verdict
+        seen, dup = set(), ""
+        for d in detail:
+            if d["test_id"] in seen:
+                dup = d["test_id"]
+                break
+            seen.add(d["test_id"])
+        return f"two tests share the id {dup!r}; their results cannot be told apart"
     reported = {tid.split("::", 1)[0] for tid in results}
     missing = sorted(expected_files - reported)
     if missing:
@@ -374,17 +390,27 @@ def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
                 except (json.JSONDecodeError, TypeError):
                     report = None
     except RuntimeError as e:
-        return None, f"serve failed: {e}", console + f"\n[serve] {e}"
+        return None, f"{_SERVE_FAILED}: {e}", console + f"\n[serve] {e}"
     return report, gate_problem(p.returncode, report, expected, alive), console
 
 
 def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
     """Build the app, serve it, run the Playwright specs present in e2e (the driver has
     installed the full cp01..cpK suite), parse + score. Assertions are UI + audit only."""
-    ok, build_out = build(worktree, cfg)
-    console = f"$ {cfg['app']['build_cmd']}\n{build_out}"
+    # A build that could not launch or timed out says nothing about the code: retry it once, then
+    # void the gate. A build that ran and failed is the code's: the app is broken.
+    console = ""
+    for attempt in (1, 2):
+        ok, build_out = build(worktree, cfg)
+        console += f"$ {cfg['app']['build_cmd']}  (attempt {attempt})\n{build_out}"
+        if ok or not build_out.startswith(_BUILD_INFRA):
+            break
+    if not ok and build_out.startswith(_BUILD_INFRA):
+        return TestOutcome(build_ok=False, gate_invalid=True, gate_attempts=2,
+                           error=f"build could not run on either attempt:\n{build_out[-1600:]}",
+                           build_output=build_out[-1600:], console=console)
     if not ok:
-        return TestOutcome(build_ok=False, error=f"build failed:\n{build_out[-1600:]}",
+        return TestOutcome(build_ok=False, app_broken=True, error=f"build failed:\n{build_out[-1600:]}",
                            build_output=build_out[-1600:], console=console)
 
     e2e_dir = os.path.join(worktree, "e2e")
@@ -405,16 +431,22 @@ def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
     # One clean retry for an INFRASTRUCTURE failure (app never ready, app died mid-run, a crashed
     # Playwright, an incomplete report). A genuine test failure on a healthy app is never retried —
     # that would let a real regression be re-rolled until it passes.
-    # An app that dies on BOTH attempts is reproducible, so it is the code under test, not the
-    # host: that run is scored (its tests fail) rather than voided.
+    # An app that never became ready, or died mid-run, on BOTH attempts is reproducible, so it is
+    # the code under test, not the host: the app is broken (see TestOutcome.app_broken).
     problem = ""
     for attempt in (1, 2):
         report, problem, console = _gate_attempt(worktree, e2e_dir, cfg, console, attempt)
         if not problem:
             break
         console += f"\n[gate attempt {attempt}] {problem}"
-    reproducible_death = attempt == 2 and problem.startswith(_APP_DIED)
-    if problem and not reproducible_death:
+    if problem and attempt == 2 and problem.startswith((_APP_DIED, _SERVE_FAILED)):
+        broken = TestOutcome(build_ok=True, app_broken=True, gate_attempts=attempt,
+                             error=f"{problem} on both attempts — the app under test is broken",
+                             console=console)
+        if report is not None:     # kept for the record; it is not scored
+            broken.results, broken.detail = _flatten_pw_json(report)
+        return broken
+    if problem:
         return TestOutcome(build_ok=True, gate_invalid=True, gate_attempts=attempt,
                            error=problem, console=console)
 
@@ -425,8 +457,6 @@ def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
     outcome.console = console
     outcome.gate_attempts = attempt
     outcome.seed_contract = read_seed_contract(worktree)
-    if reproducible_death:
-        outcome.error = f"{problem} on both attempts — scored as the code under test"
     # reason breakdown for failed PRIOR tests (regressions); mutated set filled by caller-side
     # true_regressions math — reasons here are advisory.
     mutated: set[int] = set()
@@ -491,22 +521,29 @@ def count_regressions(prior_passing: set[str], now_passing: set[str]) -> int:
 
 
 def count_true_regressions(prior_passing: set[str], now_passing: set[str],
-                           mutated_cps, results: dict[str, bool] | None = None) -> int:
-    """Regressions on the surface a mutative checkpoint did NOT intend to change.
+                           mutated_cps, results: dict[str, bool] | None = None,
+                           replaced=(), reasons: dict[str, str] | None = None) -> int:
+    """Regressions on the surface a mutative checkpoint did NOT intend to change: behaviour that
+    worked at the last scored checkpoint and no longer does.
 
-    `mutates` excuses a prior rule the checkpoint deliberately REPLACED: the updated copy it
-    ships supersedes the prior spec, so the prior's test ids disappear from the suite and their
-    loss is intended. It does NOT excuse a test that the updated copy still runs and that FAILED
-    — the replacement asserting the new behaviour and not getting it is a plain failure, and
-    forgiving it hides exactly the breakage the replacement was written to pin.
+    Three kinds of lost pass are not that, and are left out:
+    - a test ABSENT from this run whose checkpoint is in `mutates`: the updated copy dropped or
+      renamed it (`retires:`), so its loss is intended;
+    - a test in `replaced`: an updated copy kept its title but changed what it expects. Failing
+      it on arrival means the checkpoint did not carry its new rule into that scenario, which is
+      an unsatisfied replacement (count_unsatisfied_replacements), not broken old behaviour;
+    - a failure whose reason is `infrastructure` (the connection or the runner failed).
 
-    So a regressed test whose checkpoint is in `mutates` is intended only when it is ABSENT from
-    this run's results. One that is present and failing counts. `results` is the current
-    {test_id: passed} map; without it the old (over-forgiving) behaviour is kept so existing
-    callers do not silently change meaning."""
+    A test the copy carried forward UNCHANGED that now fails is still a regression, mutated or not.
+    `results` is the current {test_id: passed} map; without it the old (over-forgiving) behaviour
+    is kept so existing callers do not silently change meaning."""
     mut = {int(m) for m in (mutated_cps or ())}
+    rep = set(replaced or ())
+    reasons = reasons or {}
     n = 0
     for t in (prior_passing - now_passing):
+        if t in rep or reasons.get(t) == RegressionReason.INFRASTRUCTURE.value:
+            continue
         if test_checkpoint(t) not in mut:
             n += 1                              # not a mutated surface: always a regression
         elif results is not None and t in results:
@@ -515,7 +552,7 @@ def count_true_regressions(prior_passing: set[str], now_passing: set[str],
 
 
 def count_unsatisfied_replacements(prior_selected: set[str] | None, results: dict[str, bool],
-                                   mutated_cps) -> int:
+                                   mutated_cps, replaced=()) -> int:
     """Replacement specs this mutative checkpoint shipped that FAIL ON ARRIVAL.
 
     A mutative checkpoint ships updated copies of the prior specs it revises. Those copies state
@@ -529,43 +566,49 @@ def count_unsatisfied_replacements(prior_selected: set[str] | None, results: dic
     asserting tax in the invoice amount, and that spec fails from the moment it is installed
     ($1,000 against an expected $1,200) while cp49 reports func_p 1/1.
 
-    Counted as: tests newly present in this run, belonging to a checkpoint this one declares it
-    mutates, and failing. Needs the previous checkpoint's selected set; without it, 0."""
-    if prior_selected is None:
-        return 0
+    Counted as: failing tests that are either newly present in this run and belong to a checkpoint
+    this one mutates (a new title), or in `replaced` (a kept title whose expectations the copy
+    changed; fixtures.replaced_tests). A new title needs the previous checkpoint's selected set;
+    without it only `replaced` is counted."""
     mut = {int(m) for m in (mutated_cps or ())}
+    rep = set(replaced or ())
     return sum(1 for t, ok in results.items()
-               if not ok and t not in prior_selected and test_checkpoint(t) in mut)
+               if not ok and (t in rep or (prior_selected is not None and t not in prior_selected
+                                           and test_checkpoint(t) in mut)))
+
+
+_ROW_FIELDS = ("total_selected", "strict_pass", "iso_pass", "core_pass", "core_p", "core_t",
+               "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
+               "normalized_change", "regressions", "true_regressions", "intended_regressions",
+               "unsatisfied_replacement", "seed_contract_failures", "anchor_drift", "behaviour_loss",
+               "seed_path", "infrastructure")
 
 
 def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=(),
-                prior_selected: set[str] | None = None) -> dict:
+                prior_selected: set[str] | None = None, replaced=()) -> dict:
     """Flatten a scored TestOutcome to the per-checkpoint correctness row (incl. Normalized
-    Change + regressions + a reason breakdown). Called by the runner and by analyze."""
-    if outcome.gate_invalid:
-        blanks = {f: "" for f in (
-            "total_selected", "strict_pass", "iso_pass", "core_pass", "core_p", "core_t",
-            "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
-            "normalized_change", "regressions", "true_regressions",
-            "unsatisfied_replacement", "seed_contract_failures", "anchor_drift", "behaviour_loss",
-            "seed_path", "infrastructure")}
-        return {"build_ok": outcome.build_ok, "gate_invalid": True, **blanks}
+    Change + regressions + a reason breakdown). Called by the runner and by analyze, through
+    Baseline, which supplies what has changed since the last scored checkpoint."""
+    if outcome.gate_invalid or outcome.app_broken:
+        return {"build_ok": outcome.build_ok, "gate_invalid": outcome.gate_invalid,
+                "app_broken": outcome.app_broken, **{f: "" for f in _ROW_FIELDS}}
     mut = {int(m) for m in (mutated_cps or ())}
+    rep = set(replaced or ())
     reason_counts = {r.value: 0 for r in RegressionReason}
     for tid, reason in outcome.reasons.items():
-        # only count reasons for PRIOR (regression) failures; current-checkpoint failures
-        # are "not yet solved", not regressions.
-        cp = test_checkpoint(tid)
+        # only count reasons for PRIOR-passing failures (regressions); current-checkpoint failures
+        # are "not yet solved", and a changed copy failing on arrival is an unsatisfied replacement.
         # Every tid here RAN and FAILED, so `mutates` does not excuse it (see
         # count_true_regressions) — it gets its real reason. A genuinely intended loss is a
         # prior test the updated copy replaced, which is absent from `reasons` entirely.
-        if tid in prior_passing:
+        if tid in prior_passing and tid not in rep:
             reason_counts[reason] = reason_counts.get(reason, 0) + 1
-        elif cp is not None and cp in mut:
-            reason_counts[RegressionReason.INTENDED.value] += 1
+    lost = prior_passing - outcome.passing
+    intended = sum(1 for t in lost if t not in outcome.results and test_checkpoint(t) in mut)
     return {
         "build_ok": outcome.build_ok,
         "gate_invalid": False,
+        "app_broken": False,
         "total_selected": outcome.total_selected,
         "strict_pass": outcome.all_pass,
         "iso_pass": outcome.iso_pass,
@@ -578,9 +621,10 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=(),
             normalized_change(prior_passing, outcome.passing, outcome.total_selected), 4),
         "regressions": count_regressions(prior_passing, outcome.passing),
         "true_regressions": count_true_regressions(prior_passing, outcome.passing, mutated_cps,
-                                                   outcome.results),
+                                                   outcome.results, rep, outcome.reasons),
+        "intended_regressions": intended,
         "unsatisfied_replacement": count_unsatisfied_replacements(
-            prior_selected, outcome.results, mutated_cps),
+            prior_selected, outcome.results, mutated_cps, rep),
         # Blank when there was no contract to check, so "not checked" never reads as "clean".
         "seed_contract_failures": ("" if outcome.seed_contract is None
                                    else len(outcome.seed_contract.get("failures") or [])),
@@ -589,3 +633,31 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=(),
         "seed_path": reason_counts.get(RegressionReason.SEED_PATH.value, 0),
         "infrastructure": reason_counts.get(RegressionReason.INFRASTRUCTURE.value, 0),
     }
+
+
+@dataclass
+class Baseline:
+    """What a checkpoint is scored against: the last SCORED checkpoint's results, plus every
+    `mutates` and changed copy installed since then.
+
+    A gate that is invalid or whose app is broken gives no per-test verdict, so it never becomes
+    the baseline — but the copies it installed and the retirements it declared are still in the
+    suite at the next scored checkpoint, so they are carried to it. Without that, a retirement at
+    an unscored mutative checkpoint reads as a true regression at the next one. The live run,
+    --resume and analyze all score through this one class, so they cannot drift apart."""
+    passing: set[str] = field(default_factory=set)
+    selected: set[str] | None = None
+    mutates: set[int] = field(default_factory=set)
+    replaced: set[str] = field(default_factory=set)
+
+    def score(self, outcome: TestOutcome, mutates=(), replaced=()) -> dict:
+        """The correctness row for this checkpoint; then advance (or carry) the baseline."""
+        mut = self.mutates | {int(m) for m in (mutates or ())}
+        rep = self.replaced | set(replaced or ())
+        row = outcome_row(outcome, self.passing, sorted(mut), self.selected, rep)
+        if outcome.gate_invalid or outcome.app_broken:
+            self.mutates, self.replaced = mut, rep
+        else:
+            self.passing, self.selected = set(outcome.passing), set(outcome.results)
+            self.mutates, self.replaced = set(), set()
+        return row

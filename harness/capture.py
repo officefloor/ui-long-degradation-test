@@ -245,7 +245,7 @@ def checkpoint_record(k: int, cp_id: str, phase: str, shas: dict, agent_result,
                       attempts: list[dict] | None = None, spec: str | None = None,
                       prompt: str | None = None, ckpt_type: str = "additive",
                       mutates: list | None = None, impact_gate: dict | None = None,
-                      stack: dict | None = None) -> dict:
+                      stack: dict | None = None, replaced: list | None = None) -> dict:
     """Assemble the raw, irreproducible record for one checkpoint. `outcome` is a
     correctness.TestOutcome (its RAW results map + detail are what matter here —
     every set-based correctness metric is re-derivable from them).
@@ -266,6 +266,9 @@ def checkpoint_record(k: int, cp_id: str, phase: str, shas: dict, agent_result,
         "phase": phase,
         "type": ckpt_type,          # additive | mutative
         "mutates": mutates or [],   # prior checkpoint numbers a mutation changes
+        # test ids an updated copy installed here keeps but changes (fixtures.replaced_tests):
+        # failing one now is an unsatisfied replacement, not a regression
+        "replaced_tests": replaced or [],
         "request": {"spec": spec, "prompt": prompt},
         "commit_sha": shas.get("commit"),   # the AGENT commit ("" for a no-op)
         "reset_sha": shas.get("reset"),      # the RESET commit (harness normalisation)
@@ -303,6 +306,9 @@ def checkpoint_record(k: int, cp_id: str, phase: str, shas: dict, agent_result,
             # carries no verdict; analyze must treat it as missing data, never as a
             # suite-wide regression. Persisted so the hole survives into re-analysis.
             "gate_invalid": outcome.gate_invalid,
+            # The code under test gave no working app (no build, never ready, died on both
+            # attempts): reported, but never scored as regressions (correctness.TestOutcome).
+            "app_broken": getattr(outcome, "app_broken", False),
             "gate_attempts": outcome.gate_attempts,
             # AGENTS.md §4.4: earlier checkpoints' fixtures replayed and read back before the suite.
             "seed_contract": getattr(outcome, "seed_contract", None),

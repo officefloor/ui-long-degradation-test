@@ -259,6 +259,43 @@ def test_titles(path: str) -> list[str]:
     return [m.group(2) for m in _TEST_TITLE.finditer(open(path).read())]
 
 
+def _unescape_title(raw: str) -> str:
+    return re.sub(r"\\(.)", r"\1", raw)
+
+
+def test_bodies(path: str) -> dict[str, str]:
+    """{test title: its body with comments and whitespace removed}, so two versions of a test
+    compare equal exactly when what they do and assert is the same."""
+    src = open(path).read()
+    out = {}
+    for m in _TEST_TITLE.finditer(src):
+        # the test's own callback block, `async ({ page }) => { ... }`: nothing after it, so a test
+        # added behind it, or the file's closing lines, do not read as a change to it
+        arrow = src.index("=>", m.end())
+        body = _balanced(src, src.index("{", arrow))
+        body = re.sub(r"(?m)^\s*//.*$", "", body)          # whole-line comments
+        body = re.sub(r"\s+//[^'\"`\n]*$", "", body, flags=re.M)   # trailing comments
+        out[_unescape_title(m.group(2))] = re.sub(r"\s+", "", body)
+    return out
+
+
+def replaced_tests(checkpoints: list[dict], k: int, harness_root: str) -> list[str]:
+    """Test ids (`<basename>::<title>`) that an updated copy installed at checkpoint k keeps under
+    the same title but changes: it seeds, does or asserts something else than the version in
+    force before k. Failing one at k is an unsatisfied replacement, not a regression
+    (correctness.count_true_regressions); a test the copy carries unchanged is not listed."""
+    before = _in_force(checkpoints, k - 1, harness_root)
+    after = _in_force(checkpoints, k, harness_root)
+    out = []
+    for base, path in sorted(after.items()):
+        old = before.get(base)
+        if old is None or old == path:
+            continue
+        was, now = test_bodies(old), test_bodies(path)
+        out += [f"{base}::{t}" for t in now if t in was and was[t] != now[t]]
+    return out
+
+
 def undeclared_retirements(checkpoints: list[dict], harness_root: str) -> list[str]:
     """Tests a replacement copy drops without its checkpoint saying so in `retires:`.
 

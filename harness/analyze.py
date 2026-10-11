@@ -127,8 +127,10 @@ def _outcome_from_capture(rec: dict) -> correctness.TestOutcome:
     re-scoring through correctness so the numbers are derived, not read back."""
     t = rec.get("tests") or {}
     k = int(rec["checkpoint"])
-    if t.get("gate_invalid"):
-        return correctness.TestOutcome(build_ok=bool(t.get("build_ok")), gate_invalid=True,
+    if t.get("gate_invalid") or t.get("app_broken"):
+        return correctness.TestOutcome(build_ok=bool(t.get("build_ok")),
+                                       gate_invalid=bool(t.get("gate_invalid")),
+                                       app_broken=bool(t.get("app_broken")),
                                        error=t.get("error", ""))
     detail = t.get("detail") or []
     cats = {d["test_id"]: d.get("category", "functionality") for d in detail if d.get("test_id")}
@@ -211,18 +213,15 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
         n_cp = len(ks)
         print(f"  [{i_br}/{n_br}] {branch}: {n_cp} checkpoint(s)", flush=True)
         base_commit = caps[min(caps)].get("prev_sha")  # chain base (cp01's prev) — cum change-entropy
-        prior_passing: set[str] = set()
-        prior_selected: set[str] | None = None   # what the PREVIOUS checkpoint ran, so a
-                                                 # replacement spec failing on arrival is visible
+        baseline = correctness.Baseline()   # the same scoring the live run and --resume use
         n_noop = 0        # checkpoints the agent left unchanged -> no commit -> no structural row
         n_invalid = 0     # gates that aborted -> correctness is missing, not failed
         t_chain = time.time()
         for i_cp, k in enumerate(ks, 1):
             rec = caps[k]
             outcome = _outcome_from_capture(rec)
-            mutated = [int(m) for m in (rec.get("mutates") or [])]
-            scored_row = correctness.outcome_row(outcome, prior_passing, mutated,
-                                                 prior_selected)
+            scored_row = baseline.score(outcome, rec.get("mutates") or [],
+                                        rec.get("replaced_tests") or [])
             ag = rec.get("agent") or {}
             # The STACK this row came from. results/<run_id>/ is keyed by run id alone, so
             # without this a CSV cannot be attributed to an arm — which makes a cross-arm
@@ -261,10 +260,7 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
             if app_cfg:
                 row.update(_metrics_row(repo, rec.get("commit_sha") or "",
                                         rec.get("prev_sha"), app_cfg, tools, base_commit))
-            if not outcome.gate_invalid:
-                prior_passing = outcome.passing
-                prior_selected = set(outcome.results)
-            else:
+            if outcome.gate_invalid:
                 n_invalid += 1
             if not (rec.get("commit_sha") or ""):
                 n_noop += 1
@@ -277,7 +273,8 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
             el = time.time() - t_chain
             eta = (el / i_cp) * (n_cp - i_cp)
             flags = ("  NO-OP" if not (rec.get("commit_sha") or "") else "") + \
-                    ("  INVALID-GATE" if outcome.gate_invalid else "")
+                    ("  INVALID-GATE" if outcome.gate_invalid else "") + \
+                    ("  APP-BROKEN" if outcome.app_broken else "")
             print(f"      cp{k:02d} {i_cp:>3}/{n_cp}  {el / i_cp:5.1f}s/cp  eta {eta / 60:5.1f}m"
                   f"  fe[er={_heartbeat_val(row, 'frontend_erosion')}"
                   f" sloc={_heartbeat_val(row, 'frontend_sloc')}]"
@@ -446,8 +443,10 @@ def phase_means(rows: list[dict], field: str):
 
 
 def scored(rows: list[dict]) -> list[dict]:
-    """Rows whose gate returned a verdict (gate-invalid checkpoints carry no correctness)."""
-    return [r for r in rows if not _b(r.get("gate_invalid"))]
+    """Rows whose gate returned a per-test verdict. A gate-invalid checkpoint carries no
+    correctness; one whose app was broken (no build, never ready, died on both attempts) is
+    counted on its own (regression_summary's app_broken), never as regressions."""
+    return [r for r in rows if not _b(r.get("gate_invalid")) and not _b(r.get("app_broken"))]
 
 
 def evoscore(rows: list[dict], gamma: float) -> float:
@@ -510,8 +509,14 @@ def regression_summary(rows: list[dict]) -> dict:
     inf = sum(_i0(r.get("infrastructure")) for r in graded)   # absent before this label existed
     n_mut = sum(1 for r in graded if str(r.get("checkpoint_type", "")).strip() == "mutative")
     unsat = sum(_i0(r.get("unsatisfied_replacement")) for r in graded)
-    return {"total": total, "true": true, "intended": total - true, "mutative_cps": n_mut,
-            "invalid_gates": len(rows) - len(graded),
+    # intended = tests a copy retired or renamed; recorded per row from this change on (older rows
+    # fall back to total - true, which also held changed copies and infrastructure)
+    has_int = all(str(r.get("intended_regressions", "")) not in ("", "nan") for r in graded)
+    intended = (sum(_i0(r.get("intended_regressions")) for r in graded) if has_int and graded
+                else total - true)
+    return {"total": total, "true": true, "intended": intended, "mutative_cps": n_mut,
+            "invalid_gates": sum(1 for r in rows if _b(r.get("gate_invalid"))),
+            "app_broken": sum(1 for r in rows if _b(r.get("app_broken"))),
             "unsatisfied_replacement": unsat,
             "anchor_drift": ad, "behaviour_loss": bl, "seed_path": sp, "infrastructure": inf}
 
@@ -1173,6 +1178,8 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
         rs = regression_summary(cr)
         L += [f"- regressions: total={rs['total']} true={rs['true']} intended={rs['intended']} "
               f"(mutative checkpoints={rs['mutative_cps']}, invalid gates={rs['invalid_gates']})",
+              f"- broken app: {rs['app_broken']} checkpoint(s) whose code gave no working app (no "
+              f"build, never ready, or died on both attempts) — not scored as regressions",
               f"- regression reasons: anchor_drift={rs['anchor_drift']} "
               f"behaviour_loss={rs['behaviour_loss']} seed_path={rs['seed_path']} "
               f"infrastructure={rs['infrastructure']}",

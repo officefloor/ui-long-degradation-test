@@ -207,10 +207,25 @@ At checkpoint K, each prior-checkpoint test failure is classified:
 - **intended** — checkpoint K legitimately changes prior behaviour and ships a replacement
   `cpJ` spec (the `mutates` discipline). **Excluded** from `true_regressions`.
 
-`regressions` = any prior test failing at K (raw). `true_regressions` = regressions minus
-intended mutations. anchor-drift, behaviour-loss and (undeclared) seed-path all count as
-regressions; logging the reason tells you *how* the app erodes — front-end, backend, or data
-setup — a richer result than the REST arm can produce.
+- **infrastructure** — the connection or the runner failed (ECONNREFUSED, a crashed worker), not
+  the app's logic. **Excluded** from `true_regressions`.
+
+`regressions` = any prior test that passed at the last scored checkpoint and does not pass at K
+(raw). `true_regressions` = behaviour that worked and no longer does: regressions minus
+`intended_regressions` (a test a copy retired or renamed, so it is absent), minus a test whose
+updated copy kept its title but changed what it expects (`fixtures.replaced_tests`: failing that on
+arrival means K did not carry its rule into the old scenario, counted as `unsatisfied_replacement`),
+minus infrastructure. A test a copy carried forward unchanged that now fails still counts.
+anchor-drift, behaviour-loss and (undeclared) seed-path all count as regressions; logging the
+reason tells you *how* the app erodes — front-end, backend, or data setup — a richer result than
+the REST arm can produce.
+
+A checkpoint is scored against the last checkpoint that was scored (`correctness.Baseline`). Two
+kinds give no per-test verdict and are never the baseline: a **gate-invalid** one (the host or
+runner failed: retried once, then voided) and an **app-broken** one (the code did not build, never
+became ready, or died mid-gate on both attempts; reported in its own column, never as
+regressions). The `mutates` and changed copies of either are carried to the next scored
+checkpoint, so its retirements are still excused there.
 
 Metric names stay aligned with the REST arm (EvoScore, Zero-Regression Rate, Normalized
 Change / SWE-CI) so the two studies read as one.

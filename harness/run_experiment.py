@@ -46,10 +46,11 @@ CSV_FIELDS = [
     "stack", "stack_origin",
     "run_id", "model", "branch", "condition", "chain", "checkpoint", "checkpoint_id", "phase",
     "checkpoint_type", "agent_ok", "cost_usd", "input_tokens", "output_tokens",
-    "num_turns", "duration_ms", "duration_api_ms", "build_ok", "gate_invalid",
+    "num_turns", "duration_ms", "duration_api_ms", "build_ok", "gate_invalid", "app_broken",
     "total_selected", "strict_pass", "iso_pass", "core_pass", "core_p", "core_t",
     "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
-    "normalized_change", "regressions", "true_regressions", "unsatisfied_replacement",
+    "normalized_change", "regressions", "true_regressions", "intended_regressions",
+    "unsatisfied_replacement",
     "seed_contract_failures",
     "anchor_drift", "behaviour_loss", "seed_path", "infrastructure",
     "probe_recall", "probe_cost_usd", "probe_input_tokens", "probe_cache_read_tokens",
@@ -238,29 +239,32 @@ def _last_reset_sha(wt: str) -> str | None:
     return None
 
 
-def prior_state_from_capture(wt: str, k: int) -> tuple[set[str], set[str] | None]:
-    """Rebuild the previous checkpoint's (passing, selected) sets from the captures committed up
-    to cpK, so a resumed chain scores against the same baseline the aborted run would have used.
-    Mirrors the live rule: a gate_invalid checkpoint carries no verdict and never replaces it.
-
-    `selected` is every test that RAN, not just the ones that passed — needed to tell a
-    replacement spec failing on arrival from one that was already there (correctness
-    .count_unsatisfied_replacements)."""
+def baseline_from_capture(wt: str, k: int) -> correctness.Baseline:
+    """Replay the captures committed up to cpK through correctness.Baseline, so a resumed chain
+    scores against exactly the baseline the aborted run would have had: the last scored
+    checkpoint, plus the `mutates` and changed copies of any unscored ones since."""
     cap_dir = os.path.join(wt, "evolve-results", "capture")
-    passing: set[str] = set()
-    selected: set[str] | None = None
+    base = correctness.Baseline()
     for i in range(1, k + 1):
         path = os.path.join(cap_dir, f"cp{i:02d}.json")
         if not os.path.isfile(path):
             continue
         with open(path) as fh:
-            tests = (json.load(fh).get("tests") or {})
-        if tests.get("gate_invalid"):
-            continue
-        results = tests.get("results") or {}
-        passing = {t for t, ok in results.items() if ok}
-        selected = set(results)
-    return passing, selected
+            rec = json.load(fh)
+        tests = rec.get("tests") or {}
+        outcome = correctness.TestOutcome(
+            build_ok=bool(tests.get("build_ok", True)), gate_invalid=bool(tests.get("gate_invalid")),
+            app_broken=bool(tests.get("app_broken")))
+        outcome.results = tests.get("results") or {}
+        outcome.passing = {t for t, ok in outcome.results.items() if ok}
+        base.score(outcome, rec.get("mutates") or [], rec.get("replaced_tests") or [])
+    return base
+
+
+def prior_state_from_capture(wt: str, k: int) -> tuple[set[str], set[str] | None]:
+    """The baseline's (passing, selected) sets (see baseline_from_capture)."""
+    base = baseline_from_capture(wt, k)
+    return base.passing, base.selected
 
 
 def prior_passing_from_capture(wt: str, k: int) -> set[str]:
@@ -889,9 +893,8 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         raise RuntimeError(f"paths.sandbox_root must be a dedicated directory, not {sandbox!r}")
     shutil.rmtree(sandbox, ignore_errors=True)
 
-    # Regressions are relative to the last passing suite, so a resumed chain must reload it.
-    prior_passing, prior_selected = (prior_state_from_capture(wt, done) if resume
-                                     else (set(), None))
+    # Regressions are relative to the last scored suite, so a resumed chain must reload it.
+    baseline = baseline_from_capture(wt, done) if resume else correctness.Baseline()
     captures: list[dict] = []
     strict_count = regr_count = 0
 
@@ -952,10 +955,8 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
                 fh.write(outcome.console[:1_000_000])
 
         mutated = [int(m) for m in (cp.get("mutates") or [])]
-        row = correctness.outcome_row(outcome, prior_passing, mutated, prior_selected)
-        if not outcome.gate_invalid:
-            prior_passing = outcome.passing
-            prior_selected = set(outcome.results)
+        replaced = fixtures.replaced_tests(checkpoints, k, HARNESS_ROOT)
+        row = baseline.score(outcome, mutated, replaced)
         strict_count += 1 if row.get("strict_pass") is True else 0
         regr_count += int(row.get("regressions") or 0)
 
@@ -963,7 +964,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         failed = [t for t, ok in (outcome.results or {}).items() if not ok]
         print(f"    gate   : build_ok={outcome.build_ok} selected={outcome.total_selected} "
               f"strict_pass={row.get('strict_pass')} regressions={row.get('regressions')} "
-              f"true_regr={row.get('true_regressions')} gate_invalid={outcome.gate_invalid}", flush=True)
+              f"true_regr={row.get('true_regressions')} gate_invalid={outcome.gate_invalid} app_broken={outcome.app_broken}", flush=True)
         if failed:
             print(f"    FAILED : {len(failed)}/{outcome.total_selected}: "
                   + "; ".join(sorted(failed)[:6]), flush=True)
@@ -1010,7 +1011,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
             ar, outcome, probe_record, touched_pins, [], stream_file, diff_file,
             build_log_file=build_log_file, attempts=attempt_log,
             spec=cp["request"], prompt=prompt, ckpt_type=cp.get("type", "additive"),
-            mutates=mutated, impact_gate=gate_hist, stack=stack)
+            mutates=mutated, impact_gate=gate_hist, stack=stack, replaced=replaced)
         capture.write_json(os.path.join(cap_dir, f"cp{k:02d}.json"), rec)
         wt_cap = os.path.join(wt, "evolve-results", "capture")
         os.makedirs(wt_cap, exist_ok=True)

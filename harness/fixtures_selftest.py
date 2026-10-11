@@ -124,6 +124,22 @@ def test_a_copy_may_drop_a_test_only_if_retired():
         assert any("ships no copy" in v for v in f.undeclared_retirements(cps, root))
 
 
+def test_replaced_tests_are_kept_titles_whose_body_changed():
+    """A copy that keeps a title but changes what it does is listed; one carried unchanged, or
+    changed only in its comments, is not; a new title is not (it has no earlier version)."""
+    with tempfile.TemporaryDirectory() as root:
+        S = "acceptance/specs"
+        specs = {f"{S}/cp01_a.spec.ts": _spec("same", "{}") + _spec("changed", "{ asOf: '2026-01-01' }")
+                 + _spec("commented", "{}", pre="// old note"),
+                 f"{S}/cp02_b.spec.ts": _spec("b", "{}"),
+                 f"{S}/cp02/cp01_a.spec.ts": _spec("same", "{}") + _spec("changed", "{ asOf: '2026-02-01' }")
+                 + _spec("commented", "{}", pre="// a new note") + _spec("new title", "{}")}
+        cps = _stream(root, specs, [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
+                                    {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts", "mutates": [1]}])
+        assert f.replaced_tests(cps, 2, root) == ["cp01_a.spec.ts::changed"], f.replaced_tests(cps, 2, root)
+        assert f.replaced_tests(cps, 1, root) == []
+
+
 def test_screen_violations_flag_other_urls_and_nav_clicks():
     with tempfile.TemporaryDirectory() as root:
         S = "acceptance/specs"

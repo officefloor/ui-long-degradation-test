@@ -175,6 +175,65 @@ def test_classify_runner_failures_as_infrastructure():
     assert c._classify(row("Expected string: \"PAID\" Received string: \" PAID Credited\""), set()) == B
 
 
+def test_changed_copy_failing_on_arrival_is_unsatisfied_not_regression():
+    """cp20's copy of cp14 keeps a title but expects $2.46 instead of $2.45. Failing it at cp20 means
+    cp20's rule was not carried into that scenario: an unsatisfied replacement, not broken old
+    behaviour. A test the copy carried UNCHANGED that fails is still a true regression."""
+    changed = "cp14_tax_exempt_lines.spec.ts::charges tax only on taxable lines"
+    kept = "cp14_tax_exempt_lines.spec.ts::adds an exempt line"
+    prior = {changed, kept}
+    o = _outcome({changed: False, kept: False, "cp20_x.spec.ts::own": True}, 20)
+    row = c.outcome_row(o, prior, [14], set(prior), replaced=[changed])
+    assert row["regressions"] == 2
+    assert row["true_regressions"] == 1, row          # only the unchanged one
+    assert row["unsatisfied_replacement"] == 1, row   # the changed one
+    assert row["behaviour_loss"] == 1, row            # reasons only for true regressions
+
+
+def test_infrastructure_failure_is_not_a_true_regression():
+    tid = "cp05_a.spec.ts::x"
+    o = c.score_results({tid: False}, 9)
+    o.detail = [{"test_id": tid, "passed": False, "category": "functionality",
+                 "failure": "apiRequestContext.post: connect ECONNRESET 127.0.0.1:3000"}]
+    o.reasons[tid] = c._classify(o.detail[0], set())
+    row = c.outcome_row(o, {tid}, [], {tid})
+    assert row["regressions"] == 1 and row["true_regressions"] == 0 and row["infrastructure"] == 1, row
+
+
+def test_baseline_carries_mutates_and_changes_across_an_invalid_gate():
+    """cp20 mutates cp05 (retiring cp05_b::y) but its gate is invalid. At cp21 the retirement and
+    the changed copy are still in the suite, so neither may read as a true regression."""
+    b = c.Baseline()
+    b.score(_outcome({"cp05_b.spec.ts::y": True, "cp05_b.spec.ts::z": True}, 19))
+    b.score(c.TestOutcome(build_ok=True, gate_invalid=True), [5], ["cp05_b.spec.ts::z"])
+    row = b.score(_outcome({"cp05_b.spec.ts::z": False, "cp21_c.spec.ts::own": True}, 21), [], [])
+    assert row["regressions"] == 2
+    assert row["true_regressions"] == 0, row
+    assert row["intended_regressions"] == 1, row
+    assert row["unsatisfied_replacement"] == 1, row
+    # scored once: the carried state is spent
+    assert b.mutates == set() and b.replaced == set()
+
+
+def test_broken_app_is_not_scored_and_keeps_the_baseline():
+    """A build break must not read as every prior test regressing, nor empty the baseline so the
+    next checkpoint's real breakage disappears."""
+    b = c.Baseline()
+    b.score(_outcome({"cp01_a.spec.ts::x": True, "cp02_b.spec.ts::y": True}, 9))
+    row = b.score(c.TestOutcome(build_ok=False, app_broken=True))
+    assert row["app_broken"] is True and row["regressions"] == "" and row["true_regressions"] == ""
+    row = b.score(_outcome({"cp01_a.spec.ts::x": True, "cp02_b.spec.ts::y": False}, 11))
+    assert row["true_regressions"] == 1, row
+
+
+def test_gate_rejects_two_tests_with_one_id():
+    rep = {"suites": [{"file": "cp01_a.spec.ts", "specs": [
+        {"title": "same", "tests": [{"results": [{"status": "passed"}]}]},
+        {"title": "same", "tests": [{"results": [{"status": "failed"}]}]}]}]}
+    p = c.gate_problem(1, rep, {"cp01_a.spec.ts"}, True)
+    assert "share the id" in p, p
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for t in tests:
