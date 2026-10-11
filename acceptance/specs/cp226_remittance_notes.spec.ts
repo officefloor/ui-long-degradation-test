@@ -51,6 +51,7 @@ test.describe('remittance and adjustment notes', () => {
     // the new note carries PO-7781
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=4 number=ADJ-0000042 invoice=1 total=33.00');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-po')).toHaveText('PO-7781');
     await expect(page.getByTestId('invoice-row-3').getByTestId('invoice-status')).toHaveText('Part paid');
   });

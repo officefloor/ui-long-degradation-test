@@ -38,6 +38,7 @@ test.describe('crediting tiered lines', () => {
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('CREDIT_NOTE_ISSUED id=2 number=CN-0000026 invoice=1 total=214.50');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     // 920.00 + 190.00 + 10% = 1,221.00, less the 214.50 credited
     await expect(page.getByTestId('invoice-credited')).toHaveText('$214.50');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,006.50');

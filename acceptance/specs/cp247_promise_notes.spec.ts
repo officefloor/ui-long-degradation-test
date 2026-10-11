@@ -34,6 +34,7 @@ test.describe("a promise covers the invoice's notes", () => {
     // 180.00 on the invoice and 220.00 on its note make the 400.00 promised: kept
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await expect.poll(() => auditLines()).toContain('INTEREST_WAIVED id=1 amount=2.88');
   });

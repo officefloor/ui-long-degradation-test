@@ -31,6 +31,7 @@ test.describe("a rebill doesn't reset the chasing", () => {
     await expect(page.getByTestId('invoice-dunning')).toHaveText('REMINDER_2');
     await page.getByTestId('invoice-rebill').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     // sent today but still due 2026-05-10, with its two reminders: overdue at once and not chased again
     await expect(page.getByTestId('invoice-row-4').getByTestId('invoice-due')).toHaveText('2026-05-10');
@@ -41,6 +42,7 @@ test.describe("a rebill doesn't reset the chasing", () => {
     // an invoice whose final notice has gone out can't be rebilled
     await page.getByTestId('client-row-4').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-rebill').click();
     await expect(page.getByTestId('invoice-rebill-error')).toBeVisible();
   });

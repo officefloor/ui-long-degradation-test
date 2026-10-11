@@ -46,6 +46,7 @@ test.describe('conversion fee', () => {
     // $100 for yen: 100 / 0.0066 = 15,151.5, down to 15,151; 1.5% = 227.265 -> 227; 14,924 applied
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('payment-form-currency').selectOption('USD');
     await page.getByTestId('payment-form-amount').fill('100');
     await page.getByTestId('payment-form-date').fill('2026-03-10');
@@ -56,6 +57,7 @@ test.describe('conversion fee', () => {
     // (110 - 110 / 1.025 = 2.68) both come off it, leaving 105.67 to pay the invoice
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('payment-form-method').selectOption('CARD');
     await page.getByTestId('payment-form-currency').selectOption('EUR');
     await page.getByTestId('payment-form-amount').fill('100');

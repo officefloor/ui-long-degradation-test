@@ -40,6 +40,7 @@ test.describe('instalment plan fee', () => {
     // in euros the fee is 30 / 1.10 = 27.27: 1,027.27 over 2 is 513.635, rounded up to 514.00
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('plan-form-count').fill('2');
     await page.getByTestId('plan-form-rate').fill('0');
     await page.getByTestId('plan-form-submit').click();

@@ -36,6 +36,7 @@ test.describe('reopen a sent invoice', () => {
     await expect(page.getByTestId('invoice-row-7').getByTestId('invoice-total')).toHaveText('$20.00');
     // a sent invoice's discount can't be changed
     await page.getByTestId('invoice-row-6').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-6').getByTestId('invoice-number').innerText());
     await page.getByTestId('discount-form-pct').fill('10');
     await page.getByTestId('discount-form-submit').click();
     await expect(page.getByTestId('discount-form-error')).toBeVisible();

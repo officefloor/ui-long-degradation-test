@@ -29,6 +29,7 @@ test.describe('interest on a 360-day year', () => {
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,017.82');
     // 2,000.00 for the 23 days to the payment, then what is still owed for the 44 days to today
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$37.78');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,537.78');
     await expect(page.getByTestId('client-row-1').getByTestId('client-overdue')).toHaveText('$2,555.60');

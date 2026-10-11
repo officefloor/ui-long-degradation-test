@@ -30,6 +30,7 @@ test.describe('a rebill carries late interest', () => {
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$0.00');
     // the replacement bills it as a line of its own, with no tax
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-4').getByTestId('line-description')).toHaveText('Late interest INV-0000018');
     await expect(page.getByTestId('line-row-4').getByTestId('line-amount')).toHaveText('$12.54');
     await expect(page.getByTestId('line-row-4').getByTestId('line-tax')).toHaveText('$0.00');
@@ -56,6 +57,7 @@ test.describe('a rebill carries late interest', () => {
     await page.getByTestId('invoice-row-4').click();
     await page.getByTestId('invoice-rebill').click();
     await page.getByTestId('invoice-row-6').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-6').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId(/^line-row-\d+$/)).toHaveCount(1);
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$990.00');
     expect(auditLines().filter((l) => l.startsWith('INTEREST_CARRIED'))).toEqual([]);

@@ -38,11 +38,13 @@ test.describe('client minimum charge', () => {
     // Globex's own €40.00, in its currency, not the workspace's $50.00 converted (€45.45)
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-minimum-charge')).toHaveText('€10.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('€44.00'); // 40.00 + 10%
     // no minimum of its own: the workspace's 50.00
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-minimum-charge')).toHaveText('$20.00');
   });
 

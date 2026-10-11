@@ -39,6 +39,7 @@ test.describe('early discount for low-risk clients', () => {
     // Globex has no history (LOW): 2% of the 1,000.00 before tax comes off if paid now
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-settle-amount')).toHaveText('$1,080.00');
     await page.getByTestId('payment-form-amount').fill('1080.00');
     await page.getByTestId('payment-form-date').fill('2026-03-05');

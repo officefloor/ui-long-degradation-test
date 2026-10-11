@@ -69,6 +69,7 @@ test.describe('set the due date by hand', () => {
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due')).toHaveText('2026-04-20'); // kept
 
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible(); // 2026-03-05 is before today
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');

@@ -37,21 +37,25 @@ test.describe('every level waits two weeks', () => {
     await expect.poll(() => auditLines()).toContain('REMINDER_SENT id=1 level=REMINDER_1');
     // 9 days: nothing yet
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-dunning')).toHaveText('NONE');
     await page.getByTestId('invoice-remind').click();
     await expect(page.getByTestId('invoice-remind-error')).toBeVisible();
     // 74 days overdue, but its final notice went out at 65 days, only 9 days ago: still FINAL
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-dunning')).toHaveText('FINAL');
     await page.getByTestId('invoice-remind').click();
     await expect(page.getByTestId('invoice-remind-error')).toBeVisible();
     // its final notice went out at 53 days, 21 days ago: collections
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-dunning')).toHaveText('COLLECTIONS');
     await page.getByTestId('invoice-remind').click();
     await expect.poll(() => auditLines()).toContain('REMINDER_SENT id=4 level=COLLECTIONS');
     // 50 days overdue with a second reminder sent at 40 days: the final notice must wait
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-dunning')).toHaveText('REMINDER_2');
     await page.getByTestId('invoice-remind').click();
     await expect(page.getByTestId('invoice-remind-error')).toBeVisible();

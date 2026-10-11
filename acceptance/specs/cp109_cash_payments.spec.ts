@@ -50,6 +50,7 @@ test.describe('cash payments', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('$0.00');
 
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     // 12.36 rounds down to 12.35
     await expect(page.getByTestId('invoice-cash-due')).toHaveText('$12.35');
     await expect(page.getByTestId('invoice-cash-rounding')).toHaveText('-$0.01');
@@ -63,6 +64,7 @@ test.describe('cash payments', () => {
     // euro cash rounds the same way: 12.38 euros
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-cash-due')).toHaveText('€12.40');
     await page.getByTestId('payment-form-method').selectOption('CASH');
     await page.getByTestId('payment-form-amount').fill('12.40');
@@ -124,6 +126,7 @@ test.describe('cash payments', () => {
     // yen have no coins smaller than one yen: nothing to round
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-cash-due')).toHaveText('¥2,338');
     await expect(page.getByTestId('invoice-cash-rounding')).toHaveText('¥0');
   });

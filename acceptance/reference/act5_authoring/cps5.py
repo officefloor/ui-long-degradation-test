@@ -1211,7 +1211,8 @@ def s218(n):
         amount=<fee> and shown on the panel as the reminder fees charged. A fee is owed with the invoice: it is
         in the amount due, the balance, the overdue amount and the cash due, earns no interest and takes no
         tax. A payment pays the invoice first, then its reminder fees, then its late interest. Waiving interest
-        leaves the fees owed; writing the invoice off includes them.""", [t1], n)
+        leaves the fees owed; writing the invoice off includes them. A seeded reminder (invoices[].reminders)
+        went out on its date, so it carries its level's fee from that day, as one sent through the panel does.""", [t1], n)
 
 
 cp(218, 'reminder_fees', """
@@ -1223,7 +1224,8 @@ cp(218, 'reminder_fees', """
     payment pays the invoice itself first, then the reminder fees, then late interest. Waiving the interest
     leaves the fees owed, and writing the invoice off includes them. Charging a reminder fee starts a new
     interest period, just as a payment does: the interest up to that day is worked out and rounded on its
-    own.
+    own. A reminder already on an invoice's record went out on its date, so it carries its level's fee
+    from that day (at that day's rate) just like one sent now.
 """, s218)
 
 # =============================================================================== cp219 an unpaid final notice stops credit

@@ -32,6 +32,7 @@ test.describe('adjustment notes that need approval', () => {
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-status')).toHaveText('Draft');
     expect(auditLines().filter((l) => l.startsWith('ADJUSTMENT_ISSUED'))).toEqual([]);
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
@@ -43,20 +44,24 @@ test.describe('adjustment notes that need approval', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$1,870.00'); // 1,210.00 + 660.00
     // 300.00 + 30.00 is within the limit, but would take the client to 2,200.00, over its 2,000.00
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await page.getByTestId('line-form-description').fill('Support');
     await page.getByTestId('line-form-qty').fill('1');
     await page.getByTestId('line-form-unit-price').fill('300');
     await page.getByTestId('line-form-submit').click();
     await expect(page.getByTestId('invoice-row-3').getByTestId('invoice-status')).toHaveText('Draft');
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     // taking the build off is a credit note: issued at once, with no approval
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await page.getByTestId('line-row-1').getByTestId('line-remove').click();
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=4 number=ADJ-0000042 invoice=1 total=-1100.00');
     await expect(page.getByTestId('client-row-1').getByTestId('client-available')).toHaveText('$1,230.00');
     // now the support note fits under the limit and goes without approval
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=3 number=ADJ-0000034 invoice=1 total=330.00');

@@ -59,6 +59,7 @@ test.describe('approval over a limit', () => {
     await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=1 number=INV-0000018 total=5280.00');
     // within the limit no approval is needed, and none can be given
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
     await page.getByTestId('invoice-approve').click();
     await expect(page.getByTestId('invoice-approve-error')).toBeVisible();
@@ -87,6 +88,7 @@ test.describe('approval over a limit', () => {
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
     // one cent more is
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('€4,545.46');
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     // a 1% discount brings it back within the limit: 4,090.92 + 409.09

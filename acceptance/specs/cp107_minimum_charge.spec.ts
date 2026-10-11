@@ -47,18 +47,22 @@ test.describe('minimum charge', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$54.44'); // 30.00 + 20.00 + 4.44
     // the minimum is compared after the discount: 60.00 - 20% = 48.00, 2.00 short
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-discount')).toHaveText('$12.00');
     await expect(page.getByTestId('invoice-minimum-charge')).toHaveText('$2.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$54.44');
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-minimum-charge')).toHaveText('$0.00');
     // a credit note gets no minimum charge
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-minimum-charge')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$21.78'); // 20.00 + 8.875%
     // in euros: $50.00 / 1.10 = 45.4545, rounded down to €45.45; taxed at the workspace 10%
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-minimum-charge')).toHaveText('€15.45');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('€50.00'); // 45.45 + 4.545 -> 4.55
   });

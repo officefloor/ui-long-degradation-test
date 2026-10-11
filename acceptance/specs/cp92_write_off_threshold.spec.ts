@@ -35,9 +35,11 @@ test.describe('small balance write-off', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
     // 0.50 left of 50.00 is 1%: written off
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-written-off')).toHaveText('$0.50');
     // 2.50 left of 300.00 is $2.00 or more: it stays due
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$2.50');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Part paid');
     await expect.poll(() => auditLines().filter((l) => l.startsWith('INVOICE_WRITTEN_OFF'))).toEqual([

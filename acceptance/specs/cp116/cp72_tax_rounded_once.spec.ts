@@ -43,6 +43,7 @@ test.describe('tax rounded once', () => {
     await expect(page.getByTestId('line-row-3').getByTestId('line-tax')).toHaveText('$0.33');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$11.06');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     // 5% of 10.10 = 0.505 -> 0.51; 10% of 20.05 = 2.005 plus 10% of 0.15 = 0.015 is 2.02; 2.53
     await expect(page.getByTestId('invoice-tax')).toHaveText('$2.53');
     await expect(page.getByTestId('line-row-4').getByTestId('line-tax')).toHaveText('$0.51');

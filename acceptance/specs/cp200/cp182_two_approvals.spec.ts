@@ -42,6 +42,7 @@ test.describe('two approvals', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
     // 9,090.90 + 909.09 = 9,999.99 is more than one and a half times the limit: two approvals too
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs 2 approvals');
   });
 

@@ -36,11 +36,13 @@ test.describe('two approvals sooner', () => {
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs 1 more approval');
     // 1,400.00 is not: one approval
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     // Globex paid 25 days late (HIGH): even 80.00 takes two approvals
     await expect(page.getByTestId('client-row-2').getByTestId('client-risk-band')).toHaveText('HIGH');
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs 2 approvals');
   });
 });

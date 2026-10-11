@@ -34,6 +34,7 @@ test.describe('plans judged on their total', () => {
     await expect(page.getByTestId('invoice-approval')).toHaveText('Approved');
     // an interest-free plan collects just the 980.00
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('plan-form-count').fill('2');
     await page.getByTestId('plan-form-rate').fill('0');
     await page.getByTestId('plan-form-submit').click();

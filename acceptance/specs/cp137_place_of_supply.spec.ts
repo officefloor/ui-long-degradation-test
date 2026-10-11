@@ -37,10 +37,12 @@ test.describe('place of supply', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,088.75');
     // done in Oregon: no tax
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-tax')).toHaveText('$0.00');
     // Globex is reverse charged in California, but work done in the home region is taxed there
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-reverse-charge')).toHaveText('Reverse charge');
     await page.getByTestId('invoice-supply-region').fill('NY');
     await page.getByTestId('invoice-supply-region-submit').click();

@@ -42,6 +42,7 @@ test.describe('on hold over the limit', () => {
     // 250.00 owed now: back within the limit, so no longer on hold
     await expect(page.getByTestId('client-row-1').getByTestId('client-status')).toHaveText('Active');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
   });

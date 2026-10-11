@@ -336,10 +336,8 @@ text_copy(168, 'cp98_retention_interest', M168 + "there is no released retention
 
 text_copy(168, 'cp106_prices_include_tax', M168 + "the second test no longer holds back 94.95, so the whole 1,041.75 is "
           "due. Carries all three tests (the second renamed).",
-          reps=[("// (invoice-net) and each line its net; retention and the early-payment discount are worked out on\n"
-                 "// the amount before tax.",
-                 "// (invoice-net) and each line its net; the early-payment discount is worked out on the amount\n"
-                 "// before tax."),
+          reps=[("// its net; retention and the early-payment discount are worked out on the amount before tax.",
+                 "// its net; the early-payment discount is worked out on the amount before tax."),
                 ("  test('discounts, retention and exempt lines on prices that include tax'",
                  "  test('discounts and exempt lines on prices that include tax'"),
                 ("          retentionPct: 10,\n", ""),

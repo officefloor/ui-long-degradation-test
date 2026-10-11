@@ -41,6 +41,7 @@ test.describe("a credit note pays the invoice's notes", () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('$22.00');
     // the 22.00 is used on the next invoice sent
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('PAYMENT_RECORDED id=2 invoice=4 amount=22.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$44.00');

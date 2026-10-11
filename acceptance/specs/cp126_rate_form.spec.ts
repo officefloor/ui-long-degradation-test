@@ -38,6 +38,7 @@ test.describe('editing the rate card', () => {
     await page.getByTestId('rate-form-submit').click();
     // the draft's hours follow the card: 2 x 110.00
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-1').getByTestId('line-unit-price')).toHaveText('$110.00');
     await expect(page.getByTestId('line-row-1').getByTestId('line-amount')).toHaveText('$220.00');
     await page.getByTestId('line-form-description').fill('Workshop');
@@ -48,6 +49,7 @@ test.describe('editing the rate card', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,012.00'); // (220.00 + 700.00) + 10%
     // the sent invoice keeps the 95.00 it was sent with
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-2').getByTestId('line-unit-price')).toHaveText('$95.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$214.50'); // (95.00 + 100.00) + 10%
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$214.50');

@@ -41,12 +41,14 @@ test.describe('written off after collections', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-risk-score')).toHaveText('91.0');
     await expect(page.getByTestId('client-row-1').getByTestId('client-risk-band')).toHaveText('HIGH');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs 2 approvals');
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     // Globex's collections notice is only 21 days old
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await expect(page.getByTestId('client-row-2').getByTestId('client-status')).toHaveText('On hold');
   });

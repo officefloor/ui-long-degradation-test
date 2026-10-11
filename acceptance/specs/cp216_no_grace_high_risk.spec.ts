@@ -40,6 +40,7 @@ test.describe('no grace for high-risk clients', () => {
     // Globex has no history: its invoice due the same day is still within its grace week
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
     await expect(page.getByTestId('invoice-interest')).toHaveText('$0.00');
     await expect(page.getByTestId('client-row-2').getByTestId('client-overdue')).toHaveText('$0.00');

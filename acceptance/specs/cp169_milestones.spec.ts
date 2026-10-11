@@ -96,6 +96,7 @@ test.describe('milestone billing', () => {
     await expect(page.getByTestId('milestone-row-4').getByTestId('milestone-status')).toHaveText('Part paid');
     // milestones that don't add up to 100% can't be sent
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');

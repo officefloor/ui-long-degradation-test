@@ -40,6 +40,7 @@ test.describe('allocate by due date', () => {
     await page.getByTestId('invoice-row-4').click();
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$0.00'); // 30.00 - 30.00
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$20.00'); // 40.00 - 20.00
   });
 });

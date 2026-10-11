@@ -36,11 +36,13 @@ test.describe('regional grace periods', () => {
     await page.getByTestId('client-row-2').click();
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-status')).toHaveText('Overdue');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$6.35');
     await expect(page.getByTestId('client-row-2').getByTestId('client-overdue')).toHaveText('$1,006.35');
     // a client's own grace still wins: Initech's 3 days, 16 days of interest
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await expect(page.getByTestId('invoice-interest')).toHaveText('$5.35');
   });

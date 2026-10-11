@@ -44,9 +44,11 @@ test.describe('recurring invoices sent on their own', () => {
     // 20 licences at 60.00 is over the approval limit: it waits as a draft
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-generate').click();
     await expect(page.getByTestId('invoice-row-4').getByTestId('invoice-status')).toHaveText('Draft');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     expect(auditLines().filter((l) => l.startsWith('INVOICE_SENT id=4'))).toEqual([]);
   });

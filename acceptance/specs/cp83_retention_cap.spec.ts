@@ -27,6 +27,7 @@ test.describe('retention cap', () => {
     await expect(page.getByTestId('invoice-retention')).toHaveText('$150.00');
     // a cap above the percentage changes nothing: 10% of 500.00 = 50.00
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-retention')).toHaveText('$50.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$450.00'); // 500.00 - 50.00
   });

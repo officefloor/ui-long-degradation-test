@@ -52,15 +52,18 @@ test.describe('a MOD 11-2 check character', () => {
     // 000028: p stays 0 over the four zeros, then (0 + 2) x 2 = 4 and (4 + 8) x 2 = 24, mod 11 = 2;
     // (12 - 2) mod 11 = 10 is written X
     await page.getByTestId('invoice-row-28').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-28').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-number')).toHaveText('INV-000028X');
     await expect(page.getByTestId('invoice-reference')).toHaveText('RF46 0000 28X');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
     // issued in June: invoice 1 keeps its Luhn digit
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-number')).toHaveText('INV-0000018');
     await expect(page.getByTestId('invoice-reference')).toHaveText('RF03 0000 018');
     // a draft shown today takes the new check character, and keeps it when sent
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-number')).toHaveText('INV-0000052');
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=5 number=INV-0000052 total=66.00');

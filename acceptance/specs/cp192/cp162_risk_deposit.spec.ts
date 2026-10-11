@@ -47,6 +47,7 @@ test.describe('deposits from high-risk clients', () => {
     await page.getByTestId('payment-form-submit').click();
     await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('$300.00');
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     // the deposits held for it are used straight away, oldest first
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Part paid');

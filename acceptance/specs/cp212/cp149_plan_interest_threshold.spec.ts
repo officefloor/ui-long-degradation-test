@@ -32,6 +32,7 @@ test.describe('interest threshold on plans', () => {
     await expect(page.getByTestId('invoice-interest')).toHaveText('$0.00');
     // 1,100.00 for 31 days is over it
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$11.42');
   });
 });

@@ -31,6 +31,7 @@ test.describe("reverse charge needs the region's number", () => {
     // reverse charged: no tax, and nothing withheld either
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-reverse-charge')).toHaveText('Reverse charge');
     await expect(page.getByTestId('invoice-withholding')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,000.00');

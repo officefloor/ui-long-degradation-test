@@ -39,6 +39,7 @@ test.describe('early discount and adjustment notes', () => {
     await page.getByTestId('line-form-submit').click();
     // the debit note is owed in full: no early discount on it
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-settle-amount')).toHaveCount(0);
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$55.00');
   });

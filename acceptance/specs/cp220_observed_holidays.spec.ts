@@ -30,6 +30,7 @@ test.describe('holidays on weekends', () => {
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due')).toHaveText('2026-07-08');
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     // and Sunday 2026-07-12 on Monday 2026-07-13: 10 business days end on Thursday 2026-07-16
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due')).toHaveText('2026-07-16');

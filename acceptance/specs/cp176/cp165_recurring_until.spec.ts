@@ -37,6 +37,7 @@ test.describe('recurring until a date', () => {
     await page.getByTestId('invoice-generate').click();
     await expect.poll(() => auditLines()).toContain('INVOICE_GENERATED from=INV-0000018 to=INV-0000042');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-4').getByTestId('line-period')).toHaveText('2026-03-01 to 2026-03-17');
     // the last period runs from 2026-03-01 to the 17th: 450 x 12 / 365 x 17 = 251.51
     await expect(page.getByTestId('line-row-4').getByTestId('line-amount')).toHaveText('$251.51');
@@ -49,6 +50,7 @@ test.describe('recurring until a date', () => {
     // nothing is generated for a client on hold
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-generate').click();
     await expect(page.getByTestId('invoice-generate-error')).toBeVisible();
     await expect(page.getByTestId(/^invoice-row-\d+$/)).toHaveCount(1);

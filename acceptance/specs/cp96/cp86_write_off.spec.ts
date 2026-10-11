@@ -70,6 +70,7 @@ test.describe('write off an invoice', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Written off');
     // a draft can't be written off
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-write-off').click();
     await expect(page.getByTestId('invoice-write-off-error')).toBeVisible();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');

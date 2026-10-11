@@ -52,6 +52,7 @@ test.describe('remittance matching', () => {
       'PAYMENT_RECORDED id=1 invoice=2 amount=40.00',
     ]);
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('payment-row-1').getByTestId('payment-match')).toHaveText('INV-0000018');
     await expect(page.getByTestId('payment-row-1').getByTestId('payment-match-score')).toHaveText('0.888');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
@@ -62,6 +63,7 @@ test.describe('remittance matching', () => {
     await page.getByTestId('payment-form-remittance').fill('thanks');
     await page.getByTestId('payment-form-submit').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('payment-row-2').getByTestId('payment-match')).toHaveText('');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$760.00'); // 900.00 - 40.00 - 100.00
   });

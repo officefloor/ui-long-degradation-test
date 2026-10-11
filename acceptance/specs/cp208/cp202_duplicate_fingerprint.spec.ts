@@ -85,14 +85,17 @@ test.describe('possible duplicate invoices', () => {
     // Globex's invoice with the same lines is another client's (its id is in the fingerprint)
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-fingerprint')).toHaveText('D30579BA');
     // an audit like one sent 100 days ago, outside the 60-day window, is no duplicate
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-duplicate-of')).toHaveCount(0);
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
     // the same work split over two lines of one day each
     await page.getByTestId('invoice-row-6').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-6').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-fingerprint')).toHaveText('8865963F');
     // merged, it is two days of design: the same as invoices 1 and 2
     await expect(page.getByTestId('invoice-duplicate-of')).toHaveText('INV-0000018, INV-0000026');

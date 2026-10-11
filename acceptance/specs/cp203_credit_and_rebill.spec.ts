@@ -46,9 +46,11 @@ test.describe('credit and rebill', () => {
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('Credited');
     await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('$500.00');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-replaced-by')).toHaveText('INV-0000042');
     // the replacement is a draft with the same lines, worked out today at 8.875%: 1,080.00 + 95.85
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');
     await expect(page.getByTestId('invoice-replaces')).toHaveText('INV-0000018');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,175.85');
@@ -62,6 +64,7 @@ test.describe('credit and rebill', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$675.85');
     // a draft can't be rebilled
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-rebill').click();
     await expect(page.getByTestId('invoice-rebill-error')).toBeVisible();
   });

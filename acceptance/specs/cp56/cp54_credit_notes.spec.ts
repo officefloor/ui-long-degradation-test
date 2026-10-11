@@ -60,6 +60,7 @@ test.describe('credit notes', () => {
 
     // invoice 9: 90.00 + 20.00 exempt + 9.00 tax = 119.00, less 30.00 paid and 49.50 credited
     await page.getByTestId('invoice-row-9').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-9').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-credited')).toHaveText('$49.50');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$39.50');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Part paid');
@@ -91,6 +92,7 @@ test.describe('credit notes', () => {
     await expect.poll(() => auditLines()).toContain('CREDIT_NOTE_ISSUED id=11 number=CN-0000117 invoice=4 total=45.00');
     await expect.poll(() => auditLines()).toContain('CREDIT_HELD payment=3 amount=5.00'); // 45.00 - 40.00
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-credited')).toHaveText('$40.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
@@ -116,6 +118,7 @@ test.describe('credit notes', () => {
     await expect(page.getByTestId('invoice-row-5').getByTestId('invoice-status')).toHaveText('Credited');
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$0.00');
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$0.00'); // 60.00 - 60.00 credited
     // no payments, but the issued credit note keeps it from being reopened or voided
     await page.getByTestId('invoice-void').click();

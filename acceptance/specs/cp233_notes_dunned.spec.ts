@@ -36,6 +36,7 @@ test.describe('notes chased with their invoice', () => {
     await page.getByTestId('invoice-remind').click();
     await expect(page.getByTestId('invoice-remind-error')).toBeVisible();
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-remind').click();
     // the reminder covers the overdue note too; the fee is charged once, on the invoice
     await expect.poll(() => auditLines()).toContain('REMINDER_SENT id=1 level=REMINDER_2');
@@ -43,14 +44,17 @@ test.describe('notes chased with their invoice', () => {
     expect(auditLines().filter((l) => l.startsWith('REMINDER_FEE'))).toEqual(['REMINDER_FEE id=1 amount=15.00']);
     await expect(page.getByTestId('invoice-reminder-fees')).toHaveText('$15.00');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-reminder-fees')).toHaveText('$0.00');
     // 22.00 overdue on invoice 3 is under the 25.00 minimum, but with its note's 11.00 it is 33.00
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-dunning')).toHaveText('REMINDER_1');
     await page.getByTestId('invoice-remind').click();
     await expect.poll(() => auditLines()).toContain('REMINDER_SENT id=4 level=REMINDER_1');
     // with invoice 1 unpaid after its second reminder, a new draft needs approval before it can go
     await page.getByTestId('invoice-row-9').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-9').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
@@ -86,6 +90,7 @@ test.describe('notes chased with their invoice', () => {
     await page.getByTestId('invoice-row-6').click();
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$100.00');
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$0.00');
   });
 });

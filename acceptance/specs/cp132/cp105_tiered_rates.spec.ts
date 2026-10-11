@@ -88,6 +88,7 @@ test.describe('tiered rates', () => {
     // yen tiers: 100 x 150 + 50 x 120.5 = 21,025 yen
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-2').getByTestId('line-amount')).toHaveText('¥21,025');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('¥23,128');
   });

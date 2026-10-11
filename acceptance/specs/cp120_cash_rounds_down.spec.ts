@@ -37,6 +37,7 @@ test.describe('cash rounds down', () => {
     await expect(page.getByTestId('invoice-written-off')).toHaveText('$0.00');
     // 11.22 + 1.12 = 12.34 in cash is 12.30
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-cash-due')).toHaveText('$12.30');
     await expect(page.getByTestId('invoice-cash-rounding')).toHaveText('-$0.04');
   });

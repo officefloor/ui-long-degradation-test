@@ -46,6 +46,7 @@ test.describe('plan rates capped', () => {
     // California has no cap: 12%, 340.02 rounded up to 341.00
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('plan-form-count').fill('3');
     await page.getByTestId('plan-form-rate').fill('12');
     await page.getByTestId('plan-form-submit').click();

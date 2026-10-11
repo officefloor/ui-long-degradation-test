@@ -23,6 +23,7 @@ test.describe('discounts round down', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$88.38'); // 101.00 - 12.62
 
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     // 15% of (3 x 33.35 = 100.05) = 15.0075 -> 15.00
     await expect(page.getByTestId('line-row-2').getByTestId('line-discount')).toHaveText('$15.00');
     await expect(page.getByTestId('line-row-2').getByTestId('line-amount')).toHaveText('$85.05'); // 100.05 - 15.00

@@ -73,3 +73,8 @@ for c in act3:
 y = y.rstrip('\n') + '\n' + (('\n' + rest.rstrip('\n') + '\n') if rest else '')
 open(os.path.join(REPO, 'checkpoints.yaml'), 'w').write(y)
 print(f'wrote {len(written)} Act III spec files, {len(REG)} scenarios, {len(act3)} checkpoints')
+
+# last: wait for the panel after every row click that may replace an open invoice (all specs)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import panel_waits  # noqa: E402
+panel_waits.main()

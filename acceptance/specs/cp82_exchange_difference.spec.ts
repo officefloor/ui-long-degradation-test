@@ -37,6 +37,7 @@ test.describe('exchange difference', () => {
     // issued at $1.10 a euro: €200 paid at 1.10 makes no difference; €100 paid at 1.20 is a $10.00 gain
     await expect(page.getByTestId('invoice-fx-difference')).toHaveText('$10.00');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('payment-form-amount').fill('50');
     await page.getByTestId('payment-form-date').fill('2026-04-05');
     await page.getByTestId('payment-form-submit').click();

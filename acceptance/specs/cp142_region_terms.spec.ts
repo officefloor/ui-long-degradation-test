@@ -33,11 +33,13 @@ test.describe('regional payment terms', () => {
     // the client's own 14 days win: 2026-03-24
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due')).toHaveText('2026-03-24');
     // California has no terms: the end of next month
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-row-3').getByTestId('invoice-due')).toHaveText('2026-04-30');
     // a new invoice for a New York client starts with the region's terms

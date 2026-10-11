@@ -51,6 +51,7 @@ test.describe('discount reason', () => {
     await expect(page.getByTestId('invoice-discount')).toHaveText('$50.00'); // 25% of 200.00
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('discount-form-pct').fill('20');
     await page.getByTestId('discount-form-submit').click();
     await expect(page.getByTestId('invoice-discount')).toHaveText('$20.00'); // exactly 20%
@@ -81,6 +82,7 @@ test.describe('discount reason', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');
     // a reason is kept, but no longer enough
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-discount')).toHaveText('$25.00');
     await expect(page.getByTestId('invoice-discount-reason')).toHaveText('Damaged goods');
     await page.getByTestId('invoice-send').click();

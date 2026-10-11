@@ -51,6 +51,7 @@ test.describe('discount on rates', () => {
     // yen: $120.00 is 18,181 yen; 10% off is 16,362.9 -> 16,363
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-5').getByTestId('line-unit-price')).toHaveText('¥16,363');
     await expect(page.getByTestId('line-row-5').getByTestId('line-amount')).toHaveText('¥49,089');
   });

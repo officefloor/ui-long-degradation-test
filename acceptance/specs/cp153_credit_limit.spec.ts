@@ -37,6 +37,7 @@ test.describe('credit limit', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-available')).toHaveText('$50.00');
     // 950.00 + 60.00 = 1,010.00 would be over it
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');

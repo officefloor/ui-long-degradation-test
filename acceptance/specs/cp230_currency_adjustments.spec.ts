@@ -35,6 +35,7 @@ test.describe('adjustment notes in another currency', () => {
     await page.getByTestId('line-form-submit').click();
     // the price list's 660.00 US dollars at the invoice's rate of 1.10: €600.00 (today's 1.20 would give €550.00)
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-2').getByTestId('line-unit-price')).toHaveText('€600.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('€660.00');
     await page.getByTestId('payment-form-amount').fill('660');

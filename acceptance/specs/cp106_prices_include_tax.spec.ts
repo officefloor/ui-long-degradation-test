@@ -5,11 +5,12 @@ import { resetAndSeed } from '../support/seed';
 // line amounts, discounts and grand total are then tax-inclusive, and the tax is taken out of them,
 // every taxable line at the client's rate (a line's own rate is not used): each line's net is its
 // amount after its discount share divided by 1 + the rate, rounded to the cent, and its tax the
-// rest; the invoice tax is the total minus the total divided by 1 + the rate, rounded once, and any
-// cents by which the line taxes miss it go one at a time to the lines with the largest amounts (the
-// earlier line on a tie), so net + tax is always the line's amount. Exempt lines have no tax inside
-// them. The panel shows the amount before tax (invoice-net) and each line its net; retention and
-// the early-payment discount are worked out on the amount before tax.
+// rest; the invoice tax is the total of the taxable lines' amounts after their discount shares
+// minus that total divided by 1 + the rate, rounded once, and any cents by which the line taxes
+// miss it go one at a time to the lines with the largest amounts (the earlier line on a tie), so
+// net + tax is always the line's amount. Exempt lines have no tax inside them. The panel shows the
+// amount before tax (invoice-net) and each line its net; retention and the early-payment discount
+// are worked out on the amount before tax.
 test.describe('prices that include tax', () => {
   test('takes the tax out of prices that include it', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
@@ -54,6 +55,7 @@ test.describe('prices that include tax', () => {
     // the same lines for a client whose prices exclude tax: 16.13 + 10%
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-tax')).toHaveText('$1.61');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$17.74');
     await expect(page.getByTestId('invoice-net')).toHaveText('$16.13');

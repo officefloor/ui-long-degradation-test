@@ -35,10 +35,12 @@ test.describe('interest cap by region', () => {
     // California has no cap: the workspace's 12%
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$17.82');
     // Initech's own 18% is capped at New York's 9% too
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$13.34');
     await expect(page.getByTestId('client-row-3').getByTestId('client-overdue')).toHaveText('$1,013.34');
   });

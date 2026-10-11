@@ -40,6 +40,7 @@ test.describe('write off under five cents', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
     // 0.50 left now stays due
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$0.50');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Part paid');
     // yen: 7 yen is worth 7 x 0.0066 = $0.046, written off; 8 yen is $0.053 and stays due
@@ -52,8 +53,10 @@ test.describe('write off under five cents', () => {
       await page.getByTestId('payment-form-submit').click();
     }
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-written-off')).toHaveText('¥7');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('¥8');
     await expect.poll(() => auditLines().filter((l) => l.startsWith('INVOICE_WRITTEN_OFF'))).toEqual([
       'INVOICE_WRITTEN_OFF id=1 amount=0.04',

@@ -113,6 +113,7 @@ test.describe('edit a line', () => {
     // the part-paid invoice: the 50.00 taken off leaves the 20.00 paid as credit, which the 60.00
     // debit note then uses
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('line-row-2').getByTestId('line-edit').click();
     await page.getByTestId('line-form-unit-price').fill('60');
     await page.getByTestId('line-form-submit').click();
@@ -120,6 +121,7 @@ test.describe('edit a line', () => {
     await expect.poll(() => auditLines()).toContain('PAYMENT_RECORDED id=2 invoice=8 amount=20.00');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
     await page.getByTestId('invoice-row-8').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-8').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$40.00');
     expect(auditLines().filter((l) => l.startsWith('INVOICE_REOPENED'))).toEqual([]);
   });

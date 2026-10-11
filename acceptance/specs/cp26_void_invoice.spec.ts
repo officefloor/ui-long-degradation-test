@@ -51,6 +51,7 @@ test.describe('void an invoice', () => {
     await expect(page.getByTestId('invoice-void-error')).toBeVisible();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-void').click();
     await expect(page.getByTestId('invoice-void-error')).toBeVisible();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Part paid');

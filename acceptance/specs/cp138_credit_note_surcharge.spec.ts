@@ -33,6 +33,7 @@ test.describe('credit notes and surcharges', () => {
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('CREDIT_NOTE_ISSUED id=2 number=CN-0000026 invoice=1 total=59.88');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     // 230.00 + 23.00 + 8.875% = 275.45; less the 59.88 credited
     await expect(page.getByTestId('invoice-credited')).toHaveText('$59.88');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$215.57');

@@ -38,6 +38,7 @@ test.describe('voiding returns used credit', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('-$80.00');
     // invoice 2 has a payment recorded against it: it still can't be voided
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-void').click();
     await expect(page.getByTestId('invoice-void-error')).toBeVisible();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Part paid');

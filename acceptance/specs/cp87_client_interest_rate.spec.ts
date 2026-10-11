@@ -31,10 +31,12 @@ test.describe("clients' own interest rate", () => {
     await expect(page.getByTestId('invoice-interest')).toHaveText('$26.85'); // at 18%: 1,000.00 x ((1 + 0.18/360)^53 - 1)
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$0.00'); // 0%: no interest
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$17.82'); // the workspace's 12%
   });
 

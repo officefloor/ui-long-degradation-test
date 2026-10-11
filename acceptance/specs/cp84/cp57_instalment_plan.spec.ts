@@ -126,6 +126,7 @@ test.describe('instalment plans', () => {
     await expect(page.getByTestId(/^instalment-row-\d+$/)).toHaveCount(0);
     // invoice 4 holds back retention, so it can't also have a plan
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('plan-form-count').fill('3');
     await page.getByTestId('plan-form-rate').fill('12');
     await page.getByTestId('plan-form-submit').click();

@@ -33,6 +33,7 @@ test.describe('credit notes on a plan', () => {
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('CREDIT_NOTE_ISSUED id=2 number=CN-0000026 invoice=1 total=100.00');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     // instalments 2 and 3 fall due after today: 669.00 principal before them, less 100.00,
     // over 2 months at 12%: 569.00 x 0.01 / (1 - 1.01^-2) = 288.76, rounded up to 289.00
     await expect(page.getByTestId('instalment-row-2').getByTestId('instalment-due')).toHaveText('2026-03-31');
@@ -75,6 +76,7 @@ test.describe('credit notes on a plan', () => {
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-plan-total')).toHaveText('$1,020.04');
   });
 });

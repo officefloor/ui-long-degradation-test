@@ -44,10 +44,12 @@ test.describe('unpaid reminders and credit', () => {
     // though paying 70 days late has made Acme a HIGH risk, whose drafts need approval anyway
     await expect(page.getByTestId('client-row-1').getByTestId('client-risk-band')).toHaveText('HIGH');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs 2 approvals');
     // Globex's second reminder is unpaid: its draft needs approval
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
   });
 });

@@ -45,6 +45,7 @@ test.describe('tax rate by unit type', () => {
     // prices including tax: the books' 5% is taken out on its own (37.50 - 37.50 / 1.05 = 1.79)
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-4').getByTestId('line-tax')).toHaveText('$1.79');
     await expect(page.getByTestId('line-row-5').getByTestId('line-tax')).toHaveText('$15.49');
     await expect(page.getByTestId('invoice-tax')).toHaveText('$17.28');

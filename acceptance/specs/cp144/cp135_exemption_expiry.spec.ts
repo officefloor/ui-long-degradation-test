@@ -40,10 +40,13 @@ test.describe('tax exemption expiry', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$485.00');
     // invoice 2 was issued inside it; its April credit note is treated like it
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-tax')).toHaveText('$0.00');
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-tax')).toHaveText('$0.00');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$300.00'); // 400.00 - 100.00
   });
 

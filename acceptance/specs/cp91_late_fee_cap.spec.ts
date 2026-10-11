@@ -28,9 +28,11 @@ test.describe('late fee cap', () => {
     // the $25.00 fee is more than 10% of 100.00: capped at 10.00
     await expect(page.getByTestId('invoice-late-fee')).toHaveText('$10.00');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-late-fee')).toHaveText('$25.00'); // under 10% of 1,000.00
     await page.getByTestId('client-row-5').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     // CHF 22.10 against 10% of CHF 150.00 = 15.00
     await expect(page.getByTestId('invoice-late-fee')).toHaveText('CHF 15.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('CHF 165.00');

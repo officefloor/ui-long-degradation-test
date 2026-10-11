@@ -38,6 +38,7 @@ test.describe('the regional cap and the additions', () => {
     // Globex: 10% from the end of grace, 12% from its final notice on 2026-06-01
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$10.66');
   });
 });

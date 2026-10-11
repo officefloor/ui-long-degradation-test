@@ -40,6 +40,7 @@ test.describe('retention', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
     // the part-paid invoice past its due date owes its last 70.00 and is overdue
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$70.00');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await expect(page.getByTestId('client-row-1').getByTestId('client-overdue')).toHaveText('$70.00');

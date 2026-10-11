@@ -41,6 +41,7 @@ test.describe('the most chased first', () => {
     await page.getByTestId('invoice-row-1').click();
     await expect(page.getByTestId('invoice-dunning')).toHaveText('REMINDER_1');
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-dunning')).toHaveText('REMINDER_2');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$50.00');
   });

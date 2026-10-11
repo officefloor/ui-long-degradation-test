@@ -82,11 +82,13 @@ test.describe('reverse charge for registered clients', () => {
     // a valid number in the home region is taxed as usual: 8.875% of 100.05 + 5% of 25.00
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-reverse-charge')).toHaveCount(0);
     await expect(page.getByTestId('invoice-tax')).toHaveText('$10.13');
     // a number that fails its check counts for nothing: California's 7.25% of 100.05
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-reverse-charge')).toHaveCount(0);
     await expect(page.getByTestId('invoice-tax')).toHaveText('$7.25');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$107.30');

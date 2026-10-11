@@ -31,6 +31,7 @@ test.describe('discount reason', () => {
     await expect(page.getByTestId('invoice-discount-reason')).toHaveText('Loyalty');
 
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('discount-form-pct').fill('20');
     await page.getByTestId('discount-form-reason').fill('');
     await page.getByTestId('discount-form-submit').click();
@@ -58,6 +59,7 @@ test.describe('discount reason', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');
 
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-discount')).toHaveText('$25.00');
     await expect(page.getByTestId('invoice-discount-reason')).toHaveText('Damaged goods');
     await page.getByTestId('invoice-send').click();

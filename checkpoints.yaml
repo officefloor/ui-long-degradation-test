@@ -1144,7 +1144,8 @@ checkpoints:
       the tax, and the tax is taken out of them at the client's rate (every taxable line at that
       rate; exempt lines have none): each line's net is its amount after its share of the discount
       divided by 1 plus the rate, rounded to the cent, and its tax is the rest. The invoice tax is
-      the total minus the total divided by 1 plus the rate, rounded once; if the line taxes don't
+      worked out on the taxable lines only: the total of their amounts after their shares of the
+      discount, minus that total divided by 1 plus the rate, rounded once; if the line taxes don't
       add up to it, move the missing (or extra) cents one at a time onto the lines with the largest
       amounts (the earlier line on a tie), adjusting their net so net plus tax is always the line
       amount. Show the amount before tax on every invoice and each line's net. Retention and the
@@ -2440,7 +2441,9 @@ checkpoints:
       due, earns no interest and takes no tax. A payment pays the invoice itself first, then the
       reminder fees, then late interest. Waiving the interest leaves the fees owed, and writing the
       invoice off includes them. Charging a reminder fee starts a new interest period, just as a
-      payment does: the interest up to that day is worked out and rounded on its own.
+      payment does: the interest up to that day is worked out and rounded on its own. A reminder
+      already on an invoice's record went out on its date, so it carries its level's fee from that
+      day (at that day's rate) just like one sent now.
 
   - id: cp219_dunning_hold
     type: additive

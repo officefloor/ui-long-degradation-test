@@ -47,6 +47,7 @@ test.describe('workspace price list', () => {
     // in yen: $120.00 / 0.0066 = 18,181.8, rounded down to 18,181 an hour
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-3').getByTestId('line-unit-price')).toHaveText('¥18,181');
     await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('¥54,543'); // 3 x 18,181
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('¥59,997');
@@ -54,6 +55,7 @@ test.describe('workspace price list', () => {
     // each band converted: 20 / 1.13 = 17.699 -> 17.65, 15 / 1.13 = 13.274 -> 13.25
     await page.getByTestId('client-row-5').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-4').getByTestId('line-unit-price')).toHaveText('CHF 106.15');
     await expect(page.getByTestId('line-row-4').getByTestId('line-amount')).toHaveText('CHF 265.38');
     await expect(page.getByTestId('line-row-5').getByTestId('line-amount')).toHaveText('CHF 203.00'); // 10 x 17.65 + 2 x 13.25

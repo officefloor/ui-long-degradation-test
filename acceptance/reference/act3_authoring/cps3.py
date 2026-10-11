@@ -482,8 +482,8 @@ def s106(n):
         A client's prices can include tax (clients[].pricesIncludeTax, a box on the client form). Their
         line amounts, discounts and grand total are then tax-inclusive, and the tax is taken out of them,
         {rate_rule}: each line's net is its amount after its discount share divided by 1 + the rate,
-        rounded to the cent, and its tax the rest; the invoice tax is the total minus the total divided by
-        1 + the rate, rounded once, and any cents by which the line taxes miss it go one at a time to the
+        rounded to the cent, and its tax the rest; the invoice tax is the total of the taxable lines'
+        amounts after their discount shares minus that total divided by 1 + the rate, rounded once, and any cents by which the line taxes miss it go one at a time to the
         lines with the largest amounts (the earlier line on a tie), so net + tax is always the line's
         amount. Exempt lines have no tax inside them. The panel shows the amount before tax (invoice-net)
         and each line its net; retention and the early-payment discount are worked out on the amount before
@@ -495,8 +495,9 @@ cp(106, 'prices_include_tax', """
     the client form. For those clients the line amounts, discounts and grand total include the tax,
     and the tax is taken out of them at the client's rate (every taxable line at that rate; exempt
     lines have none): each line's net is its amount after its share of the discount divided by 1 plus
-    the rate, rounded to the cent, and its tax is the rest. The invoice tax is the total minus the
-    total divided by 1 plus the rate, rounded once; if the line taxes don't add up to it, move the
+    the rate, rounded to the cent, and its tax is the rest. The invoice tax is worked out on the
+    taxable lines only: the total of their amounts after their shares of the discount, minus that total
+    divided by 1 plus the rate, rounded once; if the line taxes don't add up to it, move the
     missing (or extra) cents one at a time onto the lines with the largest amounts (the earlier line
     on a tie), adjusting their net so net plus tax is always the line amount. Show the amount before
     tax on every invoice and each line's net. Retention and the early-payment discount are worked out

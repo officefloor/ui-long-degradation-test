@@ -34,6 +34,7 @@ test.describe('client hold', () => {
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     // a payment from a client on hold pays nothing, even with an invoice open: it is all held as credit
     await page.getByTestId('payment-form-amount').fill('100');
     await page.getByTestId('payment-form-date').fill('2026-03-10');
@@ -55,6 +56,7 @@ test.describe('client hold', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('Part paid');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
   });

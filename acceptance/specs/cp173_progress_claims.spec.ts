@@ -32,6 +32,7 @@ test.describe('progress claims', () => {
     await page.getByTestId('invoice-next-claim').click();
     await expect.poll(() => auditLines()).toContain('PROGRESS_CLAIM from=INV-0000018 to=INV-0000026');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     // the progress lines only, billed so far at 15% and 40%: nothing more to bill yet
     await expect(page.getByTestId(/^line-row-\d+$/)).toHaveCount(2);
     await expect(page.getByTestId('line-row-4').getByTestId('line-billed-pct')).toHaveText('15%');
@@ -55,6 +56,7 @@ test.describe('progress claims', () => {
     await expect(page.getByTestId('line-row-5').getByTestId('line-amount')).toHaveText('$1,800.00');
     // each invoice is claimed from once
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-next-claim').click();
     await expect(page.getByTestId('invoice-next-claim-error')).toBeVisible();
   });

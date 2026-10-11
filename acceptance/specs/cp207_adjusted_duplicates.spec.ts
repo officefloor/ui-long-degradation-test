@@ -37,6 +37,7 @@ test.describe('adjusted invoices and duplicates', () => {
     await expect(page.getByTestId('line-form-error')).toBeVisible();
     // and adding the same hosting to invoice 1 would make it the same as invoice 2
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-fingerprint')).toHaveText('DCF47DF6');
     await page.getByTestId('line-form-description').fill('Hosting');
     await page.getByTestId('line-form-qty').fill('1');
@@ -53,6 +54,7 @@ test.describe('adjusted invoices and duplicates', () => {
     await expect(page.getByTestId('invoice-fingerprint')).toHaveText('9DD558EC');
     // so the draft with those lines is a possible duplicate of invoice 1 as adjusted
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-fingerprint')).toHaveText('9DD558EC');
     await expect(page.getByTestId('invoice-duplicate-of')).toHaveText('INV-0000018');
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');

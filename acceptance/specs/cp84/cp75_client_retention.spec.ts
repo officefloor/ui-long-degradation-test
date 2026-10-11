@@ -57,6 +57,7 @@ test.describe('standard retention', () => {
     await expect(page.getByTestId('instalment-row-3').getByTestId('instalment-payment')).toHaveText('$36.00');
     // a duplicate keeps the invoice's own retention (10%), not the client's 5%
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-duplicate').click();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');
     await expect(page.getByTestId('invoice-retention')).toHaveText('$20.00'); // 10% of 200.00

@@ -44,6 +44,7 @@ test.describe('stricter remittance matching', () => {
     await page.getByTestId('payment-form-remittance').fill('Hull Paint');
     await page.getByTestId('payment-form-submit').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('payment-row-2').getByTestId('payment-match')).toHaveText('INV-0000042');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
     await expect(page.getByTestId('invoice-row-3').getByTestId('invoice-status')).toHaveText('Sent');

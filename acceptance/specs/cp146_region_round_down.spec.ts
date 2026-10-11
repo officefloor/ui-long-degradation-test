@@ -37,6 +37,7 @@ test.describe('regions that round tax down', () => {
     // (tax 0.68) and 2.50 / 1.0725 = 2.33 (0.17) make 0.85, so a cent comes back off the larger line
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-tax')).toHaveText('$0.84');
     await expect(page.getByTestId('line-row-2').getByTestId('line-tax')).toHaveText('$0.67');
     await expect(page.getByTestId('line-row-3').getByTestId('line-tax')).toHaveText('$0.17');
@@ -44,6 +45,7 @@ test.describe('regions that round tax down', () => {
     // New York rounds half up as usual: 8.875% of 99.98 = 8.873225
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-tax')).toHaveText('$8.87');
   });
 });

@@ -51,11 +51,13 @@ test.describe('tax report on sending', () => {
     // reverse charged: everything at 0%
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('TAX_CHARGED id=2 rate=0 net=240.00 tax=0.00');
     // prices including tax: the net and the tax taken out at each rate
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('TAX_CHARGED id=3 rate=5 net=10.00 tax=0.50');
     await expect.poll(() => auditLines()).toContain('TAX_CHARGED id=3 rate=8.875 net=100.00 tax=8.88');

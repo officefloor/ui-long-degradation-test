@@ -48,10 +48,12 @@ test.describe('higher interest for high-risk clients', () => {
     // in New York the legal maximum of 13% still caps it
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$21.90');
     // a client with no history pays the usual 12%
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$17.82');
     await expect(page.getByTestId('client-row-3').getByTestId('client-overdue')).toHaveText('$1,017.82');
   });

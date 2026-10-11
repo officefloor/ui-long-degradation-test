@@ -46,6 +46,7 @@ test.describe('interest threshold on plans', () => {
     // ten times the plan: 3,401.00 overdue earns 26.17, over the threshold, so it is all owed
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('instalment-row-2').getByTestId('instalment-late-interest')).toHaveText('$26.17');
     await expect(page.getByTestId('client-row-2').getByTestId('client-overdue')).toHaveText('$3,427.17');
   });

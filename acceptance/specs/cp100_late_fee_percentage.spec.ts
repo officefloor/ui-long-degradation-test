@@ -29,11 +29,13 @@ test.describe('late fee as a percentage', () => {
     await page.getByTestId('invoice-row-1').click();
     await expect(page.getByTestId('invoice-late-fee')).toHaveText('$40.00'); // 2% of 2,000.00
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-late-fee')).toHaveText('$10.00'); // 2% of 300.00 = 6.00, at least 10.00
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$310.00');
     // 2% of 50,000 yen is 1,000; $10.00 is 10 / 0.0066 = 1,515.15, down to 1,515 yen
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-late-fee')).toHaveText('¥1,515');
     await expect(page.getByTestId('client-row-3').getByTestId('client-overdue')).toHaveText('¥51,515');
   });

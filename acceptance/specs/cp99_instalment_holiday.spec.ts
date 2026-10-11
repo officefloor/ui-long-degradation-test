@@ -70,6 +70,7 @@ test.describe('instalment holiday', () => {
     expect(auditLines().filter((l) => l.startsWith('INSTALMENT_SKIPPED'))).toEqual([]);
     // invoice 3 already skipped instalment 1: it pays only its interest, and 2 and 3 are re-spread
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('instalment-row-1').getByTestId('instalment-principal')).toHaveText('$0.00');
     await expect(page.getByTestId('instalment-row-1').getByTestId('instalment-payment')).toHaveText('$10.00');
     await expect(page.getByTestId('instalment-row-2').getByTestId('instalment-payment')).toHaveText('$508.00');

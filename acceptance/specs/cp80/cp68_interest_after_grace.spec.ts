@@ -29,6 +29,7 @@ test.describe('interest after the grace week', () => {
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,017.82');
     // due 2026-04-15: 2026-04-22 to today is 8 days
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$2.67');
     await expect(page.getByTestId('client-row-1').getByTestId('client-overdue')).toHaveText('$2,020.49');
   });

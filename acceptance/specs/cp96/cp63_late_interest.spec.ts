@@ -39,6 +39,7 @@ test.describe('late interest', () => {
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,017.82');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     // invoice 2: 2,000.00 from 2026-02-22 to the payment on 2026-03-17 (23 days); the 500.00 pays
     // the invoice first, so 1,500.00 earns interest from 2026-03-17 to today (44 days)
     await expect(page.getByTestId('invoice-interest')).toHaveText('$37.55');
@@ -48,6 +49,7 @@ test.describe('late interest', () => {
 
     // paying everything, interest included, clears it
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await page.getByTestId('payment-form-amount').fill('1017.82');
     await page.getByTestId('payment-form-date').fill('2026-04-30');
     await page.getByTestId('payment-form-submit').click();
@@ -80,6 +82,7 @@ test.describe('late interest', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid late');
     // invoice 4 is 5 days past due: not overdue yet
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$100.00');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');

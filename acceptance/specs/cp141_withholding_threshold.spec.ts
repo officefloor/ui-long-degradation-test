@@ -40,6 +40,7 @@ test.describe('withholding threshold', () => {
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$440.00');
     // 500.00 reaches it: 10% withheld
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-withholding')).toHaveText('$50.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$500.00'); // 550.00 - 50.00
     // removing the hosting line takes it back under
@@ -49,8 +50,10 @@ test.describe('withholding threshold', () => {
     // in euros the threshold is 500 / 1.10 = 454.5454, down to €454.54
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-withholding')).toHaveText('€0.00');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-withholding')).toHaveText('€46.00');
   });
 });

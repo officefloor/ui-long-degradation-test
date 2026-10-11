@@ -38,6 +38,7 @@ test.describe('milestone shares rounded down', () => {
     await expect(page.getByTestId('milestone-row-3').getByTestId('milestone-amount')).toHaveText('$1,100.01');
     // 1,099.99 split 30/30/40: 329.997 -> 329.99 twice, and the last 440.01
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('milestone-row-4').getByTestId('milestone-amount')).toHaveText('$329.99');
     await expect(page.getByTestId('milestone-row-6').getByTestId('milestone-amount')).toHaveText('$440.01');
   });

@@ -28,6 +28,7 @@ test.describe('notes on overdue invoices', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await expect(page.getByTestId('invoice-interest')).toHaveText('$0.99');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await page.getByTestId('line-form-description').fill('Travel');
     await page.getByTestId('line-form-qty').fill('1');
     await page.getByTestId('line-form-unit-price').fill('80');
@@ -36,6 +37,7 @@ test.describe('notes on overdue invoices', () => {
     await expect(page.getByTestId('invoice-row-4').getByTestId('invoice-due')).toHaveText('2026-06-10');
     // on an invoice that is not overdue the usual terms apply
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('line-form-description').fill('Copy');
     await page.getByTestId('line-form-qty').fill('1');
     await page.getByTestId('line-form-unit-price').fill('40');

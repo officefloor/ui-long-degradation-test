@@ -47,6 +47,7 @@ test.describe('disputes', () => {
     await expect(page.getByTestId('invoice-paid')).toHaveText('$0.00');
     // a draft can't be disputed
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-dispute').click();
     await expect(page.getByTestId('invoice-dispute-error')).toBeVisible();
   });
@@ -84,6 +85,7 @@ test.describe('disputes', () => {
     await expect(page.getByTestId('invoice-row-3').getByTestId('invoice-status')).toHaveText('Disputed');
     // resolving it makes it overdue again and charges the interest held back: 53 days from 2026-03-08
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-resolve').click();
     await expect.poll(() => auditLines()).toContain('DISPUTE_RESOLVED id=3');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');

@@ -38,6 +38,7 @@ test.describe('large discounts need approval', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
     // exactly a fifth needs no approval; a reason is still kept when given
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('discount-form-pct').fill('20');
     await page.getByTestId('discount-form-reason').fill('Loyalty');
     await page.getByTestId('discount-form-submit').click();
@@ -75,11 +76,13 @@ test.describe('large discounts need approval', () => {
     // a 600.00 discount capped at 400.00 takes off 26.7%: 1,100.00 is within the limit, but the
     // discount is more than a fifth
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-discount')).toHaveText('$400.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,100.00');
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     // 10% off 1,300.00 leaves 1,170.00: neither
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
   });
 });

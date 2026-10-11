@@ -42,15 +42,19 @@ test.describe('split lines still match', () => {
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
     // two drafts with the same workshop: the later one is the possible duplicate
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-duplicate-of')).toHaveCount(0);
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-duplicate-of')).toHaveText('INV-0000034');
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     // and once the first is sent, the second still matches it
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-duplicate-of')).toHaveText('INV-0000034');
   });
 });

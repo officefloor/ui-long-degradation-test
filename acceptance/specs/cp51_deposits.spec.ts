@@ -48,6 +48,7 @@ test.describe('deposits held as credit', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('-$20.00');
 
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     // only 20.00 of credit is left for the 50.00 invoice
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Part paid');
@@ -84,6 +85,7 @@ test.describe('deposits held as credit', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid late');
 
     await page.getByTestId('invoice-row-6').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-6').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     // the oldest credit first: payment 4 (2026-01-15) gives 30.00, then payment 3 the other 40.00
     await expect.poll(() => auditLines().filter((l) => l.startsWith('PAYMENT_RECORDED'))).toEqual([

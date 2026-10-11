@@ -33,6 +33,7 @@ test.describe('minimum instalment', () => {
     // €100.00 over 4: €25.00, worth 25 x 1.10 = $27.50
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('plan-form-count').fill('4');
     await page.getByTestId('plan-form-rate').fill('0');
     await page.getByTestId('plan-form-submit').click();
@@ -40,6 +41,7 @@ test.describe('minimum instalment', () => {
     // 20,000 yen over 6: 3,334 yen, worth 3,334 x 0.0066 = $22.00
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('plan-form-count').fill('6');
     await page.getByTestId('plan-form-rate').fill('0');
     await page.getByTestId('plan-form-submit').click();

@@ -33,11 +33,13 @@ test.describe('chasing and late interest', () => {
     await expect(page.getByTestId('invoice-interest')).toHaveText('$24.53');
     // handed to collections on 2026-05-15: interest stopped that day
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-dunning')).toHaveText('COLLECTIONS');
     await expect(page.getByTestId('invoice-interest')).toHaveText('$26.62');
     // in New York the 13% maximum caps the 14%
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$23.88');
   });
 });

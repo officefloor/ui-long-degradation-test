@@ -49,6 +49,7 @@ test.describe('exempt clients and line rates', () => {
     // a reverse-charged client pays no tax at all
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-tax')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$73.35');
   });

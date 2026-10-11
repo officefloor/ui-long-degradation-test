@@ -40,6 +40,7 @@ test.describe('short terms after a final notice', () => {
     // Globex's was on 2026-02-01, 129 days ago: the usual end of next month
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-6').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-6').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-row-6').getByTestId('invoice-due')).toHaveText('2026-07-31');
   });

@@ -55,6 +55,7 @@ test.describe('remittance matching', () => {
       'PAYMENT_RECORDED id=1 invoice=2 amount=440.00',
     ]);
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('payment-row-1').getByTestId('payment-match')).toHaveText('');
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('Sent');
     // nothing close enough: paid in the usual order, matching nothing
@@ -64,6 +65,7 @@ test.describe('remittance matching', () => {
     await page.getByTestId('payment-form-remittance').fill('thanks');
     await page.getByTestId('payment-form-submit').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('payment-row-2').getByTestId('payment-match')).toHaveText('');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$360.00'); // 900.00 - 440.00 - 100.00
   });

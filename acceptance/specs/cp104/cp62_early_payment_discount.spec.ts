@@ -47,6 +47,7 @@ test.describe('early-payment discount', () => {
 
     // invoice 2's window closed on 2026-02-11: no early amount, the full total is due
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-settle-amount')).toHaveCount(0);
     await page.getByTestId('payment-form-amount').fill('539');
     await page.getByTestId('payment-form-date').fill('2026-03-05');
@@ -83,6 +84,7 @@ test.describe('early-payment discount', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('$6.00');
     // an invoice holding back retention gets no early discount
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-settle-amount')).toHaveCount(0);
   });
 

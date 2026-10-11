@@ -37,8 +37,10 @@ test.describe('paid date', () => {
     await page.getByTestId('invoice-row-1').click();
     await expect(page.getByTestId('invoice-paid-date')).toHaveText('2026-03-25');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-paid-date')).toHaveText('2026-04-05');
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-paid-date')).toHaveText('2026-04-02');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid late');
   });

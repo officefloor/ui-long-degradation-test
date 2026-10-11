@@ -30,6 +30,7 @@ test.describe('plans judged on their total', () => {
     await expect(page.getByTestId(/^instalment-row-\d+$/)).toHaveCount(0);
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
   });
 });

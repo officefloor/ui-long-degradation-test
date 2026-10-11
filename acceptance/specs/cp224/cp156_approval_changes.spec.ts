@@ -37,9 +37,11 @@ test.describe('approvals for the exact total', () => {
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     // approved on 2026-02-08: 30 days ago, still good
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Approved');
     // a 2% discount lowers the total to 1,293.60, within the 1,320.00 approved: still approved
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Approved');
     await page.getByTestId('discount-form-pct').fill('2');
     await page.getByTestId('discount-form-submit').click();

@@ -80,3 +80,8 @@ for c in act5:
     y += '\n'
 open(os.path.join(REPO, 'checkpoints.yaml'), 'w').write(y.rstrip('\n') + '\n')
 print(f'wrote {len(written)} Act V spec files, {len(REG)} scenarios, {len(act5)} checkpoints')
+
+# last: wait for the panel after every row click that may replace an open invoice (all specs)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import panel_waits  # noqa: E402
+panel_waits.main()

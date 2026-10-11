@@ -44,6 +44,7 @@ test.describe('an approval covers a lower total', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
     // an approval still lapses after 30 days, whatever the total
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
   });
 });

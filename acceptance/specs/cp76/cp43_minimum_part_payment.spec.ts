@@ -63,6 +63,7 @@ test.describe('minimum part payment', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
 
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$10.00'); // 100.00 - 90.00
     // 9.50 is under the 10.00 minimum but leaves 0.50, which is written off
     await page.getByTestId('payment-form-amount').fill('9.50');

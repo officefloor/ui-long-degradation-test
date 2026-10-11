@@ -31,6 +31,7 @@ test.describe('a rebill carries the invoice with it', () => {
     // the replacement: 1,200.00 + 10% = 1,320.00, over the 1,000.00 limit but no more than the
     // 1,332.00 the invoice was approved and sent for, so it is approved already
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,320.00');
     await expect(page.getByTestId('invoice-approval')).toHaveText('Approved');
     await expect(page.getByTestId('invoice-po')).toHaveText('PO-4471');
@@ -40,6 +41,7 @@ test.describe('a rebill carries the invoice with it', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
     await expect(page.getByTestId('client-row-1').getByTestId('client-overdue')).toHaveText('$0.00');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-disputed')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Credited');
   });
@@ -62,6 +64,7 @@ test.describe('a rebill carries the invoice with it', () => {
     await page.getByTestId('invoice-rebill').click();
     // New Jersey's 12% makes it 1,120.00, more than the 1,100.00 approved
     await page.getByTestId('invoice-row-6').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-6').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,120.00');
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     await page.getByTestId('invoice-send').click();

@@ -49,6 +49,7 @@ test.describe('payment risk score', () => {
     await page.getByTestId('invoice-row-5').click();
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('payment-form-amount').fill('200');
     await page.getByTestId('payment-form-date').fill('2026-03-10');
     await page.getByTestId('payment-form-submit').click();
@@ -57,6 +58,7 @@ test.describe('payment risk score', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-risk-band')).toHaveText('HIGH');
     // every invoice of a high-risk client needs approval, however small
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();

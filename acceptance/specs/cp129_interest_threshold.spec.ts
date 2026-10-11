@@ -36,6 +36,7 @@ test.describe('late interest threshold', () => {
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,017.82');
     // 22 days on 200.00 from 2026-04-08 is 1.47, under 5.00: nothing is charged yet
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await expect(page.getByTestId('invoice-interest')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$200.00');
@@ -49,6 +50,7 @@ test.describe('late interest threshold', () => {
     // in yen the threshold is 5 / 0.0066 = 757.57, down to 757; 39 days on 50,000 is 652 yen
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('¥0');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('¥50,000');
   });

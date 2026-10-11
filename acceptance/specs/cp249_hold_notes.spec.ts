@@ -34,6 +34,7 @@ test.describe('notes wait while on hold', () => {
     // taking the travel off is issued at once
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=3 number=ADJ-0000034 invoice=1 total=-110.00');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     // once the hold is lifted the note can go
@@ -41,6 +42,7 @@ test.describe('notes wait while on hold', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-status')).toHaveText('Active');
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=2 number=ADJ-0000026 invoice=1 total=88.00');
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$638.00');

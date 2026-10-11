@@ -11,6 +11,8 @@ import lib3  # noqa: E402
 from lib3 import *  # noqa: E402,F401,F403
 from lib import REPO, REG, SPECFN, CPS, COPIES, render, render_test, wrap_comment, workspace_values  # noqa: E402
 from acceptance.reference import model as M  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import panel_waits  # noqa: E402  (copies patch the authored text, without the waits)
 
 SPECS = os.path.join(REPO, 'acceptance/specs')
 FIRST = 151
@@ -61,7 +63,7 @@ def write_text_copies():
     written = []
     for k, base, header, reps, retire, add_ts, reg in sorted(TEXT_COPIES, key=lambda c: c[0]):
         src = latest_path(base, k)
-        s = open(src).read()
+        s = panel_waits.strip_waits(open(src).read())
         lines, i, j = lib3.strip_note(s)
         s = '\n'.join(lines[:i + 1] + wrap_comment(header) + lines[j:])
         for old, new in reps:

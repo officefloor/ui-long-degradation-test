@@ -31,6 +31,7 @@ test.describe('yearly price rise', () => {
     // March starts a year after the plan began on 2025-03-01, so the client's 4% rise applies to each unit
     // price, rounded half up: 450.00 -> 468.00, 33.33 -> 34.6632 -> 34.66
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-3').getByTestId('line-unit-price')).toHaveText('$468.00');
     await expect(page.getByTestId('line-row-4').getByTestId('line-unit-price')).toHaveText('$34.66');
     await expect(page.getByTestId('line-row-4').getByTestId('line-amount')).toHaveText('$105.97');

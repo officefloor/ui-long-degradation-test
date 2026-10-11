@@ -43,10 +43,12 @@ test.describe('too little to chase', () => {
     await expect(page.getByTestId('invoice-remind-error')).toBeVisible();
     // 33.00 is enough
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-remind').click();
     await expect.poll(() => auditLines()).toContain('REMINDER_SENT id=2 level=REMINDER_1');
     // taking the travel off invoice 3 (99.00) leaves 11.00 overdue: no longer chased
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-dunning')).toHaveText('REMINDER_1');
     await page.getByTestId('line-row-4').getByTestId('line-remove').click();
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$11.00');
@@ -56,6 +58,7 @@ test.describe('too little to chase', () => {
     // in euros the minimum is 25.00 / 1.10 = 22.7272, down to 22.72: 25.00 owed is chased
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-dunning')).toHaveText('REMINDER_1');
     await page.getByTestId('invoice-remind').click();
     await expect.poll(() => auditLines()).toContain('REMINDER_SENT id=5 level=REMINDER_1');

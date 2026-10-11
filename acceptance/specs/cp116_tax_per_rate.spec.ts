@@ -42,6 +42,7 @@ test.describe('tax per rate', () => {
     // tax inside 11.13 is 11.13 - 10.12 = 1.01), the book at its own 5% (10.50 - 10.00 = 0.50)
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-3').getByTestId('line-tax')).toHaveText('$0.91');
     await expect(page.getByTestId('line-row-4').getByTestId('line-tax')).toHaveText('$0.50');
     await expect(page.getByTestId('line-row-5').getByTestId('line-tax')).toHaveText('$0.10');

@@ -39,6 +39,7 @@ test.describe('a promise to pay', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-overdue')).toHaveText('$0.00');
     // only an overdue invoice can take a promise
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-promise-amount').fill('20');
     await page.getByTestId('invoice-promise-date').fill('2026-06-20');
     await page.getByTestId('invoice-promise-submit').click();

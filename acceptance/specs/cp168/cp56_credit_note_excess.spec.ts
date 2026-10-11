@@ -38,6 +38,7 @@ test.describe('credit notes beyond what is owed', () => {
     // invoice 7 owed 30.00 (100.00 - 70.00): the other 20.00 becomes credit payment 2
     await expect.poll(() => auditLines()).toContain('CREDIT_HELD payment=2 amount=20.00');
     await page.getByTestId('invoice-row-7').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-7').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-credited')).toHaveText('$30.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
@@ -45,6 +46,7 @@ test.describe('credit notes beyond what is owed', () => {
 
     // the credit pays the next invoice sent, but can't be reversed like a payment
     await page.getByTestId('invoice-row-9').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-9').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
     await expect.poll(() => auditLines()).toContain('PAYMENT_RECORDED id=2 invoice=9 amount=15.00');

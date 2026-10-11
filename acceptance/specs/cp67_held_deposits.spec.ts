@@ -37,6 +37,7 @@ test.describe('deposits held for an invoice', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('$60.00');
     // invoice 2 uses its own deposit first; the 10.00 left over becomes ordinary credit
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
     await expect.poll(() => auditLines().filter((l) => l.startsWith('PAYMENT_RECORDED'))).toEqual([

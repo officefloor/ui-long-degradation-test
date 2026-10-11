@@ -35,6 +35,7 @@ test.describe('due dates on business days', () => {
     // 10 business days already end on a business day: Tuesday 2026-09-29
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due')).toHaveText('2026-09-29');
   });

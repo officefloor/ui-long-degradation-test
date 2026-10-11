@@ -28,8 +28,10 @@ test.describe('payment reference', () => {
     await page.getByTestId('invoice-row-7').click();
     await expect(page.getByTestId('invoice-reference')).toHaveText('RF16 0000 075'); // from INV-0000075
     await page.getByTestId('invoice-row-123').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-123').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-reference')).toHaveText('RF65 0001 230'); // from INV-0001230
     await page.getByTestId('invoice-row-4096').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4096').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-reference')).toHaveText('RF67 0040 964'); // from INV-0040964
   });
 

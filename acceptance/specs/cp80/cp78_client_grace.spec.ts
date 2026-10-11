@@ -37,10 +37,12 @@ test.describe("clients' own grace period", () => {
     await page.getByTestId('client-row-2').click();
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-status')).toHaveText('Sent');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$0.00');
     // invoice 3 (26 days late) is overdue, with interest from 2026-04-15, 21 days after its due date
     await expect(page.getByTestId('invoice-row-3').getByTestId('invoice-status')).toHaveText('Overdue');
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$1.67');
     await expect(page.getByTestId('client-row-2').getByTestId('client-overdue')).toHaveText('$1,001.67');
   });

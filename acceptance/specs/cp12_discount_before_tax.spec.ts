@@ -25,6 +25,7 @@ test.describe('discount before tax', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$198.00'); // 180.00 + 18.00
 
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     // subtotal 3 x 33.35 = 100.05; 12.5% = 12.50625 -> 12.51
     await expect(page.getByTestId('invoice-discount')).toHaveText('$12.51');
     // 10% of (100.05 - 12.51 = 87.54) = 8.754 -> 8.75 (on the full subtotal it would be 10.01)

@@ -32,6 +32,7 @@ test.describe('reopen a sent invoice', () => {
     await expect.poll(() => auditLines()).toContain('INVOICE_REOPENED id=5');
 
     await page.getByTestId('invoice-row-6').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-6').getByTestId('invoice-number').innerText());
     await page.getByTestId('discount-form-pct').fill('10');
     await page.getByTestId('discount-form-submit').click();
     await expect(page.getByTestId('invoice-discount')).toHaveText('$8.00'); // 10% of 80.00

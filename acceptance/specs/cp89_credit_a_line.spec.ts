@@ -59,6 +59,7 @@ test.describe('credit a line', () => {
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');
     await page.getByTestId('invoice-row-9').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-9').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-credited')).toHaveText('$49.50'); // 45.00 + 4.50 tax
   });
 });

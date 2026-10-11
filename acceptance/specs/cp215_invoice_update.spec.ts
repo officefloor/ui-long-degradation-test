@@ -66,6 +66,7 @@ test.describe('bringing a sent invoice up to date', () => {
     await expect(page.getByTestId('invoice-sent-total')).toHaveText('$1,080.00');
     // 108.88 for the hosting fits: 1,188.88
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-update').click();
     await expect(page.getByTestId('invoice-sent-total')).toHaveText('$108.88');
     await expect(page.getByTestId('client-row-2').getByTestId('client-available')).toHaveText('$1.12');

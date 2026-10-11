@@ -41,6 +41,7 @@ test.describe('record payments', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Part paid');
 
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$55.00'); // 50.00 + 5.00 tax
     await expect(page.getByTestId('invoice-paid')).toHaveText('$54.40');
     await expect(page.getByTestId('invoice-written-off')).toHaveText('$0.60'); // 55.00 - 54.40, under $1.00

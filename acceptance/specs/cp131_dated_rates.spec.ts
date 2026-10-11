@@ -46,6 +46,7 @@ test.describe('dated rates', () => {
     await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=1 number=INV-0000018 total=508.20');
     // invoice 2 was issued on 2026-03-15 at 95.00 an hour
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('$190.00');
   });
 });

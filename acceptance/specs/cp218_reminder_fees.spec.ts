@@ -7,7 +7,9 @@ import { auditLines } from '../support/audit';
 // id=<id> amount=<fee> and shown on the panel as the reminder fees charged. A fee is owed with the
 // invoice: it is in the amount due, the balance, the overdue amount and the cash due, earns no
 // interest and takes no tax. A payment pays the invoice first, then its reminder fees, then its
-// late interest. Waiving interest leaves the fees owed; writing the invoice off includes them.
+// late interest. Waiving interest leaves the fees owed; writing the invoice off includes them. A
+// seeded reminder (invoices[].reminders) went out on its date, so it carries its level's fee from
+// that day, as one sent through the panel does.
 test.describe('reminder fees', () => {
   test('later reminders charge a fee, owed after the invoice and before its interest', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
@@ -52,6 +54,7 @@ test.describe('reminder fees', () => {
     // the second reminder's 15.00 / 1.10 = 13.63
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-remind').click();
     await expect.poll(() => auditLines()).toContain('REMINDER_FEE id=2 amount=36.36');
     await expect(page.getByTestId('invoice-reminder-fees')).toHaveText('€49.99');

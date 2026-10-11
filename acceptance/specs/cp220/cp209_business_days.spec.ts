@@ -43,15 +43,18 @@ test.describe('a business-day calendar', () => {
     // due Wednesday 2026-06-03: 3 business days of grace end Monday 2026-06-08, so it is overdue and
     // earns 2 days' interest: 1,100.00 x ((1 + 0.12/360)^2 - 1) = 0.7335 -> 0.73
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await expect(page.getByTestId('invoice-interest')).toHaveText('$0.73');
     // due Friday 2026-06-05: grace runs Monday to Wednesday, ending today, so not yet
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
     await expect(page.getByTestId('invoice-interest')).toHaveText('$0.00');
     await expect(page.getByTestId('client-row-1').getByTestId('client-overdue')).toHaveText('$1,100.73');
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     // 20 business days: the Saturday holiday, 2026-07-04, is observed on Friday 2026-07-03
     await expect(page.getByTestId('invoice-row-4').getByTestId('invoice-due')).toHaveText('2026-07-10');

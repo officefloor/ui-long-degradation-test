@@ -38,6 +38,7 @@ test.describe('overpayments held as credit', () => {
 
     // the held credit pays the next invoice sent
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
     await expect.poll(() => auditLines()).toContain('PAYMENT_RECORDED id=1 invoice=2 amount=30.00');

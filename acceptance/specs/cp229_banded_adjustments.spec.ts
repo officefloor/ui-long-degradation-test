@@ -38,6 +38,7 @@ test.describe('banded units added after sending', () => {
     // they were the first five
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=3 number=ADJ-0000034 invoice=1 total=517.00');
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('$470.00');
     await expect(page.getByTestId('invoice-tax')).toHaveText('$47.00');
   });

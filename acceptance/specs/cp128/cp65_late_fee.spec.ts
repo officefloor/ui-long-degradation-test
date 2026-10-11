@@ -27,6 +27,7 @@ test.describe('late fee', () => {
     await page.getByTestId('invoice-row-3').click();
     await expect(page.getByTestId('invoice-late-fee')).toHaveCount(0);
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-late-fee')).toHaveCount(0);
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$100.00');
   });
@@ -62,6 +63,7 @@ test.describe('late fee', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     await page.getByTestId('client-row-5').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-late-fee')).toHaveCount(0);
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('CHF 508.91');
     await expect(page.getByTestId('client-row-5').getByTestId('client-overdue')).toHaveText('CHF 508.91');

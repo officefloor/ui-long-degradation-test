@@ -50,6 +50,7 @@ test.describe('split a payment', () => {
     await expect(page.getByTestId('invoice-paid')).toHaveText('$40.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$10.00'); // 50.00 - 40.00
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('payment-row-8').getByTestId('payment-allocated')).toHaveText('$60.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$40.00'); // 100.00 - 60.00
   });
@@ -118,6 +119,7 @@ test.describe('split a payment', () => {
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$20.00'); // 120.00 - 100.00
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Part paid');
     await page.getByTestId('invoice-row-6').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-6').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('payment-row-1').getByTestId('payment-allocated')).toHaveText('$50.00');
     await expect(page.getByTestId('invoice-paid')).toHaveText('$50.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$0.00');

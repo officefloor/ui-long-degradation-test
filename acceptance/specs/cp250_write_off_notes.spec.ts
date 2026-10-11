@@ -43,12 +43,14 @@ test.describe("an invoice's notes go with it", () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-risk-score')).toHaveText('40.5');
     // so Acme is HIGH and its draft needs two approvals
     await page.getByTestId('invoice-row-6').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-6').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs 2 approvals');
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     // Globex's invoice went with collections; its note went with it on 2026-05-31
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Written off');
     await expect(page.getByTestId('invoice-written-off')).toHaveText('$66.00');
     await expect(page.getByTestId('client-row-2').getByTestId('client-balance')).toHaveText('$0.00');

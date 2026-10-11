@@ -44,6 +44,7 @@ test.describe('net prices when reverse charged', () => {
     // without a tax number the same prices are paid in full, 7.93 of them tax
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$117.25');
     await expect(page.getByTestId('invoice-tax')).toHaveText('$7.93');
   });

@@ -57,6 +57,7 @@ test.describe('clients billed in their own currency', () => {
     expect(auditLines().filter((l) => l.startsWith('INVOICE_WRITTEN_OFF'))).toEqual([]);
     // 10,000 + 1,000 tax; leaving 160 yen, worth 160 x 0.0066 = $1.06: it stays due
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await page.getByTestId('payment-form-amount').fill('10840');
     await page.getByTestId('payment-form-date').fill('2026-03-09');
     await page.getByTestId('payment-form-submit').click();

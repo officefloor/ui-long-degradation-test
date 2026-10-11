@@ -41,6 +41,7 @@ test.describe('surcharge', () => {
     await expect(page.getByTestId('invoice-net')).toHaveText('$193.50');
     // the surcharge counts towards the minimum: 40.00 + 4.00 is topped up by 6.00 to 50.00
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-surcharge')).toHaveText('$4.00');
     await expect(page.getByTestId('invoice-minimum-charge')).toHaveText('$6.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$54.44');
@@ -74,6 +75,7 @@ test.describe('surcharge', () => {
     }
     await expect(page.getByTestId('invoice-surcharge')).toHaveText('$0.00');
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('surcharge-form-pct').fill('5');
     await page.getByTestId('surcharge-form-submit').click();
     await expect(page.getByTestId('surcharge-form-error')).toBeVisible();

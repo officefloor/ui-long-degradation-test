@@ -43,6 +43,7 @@ test.describe('payments in another currency', () => {
 
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('payment-form-currency').selectOption('EUR');
     await page.getByTestId('payment-form-amount').fill('100');
     await page.getByTestId('payment-form-date').fill('2026-03-09');
@@ -83,6 +84,7 @@ test.describe('payments in another currency', () => {
 
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('payment-form-currency').selectOption('JPY');
     await page.getByTestId('payment-form-amount').fill('10000');
     await page.getByTestId('payment-form-date').fill('2026-03-09');

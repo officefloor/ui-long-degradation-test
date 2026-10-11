@@ -34,9 +34,11 @@ test.describe('long disputes put clients on hold', () => {
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     // resolving the dispute lifts the hold
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-resolve').click();
     await expect(page.getByTestId('client-row-1').getByTestId('client-status')).toHaveText('Active');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
   });

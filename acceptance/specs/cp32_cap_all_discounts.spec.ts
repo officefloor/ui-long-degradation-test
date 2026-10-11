@@ -32,6 +32,7 @@ test.describe('cap covers every discount', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$370.00');
 
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-subtotal')).toHaveText('$195.00'); // (100.00 - 5.00) + 100.00
     // 10% of 195.00 = 19.50, but only 20.00 - 5.00 = 15.00 is left under the cap
     await expect(page.getByTestId('invoice-discount')).toHaveText('$15.00');

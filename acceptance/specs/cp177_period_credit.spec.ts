@@ -27,6 +27,7 @@ test.describe('crediting part of a period', () => {
     await page.getByTestId('line-row-1').getByTestId('line-credit').click();
     // the credit line copies the period: all of it would credit the whole charge
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-3').getByTestId('line-period')).toHaveText('2026-01-20 to 2026-02-10');
     await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('$325.48');
     // a period reaching outside the one billed is refused
@@ -45,6 +46,7 @@ test.describe('crediting part of a period', () => {
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('CREDIT_NOTE_ISSUED id=2 number=CN-0000026 invoice=1 total=162.75');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-credited')).toHaveText('$162.75');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$327.28');
   });

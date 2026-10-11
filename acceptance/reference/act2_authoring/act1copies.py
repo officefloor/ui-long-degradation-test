@@ -4,6 +4,8 @@ the copy changes or adds re-stated)."""
 import copy, os, re, sys
 import lib
 from lib import REPO, REG
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import panel_waits  # noqa: E402  (copies patch the authored text, without the waits)
 
 SPECS = os.path.join(REPO, 'acceptance/specs')
 sys.path.insert(0, REPO)
@@ -38,7 +40,7 @@ def _scenarios(base, k):
 def write():
     for k, base, header, reps, retire, add_ts, reg in sorted(_COPIES, key=lambda c: c[0]):
         src = latest_path(base, k)
-        s = open(src).read()
+        s = panel_waits.strip_waits(open(src).read())
         # drop an earlier copy's own note: from 'UPDATED for' to the end of its 'Carries' sentence
         lines = s.split('\n')
         i = lines.index('')

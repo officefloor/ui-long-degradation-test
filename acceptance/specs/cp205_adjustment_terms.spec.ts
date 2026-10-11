@@ -38,6 +38,7 @@ test.describe("adjustment notes follow the invoice's terms", () => {
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$872.10'); // 959.31 - 87.21
     await expect.poll(() => auditLines()).toContain('WITHHOLDING id=2 amount=18.36');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-discount')).toHaveText('$20.00');
     await expect(page.getByTestId('invoice-surcharge')).toHaveText('$3.60');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$183.60'); // 201.96 - 18.36

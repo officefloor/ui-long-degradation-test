@@ -41,6 +41,7 @@ test.describe('no more retention', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$1,200.00');
     // a 220.00 credit note against an invoice that owes 100.00 leaves 120.00 as credit straight away
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect.poll(() => auditLines()).toContain('CREDIT_HELD payment=2 amount=120.00');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-status')).toHaveText('Paid');

@@ -46,6 +46,7 @@ test.describe('a sent invoice keeps what it was sent with', () => {
     await expect.poll(() => auditLines()).toContain('PAYMENT_RECORDED id=1 invoice=1 amount=987.50');
     // a draft is priced at today's 8.875%: 500.00 + 44.375 -> 44.38; sending keeps that
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$544.38');
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-sent-total')).toHaveText('$544.38');

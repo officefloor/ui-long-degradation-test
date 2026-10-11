@@ -42,6 +42,7 @@ test.describe('card surcharge cap', () => {
     // in euros the cap is 15 / 1.10 = 13.636, down to €13.63
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('payment-form-method').selectOption('CARD');
     await page.getByTestId('payment-form-amount').fill('1025');
     await page.getByTestId('payment-form-date').fill('2026-03-10');
@@ -52,6 +53,7 @@ test.describe('card surcharge cap', () => {
     await page.getByTestId('client-row-1').click();
     // a small payment is under the cap: 102.50 is 100.00 + 2.50
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('payment-form-method').selectOption('CARD');
     await page.getByTestId('payment-form-amount').fill('102.50');
     await page.getByTestId('payment-form-date').fill('2026-03-10');

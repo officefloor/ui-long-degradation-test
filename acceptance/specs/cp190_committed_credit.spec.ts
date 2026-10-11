@@ -33,6 +33,7 @@ test.describe('approved drafts and the credit limit', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-available')).toHaveText('$25.00');
     // 600.00 + 375.00 + 50.00 would pass the limit: the small draft now needs approval
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();

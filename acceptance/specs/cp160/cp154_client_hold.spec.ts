@@ -37,6 +37,7 @@ test.describe('client hold', () => {
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     // a payment from a client on hold pays its overdue invoices first, oldest due date first: invoice 3's
     // 80.00; only the other 20.00 is held as credit, even with invoice 1 open
     await page.getByTestId('payment-form-amount').fill('100');
@@ -59,6 +60,7 @@ test.describe('client hold', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('Part paid');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
   });

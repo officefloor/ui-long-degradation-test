@@ -51,17 +51,21 @@ test.describe('volume discount', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,280.94');
     // the invoice's own 10% is larger
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-discount')).toHaveText('$120.00');
     // over 5,000.00: 6% of 5,200.00 = 312.00, held to the 200.00 cap
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-discount')).toHaveText('$200.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$5,500.00');
     // exactly 1,000.00 is not over the threshold
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-discount')).toHaveText('$0.00');
     // in euros the threshold is 1,000 / 1.10 = 909.09: €950.00 gets 3% (28.50)
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-discount')).toHaveText('€28.50');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('€1,013.65');
   });

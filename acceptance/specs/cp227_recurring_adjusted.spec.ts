@@ -36,6 +36,7 @@ test.describe('generating from an adjusted invoice', () => {
     await page.getByTestId('invoice-generate').click();
     await expect(page.getByTestId('invoice-generate-error')).toBeVisible();
     await page.getByTestId('invoice-row-10').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-10').getByTestId('invoice-number').innerText());
     await page.getByTestId('line-row-3').getByTestId('line-edit').click();
     await page.getByTestId('line-form-qty').fill('12');
     await page.getByTestId('line-form-submit').click();
@@ -49,6 +50,7 @@ test.describe('generating from an adjusted invoice', () => {
     await expect.poll(() => auditLines()).toContain('INVOICE_GENERATED from=INV-0000109 to=INV-0000133');
     await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=13 number=INV-0000133 total=807.19');
     await page.getByTestId('invoice-row-13').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-13').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId(/^line-row-\d+$/)).toHaveCount(1);
     await expect(page.getByTestId('line-row-7').getByTestId('line-qty')).toHaveText('12');
     await expect(page.getByTestId('line-row-7').getByTestId('line-period')).toHaveText('2026-07-01 to 2026-07-31');

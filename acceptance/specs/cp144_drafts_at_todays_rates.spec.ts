@@ -48,11 +48,13 @@ test.describe("drafts at today's rates", () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$229.43');
     // the sent invoice of the same date keeps March's 95.00 and 8.875%
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-2').getByTestId('line-amount')).toHaveText('$190.00');
     await expect(page.getByTestId('invoice-tax')).toHaveText('$16.86');
     // Globex's exemption ended on 2026-03-31, so its draft is taxed today: 10% of 400.00
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-tax')).toHaveText('$40.00');
   });
 });

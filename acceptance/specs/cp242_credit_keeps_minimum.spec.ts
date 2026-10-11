@@ -31,8 +31,10 @@ test.describe('credit notes and the minimum charge', () => {
     // so the note credits 50.00 + 5.00 tax
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=2 number=ADJ-0000026 invoice=1 total=-55.00');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-minimum-charge')).toHaveText('$50.00');
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$330.00'); // 385.00 - 55.00
     await page.getByTestId('payment-form-amount').fill('330');
     await page.getByTestId('payment-form-date').fill('2026-06-10');

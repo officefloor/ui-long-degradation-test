@@ -112,6 +112,7 @@ test.describe('edit a line', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
     // the part-paid invoice: one debit note for the 10.00 more; the 20.00 paid stays on the invoice
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('line-row-2').getByTestId('line-edit').click();
     await page.getByTestId('line-form-unit-price').fill('60');
     await page.getByTestId('line-form-submit').click();

@@ -40,10 +40,12 @@ test.describe('half the limit for medium risk', () => {
     // in euros: 500 / 1.10 = 454.5454, down to €454.54, and €455.00 is over it
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     // a LOW client keeps the whole limit
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-5').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
   });
 });

@@ -38,6 +38,7 @@ test.describe('volume across the month', () => {
     // invoice 2 carries on from unit 31: 20 x 15.00 + 5 x 12.00 = 360.00 (on its own it would be 425.00);
     // February's invoice and the void one don't count
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-2').getByTestId('line-amount')).toHaveText('$360.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$396.00');
     await page.getByTestId('invoice-send').click();
@@ -46,6 +47,7 @@ test.describe('volume across the month', () => {
     await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=2 number=INV-0000026 total=396.00');
     // February's 40 licences were priced on their own: 10 x 20.00 + 30 x 15.00
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('$650.00');
   });
 });

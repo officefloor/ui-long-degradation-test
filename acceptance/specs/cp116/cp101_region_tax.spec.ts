@@ -52,12 +52,14 @@ test.describe('tax by client region', () => {
     // Oregon charges no tax; the handbook's own rate still applies
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-4').getByTestId('line-tax')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-tax')).toHaveText('$1.25'); // 5% of 25.00
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$126.30');
     // Texas has no rate listed: the workspace's 10%
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-tax')).toHaveText('$10.01'); // 10% of 100.05 = 10.005
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$110.06');
   });
@@ -90,6 +92,7 @@ test.describe('tax by client region', () => {
     // a client with no region keeps the workspace rate: 10% of 99.98
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-tax')).toHaveText('$10.00');
   });
 });

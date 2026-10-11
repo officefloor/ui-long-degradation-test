@@ -57,6 +57,7 @@ test.describe('milestone due dates', () => {
     // a client with 30-day terms: reached 2026-03-25, due 2026-04-24, still in its grace week
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('milestone-row-4').getByTestId('milestone-due')).toHaveText('2026-04-24');
     await expect(page.getByTestId('milestone-row-4').getByTestId('milestone-status')).toHaveText('Due');
     await expect(page.getByTestId('invoice-interest')).toHaveText('$0.00');

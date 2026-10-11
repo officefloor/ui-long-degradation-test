@@ -65,6 +65,7 @@ test.describe('crediting disputed lines', () => {
     await expect(page.getByTestId('invoice-interest')).toHaveText('$7.36');
     // resolved without one: the interest held back is owed
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$12.54');
   });
 });

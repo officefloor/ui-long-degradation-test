@@ -41,6 +41,7 @@ test.describe('a kept promise waives its interest', () => {
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$507.36');
     // invoice 2's promise still stands, its interest running
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-interest')).toHaveText('$11.60');
   });
 });

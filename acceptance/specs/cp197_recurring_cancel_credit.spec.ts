@@ -33,10 +33,12 @@ test.describe('ending a plan early', () => {
     await expect(page.getByTestId('invoice-credited')).toHaveText('$260.38');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$376.11');
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-3').getByTestId('line-period')).toHaveText('2026-03-16 to 2026-03-31');
     await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('$236.71');
     // and the plan has ended: nothing more to generate
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-generate').click();
     await expect(page.getByTestId('invoice-generate-error')).toBeVisible();
   });

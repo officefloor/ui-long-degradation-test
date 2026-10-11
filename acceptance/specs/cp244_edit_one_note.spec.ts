@@ -32,10 +32,12 @@ test.describe('an edit is one note', () => {
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=2 number=ADJ-0000026 invoice=1 total=11.02');
     expect(auditLines().filter((l) => l.startsWith('ADJUSTMENT_ISSUED'))).toHaveLength(1);
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('$10.02');
     await expect(page.getByTestId('invoice-tax')).toHaveText('$1.00');
     // an untaxed line edited: 80.00 becomes 2 x 70.00 = 140.00, a debit note for 60.00 with no tax
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await page.getByTestId('line-row-2').getByTestId('line-edit').click();
     await page.getByTestId('line-form-qty').fill('2');
     await page.getByTestId('line-form-unit-price').fill('70');

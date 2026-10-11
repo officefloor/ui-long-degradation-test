@@ -41,6 +41,7 @@ test.describe('recurring invoices', () => {
     await expect.poll(() => auditLines()).toContain('INVOICE_GENERATED from=INV-0000018 to=INV-0000026');
     // the new draft, dated today, bills all of February for the recurring lines only, with the 5% discount
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-issue')).toHaveText('2026-02-03');
     await expect(page.getByTestId('line-row-4').getByTestId('line-period')).toHaveText('2026-02-01 to 2026-02-28');
@@ -55,6 +56,7 @@ test.describe('recurring invoices', () => {
     await page.getByTestId('invoice-generate').click();
     await expect(page.getByTestId('invoice-generate-error')).toBeVisible();
     await page.getByTestId('invoice-row-1').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-generate').click();
     await expect(page.getByTestId('invoice-generate-error')).toBeVisible();
     await expect(page.getByTestId(/^invoice-row-\d+$/)).toHaveCount(2);
@@ -85,10 +87,12 @@ test.describe('recurring invoices', () => {
     await page.getByTestId('invoice-generate').click();
     await expect.poll(() => auditLines()).toContain('INVOICE_GENERATED from=INV-0000059 to=INV-0000075');
     await page.getByTestId('invoice-row-7').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-7').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('line-row-9').getByTestId('line-period')).toHaveText('2026-02-01 to 2026-02-28');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$202.52'); // 28 days at 200 x 12 / 365 = 184.11, + 10%
     // a recurring invoice with no service period has nothing to repeat
     await page.getByTestId('invoice-row-6').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-6').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-generate').click();
     await expect(page.getByTestId('invoice-generate-error')).toBeVisible();
   });

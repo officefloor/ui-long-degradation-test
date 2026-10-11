@@ -61,6 +61,7 @@ test.describe('waive late charges', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     // nothing to waive on an invoice that isn't overdue
     await page.getByTestId('invoice-row-3').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-waive').click();
     await expect(page.getByTestId('invoice-waive-error')).toBeVisible();
   });

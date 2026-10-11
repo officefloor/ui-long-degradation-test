@@ -49,6 +49,7 @@ test.describe('late fee', () => {
     // 2% of CHF 500.00 = CHF 10.00, more than $10.00 (CHF 8.80)
     await page.getByTestId('client-row-5').click();
     await page.getByTestId('invoice-row-2').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-late-fee')).toHaveText('CHF 10.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('CHF 518.91');
     await expect(page.getByTestId('client-row-5').getByTestId('client-overdue')).toHaveText('CHF 518.91');
@@ -75,6 +76,7 @@ test.describe('late fee', () => {
     await page.getByTestId('invoice-row-3').click();
     await expect(page.getByTestId('invoice-late-fee')).toHaveText('$0.00');
     await page.getByTestId('invoice-row-4').click();
+    await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-late-fee')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$100.00');
   });
