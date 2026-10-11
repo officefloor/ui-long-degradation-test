@@ -247,9 +247,6 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
                 "notes": "",
             }
             row.update(scored_row)
-            # Own spec already passing before the agent changed anything (pre_change_check).
-            pc = rec.get("pre_change_check") or {}
-            row["own_pass_before"] = "" if pc.get("own_pass_before") is None else pc["own_pass_before"]
             # Comprehension probe (cold reader), present only at the Act-boundary checkpoints.
             pr = rec.get("probe") or {}
             if pr:
@@ -479,23 +476,27 @@ def zero_regression_rate(rows: list[dict], field: str = "regressions") -> float:
     return sum(1 for c in seen if per_chain[c] == 0) / len(seen)
 
 
-def pre_change_lines(rows: list[dict]) -> list[str]:
-    """Summary lines for pre_change_check: checkpoints whose own spec passed before the agent
-    changed anything (they still ran), and strict-pass over the checkpoints that needed a change.
-    Silent for runs that predate the check."""
-    checked = [r for r in rows if str(r.get("own_pass_before", "")) != ""]
-    if not checked:
+_SOURCE_CHANGE = ("frontend_diff_added", "frontend_diff_removed", "backend_diff_added",
+                  "backend_diff_removed")
+
+
+def no_change_lines(rows: list[dict]) -> list[str]:
+    """Checkpoints whose own test passed although the agent changed no source line (in either
+    layer's source globs): the request asked for something the app already did, so the
+    checkpoint measured nothing for that chain. Read from what every run records — the gate's
+    own-test result and the per-layer diff — at no extra cost. Silent when the diff columns are
+    absent (a run analysed without structural metrics)."""
+    known = [r for r in scored(rows)
+             if all(str(r.get(f, "")) not in ("", "nan") for f in _SOURCE_CHANGE)]
+    if not known:
         return []
-    early = [r for r in checked if _b(r.get("own_pass_before"))]
+    none = [r for r in known if _b(r.get("iso_pass")) and sum(_num(r.get(f)) for f in _SOURCE_CHANGE) == 0]
     by_chain: dict[int, list[str]] = defaultdict(list)
-    for r in early:
+    for r in none:
         by_chain[int(r["chain"])].append(f"cp{int(r['checkpoint']):02d}")
-    needed = [r for r in scored(rows) if not _b(r.get("own_pass_before"))]
-    lines = [f"- own spec already passing before the change: {len(early)}/{len(checked)} checked "
-             f"(they still ran; tighten these checkpoints)"]
+    lines = [f"- own test passing with no source change: {len(none)}/{len(known)} checkpoints "
+             f"(the request was already met — candidates to tighten)"]
     lines += [f"  - chain {c}: {', '.join(cps)}" for c, cps in sorted(by_chain.items())]
-    lines.append(f"- strict-pass over checkpoints that needed a change: "
-                 f"{sum(1 for r in needed if _b(r.get('strict_pass')))}/{len(needed)}")
     return lines
 
 
@@ -1178,7 +1179,7 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
               f"- unsatisfied replacements: {rs['unsatisfied_replacement']} (updated prior "
               f"specs a mutative checkpoint shipped and never satisfied — invisible to "
               f"`regressions`, which needs a test to have passed first)"]
-        L += pre_change_lines(cr)
+        L += no_change_lines(cr)
         L += ["", "degradation slopes (OLS on checkpoint index; chain-bootstrap 95% CI):"]
         for field, _label in PLOT_FIELDS:
             L.append(f"  - {field}: {_fmt_ci(bootstrap_slope(series_by_chain(cr, field)))}")

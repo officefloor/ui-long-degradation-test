@@ -79,12 +79,6 @@ conditions:
   just-solve:         # ungated control — plain "implement this request", no ImpactGate refactor
     # prompt_template only
 
-# Before each agent turn, run the checkpoint's OWN spec against the app as it stands. A checkpoint
-# whose spec already passes asks for something this implementation already has; it still runs, but
-# summary.md lists it (own_pass_before) so the stream can be tightened. Costs one build per checkpoint.
-pre_change_check:
-  enabled: true
-
 # The AI service that plays the agent. Only the harness knows about it: the stacks carry no
 # service-specific file. instruction_files are what this service needs in the app to find the
 # harness-owned AGENTS.md (Claude Code auto-loads CLAUDE.md, which imports AGENTS.md); a service

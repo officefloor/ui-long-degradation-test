@@ -50,7 +50,7 @@ CSV_FIELDS = [
     "total_selected", "strict_pass", "iso_pass", "core_pass", "core_p", "core_t",
     "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
     "normalized_change", "regressions", "true_regressions", "unsatisfied_replacement",
-    "seed_contract_failures", "own_pass_before",
+    "seed_contract_failures",
     "anchor_drift", "behaviour_loss", "seed_path", "infrastructure",
     "probe_recall", "probe_cost_usd", "probe_input_tokens", "probe_cache_read_tokens",
     "pinned_touched", "acceptance_touched", "notes",
@@ -471,32 +471,6 @@ def verify_resume_harness_files(wt: str, cfg: dict) -> None:
             f"--resume: the harness-owned file(s) {changed} differ from the versions this chain was "
             f"started with (provenance.json harness_files). Resuming would test later checkpoints "
             f"against a different contract. Restore them, or start a new run_id.")
-
-
-def pre_change_check(wt: str, cfg: dict, cp: dict, k: int) -> dict | None:
-    """Does the checkpoint's OWN spec already pass on the app as it stands, before the agent
-    changes anything? Measured, never acted on: every checkpoint still runs. A checkpoint that
-    passes here asks for something this implementation already has, so it measures nothing for
-    this chain — the list is what tells the stream's authors which checkpoints to tighten next.
-
-    Runs the same gate as scoring (build, serve, infrastructure retry) with only the own spec
-    installed, in the worktree, and cleans up after itself."""
-    if not (cfg.get("pre_change_check") or {}).get("enabled"):
-        return None
-    dest = _specs_dest(wt, cfg)
-    os.makedirs(dest, exist_ok=True)
-    _clear_specs(dest)
-    install_harness_files(wt, cfg, cp)
-    with open(os.path.join(dest, NEUTRAL_SPEC), "w") as fh:
-        fh.write(_neutralize_spec(open(os.path.join(HARNESS_ROOT, _own_spec(cp))).read()))
-    try:
-        o = correctness.run_tests(wt, k, cfg)
-    finally:
-        _clear_specs(dest)
-        install_harness_files(wt, cfg)
-        shutil.rmtree(os.path.join(wt, "target"), ignore_errors=True)
-    return {"own_pass_before": None if o.gate_invalid else o.all_pass,
-            "gate_invalid": o.gate_invalid, "error": o.error, "results": o.results}
 
 
 def install_agent_view(sandbox: str, cfg: dict, cp: dict) -> None:
@@ -934,13 +908,6 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         cp["_fixture_contract"] = fixtures.fixture_contract(checkpoints, k, HARNESS_ROOT)
 
         base_for_cp = git(["-C", wt, "rev-parse", "HEAD"])
-        pre_check = pre_change_check(wt, cfg, cp, k)
-        if pre_check is not None:
-            print(f"    pre    : own spec before the change -> "
-                  + {True: "ALREADY PASSES (measured; the checkpoint still runs)",
-                     False: "fails (a change is needed)",
-                     None: f"no verdict ({(pre_check.get('error') or '')[:80]})"}
-                  [pre_check["own_pass_before"]], flush=True)
         stream_file = f"cp{k:02d}.agent.jsonl"
         prompt = template.replace("{request}", cp["request"].strip())
 
@@ -983,8 +950,6 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
 
         mutated = [int(m) for m in (cp.get("mutates") or [])]
         row = correctness.outcome_row(outcome, prior_passing, mutated, prior_selected)
-        row["own_pass_before"] = "" if not pre_check or pre_check["own_pass_before"] is None \
-            else pre_check["own_pass_before"]
         if not outcome.gate_invalid:
             prior_passing = outcome.passing
             prior_selected = set(outcome.results)
@@ -1043,7 +1008,6 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
             build_log_file=build_log_file, attempts=attempt_log,
             spec=cp["request"], prompt=prompt, ckpt_type=cp.get("type", "additive"),
             mutates=mutated, impact_gate=gate_hist, stack=stack)
-        rec["pre_change_check"] = pre_check
         capture.write_json(os.path.join(cap_dir, f"cp{k:02d}.json"), rec)
         wt_cap = os.path.join(wt, "evolve-results", "capture")
         os.makedirs(wt_cap, exist_ok=True)
