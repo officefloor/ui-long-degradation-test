@@ -47,15 +47,15 @@ and the app itself must never call them.
 
 ### 4.1 The fixture
 
-A fixture is a JSON object. Each top-level key is a collection of rows (`clients`, `projects`,
-`invoices`, ...), a settings object, or a single value:
+A fixture is a JSON object. Each top-level key is a collection of rows (`clients`, `invoices`,
+...), a settings object, or a single value:
 
 ```json
 {
   "asOf": "2026-02-05",
-  "clients":  [{ "id": 1, "name": "Acme Ltd", "email": "ops@acme.example", "archived": true }],
-  "projects": [{ "id": 1, "name": "Website Rebuild", "clientId": 1 }],
-  "invoices": [{ "id": 1, "projectId": 1, "status": "SENT",
+  "clients":  [{ "id": 1, "name": "Acme Ltd", "email": "ops@acme.example" }],
+  "invoices": [{ "id": 1, "clientId": 1, "status": "SENT", "issueDate": "2026-01-10",
+                 "dueDate": "2026-02-09",
                  "lineItems": [{ "id": 1, "description": "Work", "qty": 1, "unitPrice": 200 }] }]
 }
 ```
@@ -64,7 +64,7 @@ A fixture is a JSON object. Each top-level key is a collection of rows (`clients
 - A field means the same thing everywhere it appears. Store the value you are given; do not
   reinterpret it.
 - **A field a fixture leaves out takes its default.** The default must be the ordinary value a newly
-  created record would get (not archived, no discount, no rate, and so on).
+  created record would get (no discount, no rate, and so on).
 - **`asOf` is the test's "today".** When a fixture gives `asOf`, the app must treat that date as the
   current date for everything date-dependent (overdue, ageing, windows, "this week"). Without it the
   app uses the real date.
