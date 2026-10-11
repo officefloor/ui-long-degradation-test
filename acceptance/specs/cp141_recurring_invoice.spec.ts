@@ -5,6 +5,7 @@ import { resetAndSeed } from '../support/seed';
 test.describe('recurring invoice', () => {
   test('shows a monthly recurring schedule', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
+      asOf: '2026-02-15',
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
       projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
       recurring: [{ id: 1, projectId: 1, amount: 300, frequency: 'MONTHLY', nextDate: '2026-03-01' }],
