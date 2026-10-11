@@ -3,8 +3,8 @@ import { resetAndSeed } from '../support/seed';
 
 // A full account statement for a client with every rule applied. The client trades in EUR; home is
 // USD at a rate of 1.10. One SENT invoice of EUR 100 and a credit note of EUR 20 leave EUR 80
-// owing, which is EUR 88.00... shown as the client total EUR 80.00 and the converted home total
-// $88.00. Credits for the period total EUR 20.00.
+// owing, shown as the client total EUR 80.00 and the converted home total $88.00; the account's
+// credits total EUR 20.00.
 test.describe('full account statement', () => {
   test('shows balance, credits and the converted home total', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -18,9 +18,9 @@ test.describe('full account statement', () => {
     await page.goto('/');
     await page.getByTestId('nav-clients').click();
     await page.getByTestId('client-open-1').click();
-    await page.getByTestId('statement-print-view').click();
+    await page.getByTestId('account-statement-open').click();
 
-    await expect(page.getByTestId('statement-credits-total')).toHaveText('€20.00');
+    await expect(page.getByTestId('account-credits-total')).toHaveText('€20.00');
     await expect(page.getByTestId('statement-grand-total')).toHaveText('€80.00');
     await expect(page.getByTestId('statement-home-total')).toHaveText('$88.00');
   });

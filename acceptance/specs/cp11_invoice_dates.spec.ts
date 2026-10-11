@@ -7,7 +7,7 @@ test.describe('invoice dates', () => {
     await resetAndSeed({
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
       projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
-      invoices: [{ id: 1, projectId: 1, amount: 100, status: 'SENT', issueDate: '2026-01-05', dueDate: '2026-02-04' }],
+      invoices: [{ id: 1, projectId: 1, amount: 100, issueDate: '2026-01-05', dueDate: '2026-02-04' }],
     });
     await page.goto('/');
     await page.getByTestId('nav-projects').click();

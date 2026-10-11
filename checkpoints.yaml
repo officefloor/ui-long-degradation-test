@@ -167,13 +167,18 @@ checkpoints:
 
   - id: cp21_invoice_line_items
     type: mutative
-    mutates: [4]
+    mutates: [4, 10]
     retires:
+      - "cp10_invoice_amount_positive.spec.ts::rejects a non-positive amount"
+      - "cp10_invoice_amount_positive.spec.ts::rejects an amount over $100,000"
+      - "cp10_invoice_amount_positive.spec.ts::accepts a positive amount"
+      - "cp10_invoice_amount_positive.spec.ts::accepts exactly $100,000"
       - "cp04_project_invoices.spec.ts::adds an invoice to a project"
     test: acceptance/specs/cp21_invoice_line_items.spec.ts
     request: |
-      I do not want to type one figure for an invoice. Let me list the things I am charging for.
-      For each one give a description, how many, and the price each. Work out the total for me.
+      I do not want to type one figure for an invoice. Let me list the things I am charging for. For
+      each one give a description, how many, and the price each. Work out the total for me. The same
+      limits still apply: no line for nothing, and no invoice over $100,000.
 
   - id: cp22_line_items_edit
     type: additive
@@ -472,12 +477,6 @@ checkpoints:
       - "cp40_thousands_separator.spec.ts::shows commas in large amounts"
       - "cp48_discount_everywhere.spec.ts::the outstanding total uses the discounted amount"
     test: acceptance/specs/cp60_multi_currency.spec.ts
-    retires:
-      - "cp08_dashboard.spec.ts::shows counts and the outstanding total"
-      - "cp17_outstanding_sent_only.spec.ts::outstanding is discounted and excludes drafts"
-      - "cp33_client_statement.spec.ts::the total owed uses discounted amounts"
-      - "cp40_thousands_separator.spec.ts::shows commas in large amounts"
-      - "cp48_discount_everywhere.spec.ts::the outstanding total uses the discounted amount"
     request: |
       Different clients pay me in different currencies. Let me set each client's currency. Show
       their money in that currency everywhere I see it, including on their statement. On the home
@@ -520,8 +519,8 @@ checkpoints:
     area: billing
     test: acceptance/specs/cp63_line_tax_exempt.spec.ts
     request: |
-      Some things I charge for are not taxable. Let me mark a charge line as tax-free so no tax is
-      worked out on it.
+      Some things I charge for are not taxable. Let me mark a charge line as tax-free and show which
+      lines are marked.
 
   - id: cp64_tax_per_taxable_line
     type: mutative
@@ -880,8 +879,8 @@ checkpoints:
     mutates: [56, 100]
     test: acceptance/specs/cp108_payment_consumes_credit.spec.ts
     request: |
-      When a client pays, let one payment settle several invoices and use up any deposit or credit
-      first, leaving any extra as credit. All the balances should still add up.
+      When a client pays, let one payment settle several invoices, and let me choose to use up any
+      deposit or credit first, leaving any extra as credit. All the balances should still add up.
 
   # ---- B4 (cp109-120): currency depth, late fees, aging, and the grand sweep --------------------
   - id: cp109_currency_rounding_rule
@@ -953,8 +952,8 @@ checkpoints:
     area: billing
     test: acceptance/specs/cp117_aging_breakdown.spec.ts
     request: |
-      Show me how old a client's debt is — how much is current, how much is 30 to 60 days, and how
-      much is more than 60 days overdue.
+      Show me how old a client's debt is — how much is under 30 days overdue, how much is 30 to 60
+      days, and how much is more than 60 days overdue.
 
   - id: cp118_client_sort_key_account
     type: additive
@@ -1845,17 +1844,18 @@ checkpoints:
   - id: cp232_tax_report_nets_adjustments
     type: mutative
     area: billing
-    mutates: [192]
+    mutates: [192, 229]
     test: acceptance/specs/cp232_tax_report_nets_adjustments.spec.ts
     request: |
-      The tax report total should take account of any tax adjustments I recorded.
+      The tax report total and my tax liability should take account of any tax adjustments I
+      recorded.
 
   - id: cp233_cash_this_week
     type: additive
     area: billing
     test: acceptance/specs/cp233_cash_this_week.spec.ts
     request: |
-      Show how much cash I collected this week on the home screen.
+      Show how much cash I collected this week (Monday to Sunday) on the home screen.
 
   - id: cp234_dashboard_base_currency
     type: additive
@@ -1901,7 +1901,7 @@ checkpoints:
     area: tasks
     test: acceptance/specs/cp239_dashboard_tasks_this_week.spec.ts
     request: |
-      Show the tasks due this week on the home screen.
+      Show the tasks due this week (Monday to Sunday) on the home screen.
 
   - id: cp240_dashboard_one_rule
     type: mutative
@@ -1955,12 +1955,6 @@ checkpoints:
       - "cp49_sales_tax.spec.ts::adds tax after the discount (all lines taxable, no levy)"
       - "cp68_second_tax.spec.ts::adds a levy on top of the sales tax"
     test: acceptance/specs/cp244_remove_levy.spec.ts
-    retires:
-      - "cp119_tax_summary_report.spec.ts::splits the total into main tax and levy"
-      - "cp192_tax_split_primary_levy.spec.ts::totals the main tax and the levy separately"
-      - "cp49_sales_tax.spec.ts::adds a levy on top when one applies"
-      - "cp49_sales_tax.spec.ts::adds tax after the discount (all lines taxable, no levy)"
-      - "cp68_second_tax.spec.ts::adds a levy on top of the sales tax"
     request: |
       The second tax is being scrapped. Remove the levy entirely — invoices should show only the one
       tax again and every total should work out as if the levy never existed.
@@ -2006,7 +2000,7 @@ checkpoints:
     test: acceptance/specs/cp249_amounts_match_totals.spec.ts
     request: |
       Wherever an invoice's amount appears — the list, the statement, the dashboard — it must match
-      the invoice's own total to the cent.
+      the invoice's current total to the cent.
 
   - id: cp250_grand_reconciliation
     type: additive

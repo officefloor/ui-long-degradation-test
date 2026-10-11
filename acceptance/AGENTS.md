@@ -23,8 +23,9 @@ app.
 
 - Every element a test acts on, and every value it reads back, carries a `data-testid`. Tests use
   these only — never CSS classes, page structure, or visible wording.
-- **A `data-testid` is a permanent public API.** Once it exists, never rename or remove it. Match
-  exactly the `data-testid` values, and the values shown in them, that your test expects.
+- **A `data-testid` is a permanent public API.** Once it exists, never rename or remove it —
+  unless the change request removes the feature it belongs to. Match exactly the `data-testid`
+  values, and the values shown in them, that your test expects.
 
 ## 3. Side effects are tested through the audit file
 

@@ -44,9 +44,28 @@ def _id_num(cid: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """A YAML loader that refuses a mapping with a repeated key: plain safe_load silently keeps the
+    last one, so a second `retires:` or `mutates:` on a checkpoint would quietly drop the first."""
+
+
+def _no_duplicate_keys(loader, node, deep=False):
+    seen = set()
+    for key_node, _ in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in seen:
+            raise yaml.constructor.ConstructorError(
+                None, None, f"duplicate key {key!r}", key_node.start_mark)
+        seen.add(key)
+    return loader.construct_mapping(node, deep)
+
+
+_UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys)
+
+
 def _load_yaml(path: str):
     with open(path) as fh:
-        return yaml.safe_load(fh)
+        return yaml.load(fh, Loader=_UniqueKeyLoader)
 
 
 def _resolve_areas(checkpoints: list[dict], legacy: dict[int, str]) -> dict[int, str | None]:

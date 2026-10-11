@@ -11,10 +11,10 @@ test.describe('reopen job', () => {
     await page.goto('/');
     await page.getByTestId('nav-projects').click();
     await page.getByTestId('project-open-1').click();
-    await expect(page.getByTestId('project-status')).toHaveText('CLOSED');
+    await expect(page.getByTestId('project-open-state')).toHaveText('CLOSED');
 
     await page.getByTestId('project-reopen').click();
-    await expect(page.getByTestId('project-status')).toHaveText('ACTIVE');
+    await expect(page.getByTestId('project-open-state')).toHaveText('ACTIVE');
     await expect(page.getByTestId('invoice-new')).toBeEnabled();
   });
 });

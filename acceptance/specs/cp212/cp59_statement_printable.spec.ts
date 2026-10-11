@@ -28,14 +28,14 @@ test.describe('printable statement', () => {
       projects: [{ id: 1, name: 'A', clientId: 1 }],
       invoices: [
         { id: 1, projectId: 1, status: 'SENT', issueDate: '2026-02-05', dueDate: '2026-02-25', lineItems: [{ id: 1, description: 'x', qty: 1, unitPrice: 100 }] },
-        { id: 2, projectId: 1, status: 'SENT', issueDate: '2026-02-06', dueDate: '2026-01-20', lineItems: [{ id: 2, description: 'y', qty: 1, unitPrice: 200 }] },
+        { id: 2, projectId: 1, status: 'SENT', issueDate: '2026-01-05', dueDate: '2026-01-20', lineItems: [{ id: 2, description: 'y', qty: 1, unitPrice: 200 }] },
       ],
     });
     await page.goto('/');
     await page.getByTestId('nav-clients').click();
     await page.getByTestId('client-open-1').click();
     await page.getByTestId('client-statement-open').click();
-    await page.getByTestId('statement-range-from').fill('2026-02-01');
+    await page.getByTestId('statement-range-from').fill('2026-01-01');
     await page.getByTestId('statement-range-to').fill('2026-02-28');
     await page.getByTestId('statement-range-apply').click();
     await expect(page.getByTestId('statement-grand-total')).toHaveText('$300.00');

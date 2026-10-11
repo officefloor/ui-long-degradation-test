@@ -4,6 +4,7 @@ import { resetAndSeed } from '../support/seed';
 // UPDATED line-items spec (carries the line-item rules, thousands separators, sales tax and per-line
 // rounding forward, adds line-level discounts): a line's own discount is taken off before it enters
 // the subtotal.
+// Carries forward: a line for nothing (no price) is not added.
 test.describe('invoice line items', () => {
   test('invoice amount is the sum of its line items', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
@@ -107,5 +108,24 @@ test.describe('invoice line items', () => {
 
     await expect(page.getByTestId('lineitem-row-1').getByTestId('lineitem-amount')).toHaveText('$180.00');
     await expect(page.getByTestId('invoice-subtotal')).toHaveText('$180.00');
+  });
+
+  test('a line for nothing is not added', { tag: '@error' }, async ({ page }) => {
+    await resetAndSeed({
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
+      invoices: [{ id: 1, projectId: 1, status: 'DRAFT', lineItems: [] }],
+    });
+    await page.goto('/');
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
+    await page.getByTestId('invoice-open-1').click();
+
+    await page.getByTestId('lineitem-form-description').fill('Nothing');
+    await page.getByTestId('lineitem-form-qty').fill('1');
+    await page.getByTestId('lineitem-form-unitprice').fill('0');
+    await page.getByTestId('lineitem-form-submit').click();
+
+    await expect(page.getByTestId(/^lineitem-row-/)).toHaveCount(0);
   });
 });

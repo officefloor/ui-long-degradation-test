@@ -4,6 +4,7 @@ import { resetAndSeed } from '../support/seed';
 // UPDATED line-items spec (carries the original intent, the thousands separators and the sales tax
 // forward under per-line rounding): each line is worked out and rounded to the cent, and the invoice
 // amount is the sum of the rounded lines. The whole-dollar scenarios here are unaffected by rounding.
+// Carries forward: a line for nothing (no price) is not added.
 test.describe('invoice line items', () => {
   test('invoice amount is the sum of its line items', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
@@ -92,5 +93,24 @@ test.describe('invoice line items', () => {
     await page.getByTestId('project-open-1').click();
     // 1000 + 20% tax = 1,200.00
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-amount')).toHaveText('$1,200.00');
+  });
+
+  test('a line for nothing is not added', { tag: '@error' }, async ({ page }) => {
+    await resetAndSeed({
+      clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
+      projects: [{ id: 1, name: 'Website Rebuild', clientId: 1 }],
+      invoices: [{ id: 1, projectId: 1, status: 'DRAFT', lineItems: [] }],
+    });
+    await page.goto('/');
+    await page.getByTestId('nav-projects').click();
+    await page.getByTestId('project-open-1').click();
+    await page.getByTestId('invoice-open-1').click();
+
+    await page.getByTestId('lineitem-form-description').fill('Nothing');
+    await page.getByTestId('lineitem-form-qty').fill('1');
+    await page.getByTestId('lineitem-form-unitprice').fill('0');
+    await page.getByTestId('lineitem-form-submit').click();
+
+    await expect(page.getByTestId(/^lineitem-row-/)).toHaveCount(0);
   });
 });

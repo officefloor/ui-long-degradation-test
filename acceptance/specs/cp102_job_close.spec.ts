@@ -13,7 +13,7 @@ test.describe('close job', () => {
     await page.getByTestId('project-open-1').click();
     await page.getByTestId('project-close').click();
 
-    await expect(page.getByTestId('project-status')).toHaveText('CLOSED');
+    await expect(page.getByTestId('project-open-state')).toHaveText('CLOSED');
     await expect(page.getByTestId('invoice-new')).toBeDisabled();
   });
 });

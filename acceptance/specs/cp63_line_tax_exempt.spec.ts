@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// A charge line can be marked tax-free. This checkpoint adds the FLAG and its marker; the tax
-// CALCULATION that excludes exempt lines is a later checkpoint. A seeded exempt line shows a
-// marker, and a new line can be added with the exempt box ticked. Anchors: lineitem-taxexempt
+// A charge line can be marked tax-free, and a marked line shows a marker. A seeded exempt line shows
+// the marker, and a new line can be added with the exempt box ticked. Anchors: lineitem-taxexempt
 // (marker), lineitem-form-taxexempt (checkbox on the add-line form).
 test.describe('tax-free line items', () => {
   test('shows the tax-free marker and lets a line be marked exempt', { tag: '@functionality' }, async ({ page }) => {
