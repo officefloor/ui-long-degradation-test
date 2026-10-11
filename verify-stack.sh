@@ -14,7 +14,8 @@
 #                          never read from config.yaml — same reasoning as every other command.
 #           --smoke        also RUN the toolchain confined (seconds), then build, start, probe
 #                          and stop the app (minutes, no agent, no cost)
-#           --condition    decides whether impact-gate counts as blocking (default: gated)
+#           --condition    decides whether impact-gate counts as blocking (default: just-solve,
+#                          the experiment's condition; pass gated before a gated run)
 #           --quiet        only report problems
 #
 # Exit 0 = ready. Exit 1 = a blocking problem. Exit 2 = bad usage.
@@ -23,7 +24,7 @@ set -uo pipefail
 cd "$(dirname "$0")"
 PY="${PY:-./.venv/bin/python}"
 
-REPO="" SMOKE=0 COND="gated" QUIET=""
+REPO="" SMOKE=0 COND="just-solve" QUIET=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --repo)      [ "$#" -ge 2 ] || { echo "--repo needs a directory" >&2; exit 2; }

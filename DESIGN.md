@@ -368,17 +368,18 @@ repo (via `config.yaml → app.repo`) and compares their erosion trajectories �
 best**. Pick front-end formats Lizard reads fully (`.tsx`/`.vue`, §8) so a stack's own erosion is
 visible.
 
-- **Primary run — the real OfficeHQ configuration.** The full gated loop (compile · tests ·
-  ImpactGate · security) over the ~60 English requests, replicated across `chains` for CIs. The
-  result is the erosion trajectory (front-end and backend) and the Zero-Regression Rate as the app
-  is grown from the empty base. This alone answers "can OfficeHQ evolve an app without eroding?"
-- **Optional intervention study — to quantify what the gates buy.** Reuse the REST harness's
-  conditions as prompt/gate strategies (not front-end arms): `just-solve` (ungated control) vs
-  `impact_gated` (the OfficeHQ gate). The delta shows the gate's effect on full-stack erosion —
-  the direct sequel to the REST arm's "ImpactGate reduces server erosion" result.
+- **The experiment runs `just-solve`** (the default everywhere: `active_condition`, the driver,
+  doctor and verify-stack). Each stack is grown with no gate in the loop, over the 250 English
+  requests, replicated across `chains`, so the erosion trajectories (front-end and backend) and the
+  Zero-Regression Rate compare the stacks themselves.
+- **Optional intervention study — to quantify what the gates buy.** The `gated` condition (the
+  full OfficeHQ loop: compile · tests · ImpactGate · security) runs only on request
+  (`--condition gated`). Its delta against `just-solve` on the same stack shows the gate's effect
+  on full-stack erosion — the direct sequel to the REST arm's "ImpactGate reduces server erosion"
+  result. Recalibrate `block_percentile` for the current stream before a gated run.
 
 The `arm` slot in the harness config therefore names the **intervention condition**, not a
-framework. A single-condition run (primary only) is the minimum; the study is the upsell.
+framework.
 
 ---
 
@@ -413,8 +414,8 @@ decay); "ui" marks that the tests — the stable contract across the churn — d
 - **Embedded, not containerised (§15): RESOLVED — a single Spring Boot app** (OfficeFloor plugin +
   in-memory H2 + static SPA), one JVM, no daemon; rebuilt per checkpoint but always embeddable
   under Landlock, so the agent-test loop stands. See §14.
-- **Run the intervention study? (§10)** primary gated run only, or also an ungated `just-solve`
-  control to quantify what ImpactGate buys on full-stack erosion.
+- **Run the intervention study? (§10)** RESOLVED — the experiment runs `just-solve`; a `gated`
+  run is optional, to quantify what ImpactGate buys on full-stack erosion.
 - **ImpactGate wiring:** confirm file-scope containers are acceptable for the front-end series
   (backend stays class-scoped); track the two layers separately (§8). A TS seed distribution is
   needed before front-end grades mean anything (`harness/impact_gate.py`).

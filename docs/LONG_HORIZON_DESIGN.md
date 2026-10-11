@@ -205,8 +205,8 @@ any test that is unsatisfiable or ambiguous.
 - The **data-testid contract + full cumulative regression gate** is the safety net that lets any
   team pick up an evolved app with a passing suite that pins behaviour.
 - The **gated / ImpactGate condition** is the anti-slop mechanism for the *evolved app* (it blocks
-  high-impact changes and forces refactors); run it when the deliverable is a maintainable artifact,
-  and `just-solve` when the deliverable is the clean architecture contrast.
+  high-impact changes and forces refactors); run it when the deliverable is a maintainable artifact.
+  `just-solve` is the default and the experiment's condition: the clean architecture contrast.
 - **Never start a long run on a stack that does not pass `verify-stack.sh --smoke`** — otherwise
   erosion from checkpoint 1 is un-attributable.
 - Caveat to keep honest: the REST study did **not** cleanly confirm "additive better" (on the

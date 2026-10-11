@@ -646,7 +646,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--config", help="config.yaml, for the tools: section")
     ap.add_argument("--repo", help="also check this stack repo against the contract")
-    ap.add_argument("--condition", help="gated | just-solve (decides if impact-gate is required)")
+    ap.add_argument("--condition", help="gated | just-solve (decides if impact-gate is required; "
+                                        "default: the config's active_condition)")
     ap.add_argument("--quiet", action="store_true", help="only show problems")
     ap.add_argument("--confined-smoke", action="store_true",
                     help="also RUN python/node/npm/java/mvn and a cache write inside the real "
@@ -673,7 +674,9 @@ def main() -> int:
             tools[k] = v
         cfg["tools"] = tools
 
-    findings = check_environment(cfg, args.condition, phase=args.phase)
+    # The condition a run would use: --condition, else the config's active_condition (just-solve).
+    findings = check_environment(cfg, args.condition or cfg.get("active_condition"),
+                                 phase=args.phase)
     if args.confined_smoke:
         findings += confined_smoke(cfg)
     if args.repo:
