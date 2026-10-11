@@ -50,23 +50,25 @@ export async function resetAndSeed(fixture: unknown): Promise<void> {
 // ---- test-data contract replay -------------------------------------------------------------
 
 type DataSet = { spec: string; test: string; fixture: Record<string, unknown> };
-type Result = { contract_sha256: string; ok: boolean; checked: number; failures: string[] };
+type Result = { contract_sha256: string; run: number; ok: boolean; checked: number; failures: string[] };
 
 let checked: Promise<Result | null> | null = null;
 
 async function checkContractOnce(api: APIRequestContext): Promise<void> {
   if (MODE === 'off' || !existsSync(CONTRACT_FILE)) return;
-  // Once per run. A worker restarts after a failed spec, so the result file (keyed by the
-  // contract's hash) is the marker, not just this module's state.
+  // Once per Playwright run. A worker restarts after a failed spec, so the result file is the
+  // marker, not just this module's state — keyed by the contract AND the run (the worker's parent
+  // is the Playwright runner). A later `bin/e2e` is a new run and replays again, so a fix to the
+  // seed endpoint is seen at once instead of the previous run's failure being re-reported.
   checked ??= (async () => {
     const raw = readFileSync(CONTRACT_FILE, 'utf8');
     const sha = createHash('sha256').update(raw).digest('hex');
     if (existsSync(RESULT_FILE)) {
       const prev = JSON.parse(readFileSync(RESULT_FILE, 'utf8')) as Result;
-      if (prev.contract_sha256 === sha) return prev;
+      if (prev.contract_sha256 === sha && prev.run === process.ppid) return prev;
     }
     const sets = (JSON.parse(raw).data_sets ?? []) as DataSet[];
-    const res: Result = { contract_sha256: sha, ok: true, checked: sets.length, failures: [] };
+    const res: Result = { contract_sha256: sha, run: process.ppid, ok: true, checked: sets.length, failures: [] };
     if (sets.length) res.failures = await replay(api, sets);
     res.ok = res.failures.length === 0;
     mkdirSync(dirname(RESULT_FILE), { recursive: true });
