@@ -626,9 +626,11 @@ def _confine_config(cfg: dict, sandbox: str) -> dict | None:
 def _run_agent_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, prompt: str,
                     cap_dir: str, stream_file: str) -> tuple[object, list[dict]]:
     """One agent turn in the fresh, history-less sandbox (rebuilt each attempt). Retries on
-    a token-limit / transient failure. Returns (AgentResult, attempt_log)."""
+    a token-limit / transient failure, and a timeout once (limits.max_timeout_retries); a turn
+    that times out again is returned, so its partial work is gated. Returns (AgentResult,
+    attempt_log)."""
     limits = cfg.get("limits") or {}
-    attempts = transient = 0
+    attempts = transient = timeouts = 0
     log: list[dict] = []
     while True:
         mirror_source(wt, sandbox)
@@ -638,9 +640,15 @@ def _run_agent_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, prom
                              capture_path=os.path.join(cap_dir, stream_file),
                              confine=_confine_config(cfg, sandbox))
         log.append({"ok": ar.ok, "limit_reached": ar.limit_reached, "retryable": ar.retryable,
-                    "cost_usd": ar.cost_usd, "num_turns": ar.num_turns,
+                    "timed_out": ar.timed_out, "cost_usd": ar.cost_usd, "num_turns": ar.num_turns,
                     "duration_ms": ar.duration_ms, "duration_api_ms": ar.duration_api_ms,
                     "error": (ar.error or "")[:500]})
+        if ar.timed_out:
+            if timeouts >= limits.get("max_timeout_retries", 1):
+                return ar, log
+            timeouts += 1
+            print(f"    [retry] timeout — retrying once", flush=True)
+            continue
         if not (ar.limit_reached or ar.retryable):
             return ar, log
         attempts += 1

@@ -231,17 +231,21 @@ class AgentResult:
     error: str = ""
     limit_reached: bool = False  # usage/session limit OR auth expiry; caller waits (quota reset / re-login) then retries
     retryable: bool = False      # transient failure (network/overload/no-completion); short backoff then retry
+    timed_out: bool = False      # killed by the watchdog; the caller retries it once, then gates the partial work
 
 
-# Specific to the quota message ("You've hit your session limit · resets 6am ..."),
-# so it won't false-match agent/test output. Matched only against the terminal
+# Specific to the quota message ("You've hit your session limit · resets 6am ...",
+# "You've reached your Fable limit", "You're out of usage credits"; all in the 2.1.286
+# CLI), so it won't false-match agent/test output. Matched only against the terminal
 # result / stderr, never against streamed tool output.
-_LIMIT_PHRASES = ("session limit", "usage limit", "you've hit your", "hit your session",
+_LIMIT_PHRASES = ("session limit", "usage limit", "weekly limit", "spend limit",
+                  "you've hit your", "hit your session", "you've reached your",
+                  "out of usage credits", "credit balance is too low",
                   "limit · resets", "limit resets")
 
 
 def _matches(text: str, phrases) -> bool:
-    t = (text or "").lower()
+    t = (text or "").lower().replace("\u2019", "'")   # the CLI may print a curly apostrophe
     return any(p in t for p in phrases)
 
 
@@ -472,11 +476,17 @@ def run_agent(prompt: str, cwd: str, model: str, timeout: int = 3600,
         if cfg_dir:
             shutil.rmtree(cfg_dir, ignore_errors=True)
 
-    if timed_out["v"]:
-        # No completion within the timeout — often an overloaded/unresponsive API.
-        return AgentResult(ok=False, error=f"agent timed out after {timeout}s (no completion)",
-                           retryable=True)
     err_tail = "".join(stderr_buf)[-2000:].strip()
+    if timed_out["v"]:
+        # A CLI that waits out a usage limit inside the turn is a limit, not a slow agent.
+        if looks_like_limit(err_tail) or looks_like_auth(err_tail):
+            return AgentResult(ok=False, limit_reached=True,
+                               error=f"agent timed out after {timeout}s at a usage limit: {err_tail}")
+        # Otherwise NOT transient: retrying an agent that runs past the timeout costs another
+        # timeout each time. The caller retries once (an unresponsive API), then gates the
+        # partial work as the agent's outcome.
+        return AgentResult(ok=False, timed_out=True,
+                           error=f"agent timed out after {timeout}s (no completion)")
     if result_obj is None:
         # Process ended without a result: crash, network cut mid-stream, or an auth
         # expiry that killed the process before any result event.
