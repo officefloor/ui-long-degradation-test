@@ -11,14 +11,21 @@ chains: 10                      # independent runs per condition, run SEQUENTIAL
                                 #   stacks differ by more than their own chain-to-chain
                                 #   spread. Drop it (e.g. --chain 1, or lower this value) for
                                 #   a cheap smoke/iteration run; a single chain is one run.
-active_condition: just-solve    # which intervention condition to run by default (see `conditions`);
-                                #   pass --condition gated for the ImpactGate loop
+active_condition: just-solve    # the experiment's condition and the default for every command
+                                #   (see `conditions`); pass --condition gated for the ImpactGate loop
 agent_timeout: 3600
 
 checkpoints_file: checkpoints.yaml
 
 limits:
-  # rate/cost limits for the agent turn (lift from the REST arm)
+  # Retry policy. Usage limits, a rejected token, API errors and a lost network are polled until
+  # they clear, however long that takes (the run is watched); set max_attempts /
+  # max_transient_attempts only to make a run give up instead.
+  # poll_seconds: 1800          # wait between polls at a usage limit / auth failure
+  # retry_backoff_max: 900      # cap on the exponential backoff for API/network errors
+  # max_timeout_retries: 1      # an agent past agent_timeout is retried this often, then gated
+  # offline_poll_seconds: 300   # gate: poll interval while Maven Central / npm are unreachable
+  # gate_infra_retries: 3       # gate: retries (1, 5, 25 min) of an unscorable gate, network up
 
 # THE APP: the single external code folder that EVOLVES over the run (DESIGN.md §2, §14). One
 # Spring Boot app — base front-end shell + Spring-with-OfficeFloor plugin + Flyway (empty H2, no
@@ -72,8 +79,10 @@ app:
     backend:  ["src/main/resources/officefloor/**"]   # wiring/config the backend shouldn't need to churn
 
 # Intervention CONDITIONS (DESIGN.md §10) — NOT front-end architectures. This is the harness's
-# comparison slot (the REST arm's strategy dimension). The primary run is `gated`; `just-solve` is
-# the ungated control that quantifies what ImpactGate buys on full-stack erosion.
+# comparison slot (the REST arm's strategy dimension). The experiment runs `just-solve`, the
+# default everywhere: the stacks are compared with no gate in the loop. `gated` is the optional
+# OfficeHQ loop, run only on request (--condition gated) to measure what ImpactGate buys; its
+# block_percentile needs recalibrating for the current stream first.
 conditions:
   gated:              # the real OfficeHQ loop: compile · tests · ImpactGate · security
     # prompt_template + impact_gate settings (below)

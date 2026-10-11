@@ -51,6 +51,7 @@ import signal
 import subprocess
 import tempfile
 import threading
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -513,7 +514,7 @@ def run_agent(prompt: str, cwd: str, model: str, timeout: int = 3600,
 
 def probe(question: str, cwd: str, model: str, expected: Optional[list[str]] = None,
           timeout: int = 900, capture_path: Optional[str] = None,
-          confine: Optional[dict] = None) -> dict:
+          confine: Optional[dict] = None, poll_seconds: int = 1800) -> dict:
     """Cold-reader comprehension probe (read-only).
 
     Re-asked verbatim at each phase boundary. As the Spring hotspot method
@@ -521,9 +522,22 @@ def probe(question: str, cwd: str, model: str, expected: Optional[list[str]] = N
     should stay cheap and complete because it enumerates its functions.
     Recall is a crude keyword hit-rate; grade properly offline for the paper.
     """
-    res = run_agent(question, cwd=cwd, model=model, timeout=timeout,
-                    allowed_tools=PROBE_TOOLS, label="probe",
-                    capture_path=capture_path, confine=confine)
+    # A usage limit or an API/network failure would otherwise score as recall 0 — an empty
+    # answer — so wait it out like an agent turn (limit: poll_seconds; transient: backoff).
+    transient = 0
+    while True:
+        res = run_agent(question, cwd=cwd, model=model, timeout=timeout,
+                        allowed_tools=PROBE_TOOLS, label="probe",
+                        capture_path=capture_path, confine=confine)
+        if not (res.limit_reached or res.retryable):
+            break
+        transient = transient + 1 if not res.limit_reached else 0
+        wait = poll_seconds if res.limit_reached else min(60 * 2 ** min(transient - 1, 4), 900)
+        print(f"    [probe retry] {'limit' if res.limit_reached else 'transient'} — waiting "
+              f"{wait}s: {(res.error or '')[:200]}", flush=True)
+        time.sleep(wait)
+    if not res.ok:
+        raise RuntimeError(f"probe failed: {(res.error or res.result_text)[:300]}")
     recall = None
     if expected:
         text = res.result_text.lower()

@@ -37,18 +37,23 @@ See **[DESIGN.md](./DESIGN.md)** for the full design and the reasoning behind ea
 # (an interactive login would expire mid-run). The driver aborts without it.
 export CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)
 # run the default condition over the checkpoints (spawns a fresh agent per checkpoint).
-# No --chain runs every chain `chains` declares (2 by default), SEQUENTIALLY, under one run_id —
+# No --chain runs every chain `chains` declares (10 by default), SEQUENTIALLY, under one run_id —
 # which is what analyze aggregates over. One chain's hard failure does not stop the others.
 # --repo names the STACK under test (never configured: one harness drives many stacks). It is
 # logged at every checkpoint and written into the commits with that repo's `origin` remote.
 STACK=~/officehq-react-officefloor
 .venv/bin/python -m harness.run_experiment --config config.yaml --repo $STACK
 .venv/bin/python -m harness.run_experiment --config config.yaml --repo $STACK --chain 1
-# a chain that died part-way CONTINUES from its last committed checkpoint (same --run-id/--chain).
+# --resume CONTINUES each chain from its last committed checkpoint and STARTS any chain not begun
+# yet (same --run-id; --chain optional), so one command picks a crashed or rebooted run back up.
+# Usage limits, a rejected token, API errors and a lost network never end a run: the agent turn
+# and the gate poll until they work again (the run is meant to be watched; a token that never
+# recovers needs a person). An agent that runs past agent_timeout is retried once, then its
+# partial work is gated as its outcome.
 # NOTE --from does NOT resume: it starts at base_ref, so it would skip the features later
 # checkpoints build on. Use it only to run a prefix (--to N) or a smoke test.
 .venv/bin/python -m harness.run_experiment --config config.yaml --repo $STACK \
-    --chain 1 --run-id <run_id> --resume     # refuses a --repo other than the one that started it
+    --run-id <run_id> --resume               # refuses a --repo other than the one that started it
 # analyse a run's committed capture -> results/<run_id>/analysis/{summary.md,*.csv,*.png}:
 # progress is a heartbeat line per CHECKPOINT (s/cp + eta + the headline metrics), because the
 # recompute re-runs lizard/PMD/CK over a throwaway worktree per checkpoint and takes minutes.

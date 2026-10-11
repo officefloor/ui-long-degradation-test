@@ -13,9 +13,9 @@ checkpoints, growing the app from empty. At each checkpoint k:
      basename) into the worktree e2e/specs, run correctness.run_tests (build+serve+PW).
   4. write raw capture; normalise pins; reset commit (COMMIT 2). Two-commit boundary.
 
-Only `just-solve` is wired here; the `gated` (ImpactGate) condition and analyze/metrics
-are deferred. Usage:
-  python -m harness.run_experiment --config config.yaml --condition just-solve --chain 1
+The condition defaults to config `active_condition` (`just-solve`, the experiment's); pass
+--condition gated for the ImpactGate loop. Usage:
+  python -m harness.run_experiment --config config.yaml --repo <stack> --chain 1
   python -m harness.run_experiment --config config.yaml --to 1        # cp01 only
 """
 from __future__ import annotations
@@ -651,19 +651,68 @@ def _run_agent_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, prom
             continue
         if not (ar.limit_reached or ar.retryable):
             return ar, log
+        # A usage limit, a rejected/expired token, an API error or a lost connection is never the
+        # agent's outcome: keep polling the SAME checkpoint until it works again, for as long as
+        # that takes (the run is monitored; a token that never comes back needs a person). Set
+        # limits.max_attempts / max_transient_attempts only to make a run give up instead.
         attempts += 1
-        if attempts > limits.get("max_attempts", 500):
+        if limits.get("max_attempts") and attempts > limits["max_attempts"]:
             raise RuntimeError("exceeded max retry attempts")
-        wait = 60
         if ar.retryable:
             transient += 1
-            if transient > limits.get("max_transient_attempts", 20):
+            if limits.get("max_transient_attempts") and transient > limits["max_transient_attempts"]:
                 raise RuntimeError("too many consecutive transient failures")
             wait = min(60 * (2 ** (transient - 1)), limits.get("retry_backoff_max", 900))
         else:
             transient = 0
             wait = limits.get("poll_seconds", 1800)
-        print(f"    [retry] {'limit' if ar.limit_reached else 'transient'} — waiting {wait}s", flush=True)
+        print(f"    [retry {attempts}] {'limit' if ar.limit_reached else 'transient'} — "
+              f"waiting {wait}s ({datetime.now():%Y-%m-%d %H:%M}): {(ar.error or '')[:200]}",
+              flush=True)
+        time.sleep(wait)
+
+
+# Hosts the gate's build needs (Maven Central, the npm registry). An unreachable one means the
+# gate cannot say anything about the code, so the gate waits for it rather than being voided.
+_GATE_HOSTS = (("repo.maven.apache.org", 443), ("registry.npmjs.org", 443))
+
+
+def _online(hosts=_GATE_HOSTS, timeout: float = 10.0) -> bool:
+    import socket
+    for host, port in hosts:
+        try:
+            socket.create_connection((host, port), timeout=timeout).close()
+        except OSError:
+            return False
+    return True
+
+
+def _run_gate(wt: str, k: int, cfg: dict):
+    """correctness.run_tests, re-run when it could not score the code (gate_invalid). While the
+    build's registries are unreachable it polls until they are back, however long that takes;
+    with the network up it retries limits.gate_infra_retries times with a backoff, then the
+    checkpoint is recorded unscored (an infrastructure failure the code itself may cause, so it
+    cannot be polled forever)."""
+    limits = cfg.get("limits") or {}
+    retries = polls = 0
+    while True:
+        outcome = correctness.run_tests(wt, k, cfg)
+        if not outcome.gate_invalid:
+            return outcome
+        print(f"    [gate] could not score: {(outcome.error or '')[:200]}", flush=True)
+        if not _online():
+            polls += 1
+            wait = limits.get("offline_poll_seconds", 300)
+            print(f"    [gate] build registries unreachable — waiting {wait}s for the network "
+                  f"(poll {polls}, {datetime.now():%Y-%m-%d %H:%M})", flush=True)
+            while not _online():
+                time.sleep(wait)
+            continue
+        if retries >= limits.get("gate_infra_retries", 3):
+            return outcome
+        retries += 1
+        wait = min(60 * (5 ** (retries - 1)), 1800)
+        print(f"    [gate] network is up — retry {retries} in {wait}s", flush=True)
         time.sleep(wait)
 
 
@@ -955,7 +1004,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         install_measurement_suite(wt, cfg, checkpoints, k)
         shutil.rmtree(os.path.join(wt, "target"), ignore_errors=True)
 
-        outcome = correctness.run_tests(wt, k, cfg)
+        outcome = _run_gate(wt, k, cfg)
         build_log_file = None
         if outcome.console:
             build_log_file = f"cp{k:02d}.build.log"
@@ -997,7 +1046,8 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
                 pr = agent.probe(probe_cfg["question"], cwd=sandbox, model=model,
                                  expected=expected,
                                  capture_path=os.path.join(cap_dir, f"cp{k:02d}.probe.jsonl"),
-                                 confine=_confine_config(cfg, sandbox))
+                                 confine=_confine_config(cfg, sandbox),
+                                 poll_seconds=(cfg.get("limits") or {}).get("poll_seconds", 1800))
                 row.update({
                     "probe_recall": ("" if pr["probe_recall"] is None else round(pr["probe_recall"], 3)),
                     "probe_cost_usd": round(pr["probe_cost_usd"], 4),
@@ -1062,8 +1112,9 @@ def main() -> int:
     ap.add_argument("--from", dest="lo", type=int, default=1, help="first checkpoint (1-based)")
     ap.add_argument("--to", dest="hi", type=int, default=10**9, help="last checkpoint (inclusive)")
     ap.add_argument("--resume", action="store_true",
-                    help="continue an existing chain branch from its last committed checkpoint "
-                         "instead of recreating it at base_ref (same --run-id and --chain)")
+                    help="continue each chain's branch from its last committed checkpoint instead "
+                         "of recreating it at base_ref; a chain with no branch yet is started. "
+                         "Needs the run's --run-id; --chain is optional")
     ap.add_argument("--allow-degraded", action="store_true",
                     help="start even when preflight finds a problem that would CORRUPT the "
                          "results (an unpinned file, a mis-rooted handler_pattern, committed "
@@ -1082,6 +1133,9 @@ def main() -> int:
     if args.model:
         cfg["model"] = args.model
     condition = args.condition or cfg["active_condition"]
+    if args.resume and not args.run_id:
+        # A fresh run_id has no branches, so every chain would silently START from the base.
+        ap.error("--resume needs the --run-id of the run to continue")
     run_id = args.run_id or datetime.now().strftime("%Y%m%d%H%M")
 
     cfg_dir = os.path.dirname(os.path.abspath(args.config))
@@ -1176,8 +1230,14 @@ def main() -> int:
 
     failed: list[tuple[int, str]] = []
     for c in chains:
+        # --resume continues every chain that has a branch and STARTS the ones that do not yet,
+        # so one `--resume` after a crash or reboot picks a multi-chain run up where it stopped.
+        resume = args.resume and _branch_exists(cfg["app"]["repo"],
+                                                f"evolve/{run_id}/{condition}/chain{c}")
+        if args.resume and not resume:
+            print(f"\n    resume : chain{c} has no branch yet — starting it", flush=True)
         try:
-            run_chain(cfg, condition, c, run_id, checkpoints, args.lo, args.hi, args.resume)
+            run_chain(cfg, condition, c, run_id, checkpoints, args.lo, args.hi, resume)
         except Exception as e:                                  # noqa: BLE001
             # One chain's hard failure must not cost the remaining chains — an overnight run of
             # several chains would otherwise be lost to the first error. The branch keeps every
@@ -1191,9 +1251,9 @@ def main() -> int:
         print("\n=== chains that did not finish ===", flush=True)
         for c, err in failed:
             print(f"    chain{c}: {err}", flush=True)
-        print(f"    resume each with:\n"
+        print(f"    resume them all (finished chains are skipped) with:\n"
               f"      .venv/bin/python -m harness.run_experiment --config {args.config} "
-              f"--repo {cfg['app']['repo']} --run-id {run_id} --chain <n> --resume", flush=True)
+              f"--repo {cfg['app']['repo']} --run-id {run_id} --resume", flush=True)
         return 1
     if len(chains) > 1:
         print(f"\n=== all {len(chains)} chains finished (run_id={run_id}) — next:\n"
