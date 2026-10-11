@@ -83,6 +83,7 @@ test.describe('client hold', () => {
     await expect(page.getByTestId('invoice-row-5').getByTestId('invoice-status')).toHaveText('Draft');
     expect(auditLines().filter((l) => l.startsWith('INVOICE_SENT'))).toEqual([]);
     await page.getByTestId('client-row-1').getByTestId('client-hold').click();
+    await expect.poll(() => auditLines()).toContain('CLIENT_RELEASED id=1');
     await page.getByTestId('invoice-send-all').click();
     await expect(page.getByTestId('invoice-row-4').getByTestId('invoice-status')).toHaveText('Sent');
     await expect(page.getByTestId('invoice-row-5').getByTestId('invoice-status')).toHaveText('Sent');

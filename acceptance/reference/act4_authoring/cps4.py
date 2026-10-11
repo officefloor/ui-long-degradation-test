@@ -266,6 +266,7 @@ def s153(n):
         over = ("        // it needs approval instead, and once approved it can go out over the limit, putting the client on hold\n"
                 "        await expect(page.getByTestId('invoice-approval')).toHaveText('{a:inv3.approval}');\n"
                 "        await page.getByTestId('invoice-approve').click();\n"
+                "        await expect.poll(() => auditLines().some((l) => l.startsWith('INVOICE_APPROVED id=3 '))).toBe(true);\n"
                 "        await page.getByTestId('invoice-send').click();\n"
                 "        await expect(page.getByTestId('invoice-panel-status')).toHaveText('{ov:inv3.status}');\n"
                 "        await expect(page.getByTestId('client-row-1').getByTestId('client-available')).toHaveText('{ov:client1.available}');\n"
@@ -438,6 +439,7 @@ def s154(n):
         await expect(page.getByTestId('invoice-row-5').getByTestId('invoice-status')).toHaveText('{s:inv5.status}');
         expect(auditLines().filter((l) => l.startsWith('INVOICE_SENT'))).toEqual([]);
         await page.getByTestId('client-row-1').getByTestId('client-hold').click();
+        await expect.poll(() => auditLines()).toContain('CLIENT_RELEASED id=1');
         await page.getByTestId('invoice-send-all').click();
         await expect(page.getByTestId('invoice-row-4').getByTestId('invoice-status')).toHaveText('{s2:inv4.status}');
         await expect(page.getByTestId('invoice-row-5').getByTestId('invoice-status')).toHaveText('{s2:inv5.status}');
@@ -1130,6 +1132,7 @@ def s162(n):
     s_ = sent(dep, [3], SA, '2026-04-30')
     s_ = plus(s_, alloc=[(3, 3, 200, SA), (4, 3, 100, SA)])
     second = ("        // a high-risk client's invoice takes two approvals\n"
+              "        await expect(page.getByTestId('invoice-approval')).toHaveText('Needs 1 more approval');\n"
               "        await page.getByTestId('invoice-approve').click();\n") if n >= 200 else ""
     hist_c = ("// days late 20 and 29: 20, then 0.5 x 29 + 0.5 x 20 = 24.5, HIGH" if revised else
               "// paid in 40 and then 50 days: 40, then 0.3 x 50 + 0.7 x 40 = 43.0, HIGH")
@@ -1332,8 +1335,12 @@ def s165(n):
     c = ("// the last period runs from 2026-03-01 to the 17th: 450 x 12 / 365 x 17 = 251.51" if revised else
          "// the last period runs from 2026-03-01 to the 17th: 450 x 17/31 = 246.77")
     # from cp175 Generate sends the draft itself when nothing stops it, so there is no Send to press
+    # (before cp176 the click is kept, but only while the invoice is still a draft, so that an app at cp175
+    # that has already sent it is not failed on a Send it no longer offers)
     send = ("        // nothing stops it, so Generate sent it straight away\n" if revised else
-            "        await page.getByTestId('invoice-send').click();\n")
+            "        if ((await page.getByTestId('invoice-panel-status').textContent())?.trim() === 'Draft') {\n"
+            "          await page.getByTestId('invoice-send').click();\n"
+            "        }\n")
     t1 = T('stops a recurring invoice on its end date', '@core', fx1, f"""
         await page.getByTestId('client-row-1').click();
         await page.getByTestId('invoice-row-1').click();
@@ -2101,6 +2108,8 @@ def s177(n):
         await page.getByTestId('line-form-submit').click();
         await expect(page.getByTestId('line-form-error')).toBeVisible();
         // crediting 2026-02-01 to 2026-02-10: 10 days at 450 x 12 / 365 = 147.95, plus 10% tax like the original
+        await page.getByTestId('line-row-3').getByTestId('line-edit').click();
+        await page.getByTestId('line-form-period-start').fill('2026-02-01');
         await page.getByTestId('line-form-period-end').fill('2026-02-10');
         await page.getByTestId('line-form-submit').click();
         await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('{ed:inv2.line3.amount}');

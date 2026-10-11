@@ -2152,6 +2152,7 @@ def s238(n):
         await page.getByTestId('invoice-row-2').click();
         await expect(page.getByTestId('invoice-approval')).toHaveText('{s:inv2.approval}');
         await page.getByTestId('invoice-approve').click();
+        await expect.poll(() => auditLines().some((l) => l.startsWith('INVOICE_APPROVED id=2 '))).toBe(true);
         // approved, but 30% of 1,100.00 must be held for it first
 """ + send_refused() + """        await page.getByTestId('payment-form-deposit').check();
         await page.getByTestId('payment-form-amount').fill('330');

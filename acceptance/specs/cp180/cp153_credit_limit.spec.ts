@@ -49,6 +49,7 @@ test.describe('credit limit', () => {
     // it needs approval instead, and once approved it can go out over the limit, putting the client on hold
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     await page.getByTestId('invoice-approve').click();
+    await expect.poll(() => auditLines().some((l) => l.startsWith('INVOICE_APPROVED id=3 '))).toBe(true);
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
     await expect(page.getByTestId('client-row-1').getByTestId('client-available')).toHaveText('-$10.00');

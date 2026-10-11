@@ -25,6 +25,7 @@ test.describe('a deposit from a client behind on reminders', () => {
     await page.getByTestId('invoice-row-2').click();
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs approval');
     await page.getByTestId('invoice-approve').click();
+    await expect.poll(() => auditLines().some((l) => l.startsWith('INVOICE_APPROVED id=2 '))).toBe(true);
     // approved, but 30% of 1,100.00 must be held for it first
     await page.getByTestId('invoice-send').click();
     await expect(page.getByTestId('invoice-send-error')).toBeVisible();

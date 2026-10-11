@@ -36,6 +36,7 @@ test.describe('deposits from high-risk clients', () => {
     await page.getByTestId('invoice-row-3').click();
     await page.getByTestId('invoice-approve').click();
     // a high-risk client's invoice takes two approvals
+    await expect(page.getByTestId('invoice-approval')).toHaveText('Needs 1 more approval');
     await page.getByTestId('invoice-approve').click();
     await expect(page.getByTestId('invoice-approval')).toHaveText('Approved');
     // approved, but the 200.00 deposit held for it is only 20% of the 1,000.00: 300.00 is needed

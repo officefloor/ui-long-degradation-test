@@ -36,6 +36,8 @@ test.describe('crediting part of a period', () => {
     await page.getByTestId('line-form-submit').click();
     await expect(page.getByTestId('line-form-error')).toBeVisible();
     // crediting 2026-02-01 to 2026-02-10: 10 days at 450 x 12 / 365 = 147.95, plus 10% tax like the original
+    await page.getByTestId('line-row-3').getByTestId('line-edit').click();
+    await page.getByTestId('line-form-period-start').fill('2026-02-01');
     await page.getByTestId('line-form-period-end').fill('2026-02-10');
     await page.getByTestId('line-form-submit').click();
     await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('$147.95');
