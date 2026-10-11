@@ -2586,15 +2586,16 @@ def s147(n):
         await expect(page.getByTestId('payment-row-1').getByTestId('payment-surcharge')).toHaveText('{a:pay1.surcharge}');
         await expect(page.getByTestId('payment-row-1').getByTestId('payment-allocated')).toHaveText('{a:inv1.paid}');
         await expect(page.getByTestId('invoice-panel-status')).toHaveText('{a:inv1.status}');
-        // a small payment is under the cap: 102.50 is 100.00 + 2.50
-        await page.getByTestId('invoice-row-3').click();
-""" + cash_pay('102.50', SA, 'CARD') + """        await expect(page.getByTestId('payment-row-3').getByTestId('payment-surcharge')).toHaveText('{c:pay3.surcharge}');
         // in euros the cap is 15 / 1.10 = 13.636, down to €13.63
         await page.getByTestId('client-row-2').click();
         await page.getByTestId('invoice-row-2').click();
 """ + cash_pay('1025', SA, 'CARD') + """        await expect(page.getByTestId('payment-row-2').getByTestId('payment-surcharge')).toHaveText('{c:pay2.surcharge}');
         await expect(page.getByTestId('invoice-amount-due')).toHaveText('{c:inv2.due}'); // 1,100.00 - 1,011.37
         await expect.poll(() => auditLines()).toContain('CARD_SURCHARGE payment=2 amount={c:pay2.surcharge|plain}');
+        await page.getByTestId('client-row-1').click();
+        // a small payment is under the cap: 102.50 is 100.00 + 2.50
+        await page.getByTestId('invoice-row-3').click();
+""" + cash_pay('102.50', SA, 'CARD') + """        await expect(page.getByTestId('payment-row-3').getByTestId('payment-surcharge')).toHaveText('{c:pay3.surcharge}');
 """, a=a, b=b, c=c)
     return Spec('cp147_card_surcharge_cap', 'card surcharge cap', """
         The card surcharge on one payment is never more than the workspace cap (settings.cardSurchargeCap,

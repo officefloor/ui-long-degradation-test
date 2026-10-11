@@ -6,7 +6,7 @@ from cps5 import add5, remove5, edit5, add_line, edit_line, remove_line, see, go
 S3 = '2026-03-10'
 
 # ------------------------------------------------------------------------- cp204 adjustment notes instead of reopening
-M204 = "UPDATED for cp204 (mutates: [16, 31, 42, 201]): a sent invoice is no longer reopened; "
+M204 = "UPDATED for cp204 (mutates: [11, 16, 31, 42, 201]): a sent invoice is no longer reopened; "
 
 
 def t16():
@@ -61,6 +61,32 @@ text_copy(204, 'cp16_reopen_sent_invoice', M204 + "a line added to a sent invoic
                  "// the invoice stays as sent. A sent invoice's discount can't be changed.")],
           retire=['changing an unpaid sent invoice puts it back to draft', 'an invoice with a payment stays fixed'],
           add_ts=t16)
+
+
+def t11():
+    fx = dict(asOf=S3, clients=[A], invoices=[
+        I(9, 1, 'SENT', '2026-03-01', '2026-04-30', [L(1, 'Design', 1, 50)])],
+        payments=[P(1, 1, 10, '2026-03-05', [(9, 10)])])
+    return [T('refuses a discount change on a sent invoice', '@error', fx, """
+        await page.getByTestId('client-row-1').click();
+        await page.getByTestId('invoice-row-9').click();
+        await page.getByTestId('discount-form-pct').fill('10');
+        await page.getByTestId('discount-form-submit').click();
+        await expect(page.getByTestId('discount-form-error')).toBeVisible();
+        await expect(page.getByTestId('invoice-discount')).toHaveText('{s:inv9.discount}');
+        await expect(page.getByTestId('invoice-subtotal')).toHaveText('{s:inv9.subtotal}'); // 1 x 50
+        await expect(page.getByTestId('invoice-panel-status')).toHaveText('{s:inv9.status}');
+""")]
+
+
+text_copy(204, 'cp11_send_invoice', M204 + "a line added to a sent invoice is no longer refused but billed on an "
+          "adjustment note, so the test refusing it is replaced by one of the discount refusal alone. Carries the "
+          "other two tests.",
+          reps=[("// Once a sent invoice has a payment its lines and discount are fixed: adding a line or changing the\n"
+                 "// discount is refused with an error.",
+                 "// A line added to a sent invoice is billed on an adjustment note (ADJUSTMENT_ISSUED). Once a sent\n"
+                 "// invoice has a payment its discount is fixed: changing it is refused with an error.")],
+          retire=['refuses new lines and discount changes on a sent invoice'], add_ts=t11)
 
 
 def t31():

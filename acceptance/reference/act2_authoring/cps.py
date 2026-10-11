@@ -47,7 +47,9 @@ def s51(n):
         await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('{sent2:client1.balance}');
     """, dep=dep, sent1=sent1, sent2=sent2)
     fx2 = dict(asOf=SA, clients=[A], invoices=[
-        I(5, 1, 'SENT', '2026-01-10', '2026-02-20', [L(1, 'Design', 1, 40)]),
+        # paid 14 days after issue, so the client stays LOW risk once risk scores arrive (cp161) and
+        # invoice 6 can still be sent
+        I(5, 1, 'SENT', '2026-02-15', '2026-02-20', [L(1, 'Design', 1, 40)]),
         I(6, 1, 'DRAFT', '2026-03-01', '2026-04-30', [L(2, 'Hosting', 1, 70)])],
         payments=[P(3, 1, 100, '2026-02-01', [(5, 40, '2026-03-01')]), P(4, 1, 30, '2026-01-15', [])])
     sent = plus(fx2, inv=[(6, dict(status='SENT', issueDate=SA, dueDate='2026-04-30'))],
@@ -181,7 +183,7 @@ cp(52, 'overpayment_credit', """
     reference or references, or applied automatically is more than the invoices it goes to still
     owe, pay them as usual and keep the rest on the client's account as credit, writing CREDIT_HELD
     payment=<payment id> amount=<amount kept>. Only a split over the invoice boxes must still add up
-    exactly to the payment.
+    exactly to the payment, and no box may be more than its invoice's amount due.
 """, s52, type_='mutative', mutates=[17, 22, 37, 50], retires=[
     'cp22_auto_allocation.spec.ts::refuses more than the client owes',
     'cp37_pay_by_reference.spec.ts::refuses a reference that is mistyped, foreign or overpaid',
@@ -1323,7 +1325,7 @@ def s65(n):
                clients=[A, HV], invoices=[
         I(1, 1, 'SENT', '2026-02-01', '2026-03-01', [L(1, 'Build', 1, 1000)]),
         I(2, 5, 'SENT', '2026-02-01', '2026-03-01', [L(2, 'Build', 1, 500)])])
-    a = plus(fx1, payments=[P(1, 1, 30, '2026-04-30', [(1, 30)])])
+    a = plus(fx1, payments=[P(1, 1, 125, '2026-04-30', [(1, 125)])])
     t1 = T('charges a late fee once an invoice is overdue', '@core', fx1, f"""
         await page.getByTestId('client-row-1').click();
         await page.getByTestId('invoice-row-1').click();
@@ -1331,8 +1333,8 @@ def s65(n):
         await expect(page.getByTestId('invoice-late-fee')).toHaveText('{{s:inv1.lateFee}}');
         await expect(page.getByTestId('invoice-interest')).toHaveText('{{s:inv1.interest}}');
         await expect(page.getByTestId('invoice-amount-due')).toHaveText('{{s:inv1.due}}');
-        // {'a 30.00 payment pays the invoice first: 30.00 less is owed' if n >= 96 else 'a 30.00 payment pays the fee first, then 5.00 of the interest'}
-        await page.getByTestId('payment-form-amount').fill('30');
+        // {'a 125.00 payment (at least the 10% minimum) pays the invoice first: 125.00 less is owed' if n >= 96 else 'a 125.00 payment (at least the 10% minimum) pays the fee first, then the interest, then the invoice'}
+        await page.getByTestId('payment-form-amount').fill('125');
         await page.getByTestId('payment-form-date').fill('2026-04-30');
         await page.getByTestId('payment-form-submit').click();
         await expect(page.getByTestId('invoice-amount-due')).toHaveText('{{a:inv1.due}}');
@@ -2583,6 +2585,9 @@ cp(88, 'conversions_round_down', """
     I keep losing a fraction on every foreign payment. Round every currency conversion down to the
     target currency's step (whole yen, CHF 0.05, the cent) instead of half up — payments and refunds
     in another currency and the late fee alike — so a client is never credited more than I received.
+    Work conversions out exactly, in decimals rather than floating point, so a figure that lands on a
+    step stays on it: ¥10,000 at $0.0066 a yen is $66.00, which at $1.10 a euro is exactly €60.00,
+    not €59.99.
 """, s88, type_='mutative', mutates=[61, 74, 79], algorithm='fx-triangulation-revised',
    copies=['cp61_foreign_payments', 'cp74_dated_rates', 'cp79_foreign_refunds'])
 
@@ -2820,7 +2825,8 @@ cp(93, 'partial_retention_release', """
     empty, it releases everything still held). What has been released is added to the amount due and
     falls due 30 days after the latest release; the rest stays held. Show the retention still held on
     the invoice, and write the amount released in RETENTION_RELEASED. Refuse an amount of zero or
-    less, with more than two decimals, or more than is still held.
+    less, with more than two decimals, or more than is still held. A release recorded before now
+    without an amount released everything that was held.
 """, s93)
 
 # =============================================================================== cp94 minimum instalment
@@ -3086,7 +3092,9 @@ cp(100, 'late_fee_percentage', """
     A flat late fee is too much on small invoices and too little on big ones. Make the late fee 2% of
     what is owed when it's charged (the unpaid amount of the invoice or instalment, before any late
     charges), rounded down to the cent, but at least $10.00 (converted to the client's currency as
-    usual), and still never more than 10% of the invoice's grand total, or of the instalment.
+    usual), and still never more than 10% of the invoice's grand total, or of the instalment. The
+    late fee setting stays as the switch: with a late fee set, charge this percentage fee whatever
+    amount it holds; with none set, charge no late fee, as now.
 """, s100, type_='mutative', mutates=[65, 70, 91, 95, 96], copies=['cp65_late_fee', 'cp70_waive_interest',
                                                                   'cp91_late_fee_cap', 'cp95_instalment_late_fee',
                                                                   'cp96_invoice_before_charges'])

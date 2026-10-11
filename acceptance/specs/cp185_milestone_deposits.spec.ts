@@ -18,7 +18,7 @@ test.describe('deposits on milestones', () => {
       ],
       payments: [
         { id: 1, clientId: 1, amount: 600, date: '2026-03-02', allocations: [], reference: 'INV-0000018' },
-        { id: 2, clientId: 1, amount: 100, date: '2026-03-05', allocations: [] },
+        { id: 2, clientId: 1, amount: 100, date: '2026-03-01', allocations: [] },
       ],
     });
     await page.goto('/');
@@ -30,7 +30,8 @@ test.describe('deposits on milestones', () => {
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Awaiting milestone');
     await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('$700.00');
     expect(auditLines().filter((l) => l.startsWith('PAYMENT_RECORDED'))).toEqual([]);
-    // reaching the first milestone (1,000.00) uses the deposit held for the invoice first, then other credit
+    // reaching the first milestone (1,000.00) uses the deposit held for the invoice first, then other
+    // credit, even though that credit (2026-03-01) is older than the deposit (2026-03-02)
     await page.getByTestId('milestone-row-1').getByTestId('milestone-reach').click();
     await expect.poll(() => auditLines().filter((l) => l.startsWith('PAYMENT_RECORDED'))).toEqual([
       'PAYMENT_RECORDED id=1 invoice=1 amount=600.00',

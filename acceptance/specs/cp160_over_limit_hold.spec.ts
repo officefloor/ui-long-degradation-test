@@ -13,9 +13,9 @@ test.describe('on hold over the limit', () => {
       asOf: '2026-03-10',
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example', creditLimit: 500 }],
       invoices: [
-        { id: 1, clientId: 1, status: 'SENT', issueDate: '2026-01-10', dueDate: '2026-02-10',
+        { id: 1, clientId: 1, status: 'SENT', issueDate: '2026-02-24', dueDate: '2026-02-25',
           lineItems: [{ id: 1, description: 'Design', qty: 1, unitPrice: 300 }] },
-        { id: 2, clientId: 1, status: 'SENT', issueDate: '2026-01-20', dueDate: '2026-02-20',
+        { id: 2, clientId: 1, status: 'SENT', issueDate: '2026-01-20', dueDate: '2026-02-26',
           lineItems: [{ id: 2, description: 'Build', qty: 1, unitPrice: 250 }] },
         { id: 3, clientId: 1, status: 'SENT', issueDate: '2026-03-01', dueDate: '2026-04-30',
           lineItems: [{ id: 3, description: 'Support', qty: 1, unitPrice: 100 }] },

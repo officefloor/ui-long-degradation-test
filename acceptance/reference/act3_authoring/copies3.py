@@ -106,7 +106,7 @@ FX65 = dict(asOf='2026-04-30', settings={'usdPer': RATES, 'lateInterestRate': 12
 
 
 def t65():
-    a = plus(FX65, payments=[P(1, 1, 30, '2026-04-30', [(1, 30)])])
+    a = plus(FX65, payments=[P(1, 1, 125, '2026-04-30', [(1, 125)])])
     return [T('charges interest but no late fee once an invoice is overdue', '@core', FX65, """
         await page.getByTestId('client-row-1').click();
         await page.getByTestId('invoice-row-1').click();
@@ -114,8 +114,8 @@ def t65():
         await expect(page.getByTestId('invoice-late-fee')).toHaveCount(0);
         await expect(page.getByTestId('invoice-interest')).toHaveText('{s:inv1.interest}');
         await expect(page.getByTestId('invoice-amount-due')).toHaveText('{s:inv1.due}');
-        // a 30.00 payment pays the invoice first: 30.00 less is owed
-        await page.getByTestId('payment-form-amount').fill('30');
+        // a 125.00 payment (at least the 10% minimum) pays the invoice first: 125.00 less is owed
+        await page.getByTestId('payment-form-amount').fill('125');
         await page.getByTestId('payment-form-date').fill('2026-04-30');
         await page.getByTestId('payment-form-submit').click();
         await expect(page.getByTestId('invoice-amount-due')).toHaveText('{a:inv1.due}');

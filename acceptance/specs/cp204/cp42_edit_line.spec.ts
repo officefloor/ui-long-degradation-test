@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 import { auditLines } from '../support/audit';
 
-// UPDATED for cp204 (mutates: [16, 31, 42, 201]): a sent invoice is no longer reopened; editing a
-// line of a sent invoice, paid or not, issues adjustment notes, so the reopening test is replaced
+// UPDATED for cp204 (mutates: [11, 16, 31, 42, 201]): a sent invoice is no longer reopened; editing
+// a line of a sent invoice, paid or not, issues adjustment notes, so the reopening test is replaced
 // by one of that. Carries the other two tests.
 // A line's edit button loads it into the line form; submitting saves the changes to that line
 // (same checks as adding one) instead of adding a new line. Everything is worked out again: the

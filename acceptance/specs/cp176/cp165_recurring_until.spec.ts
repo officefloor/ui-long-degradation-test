@@ -41,7 +41,7 @@ test.describe('recurring until a date', () => {
     // the last period runs from 2026-03-01 to the 17th: 450 x 12 / 365 x 17 = 251.51
     await expect(page.getByTestId('line-row-4').getByTestId('line-amount')).toHaveText('$251.51');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$276.66');
-    await page.getByTestId('invoice-send').click();
+    // nothing stops it, so Generate sent it straight away
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Sent');
     // its next period would start after the end date: nothing more to generate
     await page.getByTestId('invoice-generate').click();

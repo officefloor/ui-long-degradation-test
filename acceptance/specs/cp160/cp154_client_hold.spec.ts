@@ -22,7 +22,7 @@ test.describe('client hold', () => {
           lineItems: [{ id: 1, description: 'Design', qty: 1, unitPrice: 300 }] },
         { id: 2, clientId: 1, status: 'DRAFT', issueDate: '2026-03-05', dueDate: '2026-04-30',
           lineItems: [{ id: 2, description: 'Build', qty: 1, unitPrice: 200 }] },
-        { id: 3, clientId: 1, status: 'SENT', issueDate: '2026-01-15', dueDate: '2026-02-15',
+        { id: 3, clientId: 1, status: 'SENT', issueDate: '2026-02-24', dueDate: '2026-02-25',
           lineItems: [{ id: 3, description: 'Hosting', qty: 1, unitPrice: 80 }] },
       ],
     });

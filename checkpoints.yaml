@@ -409,7 +409,8 @@ checkpoints:
       Don't chase pennies. When payments leave less than $1.00 still due on an invoice, write the
       rest off: the invoice is Paid, its amount due is $0.00, and the panel shows the amount written
       off ($0.00 when nothing has been). When I record the payment that leaves it, write an audit
-      line INVOICE_WRITTEN_OFF id=<invoice id> amount=<amount written off>.
+      line INVOICE_WRITTEN_OFF id=<invoice id> amount=<amount written off>. An invoice that payments
+      recorded earlier already leave less than $1.00 short is written off the same way.
 
   - id: cp41_discount_reason
     type: additive
@@ -528,7 +529,8 @@ checkpoints:
       reference or references, or applied automatically is more than the invoices it goes to still
       owe, pay them as usual and keep the rest on the client's account as credit, writing
       CREDIT_HELD payment=<payment id> amount=<amount kept>. Only a split over the invoice boxes
-      must still add up exactly to the payment.
+      must still add up exactly to the payment, and no box may be more than its invoice's amount
+      due.
 
   - id: cp53_refunds
     type: additive
@@ -953,7 +955,9 @@ checkpoints:
       I keep losing a fraction on every foreign payment. Round every currency conversion down to the
       target currency's step (whole yen, CHF 0.05, the cent) instead of half up — payments and
       refunds in another currency and the late fee alike — so a client is never credited more than I
-      received.
+      received. Work conversions out exactly, in decimals rather than floating point, so a figure
+      that lands on a step stays on it: ¥10,000 at $0.0066 a yen is $66.00, which at $1.10 a euro is
+      exactly €60.00, not €59.99.
 
   - id: cp89_credit_a_line
     type: additive
@@ -1000,7 +1004,8 @@ checkpoints:
       (left empty, it releases everything still held). What has been released is added to the amount
       due and falls due 30 days after the latest release; the rest stays held. Show the retention
       still held on the invoice, and write the amount released in RETENTION_RELEASED. Refuse an
-      amount of zero or less, with more than two decimals, or more than is still held.
+      amount of zero or less, with more than two decimals, or more than is still held. A release
+      recorded before now without an amount released everything that was held.
 
   - id: cp94_minimum_instalment
     type: additive
@@ -1064,7 +1069,8 @@ checkpoints:
       of what is owed when it's charged (the unpaid amount of the invoice or instalment, before any
       late charges), rounded down to the cent, but at least $10.00 (converted to the client's
       currency as usual), and still never more than 10% of the invoice's grand total, or of the
-      instalment.
+      instalment. The late fee setting stays as the switch: with a late fee set, charge this
+      percentage fee whatever amount it holds; with none set, charge no late fee, as now.
 
   # ===================================================================== Act III: rules that interact
   - id: cp101_region_tax
@@ -2002,6 +2008,7 @@ checkpoints:
       approval limit, require two approvals of that same total before it can be sent: show "Needs 2
       approvals", then "Needs 1 more approval" after the first, then "Approved". Each approval
       writes INVOICE_APPROVED as usual. A change to the total afterwards needs both approvals again.
+      An invoice approved before now, with no count of approvals kept, has one approval.
 
   - id: cp183_dispute_credit_limit
     type: additive
@@ -2196,8 +2203,9 @@ checkpoints:
       the line is charged at (0 for a line priced in bands). Add a duplicate window in days to the
       workspace. A draft whose fingerprint matches an invoice of the same client sent within that
       many days before today is a possible duplicate: name that invoice on the draft and make the
-      draft need approval before it can be sent. Check again whenever a line is added, edited or
-      removed.
+      draft need approval before it can be sent. If it matches more than one, name them all by
+      number, lowest id first, separated by a comma and a space. Check again whenever a line is
+      added, edited or removed.
 
   - id: cp203_credit_and_rebill
     type: additive
@@ -2216,8 +2224,9 @@ checkpoints:
 
   - id: cp204_sent_line_adjustments
     type: mutative
-    mutates: [16, 31, 42, 201]
+    mutates: [11, 16, 31, 42, 201]
     retires:
+      - "cp11_send_invoice.spec.ts::refuses new lines and discount changes on a sent invoice"
       - "cp16_reopen_sent_invoice.spec.ts::changing an unpaid sent invoice puts it back to draft"
       - "cp16_reopen_sent_invoice.spec.ts::an invoice with a payment stays fixed"
       - "cp31_remove_line.spec.ts::removing a line from an unpaid sent invoice reopens it"
@@ -2282,7 +2291,9 @@ checkpoints:
       fingerprint, merge lines that have the same description (lower-cased, spaces collapsed and
       trimmed) and the same unit price into one line, adding their quantities. And check drafts
       against each other too: a draft with the same fingerprint as an earlier draft (lower id) of
-      the same client is a possible duplicate of it; the earlier one isn't flagged.
+      the same client is a possible duplicate of it; the earlier one isn't flagged. A draft that
+      matches several invoices still names them all, lowest id first, separated by a comma and a
+      space.
 
   - id: cp209_business_days
     type: additive
@@ -2428,7 +2439,8 @@ checkpoints:
       with the invoice: it counts in the amount due, the balance, the overdue amount and the cash
       due, earns no interest and takes no tax. A payment pays the invoice itself first, then the
       reminder fees, then late interest. Waiving the interest leaves the fees owed, and writing the
-      invoice off includes them.
+      invoice off includes them. Charging a reminder fee starts a new interest period, just as a
+      payment does: the interest up to that day is worked out and rounded on its own.
 
   - id: cp219_dunning_hold
     type: additive
@@ -2536,7 +2548,7 @@ checkpoints:
       Adding hours to a sent invoice shouldn't restart the price bands. When a debit note adds units
       of a type priced in bands, price them as the next units after the invoice's own units of that
       type (and anything billed before it that month), just as if they had been on the invoice in
-      the first place.
+      the first place: invoices billed after it don't come in between.
 
   - id: cp230_currency_adjustments
     type: additive
@@ -2623,7 +2635,8 @@ checkpoints:
       A client ignoring my second reminder should pay up front for new work. While a client has an
       invoice still overdue after its second reminder, only let me send one of their drafts once the
       deposits held for it are worth at least 30% of its grand total (after any conversion fee or
-      card surcharge), just as for a high-risk client, even if it has been approved.
+      card surcharge), just as for a high-risk client, even if it has been approved. A replacement
+      for an invoice I've rebilled isn't held back by this: it bills work already invoiced.
 
   - id: cp239_collections_write_off
     type: additive
@@ -2653,7 +2666,8 @@ checkpoints:
       promised amount by its date, waive the late interest that ran from the day the promise was
       made to the day it was kept (write INTEREST_WAIVED id=<invoice id> amount=<waived>). Interest
       from before the promise stays owed, and whatever is still overdue afterwards earns interest as
-      usual.
+      usual. The day the promise is made and the day it is kept each start a new interest period, so
+      the interest waived is that period's own, worked out and rounded on its own.
 
   - id: cp242_credit_keeps_minimum
     type: additive

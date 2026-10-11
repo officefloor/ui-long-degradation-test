@@ -609,7 +609,20 @@ def base_figures(inv, n, settings, client, dec, credit_note=False, ctx=None, adj
 
 def month_units(inv, ctx, n, client, settings):
     """cp133: units of each tiered unit type already billed on the client's other sent invoices
-    issued earlier in the same calendar month (same date: lower id first)."""
+    issued earlier in the same calendar month (same date: lower id first).
+    cp229: a debit note's units carry on from its invoice's, as if they had been on it: what was
+    billed before the invoice that month, the invoice's own units, then its earlier debit notes'."""
+    if n >= 229 and inv.get('adjustmentOf') is not None:
+        parent = find_inv(ctx, inv['adjustmentOf'])
+        out = dict(month_units(parent, ctx, n, client, settings))
+        for x in [parent] + [a for a in ctx.invoices if a.get('adjustmentOf') == parent['id']
+                             and a['id'] < inv['id'] and a.get('status') == 'SENT']:
+            b = base_figures(x, n, settings, client, ctx_dec(ctx, x), ctx=ctx)
+            for lid, (q, start, tiers) in b['_tiered'].items():
+                if q > 0:
+                    ut = next(l for l in x['lineItems'] if l['id'] == lid)['unitType']
+                    out[ut] = out.get(ut, D(0)) + q
+        return out
     out = {}
     iss = draft_date(inv, ctx, n)
     if not iss:
@@ -1690,8 +1703,12 @@ def risk_of(ctx, cid, n, exclude=None):
             continue
         f = _figures(inv, n, ctx)
         paid_on = f.get('paidDate') if f['status'] in ('Paid', 'Paid late') else None
-        if n >= 193 and f['status'] == 'Written off' and written_off_on(inv, n, ctx.asof):
-            paid_on = written_off_on(inv, n, ctx.asof)   # cp193: counts as paid the day it was written off
+        if n >= 193 and f['status'] == 'Written off':
+            wo_on = written_off_on(inv, n, ctx.asof)
+            if n >= 250 and not wo_on and inv.get('adjustmentOf') is not None:
+                wo_on = written_off_on(find_inv(ctx, inv['adjustmentOf']), n, ctx.asof)   # cp250: with its invoice
+            if wo_on:
+                paid_on = wo_on   # cp193: counts as paid the day it was written off
         if n >= 240 and f['status'] == 'Overdue' and len(inv.get('reminders') or []) >= 3:
             paid_on = ctx.asof     # cp240: an unpaid final notice counts as if paid today
         if not paid_on or not inv.get('issueDate'):
@@ -2158,7 +2175,8 @@ def send_refusal(fx, iid, n):
         if client_on_hold(client, expo, n, ctx):
             return 'hold'
     if n >= 162 and inv.get('creditOf') is None and inv.get('adjustmentOf') is None \
-            and (ctx.risk(inv['clientId'])[1] == 'HIGH' or (n >= 238 and reminded_overdue(ctx, inv['clientId'], n, 2))):
+            and (ctx.risk(inv['clientId'])[1] == 'HIGH'
+                 or (n >= 238 and inv.get('replaces') is None and reminded_overdue(ctx, inv['clientId'], n, 2))):
         held = sum(ctx.applied_minor(p) for p in ctx.payments if held_for(ctx, p, n) == iid)
         if held * 10 < 3 * f['grand']:
             return 'deposit'

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 import { auditLines } from '../support/audit';
 
-// UPDATED for cp204 (mutates: [16, 31, 42, 201]): a sent invoice is no longer reopened; a line
+// UPDATED for cp204 (mutates: [11, 16, 31, 42, 201]): a sent invoice is no longer reopened; a line
 // added to a sent invoice, paid or not, is billed on an adjustment note and the invoice stays as
 // sent, and a sent invoice's discount is always fixed. Both tests are replaced by tests of that.
 // Carries neither earlier test.

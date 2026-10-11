@@ -181,3 +181,16 @@ mutation, and counts towards the act it lands in.
 - Compile: every spec passes `npx playwright test --list`.
 - The test-data contract builds at every checkpoint (`harness.fixtures.fixture_contract`).
 - `.venv/bin/python -m acceptance.reference.algorithms`: the reference worked examples still hold.
+- `.venv/bin/python acceptance/reference/verify_specs.py`: every figure a spec asserts is the
+  registry's, with the spec's own seed.
+- `.venv/bin/python acceptance/reference/check_scenarios.py`: no figure changes at a checkpoint that
+  does not mutate its spec.
+- `.venv/bin/python acceptance/reference/check_actions.py`: no send a test performs starts or stops
+  being refused at a checkpoint that does not mutate its spec (cp161's risk band once refused sends
+  in cp51, cp154 and cp160), and no test reads a payment or client row before it can exist (cp147
+  once read its payments in the wrong order).
+- These check the specs against the model, not the model against the request. A figure the model
+  and the spec agree on can still be one the request text does not give (cp218's interest periods,
+  cp250's risk score): when authoring, recompute the tricky figures from the request alone.
+- The specs and the Act II–V sections of `checkpoints.yaml` are generated: edit
+  `act<N>_authoring/` and re-run its `build.py` (Acts II to V, in that order), never the output.

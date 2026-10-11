@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 import { auditLines } from '../support/audit';
 
-// UPDATED for cp204 (mutates: [16, 31, 42, 201]): a sent invoice is no longer reopened; removing a
-// line from a sent invoice takes it off on a credit adjustment note, so the reopening test is
-// replaced by one of that. Carries the other two tests.
+// UPDATED for cp204 (mutates: [11, 16, 31, 42, 201]): a sent invoice is no longer reopened;
+// removing a line from a sent invoice takes it off on a credit adjustment note, so the reopening
+// test is replaced by one of that. Carries the other two tests.
 // A line can be removed from a draft; the subtotal, discount and its split, tax and totals are
 // worked out again. Removing a line from a sent invoice takes it off on a credit adjustment note
 // instead (ADJUSTMENT_ISSUED), leaving the invoice as sent. A line can't be removed if what is left would be less than a fixed discount on the

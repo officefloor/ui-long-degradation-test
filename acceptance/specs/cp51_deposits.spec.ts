@@ -62,7 +62,7 @@ test.describe('deposits held as credit', () => {
       asOf: '2026-03-10',
       clients: [{ id: 1, name: 'Acme Ltd', email: 'ops@acme.example' }],
       invoices: [
-        { id: 5, clientId: 1, status: 'SENT', issueDate: '2026-01-10', dueDate: '2026-02-20',
+        { id: 5, clientId: 1, status: 'SENT', issueDate: '2026-02-15', dueDate: '2026-02-20',
           lineItems: [{ id: 1, description: 'Design', qty: 1, unitPrice: 40 }] },
         { id: 6, clientId: 1, status: 'DRAFT', issueDate: '2026-03-01', dueDate: '2026-04-30',
           lineItems: [{ id: 2, description: 'Hosting', qty: 1, unitPrice: 70 }] },

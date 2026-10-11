@@ -39,8 +39,8 @@ test.describe("an invoice's notes go with it", () => {
     await expect.poll(() => auditLines()).toContain('INVOICE_WRITTEN_OFF id=2 amount=110.00');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-status')).toHaveText('Written off');
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$55.00');
-    // both count as paid today: 71 and 10 days late
-    await expect(page.getByTestId('client-row-1').getByTestId('client-risk-score')).toHaveText('71.0');
+    // both count as paid today: 71 days late, then 10 (0.5 x 10 + 0.5 x 71 = 40.5)
+    await expect(page.getByTestId('client-row-1').getByTestId('client-risk-score')).toHaveText('40.5');
     // so Acme is HIGH and its draft needs two approvals
     await page.getByTestId('invoice-row-6').click();
     await expect(page.getByTestId('invoice-approval')).toHaveText('Needs 2 approvals');

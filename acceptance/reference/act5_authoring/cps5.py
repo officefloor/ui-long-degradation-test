@@ -242,7 +242,8 @@ cp(202, 'duplicate_fingerprint', """
     without trailing zeros (2, 1.5) and the unit price the line is charged at (0 for a line priced in
     bands). Add a duplicate window in days to the workspace. A draft whose fingerprint matches an invoice
     of the same client sent within that many days before today is a possible duplicate: name that invoice
-    on the draft and make the draft need approval before it can be sent. Check again whenever a line is
+    on the draft and make the draft need approval before it can be sent. If it matches more than one, name
+    them all by number, lowest id first, separated by a comma and a space. Check again whenever a line is
     added, edited or removed.
 """, s202, algorithm='duplicate-fingerprint')
 
@@ -407,8 +408,9 @@ cp(204, 'sent_line_adjustments', """
     total=<total, negative for a credit>, show a credit note's total as negative in the list, and show
     on the invoice the sum of its adjustment notes. Refuse to change a sent invoice's discount. Invoices
     that are void, written off, credit notes or already credited still can't be changed.
-""", s204, type_='mutative', mutates=[16, 31, 42, 201], copies=['cp201_sent_snapshot'],
-   retires=['cp16_reopen_sent_invoice.spec.ts::changing an unpaid sent invoice puts it back to draft',
+""", s204, type_='mutative', mutates=[11, 16, 31, 42, 201], copies=['cp201_sent_snapshot'],
+   retires=['cp11_send_invoice.spec.ts::refuses new lines and discount changes on a sent invoice',
+            'cp16_reopen_sent_invoice.spec.ts::changing an unpaid sent invoice puts it back to draft',
             'cp16_reopen_sent_invoice.spec.ts::an invoice with a payment stays fixed',
             'cp31_remove_line.spec.ts::removing a line from an unpaid sent invoice reopens it',
             'cp42_edit_line.spec.ts::editing a line of an unpaid sent invoice reopens it',
@@ -614,7 +616,8 @@ cp(208, 'fingerprint_merges_lines', """
     lines that have the same description (lower-cased, spaces collapsed and trimmed) and the same unit price
     into one line, adding their quantities. And check drafts against each other too: a draft with the same
     fingerprint as an earlier draft (lower id) of the same client is a possible duplicate of it; the earlier
-    one isn't flagged.
+    one isn't flagged. A draft that matches several invoices still names them all, lowest id first,
+    separated by a comma and a space.
 """, s208, type_='mutative', mutates=[202], algorithm='duplicate-fingerprint-revised',
    copies=['cp202_duplicate_fingerprint'])
 
@@ -1218,7 +1221,9 @@ cp(218, 'reminder_fees', """
     and show the reminder fees charged on the panel. The fee is owed with the invoice: it counts in the
     amount due, the balance, the overdue amount and the cash due, earns no interest and takes no tax. A
     payment pays the invoice itself first, then the reminder fees, then late interest. Waiving the interest
-    leaves the fees owed, and writing the invoice off includes them.
+    leaves the fees owed, and writing the invoice off includes them. Charging a reminder fee starts a new
+    interest period, just as a payment does: the interest up to that day is worked out and rounded on its
+    own.
 """, s218)
 
 # =============================================================================== cp219 an unpaid final notice stops credit
@@ -1637,7 +1642,7 @@ def s227(n):
         await expect.poll(() => auditLines()).toContain('INVOICE_GENERATED from={g:inv10.number} to={g:inv%d.number}');
         await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=%d number={g:inv%d.number} total={g:inv%d.grand|plain}');
         await page.getByTestId('invoice-row-%d').click();
-        await expect(page.getByTestId(/^line-row-\\\\d+$/)).toHaveCount(1);
+        await expect(page.getByTestId(/^line-row-\\d+$/)).toHaveCount(1);
         await expect(page.getByTestId('line-row-%d').getByTestId('line-qty')).toHaveText('12');
         await expect(page.getByTestId('line-row-%d').getByTestId('line-period')).toHaveText('2026-07-01 to 2026-07-31');
 """.replace('%d', '{nid}').replace('{nid}', str(nid)).replace("line-row-" + str(nid), "line-row-" + str(lid)), a=a, b=b, g=g)
@@ -1711,28 +1716,32 @@ cp(228, 'dunning_revised', """
 def s229(n):
     st = {'taxRate': 10, 'rates': [{'unitType': 'hour', 'tiers': [{'units': 10, 'unitPrice': 100}, {'unitPrice': 90}]}]}
     fx1 = dict(asOf=SA, settings=st, clients=[A], invoices=[
-        I(1, 1, 'SENT', '2026-06-01', '2026-06-30', [L(1, 'Consulting', 8, unitType='hour')])])
+        I(1, 1, 'SENT', '2026-06-01', '2026-06-30', [L(1, 'Consulting', 8, unitType='hour')]),
+        I(2, 1, 'SENT', '2026-06-01', '2026-06-30', [L(2, 'Consulting', 4, unitType='hour')])])
     a = add5(fx1, 1, L(0, 'Consulting', 5, unitType='hour'), n)
     t1 = T("banded units added to a sent invoice continue its bands", '@core', fx1, """
         await page.getByTestId('client-row-1').click();
         await page.getByTestId('invoice-row-1').click();
         await expect(page.getByTestId('line-row-1').getByTestId('line-amount')).toHaveText('{s:inv1.line1.amount}'); // 8 x 100.00
-""" + add_line('Consulting', 5, unit='hour') + """        // hours 9 to 13: 2 x 100.00 + 3 x 90.00 = 470.00 (not 500.00 as if they were the first five)
-        await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=2 number={a:inv2.number} invoice=1 total={a:inv2.grand|plain}');
-        await page.getByTestId('invoice-row-2').click();
-        await expect(page.getByTestId('line-row-2').getByTestId('line-amount')).toHaveText('{a:inv2.line2.amount}');
-        await expect(page.getByTestId('invoice-tax')).toHaveText('{a:inv2.tax}');
+""" + add_line('Consulting', 5, unit='hour') + """        // hours 9 to 13 of invoice 1: 2 x 100.00 + 3 x 90.00 = 470.00. Not after invoice 2's four hours,
+        // billed the same day but after invoice 1 (that would be 5 x 90.00 = 450.00), and not 500.00 as if
+        // they were the first five
+        await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=3 number={a:inv3.number} invoice=1 total={a:inv3.grand|plain}');
+        await page.getByTestId('invoice-row-3').click();
+        await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('{a:inv3.line3.amount}');
+        await expect(page.getByTestId('invoice-tax')).toHaveText('{a:inv3.tax}');
 """, a=a)
     return Spec('cp229_banded_adjustments', 'banded units added after sending', """
         Units added to a sent invoice on a debit note for a unit type priced in bands are priced as the next
         units of the bands, after the invoice's own units of that type (and those billed before it that
-        month), exactly as if they had been on the invoice.""", [t1], n)
+        month), exactly as if they had been on the invoice; invoices billed after it don't come in between.""", [t1], n)
 
 
 cp(229, 'banded_adjustments', """
     Adding hours to a sent invoice shouldn't restart the price bands. When a debit note adds units of a type
     priced in bands, price them as the next units after the invoice's own units of that type (and anything
-    billed before it that month), just as if they had been on the invoice in the first place.
+    billed before it that month), just as if they had been on the invoice in the first place: invoices
+    billed after it don't come in between.
 """, s229)
 
 # =============================================================================== cp230 notes in another currency
@@ -2164,7 +2173,8 @@ cp(238, 'dunned_deposit', """
     A client ignoring my second reminder should pay up front for new work. While a client has an invoice
     still overdue after its second reminder, only let me send one of their drafts once the deposits held for
     it are worth at least 30% of its grand total (after any conversion fee or card surcharge), just as for a
-    high-risk client, even if it has been approved.
+    high-risk client, even if it has been approved. A replacement for an invoice I've rebilled isn't held
+    back by this: it bills work already invoiced.
 """, s238)
 
 # =============================================================================== cp239 collections write-off
@@ -2284,7 +2294,9 @@ cp(241, 'promise_kept', """
     A client who keeps their promise should be rewarded. When payments since a promise reach the promised
     amount by its date, waive the late interest that ran from the day the promise was made to the day it was
     kept (write INTEREST_WAIVED id=<invoice id> amount=<waived>). Interest from before the promise stays owed,
-    and whatever is still overdue afterwards earns interest as usual.
+    and whatever is still overdue afterwards earns interest as usual. The day the promise is made and the day
+    it is kept each start a new interest period, so the interest waived is that period's own, worked out and
+    rounded on its own.
 """, s241)
 
 # =============================================================================== cp242 a credit note keeps the minimum charge
@@ -2623,7 +2635,7 @@ def s250(n):
         await expect.poll(() => auditLines()).toContain('INVOICE_WRITTEN_OFF id=2 amount={w:inv2.writtenOff|plain}');
         await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-status')).toHaveText('{w:inv2.status}');
         await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('{w:client1.balance}');
-        // both count as paid today: 71 and 10 days late
+        // both count as paid today: 71 days late, then 10 (0.5 x 10 + 0.5 x 71 = 40.5)
         await expect(page.getByTestId('client-row-1').getByTestId('client-risk-score')).toHaveText('{w:client1.riskScore}');
         // so Acme is HIGH and its draft needs two approvals
         await page.getByTestId('invoice-row-6').click();

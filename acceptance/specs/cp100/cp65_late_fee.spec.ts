@@ -39,11 +39,11 @@ test.describe('late fee', () => {
     await expect(page.getByTestId('invoice-late-fee')).toHaveText('$20.00');
     await expect(page.getByTestId('invoice-interest')).toHaveText('$17.82');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,037.82');
-    // a 30.00 payment pays the invoice first: 30.00 less is owed
-    await page.getByTestId('payment-form-amount').fill('30');
+    // a 125.00 payment (at least the 10% minimum) pays the invoice first: 125.00 less is owed
+    await page.getByTestId('payment-form-amount').fill('125');
     await page.getByTestId('payment-form-date').fill('2026-04-30');
     await page.getByTestId('payment-form-submit').click();
-    await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,007.82');
+    await expect(page.getByTestId('invoice-amount-due')).toHaveText('$912.82');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
 
     // 2% of CHF 500.00 = CHF 10.00, more than $10.00 (CHF 8.80)

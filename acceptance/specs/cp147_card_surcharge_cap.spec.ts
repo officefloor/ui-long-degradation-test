@@ -39,13 +39,6 @@ test.describe('card surcharge cap', () => {
     await expect(page.getByTestId('payment-row-1').getByTestId('payment-surcharge')).toHaveText('$15.00');
     await expect(page.getByTestId('payment-row-1').getByTestId('payment-allocated')).toHaveText('$1,010.00');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Paid');
-    // a small payment is under the cap: 102.50 is 100.00 + 2.50
-    await page.getByTestId('invoice-row-3').click();
-    await page.getByTestId('payment-form-method').selectOption('CARD');
-    await page.getByTestId('payment-form-amount').fill('102.50');
-    await page.getByTestId('payment-form-date').fill('2026-03-10');
-    await page.getByTestId('payment-form-submit').click();
-    await expect(page.getByTestId('payment-row-3').getByTestId('payment-surcharge')).toHaveText('$2.50');
     // in euros the cap is 15 / 1.10 = 13.636, down to €13.63
     await page.getByTestId('client-row-2').click();
     await page.getByTestId('invoice-row-2').click();
@@ -56,5 +49,13 @@ test.describe('card surcharge cap', () => {
     await expect(page.getByTestId('payment-row-2').getByTestId('payment-surcharge')).toHaveText('€13.63');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('€88.63'); // 1,100.00 - 1,011.37
     await expect.poll(() => auditLines()).toContain('CARD_SURCHARGE payment=2 amount=13.63');
+    await page.getByTestId('client-row-1').click();
+    // a small payment is under the cap: 102.50 is 100.00 + 2.50
+    await page.getByTestId('invoice-row-3').click();
+    await page.getByTestId('payment-form-method').selectOption('CARD');
+    await page.getByTestId('payment-form-amount').fill('102.50');
+    await page.getByTestId('payment-form-date').fill('2026-03-10');
+    await page.getByTestId('payment-form-submit').click();
+    await expect(page.getByTestId('payment-row-3').getByTestId('payment-surcharge')).toHaveText('$2.50');
   });
 });

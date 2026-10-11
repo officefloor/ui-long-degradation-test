@@ -363,7 +363,9 @@ def s154(n):
     fx1 = dict(asOf=SA, clients=[A], invoices=[
         I(1, 1, 'SENT', '2026-03-01', '2026-04-30', [L(1, 'Design', 1, 300)]),
         I(2, 1, 'DRAFT', '2026-03-05', '2026-04-30', [L(2, 'Build', 1, 200)]),
-        I(3, 1, 'SENT', '2026-01-15', '2026-02-15', [L(3, 'Hosting', 1, 80)])])
+        # from cp160 the test's payment clears invoice 3; issued 14 days before, so the client stays LOW risk
+        I(3, 1, 'SENT', *(('2026-02-24', '2026-02-25') if auto else ('2026-01-15', '2026-02-15')),
+          [L(3, 'Hosting', 1, 80)])])
     held = plus(fx1, clients=[], inv=[])
     held['clients'][0]['onHold'] = True
     if auto:
@@ -974,8 +976,9 @@ cp(159, 'remittance_matching', """
 
 def s160(n):
     fx1 = dict(asOf=SA, clients=[C(A, creditLimit=500)], invoices=[
-        I(1, 1, 'SENT', '2026-01-10', '2026-02-10', [L(1, 'Design', 1, 300)]),
-        I(2, 1, 'SENT', '2026-01-20', '2026-02-20', [L(2, 'Build', 1, 250)]),
+        # paid on 2026-03-10, 14 days after issue: LOW risk from cp161, so invoice 4 can still be sent
+        I(1, 1, 'SENT', '2026-02-24', '2026-02-25', [L(1, 'Design', 1, 300)]),
+        I(2, 1, 'SENT', '2026-01-20', '2026-02-26', [L(2, 'Build', 1, 250)]),
         I(3, 1, 'SENT', '2026-03-01', '2026-04-30', [L(3, 'Support', 1, 100)]),
         I(4, 1, 'DRAFT', '2026-03-05', '2026-04-30', [L(4, 'Hosting', 1, 10)])])
     a = plus(fx1, payments=[P(1, 1, 400, SA, [(1, 300), (2, 100)])])
@@ -1328,6 +1331,9 @@ def s165(n):
     s_ = sent(g, [4], '2026-03-02', '2026-04-30')
     c = ("// the last period runs from 2026-03-01 to the 17th: 450 x 12 / 365 x 17 = 251.51" if revised else
          "// the last period runs from 2026-03-01 to the 17th: 450 x 17/31 = 246.77")
+    # from cp175 Generate sends the draft itself when nothing stops it, so there is no Send to press
+    send = ("        // nothing stops it, so Generate sent it straight away\n" if revised else
+            "        await page.getByTestId('invoice-send').click();\n")
     t1 = T('stops a recurring invoice on its end date', '@core', fx1, f"""
         await page.getByTestId('client-row-1').click();
         await page.getByTestId('invoice-row-1').click();
@@ -1340,8 +1346,7 @@ def s165(n):
         {c}
         await expect(page.getByTestId('line-row-4').getByTestId('line-amount')).toHaveText('{{g:inv4.line4.amount}}');
         await expect(page.getByTestId('invoice-grand-total')).toHaveText('{{g:inv4.grand}}');
-        await page.getByTestId('invoice-send').click();
-        await expect(page.getByTestId('invoice-panel-status')).toHaveText('{{sent:inv4.status}}');
+{send}        await expect(page.getByTestId('invoice-panel-status')).toHaveText('{{sent:inv4.status}}');
         // its next period would start after the end date: nothing more to generate
         await page.getByTestId('invoice-generate').click();
         await expect(page.getByTestId('invoice-generate-error')).toBeVisible();
@@ -2401,7 +2406,8 @@ cp(182, 'two_approvals', """
     The biggest invoices need a second approver. When a draft's grand total is more than twice the approval
     limit, require two approvals of that same total before it can be sent: show "Needs 2 approvals", then
     "Needs 1 more approval" after the first, then "Approved". Each approval writes INVOICE_APPROVED as usual.
-    A change to the total afterwards needs both approvals again.
+    A change to the total afterwards needs both approvals again. An invoice approved before now, with no count
+    of approvals kept, has one approval.
 """, s182)
 
 # =============================================================================== cp183 disputed amounts and the credit limit
@@ -2485,7 +2491,7 @@ def s185(n):
     fx1 = dict(asOf=SA, clients=[A], invoices=[
         I(1, 1, 'DRAFT', '2026-03-01', '2026-04-30', [L(1, 'Build', 1, 2000)],
           milestones=[MS(1, 'Start', 50), MS(2, 'Finish', 50)])],
-        payments=[P(1, 1, 600, '2026-03-02', [], reference=num1), P(2, 1, 100, '2026-03-05', [])])
+        payments=[P(1, 1, 600, '2026-03-02', [], reference=num1), P(2, 1, 100, '2026-03-01', [])])
     s_ = sent(fx1, [1], SA, '2026-04-30')
     r = copy.deepcopy(s_)
     r['invoices'][0]['milestones'][0]['reachedOn'] = SA
@@ -2499,7 +2505,8 @@ def s185(n):
         await expect(page.getByTestId('invoice-panel-status')).toHaveText('{sent:inv1.status}');
         await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('{sent:client1.credit}');
         expect(auditLines().filter((l) => l.startsWith('PAYMENT_RECORDED'))).toEqual([]);
-        // reaching the first milestone (1,000.00) uses the deposit held for the invoice first, then other credit
+        // reaching the first milestone (1,000.00) uses the deposit held for the invoice first, then other
+        // credit, even though that credit (2026-03-01) is older than the deposit (2026-03-02)
         await page.getByTestId('milestone-row-1').getByTestId('milestone-reach').click();
         await expect.poll(() => auditLines().filter((l) => l.startsWith('PAYMENT_RECORDED'))).toEqual([
           'PAYMENT_RECORDED id=1 invoice=1 amount=600.00',
