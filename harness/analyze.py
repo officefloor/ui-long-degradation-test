@@ -246,6 +246,14 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
                 "notes": "",
             }
             row.update(scored_row)
+            # Raw gate counts for the pass/fail figure: every test the gate ran, unscored, so a
+            # failure shows on every checkpoint it persists (regressions count only its onset).
+            # Blank when the gate gave no verdict (invalid gate / broken app), never zero.
+            if not (outcome.gate_invalid or outcome.app_broken):
+                res = outcome.results
+                failing = sorted(t for t, ok in res.items() if not ok)
+                row.update({"tests_passed": len(res) - len(failing),
+                            "tests_failed": len(failing), "failing_tests": ";".join(failing)})
             # Comprehension probe (cold reader), present only at the Act-boundary checkpoints.
             pr = rec.get("probe") or {}
             if pr:
@@ -840,6 +848,97 @@ def plot_chain_strip(groups: dict, fields: list[str], out_path: str) -> None:
     plt.close(fig)
 
 
+_PASS, _FAIL, _SURFACE, _MUTED = "#0ca30c", "#d03b3b", "#fcfcfb", "#6b6b68"
+# Failing specs, most failures first; a fifth and later spec folds into "other" rather than
+# taking a generated colour.
+_FAIL_SHADES = ["#d03b3b", "#e8807a", "#a32a2a", "#f2b3ae"]
+_FAIL_OTHER = "#9b9a93"
+
+
+def plot_tests_pass_fail(groups: dict, out_path: str) -> None:
+    """Tests passing vs failing at each checkpoint, two panels per condition sharing x: the
+    stacked pass/fail total, then the failing count alone split by the spec that fails. The
+    second panel is its own chart, not a second y-scale — a handful of failures among hundreds
+    of tests is a hairline on the stacked total. Values are means over a condition's chains."""
+    if not HAVE_MPL:
+        return
+    conds = [c for c in sorted(groups) if series_by_chain(groups[c], "tests_passed")]
+    if not conds:
+        return
+    fig, axes = plt.subplots(2 * len(conds), 1, figsize=(12, 8 * len(conds)), sharex=True,
+                             squeeze=False, facecolor=_SURFACE,
+                             gridspec_kw={"height_ratios": [3, 2] * len(conds), "hspace": 0.18})
+    axes = axes[:, 0]
+    k_max = 1
+    for i, cond in enumerate(conds):
+        rows = groups[cond]
+        top, bottom = axes[2 * i], axes[2 * i + 1]
+        n_chains = len(series_by_chain(rows, "tests_passed"))
+        acc_p = _bucket_by_checkpoint(series_by_chain(rows, "tests_passed"))
+        acc_f = _bucket_by_checkpoint(series_by_chain(rows, "tests_failed"))
+        ks = sorted(acc_p)
+        k_max = max(k_max, ks[-1])
+        passed = [float(np.mean(acc_p[k])) for k in ks]
+        failed = [float(np.mean(acc_f[k])) for k in ks]
+        # failing tests per spec, summed over chains then divided by the chains graded there
+        per_spec: dict[str, dict[int, float]] = defaultdict(lambda: defaultdict(float))
+        for r in rows:
+            if _f(r.get("tests_failed")) > 0:
+                k = int(r["checkpoint"])
+                for t in (r.get("failing_tests") or "").split(";"):
+                    if t:
+                        per_spec[t.split(".spec")[0].split("::")[0]][k] += 1 / len(acc_p[k])
+        ranked = sorted(per_spec, key=lambda s: (-sum(per_spec[s].values()), s))
+        shown, rest = ranked[:len(_FAIL_SHADES)], ranked[len(_FAIL_SHADES):]
+        layers = [(s, c, [per_spec[s].get(k, 0.0) for k in ks]) for s, c in zip(shown, _FAIL_SHADES)]
+        if rest:
+            layers.append((f"other ({len(rest)} specs)", _FAIL_OTHER,
+                           [sum(per_spec[s].get(k, 0.0) for s in rest) for k in ks]))
+
+        for ax in (top, bottom):
+            ax.set_facecolor(_SURFACE)
+            ax.grid(axis="y", color="#e6e6e3", linewidth=0.8)
+            ax.set_axisbelow(True)
+            for side in ("top", "right"):
+                ax.spines[side].set_visible(False)
+        first_fail = next((k for k, f in zip(ks, failed) if f > 0), None)
+        if first_fail is not None:
+            for ax in (top, bottom):
+                ax.axvline(first_fail, color=_MUTED, linewidth=1, linestyle=(0, (3, 3)))
+            top.text(first_fail - 2, max(passed) * 0.04, f"cp{first_fail}: first failure",
+                     color=_MUTED, fontsize=9, ha="right")
+
+        top.stackplot(ks, passed, failed, colors=[_PASS, _FAIL], alpha=0.85, edgecolor=_SURFACE,
+                      linewidth=0.5, labels=["passing", "failing"])
+        top.set_ylim(0, max(p + f for p, f in zip(passed, failed)) * 1.08)
+        top.set_ylabel("tests (stacked)")
+        top.legend(loc="upper left", frameon=False)
+        top.text(ks[-1], passed[-1] + failed[-1], f" {passed[-1]:.4g} pass\n {failed[-1]:.4g} fail",
+                 va="center", fontsize=9)
+        r0 = rows[0]
+        chains = "" if n_chains == 1 else f" · mean of {n_chains} chains"
+        top.set_title(f"{r0.get('stack', '')} · run {r0.get('run_id', '')} · {cond}{chains} · "
+                      "tests passing vs failing per checkpoint", loc="left", fontsize=12)
+
+        base = [0.0] * len(ks)
+        for label, color, vals in layers:
+            bottom.bar(ks, vals, bottom=base, width=1.0, color=color, edgecolor=_SURFACE,
+                       linewidth=0.3, label=label)
+            base = [b + v for b, v in zip(base, vals)]
+        f_max = max(failed) if failed else 0
+        bottom.set_ylim(0, f_max + 1)
+        if f_max <= 10:
+            bottom.set_yticks(range(0, int(math.ceil(f_max)) + 2))
+        bottom.set_ylabel("failing tests")
+        if layers:
+            bottom.legend(loc="upper left", frameon=False, fontsize=9, title="failing spec",
+                          title_fontsize=9)
+    axes[-1].set_xlabel("checkpoint")
+    axes[-1].set_xlim(1, k_max)
+    fig.savefig(out_path, dpi=130, bbox_inches="tight", facecolor=_SURFACE)
+    plt.close(fig)
+
+
 def write_plots(by_cond: dict, out_dir: str) -> list[str]:
     """Every figure for a run; returns the names of the PNGs actually written."""
     if not HAVE_MPL:
@@ -854,6 +953,7 @@ def write_plots(by_cond: dict, out_dir: str) -> list[str]:
               for layer in ("frontend", "backend")
               for name, fn in (("conservation", plot_conservation), ("lorenz", plot_lorenz))]
     custom.append(("chain_strip", lambda p: plot_chain_strip(by_cond, STRIP_FIELDS, p)))
+    custom.append(("tests_pass_fail", lambda p: plot_tests_pass_fail(by_cond, p)))
     for name, draw in custom:
         try:
             draw(os.path.join(out_dir, f"{name}.png"))
