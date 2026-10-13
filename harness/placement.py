@@ -347,9 +347,13 @@ def ck_metrics(worktree: str, src_dirs: list[str], ck_jar: str,
             target = os.path.join(worktree, d)
             if not os.path.isdir(target):
                 continue
+            # Args: useJars, maxFilesPerPartition, variablesAndFields. The last MUST be true:
+            # CK only records per-method field use with it on, and tcc/lcc are built from that
+            # record, so with it off they read 0.0 for every class. CK counts DIRECT field
+            # access only, not access through a called method as Bieman & Kang define it.
             try:
                 proc = subprocess.run(
-                    [java_bin, "-jar", ck_jar, target, "false", "0", "false", out_dir + os.sep],
+                    [java_bin, "-jar", ck_jar, target, "false", "0", "true", out_dir + os.sep],
                     capture_output=True, text=True, timeout=timeout)
             except (OSError, subprocess.TimeoutExpired):
                 return None
