@@ -3,8 +3,8 @@ import { resetAndSeed } from '../support/seed';
 import { auditLines } from '../support/audit';
 
 // UPDATED for cp172 (mutates: [158]): a payment made with a disputed invoice open is now accepted
-// and resolves the dispute, so the 100.00 is paid on invoice 1 (it was refused); automatic payments
-// reach disputed invoices last. Carries both tests.
+// and resolves the dispute, so a 200.00 payment is paid on invoice 1 (a payment was refused);
+// automatic payments reach disputed invoices last. Carries both tests.
 // A sent invoice with something due can be put in dispute with the Dispute button
 // (invoices[].disputedOn, today), writing INVOICE_DISPUTED id=<id> amount=<amount due>; a draft, or
 // an invoice with nothing due, can't. While in dispute its status is "Disputed", it earns no late
@@ -41,11 +41,11 @@ test.describe('disputes', () => {
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$1,017.82');
     await expect(page.getByTestId('client-row-1').getByTestId('client-overdue')).toHaveText('$0.00');
     // a payment made with it open is accepted and settles the dispute
-    await page.getByTestId('payment-form-amount').fill('100');
+    await page.getByTestId('payment-form-amount').fill('200');
     await page.getByTestId('payment-form-date').fill('2026-04-30');
     await page.getByTestId('payment-form-submit').click();
     await expect.poll(() => auditLines()).toContain('DISPUTE_RESOLVED id=1');
-    await expect(page.getByTestId('invoice-paid')).toHaveText('$100.00');
+    await expect(page.getByTestId('invoice-paid')).toHaveText('$200.00');
     await expect(page.getByTestId('invoice-panel-status')).toHaveText('Overdue');
     // a draft can't be disputed
     await page.getByTestId('invoice-row-2').click();

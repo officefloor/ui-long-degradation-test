@@ -752,8 +752,10 @@ def s158(n):
         I(2, 1, 'DRAFT', '2026-04-01', '2026-05-31', [L(2, 'Design', 1, 100)])])
     dis = plus(fx1, inv=[(1, dict(disputedOn='2026-04-30'))])
     if n >= 172:
-        pd = plus(dis, inv=[(1, dict(disputeResolvedOn='2026-04-30'))], payments=[P(1, 1, 100, '2026-04-30', [(1, 100)])])
-        payblock = ("        // a payment made with it open is accepted and settles the dispute\n" + pay('100', '2026-04-30') +
+        # 200.00, not the 100.00 the refusal used: from cp136 a part payment must reach a tenth of the
+        # 1,017.82 due, and 100.00 is refused for that whatever the dispute rules say
+        pd = plus(dis, inv=[(1, dict(disputeResolvedOn='2026-04-30'))], payments=[P(1, 1, 200, '2026-04-30', [(1, 200)])])
+        payblock = ("        // a payment made with it open is accepted and settles the dispute\n" + pay('200', '2026-04-30') +
                     "        await expect.poll(() => auditLines()).toContain('DISPUTE_RESOLVED id=1');\n"
                     "        await expect(page.getByTestId('invoice-paid')).toHaveText('{pd:inv1.paid}');\n"
                     "        await expect(page.getByTestId('invoice-panel-status')).toHaveText('{pd:inv1.status}');\n")
@@ -810,7 +812,7 @@ PAYBLOCK        // a draft can't be disputed
     note = None
     if n >= 172:
         note = ("UPDATED for cp172 (mutates: [158]): a payment made with a disputed invoice open is now accepted and "
-                "resolves the dispute, so the 100.00 is paid on invoice 1 (it was refused); automatic payments reach "
+                "resolves the dispute, so a 200.00 payment is paid on invoice 1 (a payment was refused); automatic payments reach "
                 "disputed invoices last. Carries both tests.")
     elif n >= 164:
         note = ("UPDATED for cp164 (mutates: [158, 163]): resolving a dispute now charges the interest it held back, "

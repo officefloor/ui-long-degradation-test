@@ -16,6 +16,16 @@ gets the next id after the highest one seeded (AGENTS.md: new records carry on n
 recorded two payments in one order and read their rows in the other. An id named in an audit line
 the test already expects (CREDIT_HELD payment=2) counts as created. Invoices and lines are not
 checked: generating, rebilling and credit notes create them in ways no form count can follow.
+
+And it checks the part payments a test makes. From cp43 a payment that does not settle its invoice
+must reach at least a tenth of the invoice's grand total, and from cp136 a tenth of what it still
+owes. The model takes payments as given, so a registry fixture can carry a payment the app must
+refuse: cp172's copy of cp158 paid 100.00 on 1,017.82 due. A payment counts when the test made it
+(its id is above every payment the spec seeds) and it went to ONE invoice. Spreads, credit applied
+later and payments held as credit are left out, because the minimum does not govern them. Nor does
+it govern an invoice on an instalment plan from cp58 until cp212 ends plans: there the earliest
+unpaid instalment is the minimum. It is checked at each checkpoint where that spec version is in
+force.
 """
 import copy
 import glob
@@ -30,7 +40,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, ROOT)
 from harness import fixtures as F                       # noqa: E402
 from acceptance.reference.scenarios import SC          # noqa: E402
-from acceptance.reference.model import send_refusal    # noqa: E402
+from acceptance.reference.model import Ctx, ctx_dec, figures, find_inv, send_refusal  # noqa: E402
 
 SPECS = os.path.join(ROOT, 'acceptance', 'specs')
 TEST = re.compile(r"\n\s*test\(\s*(['\"`])(.*?)(?<!\\)\1", re.S)
@@ -99,6 +109,49 @@ def verdict(fx, iid, n):
         return 'n/a'
 
 
+MIN_PART_FROM, MIN_OF_DUE_FROM = 43, 136
+PLAN_MIN_FROM, PLANS_END = 58, 212     # an instalment, not a tenth, is a planned invoice's minimum
+
+
+def _owed(fx, iid, k):
+    ctx = Ctx(copy.deepcopy(fx), k)
+    inv = find_inv(ctx, iid)
+    return figures(inv, k, ctx), ctx_dec(ctx, inv)
+
+
+def short_payments(seed, fx, n, end, own, mut):
+    """[message] for each payment the test makes that is under the minimum part payment at some
+    checkpoint in n..end that does not declare the spec in `mutates:`."""
+    seeded = max([q.get('id', 0) for q in seed.get('payments', []) if isinstance(q, dict)] + [0])
+    out = []
+    for pay in fx.get('payments', []):
+        allocs = pay.get('allocations') or []
+        if pay['id'] <= seeded or len(allocs) != 1:
+            continue
+        iid, amt = allocs[0]['invoiceId'], allocs[0]['amount']
+        planned = any(i['id'] == iid and i.get('instalments') for i in fx.get('invoices', []))
+        before = dict(fx, payments=[q for q in fx['payments'] if q['id'] < pay['id']])
+        for k in range(max(n, MIN_PART_FROM), end + 1):
+            if k != n and own in mut.get(k, ()):
+                break
+            if planned and PLAN_MIN_FROM <= k < PLANS_END:
+                continue
+            try:
+                after, dec = _owed(fx, iid, k)
+                if after['due'] <= 0:                 # it settles the invoice (or leaves a write-off)
+                    continue
+                prior, _ = _owed(before, iid, k)
+            except (StopIteration, KeyError, AttributeError):
+                break
+            base = prior['due'] if k >= MIN_OF_DUE_FROM else prior['grand']
+            if amt * 10 ** dec * 10 < base:
+                what = 'due' if k >= MIN_OF_DUE_FROM else 'grand total'
+                out.append(f"payment {pay['id']} of {amt} to invoice {iid} is under a tenth of its "
+                           f"{what} {base / 10 ** dec:.{dec}f} from cp{k}")
+                break
+    return out
+
+
 def main():
     cps = yaml.safe_load(open(os.path.join(ROOT, 'checkpoints.yaml')))['checkpoints']
     last = len(cps)
@@ -142,6 +195,18 @@ def main():
                                                 f"{base_v or 'allowed'} at cp{n} but {v or 'allowed'} "
                                                 f"from cp{k} (cp{k} does not mutate cp{own})")
                                 break
+    n_pay = 0
+    for base, vs in sorted(versions.items()):
+        vs.sort()
+        own = int(re.match(r'cp(\d+)', base).group(1))
+        for j, (n, path) in enumerate(vs):
+            end = vs[j + 1][0] - 1 if j + 1 < len(vs) else last
+            seeds = dict(F.spec_fixtures(path))
+            for title in seeds:
+                for fx in registry.get((base, n, title), []):
+                    n_pay += 1
+                    for msg in short_payments(seeds[title], fx, n, end, own, mut):
+                        problems.append(f"{os.path.relpath(path, ROOT)} '{title}': {msg}")
     for base, vs in sorted(versions.items()):
         for _, path in vs:
             for line, msg in unborn_rows(path):
@@ -151,6 +216,7 @@ def main():
     for p in dict.fromkeys(problems):
         print(p)
     print(f"checked {checked} sends across every checkpoint each spec version is in force")
+    print(f"checked the part payments in {n_pay} fixtures against the minimum part payment")
     return 1 if problems else 0
 
 
