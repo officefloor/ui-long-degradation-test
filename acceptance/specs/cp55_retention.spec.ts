@@ -31,6 +31,7 @@ test.describe('retention', () => {
     // 333.33 + 33.33 tax = 366.66; 2.5% = 9.1665, rounded down
     await expect(page.getByTestId('invoice-retention')).toHaveText('$9.16');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // 366.66 less the $9.16 held back
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$357.50');
     await page.getByTestId('payment-form-amount').fill('357.50');

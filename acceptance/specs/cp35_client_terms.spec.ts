@@ -41,6 +41,7 @@ test.describe('client payment terms', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-5').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-5').getByTestId('invoice-issue')).toHaveText('2026-03-10');
     await expect(page.getByTestId('invoice-row-5').getByTestId('invoice-due')).toHaveText('2026-03-24'); // + 14 days
   });

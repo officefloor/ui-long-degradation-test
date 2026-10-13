@@ -81,6 +81,7 @@ test.describe('instalment plans', () => {
     await expect(page.getByTestId('instalment-row-1').getByTestId('instalment-due')).toHaveText('2026-03-15');
     await expect(page.getByTestId('instalment-row-3').getByTestId('instalment-payment')).toHaveText('$32.00');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // issued 2026-03-31: due 04-30, 05-31, 06-30
     await expect(page.getByTestId('instalment-row-1').getByTestId('instalment-due')).toHaveText('2026-04-30');
     await expect(page.getByTestId('instalment-row-2').getByTestId('instalment-due')).toHaveText('2026-05-31');

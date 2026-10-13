@@ -32,6 +32,7 @@ test.describe('tax exemption expiry', () => {
     // issued 2026-03-20, inside the exemption: only the wine's own 12.5% (5.00)
     await expect(page.getByTestId('invoice-tax')).toHaveText('$5.00');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // issued today, after the exemption ended on 2026-03-31: 10% on the catering, 12.5% on the wine
     await expect(page.getByTestId('invoice-tax')).toHaveText('$45.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$485.00');

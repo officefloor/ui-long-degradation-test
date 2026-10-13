@@ -37,6 +37,7 @@ test.describe('a rebill carries late interest', () => {
     await expect(page.getByTestId('invoice-tax')).toHaveText('$100.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,112.54');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,112.54');
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$1,112.54');
   });

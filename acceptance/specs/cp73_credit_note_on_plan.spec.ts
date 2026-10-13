@@ -29,6 +29,7 @@ test.describe('credit notes on a plan', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-2').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('CREDIT_NOTE_ISSUED id=2 number=CN-0000026 invoice=1 total=100.00');
     await page.getByTestId('invoice-row-1').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());

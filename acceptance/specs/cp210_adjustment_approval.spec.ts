@@ -39,6 +39,7 @@ test.describe('adjustment notes that need approval', () => {
     await page.getByTestId('invoice-approve').click();
     await expect.poll(() => auditLines()).toContain('INVOICE_APPROVED id=2 total=660.00');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=2 number=ADJ-0000026 invoice=1 total=660.00');
     expect(auditLines().filter((l) => l.startsWith('INVOICE_SENT'))).toEqual([]);
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$1,870.00'); // 1,210.00 + 660.00
@@ -64,6 +65,7 @@ test.describe('adjustment notes that need approval', () => {
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=3 number=ADJ-0000034 invoice=1 total=330.00');
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$1,100.00');
   });

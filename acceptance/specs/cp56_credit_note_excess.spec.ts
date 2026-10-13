@@ -75,6 +75,7 @@ test.describe('credit notes beyond what is owed', () => {
     await expect(page.getByTestId('invoice-row-10').getByTestId('invoice-status')).toHaveText('Retention held');
     await page.getByTestId('invoice-row-11').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // the 30.00 credit note clears the 10.00 retention; 20.00 is held as credit
     await expect.poll(() => auditLines()).toContain('CREDIT_HELD payment=2 amount=20.00');
     await expect(page.getByTestId('invoice-row-10').getByTestId('invoice-status')).toHaveText('Paid');

@@ -34,6 +34,7 @@ test.describe('no instalment plans', () => {
     await page.getByTestId('invoice-approve').click();
     await expect.poll(() => auditLines()).toContain('INVOICE_APPROVED id=1 total=1100.00');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // the 300.00 deposit is used on it, and the rest is due in full at the end of next month
     await expect.poll(() => auditLines()).toContain('PAYMENT_RECORDED id=1 invoice=1 amount=300.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$800.00');

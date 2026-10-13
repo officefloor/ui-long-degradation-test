@@ -44,6 +44,7 @@ test.describe('notes wait while on hold', () => {
     await page.getByTestId('invoice-row-2').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('ADJUSTMENT_ISSUED id=2 number=ADJ-0000026 invoice=1 total=88.00');
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$638.00');
   });

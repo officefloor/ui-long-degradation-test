@@ -47,6 +47,7 @@ test.describe('shorter terms for risky clients', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-3').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-3').getByTestId('invoice-due')).toHaveText('2026-03-31');
     // Globex has one paid 35 days late (35.0, HIGH): at most 7 days, not its 30-day terms
     // (the draft is approved and its 30% deposit is held)
@@ -55,6 +56,7 @@ test.describe('shorter terms for risky clients', () => {
     await page.getByTestId('invoice-row-4').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-4').getByTestId('invoice-due')).toHaveText('2026-03-17');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$280.00'); // 400.00 less the 120.00 deposit
     // a LOW client keeps the usual terms
@@ -62,12 +64,14 @@ test.describe('shorter terms for risky clients', () => {
     await page.getByTestId('invoice-row-5').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-5').getByTestId('invoice-due')).toHaveText('2026-04-30');
     // terms shorter than the cap are kept: Hooli is MEDIUM with 10-day terms
     await page.getByTestId('client-row-4').click();
     await page.getByTestId('invoice-row-7').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-7').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-7').getByTestId('invoice-due')).toHaveText('2026-03-20');
   });
 });

@@ -69,6 +69,7 @@ test.describe("a rebill doesn't reset the chasing", () => {
     await page.getByTestId('invoice-row-7').click();
     await expect(page.getByTestId('invoice-replaces')).toHaveText('INV-0000059');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // due 2026-04-30, 41 days ago, first reminder at 10 days, 31 days ago: the second is due
     await expect(page.getByTestId('invoice-row-7').getByTestId('invoice-due')).toHaveText('2026-04-30');
     await expect(page.getByTestId('invoice-dunning')).toHaveText('REMINDER_2');

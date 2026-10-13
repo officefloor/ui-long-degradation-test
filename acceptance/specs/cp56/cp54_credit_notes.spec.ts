@@ -115,6 +115,7 @@ test.describe('credit notes', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-12').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-5').getByTestId('invoice-status')).toHaveText('Credited');
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$0.00');
     await page.getByTestId('invoice-row-5').click();

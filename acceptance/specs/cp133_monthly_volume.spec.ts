@@ -42,6 +42,7 @@ test.describe('volume across the month', () => {
     await expect(page.getByTestId('line-row-2').getByTestId('line-amount')).toHaveText('$360.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$396.00');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // sent today, still in March and after invoice 1
     await expect(page.getByTestId('line-row-2').getByTestId('line-amount')).toHaveText('$360.00');
     await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=2 number=INV-0000026 total=396.00');

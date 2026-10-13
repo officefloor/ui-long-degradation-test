@@ -38,6 +38,7 @@ test.describe('a business-day calendar', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-1').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // 10 business days after Wednesday 2026-06-10, skipping two weekends and the 2026-06-19 holiday
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due')).toHaveText('2026-06-25');
     // due Wednesday 2026-06-03: 3 business days of grace end Monday 2026-06-08, so it is overdue and
@@ -56,6 +57,7 @@ test.describe('a business-day calendar', () => {
     await page.getByTestId('invoice-row-4').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-4').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // 20 business days: the Saturday holiday, 2026-07-04, is observed on Friday 2026-07-03
     await expect(page.getByTestId('invoice-row-4').getByTestId('invoice-due')).toHaveText('2026-07-10');
   });

@@ -66,6 +66,7 @@ test.describe('a MOD 11-2 check character', () => {
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-5').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-panel-number')).toHaveText('INV-0000052');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=5 number=INV-0000052 total=66.00');
   });
 });

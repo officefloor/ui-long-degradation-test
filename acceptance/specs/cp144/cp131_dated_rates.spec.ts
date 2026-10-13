@@ -41,6 +41,7 @@ test.describe('dated rates', () => {
     await expect(page.getByTestId('line-row-1').getByTestId('line-amount')).toHaveText('$210.00');
     await expect(page.getByTestId('line-row-2').getByTestId('line-amount')).toHaveText('$252.00');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // sent today, 2026-04-10: the same rates, now kept
     await expect(page.getByTestId('line-row-1').getByTestId('line-unit-price')).toHaveText('$105.00');
     await expect(page.getByTestId('line-row-1').getByTestId('line-amount')).toHaveText('$210.00');

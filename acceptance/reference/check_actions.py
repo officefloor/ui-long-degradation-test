@@ -10,6 +10,10 @@ fixture of that test (which add what the test's own actions did, such as a payme
 version's checkpoint and then at each later one until the spec is replaced. A change in the verdict
 at a checkpoint that does not declare the spec in `mutates:` is reported.
 
+A test must also learn that each send finished before it goes on (panel_waits adds the wait). A
+send with no check of its answer is reported, and so is a send that waits for the invoice to leave
+Draft while the model refuses it, since that wait can never pass.
+
 It also checks the ids a test reads back. A payment or client the test creates through its form
 gets the next id after the highest one seeded (AGENTS.md: new records carry on numbering), so a
 `payment-row-<id>` the test reads before that many payments exist can never be found: cp147 once
@@ -40,6 +44,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, ROOT)
 from harness import fixtures as F                       # noqa: E402
 from acceptance.reference.scenarios import SC          # noqa: E402
+from acceptance.reference.panel_waits import SEND_CLICK, SEND_WAIT_LINE, send_answer   # noqa: E402
 from acceptance.reference.model import Ctx, ctx_dec, figures, find_inv, send_refusal  # noqa: E402
 
 SPECS = os.path.join(ROOT, 'acceptance', 'specs')
@@ -64,6 +69,29 @@ def sends(src):
                 sent.append(cur)
         if sent:
             out[title] = sent
+    return out
+
+
+def send_answers(src):
+    """{test title: {invoice id: 'waited' if a send of it relies on panel_waits' wait, else what the
+    test checks after sending it}, None: [(line, answer) for every send]}, from send_answer."""
+    lines = src.split('\n')
+    out, title, cur = {}, None, None
+    for i, line in enumerate(lines):
+        t = TEST.match('\n' + line)
+        if t:
+            title, cur = t.group(2).replace("\\'", "'"), None
+            continue
+        m = ROW.search(line)
+        if m:
+            cur = int(m.group(1))
+        if SEND_CLICK.match(line) and title is not None:
+            out.setdefault(title, {})
+            generated = i + 1 < len(lines) and SEND_WAIT_LINE.match(lines[i + 1])
+            if cur is not None and out[title].get(cur) != 'waited':
+                out[title][cur] = 'waited' if generated else send_answer(lines, i)
+            out[title].setdefault(None, [])
+            out[title][None].append((i + 1, send_answer(lines, i)))
     return out
 
 
@@ -174,11 +202,25 @@ def main():
         for j, (n, path) in enumerate(vs):
             end = vs[j + 1][0] - 1 if j + 1 < len(vs) else last
             seeds = dict(F.spec_fixtures(path))
+            answers = send_answers(open(path).read())
+            for title, sites in answers.items():
+                for line, ans in sites[None]:
+                    if ans is None:
+                        problems.append(f"{os.path.relpath(path, ROOT)}:{line} '{title}': nothing "
+                                        "after this send waits for it to finish (run panel_waits)")
             for title, ids in sends(open(path).read()).items():
                 # the registry's fixtures include what the test did before it sends (a payment);
                 # the bare seed stands in only for a test the registry has no figures for
                 fxs = registry.get((base, n, title)) or ([seeds[title]] if title in seeds else [])
                 for iid in dict.fromkeys(ids):
+                    # a send left to panel_waits' wait must go through in some state the test
+                    # reaches (a test may send an invoice refused first and again once approved);
+                    # a send whose answer the spec checks itself is held to its figures instead
+                    if (answers.get(title) or {}).get(iid) == 'waited':
+                        verdicts = [verdict(fx, iid, n) for fx in fxs]
+                        if verdicts and 'n/a' not in verdicts and all(verdicts):
+                            problems.append(f"{os.path.relpath(path, ROOT)} '{title}': waits for invoice "
+                                            f"{iid} to be sent, but the model refuses it ({verdicts[-1]}) at cp{n}")
                     for fx in fxs:
                         base_v = verdict(fx, iid, n)
                         if base_v == 'n/a':

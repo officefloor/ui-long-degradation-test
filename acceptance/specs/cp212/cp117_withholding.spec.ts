@@ -33,6 +33,7 @@ test.describe('withholding tax', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,115.00'); // 1,025.00 + 88.75 + 1.25
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,012.50'); // 1,115.00 - 102.50
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('WITHHOLDING id=1 amount=102.50');
     await expect(page.getByTestId('client-row-1').getByTestId('client-balance')).toHaveText('$1,012.50');
     await page.getByTestId('payment-form-amount').fill('1012.50');
@@ -107,6 +108,7 @@ test.describe('withholding tax', () => {
     await expect(page.getByTestId('invoice-plan-total')).toHaveCount(0);
     await expect(page.getByTestId(/^instalment-row-\d+$/)).toHaveCount(0);
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,000.00');
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due')).toHaveText('2026-04-30');
   });

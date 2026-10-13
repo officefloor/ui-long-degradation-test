@@ -76,6 +76,7 @@ test.describe('reverse charge for registered clients', () => {
     await expect(page.getByTestId('invoice-tax')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$112.55'); // 125.05 - 12.50, no tax
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=2 number=INV-0000026 total=112.55');
     await expect.poll(() => auditLines()).toContain('REVERSE_CHARGE id=2 number=INV-0000026 total=112.55');
     await expect(page.getByTestId('invoice-reverse-charge')).toHaveText('Reverse charge');

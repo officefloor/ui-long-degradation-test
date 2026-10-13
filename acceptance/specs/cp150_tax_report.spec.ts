@@ -40,6 +40,7 @@ test.describe('tax report on sending', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-1').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // per rate, after the 5% discount: postage 0%; the handbook 5%; the design and the 10%
     // surcharge at New York's 8.875%
     await expect.poll(() => auditLines().filter((l) => l.startsWith('TAX_CHARGED'))).toEqual([
@@ -53,12 +54,14 @@ test.describe('tax report on sending', () => {
     await page.getByTestId('invoice-row-2').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('TAX_CHARGED id=2 rate=0 net=240.00 tax=0.00');
     // prices including tax: the net and the tax taken out at each rate
     await page.getByTestId('client-row-3').click();
     await page.getByTestId('invoice-row-3').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('TAX_CHARGED id=3 rate=5 net=10.00 tax=0.50');
     await expect.poll(() => auditLines()).toContain('TAX_CHARGED id=3 rate=8.875 net=100.00 tax=8.88');
   });

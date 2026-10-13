@@ -39,6 +39,7 @@ test.describe('dated tax rates', () => {
     // issued in March, before New York's rate went up to 9.25% on 2026-04-01: 8.875%
     await expect(page.getByTestId('invoice-tax')).toHaveText('$88.75');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // sending makes it issued today, so the new rate applies: 9.25% of 1,000.00
     await expect(page.getByTestId('invoice-tax')).toHaveText('$92.50');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,092.50');

@@ -35,6 +35,7 @@ test.describe('no more retention', () => {
     await expect(page.getByTestId('retention-form-pct')).toHaveCount(0);
     await expect(page.getByTestId('invoice-retention')).toHaveCount(0);
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // the whole 1,100.00 is due
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$1,100.00');
     await expect(page.getByTestId('invoice-release-retention')).toHaveCount(0);
@@ -43,6 +44,7 @@ test.describe('no more retention', () => {
     await page.getByTestId('invoice-row-3').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-3').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('CREDIT_HELD payment=2 amount=120.00');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-status')).toHaveText('Paid');
     await expect(page.getByTestId('client-row-1').getByTestId('client-credit')).toHaveText('$120.00');

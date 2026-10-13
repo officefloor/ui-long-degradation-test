@@ -26,6 +26,7 @@ test.describe('retention before tax', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$990.00');
     await expect(page.getByTestId('invoice-retention')).toHaveText('$45.00');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$945.00'); // 990.00 - 45.00
     await page.getByTestId('payment-form-amount').fill('945.00');
     await page.getByTestId('payment-form-date').fill('2026-03-10');

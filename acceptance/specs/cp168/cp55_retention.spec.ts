@@ -31,6 +31,7 @@ test.describe('retention', () => {
     await expect(page.getByTestId('retention-form-submit')).toHaveCount(0);
     await expect(page.getByTestId('invoice-retention')).toHaveCount(0);
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // 333.33 + 33.33 tax: all of it is due
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$366.66');
     await expect(page.getByTestId('invoice-release-retention')).toHaveCount(0);

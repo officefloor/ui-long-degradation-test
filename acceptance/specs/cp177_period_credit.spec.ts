@@ -44,6 +44,7 @@ test.describe('crediting part of a period', () => {
     await expect(page.getByTestId('line-row-3').getByTestId('line-amount')).toHaveText('$147.95');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$162.75');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('CREDIT_NOTE_ISSUED id=2 number=CN-0000026 invoice=1 total=162.75');
     await page.getByTestId('invoice-row-1').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());

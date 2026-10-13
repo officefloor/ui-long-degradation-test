@@ -42,6 +42,7 @@ test.describe('dated tax rates', () => {
     // dated in March, but a draft is taxed at today's rate: New York's 9.25% since 2026-04-01
     await expect(page.getByTestId('invoice-tax')).toHaveText('$92.50');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // sending makes it issued today: still 9.25% of 1,000.00
     await expect(page.getByTestId('invoice-tax')).toHaveText('$92.50');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$1,092.50');

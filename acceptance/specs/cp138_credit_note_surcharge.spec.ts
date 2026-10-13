@@ -31,6 +31,7 @@ test.describe('credit notes and surcharges', () => {
     await expect(page.getByTestId('invoice-minimum-charge')).toHaveText('$0.00');
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$59.88');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('CREDIT_NOTE_ISSUED id=2 number=CN-0000026 invoice=1 total=59.88');
     await page.getByTestId('invoice-row-1').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-1').getByTestId('invoice-number').innerText());

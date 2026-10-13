@@ -58,6 +58,7 @@ test.describe('credit and rebill', () => {
     await expect(page.getByTestId('invoice-duplicate-of')).toHaveCount(0);
     await expect(page.getByTestId('invoice-approval')).toHaveText('Not needed');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // sending it uses the 500.00 held for it first
     await expect.poll(() => auditLines()).toContain('PAYMENT_RECORDED id=1 invoice=4 amount=500.00');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$675.85');

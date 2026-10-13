@@ -28,6 +28,7 @@ test.describe('due dates on business days', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-1').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=1 number=INV-000001X total=550.00');
     // the end of next month, Saturday 2026-10-31, moves to Monday 2026-11-02
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due')).toHaveText('2026-11-02');
@@ -37,6 +38,7 @@ test.describe('due dates on business days', () => {
     await page.getByTestId('invoice-row-2').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due')).toHaveText('2026-09-29');
   });
 
@@ -55,6 +57,7 @@ test.describe('due dates on business days', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-3').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // the end of next month, Monday 2026-11-30, is a holiday: due Tuesday 2026-12-01
     await expect(page.getByTestId('invoice-row-3').getByTestId('invoice-due')).toHaveText('2026-12-01');
     await expect(page.getByTestId('invoice-panel-number')).toHaveText('INV-0000036');

@@ -19,6 +19,7 @@ test.describe('send sets the dates', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-3').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     const row = page.getByTestId('invoice-row-3');
     await expect(row.getByTestId('invoice-status')).toHaveText('Sent');
     await expect(row.getByTestId('invoice-issue')).toHaveText('2026-03-05');
@@ -40,6 +41,7 @@ test.describe('send sets the dates', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-4').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-4').getByTestId('invoice-issue')).toHaveText('2026-12-03');
     await expect(page.getByTestId('invoice-row-4').getByTestId('invoice-due')).toHaveText('2027-01-31');
   });

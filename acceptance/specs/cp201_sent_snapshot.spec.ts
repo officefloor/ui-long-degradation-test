@@ -46,6 +46,7 @@ test.describe('a sent invoice keeps what it was sent with', () => {
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$544.38');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-sent-total')).toHaveText('$544.38');
     await expect(page.getByTestId('invoice-current-total')).toHaveCount(0);
     await expect.poll(() => auditLines()).toContain('INVOICE_SENT id=2 number=INV-0000026 total=544.38');
@@ -77,6 +78,7 @@ test.describe('a sent invoice keeps what it was sent with', () => {
     await expect(page.getByTestId('invoice-grand-total')).toHaveText('$653.25');
     await expect(page.getByTestId('invoice-sent-total')).toHaveCount(0);
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-sent-total')).toHaveText('$653.25');
     await expect(page.getByTestId('invoice-current-total')).toHaveCount(0);
   });

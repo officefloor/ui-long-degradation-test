@@ -103,6 +103,7 @@ test.describe('early-payment discount', () => {
     await page.getByTestId('line-form-unit-price').fill('100');
     await page.getByTestId('line-form-submit').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-settle-amount')).toHaveText('$98.00'); // 100.00 - 2%
   });
 });

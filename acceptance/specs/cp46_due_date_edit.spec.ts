@@ -23,6 +23,7 @@ test.describe('set the due date by hand', () => {
     await page.getByTestId('invoice-due-submit').click();
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due')).toHaveText('2026-06-29');
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-status')).toHaveText('Sent');
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-issue')).toHaveText('2026-03-10');
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due')).toHaveText('2026-06-29');
@@ -65,6 +66,7 @@ test.describe('set the due date by hand', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-2').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-issue')).toHaveText('2026-03-10');
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due')).toHaveText('2026-04-20'); // kept
 

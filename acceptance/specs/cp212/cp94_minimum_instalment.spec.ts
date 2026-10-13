@@ -26,6 +26,7 @@ test.describe('minimum instalment', () => {
     await expect(page.getByTestId('invoice-plan-total')).toHaveCount(0);
     await expect(page.getByTestId(/^instalment-row-\d+$/)).toHaveCount(0);
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     await expect(page.getByTestId('invoice-amount-due')).toHaveText('$66.00');
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due')).toHaveText('2026-04-30');
   });

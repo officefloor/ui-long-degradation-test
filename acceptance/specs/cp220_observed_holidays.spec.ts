@@ -25,6 +25,7 @@ test.describe('holidays on weekends', () => {
     await page.getByTestId('client-row-1').click();
     await page.getByTestId('invoice-row-1').click();
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // Saturday 2026-07-04 is observed on Friday 2026-07-03: 5 business days from Tuesday 2026-06-30 run
     // Wednesday, Thursday, then Monday to Wednesday 2026-07-08
     await expect(page.getByTestId('invoice-row-1').getByTestId('invoice-due')).toHaveText('2026-07-08');
@@ -32,6 +33,7 @@ test.describe('holidays on weekends', () => {
     await page.getByTestId('invoice-row-2').click();
     await expect(page.getByTestId('invoice-panel-number')).toHaveText(await page.getByTestId('invoice-row-2').getByTestId('invoice-number').innerText());
     await page.getByTestId('invoice-send').click();
+    await expect(page.getByTestId('invoice-panel-status')).not.toHaveText('Draft');
     // and Sunday 2026-07-12 on Monday 2026-07-13: 10 business days end on Thursday 2026-07-16
     await expect(page.getByTestId('invoice-row-2').getByTestId('invoice-due')).toHaveText('2026-07-16');
   });
