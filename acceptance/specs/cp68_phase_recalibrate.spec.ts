@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (mutates cp65): phase thresholds widen: <0 EBB, 0..199 RUN, >=200 PEAK.
-// The torque-100 person is now RUN. Updated cp65 ships under acceptance/specs/cp68/.
 test.describe('phase recalibrated', () => {
   test('phase uses the wider RUN band', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -14,7 +12,6 @@ test.describe('phase recalibrated', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-phase')).toHaveText('RUN');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-phase')).toHaveText('EBB');

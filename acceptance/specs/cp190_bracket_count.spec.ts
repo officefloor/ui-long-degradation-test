@@ -15,7 +15,6 @@ test.describe('bracket counts', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('bracket-count-Q4')).toHaveText('1');
     await expect(page.getByTestId('bracket-count-Q3')).toHaveText('2');
     await expect(page.getByTestId('bracket-count-Q2')).toHaveText('1');

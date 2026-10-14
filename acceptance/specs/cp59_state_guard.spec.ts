@@ -12,7 +12,6 @@ test.describe('state guard', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     // FINAL is blocked
     await page.getByTestId('person-demote-1').click();

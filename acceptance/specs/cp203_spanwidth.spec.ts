@@ -15,7 +15,6 @@ test.describe('span width', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-spanwidth')).toHaveText('5');
   });
 });

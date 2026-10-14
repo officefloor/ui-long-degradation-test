@@ -15,7 +15,6 @@ test.describe('apex by tier', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('apexname-tier-SURGE')).toHaveText('Ada');
     await expect(page.getByTestId('apexname-tier-STEADY')).toHaveText('Dot');
     await expect(page.getByTestId('apexname-tier-SINK')).toHaveText('Gwe');

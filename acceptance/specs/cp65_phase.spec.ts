@@ -12,7 +12,6 @@ test.describe('phase', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-phase')).toHaveText('RUN');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-phase')).toHaveText('EBB');

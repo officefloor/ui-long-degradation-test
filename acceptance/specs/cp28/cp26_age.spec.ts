@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp28 (mutates cp26). age is now complete seven-day weeks (leftover days
 // dropped, truncated toward zero).
 test.describe('age in days', () => {
   test('age is complete weeks from onset to anchor', { tag: '@functionality' }, async ({ page }) => {
@@ -15,7 +14,6 @@ test.describe('age in days', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-age')).toHaveText('4');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-age')).toHaveText('1');

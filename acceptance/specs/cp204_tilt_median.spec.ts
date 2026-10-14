@@ -15,7 +15,6 @@ test.describe('tilt by median', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-tilt')).toHaveText('0');
   });
 });

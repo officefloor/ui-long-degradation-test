@@ -14,7 +14,6 @@ test.describe('concept nullability', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     // the complete person computes
     await expect(page.getByTestId('person-row-1').getByTestId('concept-thrust')).toHaveText('12');

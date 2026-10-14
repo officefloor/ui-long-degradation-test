@@ -14,7 +14,6 @@ test.describe('drift and momentum', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-drift')).toHaveText('7');
     await expect(page.getByTestId('person-row-1').getByTestId('concept-momentum')).toHaveText('26');

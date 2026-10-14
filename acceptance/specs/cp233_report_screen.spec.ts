@@ -15,7 +15,6 @@ test.describe('report screen', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('report-ledger')).toHaveText('3680');
     await expect(page.getByTestId('report-headcount')).toHaveText('7');
   });

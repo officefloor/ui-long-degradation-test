@@ -15,7 +15,6 @@ test.describe('state tally', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('state-tally-FINAL')).toHaveText('2');
     await expect(page.getByTestId('state-tally-REVIEW')).toHaveText('2');
     await expect(page.getByTestId('state-tally-DRAFT')).toHaveText('3');

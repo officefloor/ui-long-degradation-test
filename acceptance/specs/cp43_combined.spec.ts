@@ -6,7 +6,10 @@ import { resetAndSeed } from '../support/seed';
 //   influence(=momentum): Dana 33, Ravi 8, Uma 100
 //   synergy: Dana 114, Ravi 12, Uma 12
 //   combined: Dana 147, Ravi 20, Uma 112
-const SEED = {
+
+test.describe('combined', () => {
+  test('combined is influence plus synergy', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Dana', alpha: 3, beta: 4,  gamma: 10, active: true },
     { id: 2, name: 'Ravi', alpha: 7, beta: 2,  gamma: 5,  active: true },
@@ -16,13 +19,8 @@ const SEED = {
     { a: 1, b: 2 },
     { a: 1, b: 3 },
   ],
-};
-
-test.describe('combined', () => {
-  test('combined is influence plus synergy', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-combined')).toHaveText('147');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-combined')).toHaveText('20');

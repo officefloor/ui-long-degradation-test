@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// Persistence by worksheet id. From here the seed may name sheets: resetAndSeed({ sheets: [{ id,
-// people, patrons? }] }). The worksheet is opened by typing its id and loading it; the open id is
-// shown at `sheet-current-id`; people added belong to the open sheet.
+// Persistence by worksheet id. From here the seed may group people under named sheets via a
+// top-level sheets key, each sheet carrying its own people and relationships. The worksheet is
+// opened by typing its id and loading it. The open id is shown at sheet-current-id, and people
+// added belong to the open sheet.
 test.describe('worksheet id', () => {
   test('opening a sheet shows its id and its people, and adds belong to it', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({
@@ -12,7 +13,6 @@ test.describe('worksheet id', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await page.getByTestId('sheet-id-input').fill('S1');
     await page.getByTestId('sheet-load').click();
 

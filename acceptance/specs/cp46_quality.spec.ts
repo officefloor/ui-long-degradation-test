@@ -3,7 +3,10 @@ import { resetAndSeed } from '../support/seed';
 
 // quality = average of note scores rounded down. No notes -> 'n/a'.
 //   Dana 60/3=20, Ravi 5/1=5, Uma none -> n/a
-const SEED = {
+
+test.describe('quality', () => {
+  test('quality averages notes and is n/a without notes', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Dana', alpha: 3, beta: 4,  gamma: 10 },
     { id: 2, name: 'Ravi', alpha: 7, beta: 2,  gamma: 5 },
@@ -13,13 +16,8 @@ const SEED = {
     { personId: 1, score: 10 }, { personId: 1, score: 20 }, { personId: 1, score: 30 },
     { personId: 2, score: 5 },
   ],
-};
-
-test.describe('quality', () => {
-  test('quality averages notes and is n/a without notes', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-quality')).toHaveText('20');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-quality')).toHaveText('5');

@@ -13,7 +13,6 @@ test.describe('total load', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-4').getByTestId('concept-load')).toHaveText('n/a');
     await expect(page.getByTestId('rollup-total-load')).toHaveText('215'); // 99 + 16 + 100

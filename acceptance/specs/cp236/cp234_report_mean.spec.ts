@@ -15,7 +15,6 @@ test.describe('report mean', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('report-mean')).toHaveText('240');
   });
 });

@@ -17,7 +17,6 @@ test.describe('depth', () => {
       memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 2 }, { personId: 4, groupId: 2 }, { personId: 5, groupId: 3 }, { personId: 6, groupId: 3 }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-depth')).toHaveText('0');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-depth')).toHaveText('1');

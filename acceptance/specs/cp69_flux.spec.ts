@@ -5,7 +5,10 @@ import { resetAndSeed } from '../support/seed';
 //   force: Ada 12, Ben 10, Dot 100
 //   patrons: Ada <- Ben,Dot ; Dot <- Ben ; Ben none
 //   flux: Ada 10+100=110, Ben 0, Dot 10
-const SEED = {
+
+test.describe('flux', () => {
+  test('flux sums the patrons force', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Ada', alpha: 2, beta: 3,  gamma: 5, delta: 3, epsilon: 4,  zeta: 10 },
     { id: 2, name: 'Ben', alpha: 4, beta: 2,  gamma: 1, delta: 5, epsilon: 2,  zeta: 1 },
@@ -15,13 +18,8 @@ const SEED = {
     { personId: 1, patronId: 2 }, { personId: 1, patronId: 3 },
     { personId: 3, patronId: 2 },
   ],
-};
-
-test.describe('flux', () => {
-  test('flux sums the patrons force', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-flux')).toHaveText('110');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-flux')).toHaveText('0');

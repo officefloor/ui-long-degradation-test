@@ -15,7 +15,6 @@ test.describe('quota top half', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('person-row-1').getByTestId('concept-quota')).toHaveText('yes');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-quota')).toHaveText('yes');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-quota')).toHaveText('no');

@@ -16,7 +16,6 @@ test.describe('belonging', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-belonging')).toHaveText('20');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-belonging')).toHaveText('-20');

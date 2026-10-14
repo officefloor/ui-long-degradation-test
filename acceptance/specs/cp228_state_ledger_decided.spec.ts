@@ -15,7 +15,6 @@ test.describe('state ledger decided only', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('state-ledger-FINAL')).toHaveText('2900');
     await expect(page.getByTestId('state-ledger-REVIEW')).toHaveText('460');
     await expect(page.getByTestId('state-ledger-DRAFT')).toHaveText('0');

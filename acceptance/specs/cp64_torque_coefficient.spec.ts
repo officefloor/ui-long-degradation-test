@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (mutates cp63): torque is now force + 3*sway (was 2*sway). sway and force unchanged.
-// Updated cp63 ships under acceptance/specs/cp64/.
 test.describe('torque coefficient raised to 3', () => {
   test('torque is force + 3*sway', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -12,7 +10,6 @@ test.describe('torque coefficient raised to 3', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-sway')).toHaveText('7');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-sway')).toHaveText('-4');

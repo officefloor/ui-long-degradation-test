@@ -15,7 +15,6 @@ test.describe('top non-final', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-apex-nonfinal')).toHaveText('Cam');
   });
 });

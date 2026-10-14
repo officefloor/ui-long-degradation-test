@@ -15,7 +15,6 @@ test.describe('top set', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-topset')).toHaveText('Ada, Ben, Cam');
   });
 });

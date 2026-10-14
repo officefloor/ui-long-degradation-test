@@ -11,7 +11,6 @@ test.describe('state workflow', () => {
       people: [{ id: 1, name: 'Al', alpha: 5, beta: 20, gamma: 5, state: 'DRAFT' }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('person-row-1').getByTestId('person-state')).toHaveText('DRAFT');
 
     await page.getByTestId('person-advance-1').click();

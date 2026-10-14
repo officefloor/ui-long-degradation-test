@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp68 (mutates cp65). Under the wider RUN band (0..199) the torque-100
 // person is now RUN.
 test.describe('phase', () => {
   test('phase classifies torque', { tag: '@functionality' }, async ({ page }) => {
@@ -13,7 +12,6 @@ test.describe('phase', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-phase')).toHaveText('RUN');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-phase')).toHaveText('EBB');

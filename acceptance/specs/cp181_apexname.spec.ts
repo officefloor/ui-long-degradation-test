@@ -15,7 +15,6 @@ test.describe('apex and runner-up', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-apexname')).toHaveText('Ada');
     await expect(page.getByTestId('rollup-runnerup')).toHaveText('Ben');
   });

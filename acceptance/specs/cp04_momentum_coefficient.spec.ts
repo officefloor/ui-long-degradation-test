@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (mutates cp03): momentum is now thrust + 3*drift (was 2*drift). drift and thrust are
-// unchanged. The updated cp03 spec ships under acceptance/specs/cp04/ with the new momentum values.
 test.describe('momentum coefficient raised to 3', () => {
   test('momentum is thrust + 3*drift', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -14,7 +12,6 @@ test.describe('momentum coefficient raised to 3', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     // drift unchanged
     await expect(page.getByTestId('person-row-1').getByTestId('concept-drift')).toHaveText('7');

@@ -24,7 +24,6 @@ test.describe('ledger by region', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('ledger-region-N1')).toHaveText('2900');
     await expect(page.getByTestId('ledger-region-S2')).toHaveText('640');
     await expect(page.getByTestId('ledger-region-E3')).toHaveText('140');

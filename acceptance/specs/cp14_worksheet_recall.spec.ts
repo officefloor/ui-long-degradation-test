@@ -12,13 +12,11 @@ test.describe('worksheet recall', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await page.getByTestId('sheet-id-input').fill('S1');
     await page.getByTestId('sheet-load').click();
     await expect(page.getByTestId('person-row-1').getByTestId('concept-momentum')).toHaveText('33');
 
     await page.reload();
-    await page.getByTestId('nav-worksheet').click();
     await page.getByTestId('sheet-id-input').fill('S1');
     await page.getByTestId('sheet-load').click();
 
@@ -30,7 +28,6 @@ test.describe('worksheet recall', () => {
   test('opening an unknown sheet shows the missing state', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({ sheets: [{ id: 'S1', people: [] }] });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await page.getByTestId('sheet-id-input').fill('NOPE');
     await page.getByTestId('sheet-load').click();
 

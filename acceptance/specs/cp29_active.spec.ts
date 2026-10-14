@@ -12,7 +12,6 @@ test.describe('active flag', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('person-active')).toHaveText('yes');
     await expect(page.getByTestId('person-row-2').getByTestId('person-active')).toHaveText('no');

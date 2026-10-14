@@ -15,7 +15,6 @@ test.describe('stratum', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('person-row-1').getByTestId('concept-stratum')).toHaveText('TOP');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-stratum')).toHaveText('TOP');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-stratum')).toHaveText('BOT');

@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp248 (mutates cp54). Outliers follow the mean-based norms again.
 //   norms: -224, -204, -184, -24, 636 -> yes, yes, yes, no, yes
-const SEED = {
+
+test.describe('outlier', () => {
+  test('outlier when the norm magnitude exceeds 100', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Fay', alpha: 5,  beta: 8,  gamma: 5,  active: true },
     { id: 2, name: 'Gus', alpha: 2,  beta: 30, gamma: 2,  active: true },
@@ -11,13 +13,8 @@ const SEED = {
     { id: 4, name: 'Ivy', alpha: 4,  beta: 30, gamma: 4,  active: true },
     { id: 5, name: 'Jo',  alpha: 10, beta: 30, gamma: 10, active: true },
   ],
-};
-
-test.describe('outlier', () => {
-  test('outlier when the norm magnitude exceeds 100', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-outlier')).toHaveText('yes');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-outlier')).toHaveText('yes');

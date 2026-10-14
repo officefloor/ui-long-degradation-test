@@ -16,7 +16,6 @@ test.describe('apex', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-concept-apex')).toHaveText('Bea');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-apex')).toHaveText('Cal');

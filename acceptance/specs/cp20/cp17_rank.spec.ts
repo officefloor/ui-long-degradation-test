@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp20 (mutates cp17). Momentum ties are broken by higher alpha.
-const SEED = {
+
+test.describe('rank', () => {
+  test('rank orders by momentum desc, ties by higher alpha', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Ann', alpha: 2,  beta: 25, gamma: 2 },  // momentum 50, alpha 2
     { id: 2, name: 'Bob', alpha: 10, beta: 5,  gamma: 10 }, // momentum 50, alpha 10
@@ -10,13 +12,8 @@ const SEED = {
     { id: 4, name: 'Di',  alpha: 4,  beta: 5,  gamma: 4 },  // momentum 20
     { id: 5, name: 'Ed',  alpha: 2,  beta: 5,  gamma: 2 },  // momentum 10
   ],
-};
-
-test.describe('rank', () => {
-  test('rank orders by momentum desc, ties by higher alpha', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-3').getByTestId('concept-rank')).toHaveText('1');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-rank')).toHaveText('2');

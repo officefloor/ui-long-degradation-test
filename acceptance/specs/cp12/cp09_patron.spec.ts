@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp12 (mutates cp09). Patron is now many-to-many: seed uses a `patrons`
 // join list and the patrons cell lists every patron name sorted ascending.
 test.describe('patron', () => {
   test('shows each person their patron by name', { tag: '@functionality' }, async ({ page }) => {
@@ -17,7 +16,6 @@ test.describe('patron', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('person-patrons')).toHaveText('Ravi, Uma');
     await expect(page.getByTestId('person-row-3').getByTestId('person-patrons')).toHaveText('Ravi');

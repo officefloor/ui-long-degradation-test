@@ -16,7 +16,6 @@ test.describe('group strength', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-concept-strength')).toHaveText('440');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-strength')).toHaveText('100');

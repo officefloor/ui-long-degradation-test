@@ -3,7 +3,10 @@ import { resetAndSeed } from '../support/seed';
 
 // band from adjusted: <0 E, 0..49 D, 50..149 C, 150..299 B, >=300 A.
 // With no patrons/allies/score, adjusted = momentum.
-const SEED = {
+
+test.describe('band', () => {
+  test('band classifies adjusted into five bands', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Ed', alpha: 3,  beta: 1,  gamma: 0,  active: true }, // momentum -6  -> E
     { id: 2, name: 'Di', alpha: 5,  beta: 6,  gamma: 5,  active: true }, // momentum 30  -> D
@@ -11,13 +14,8 @@ const SEED = {
     { id: 4, name: 'Bo', alpha: 10, beta: 20, gamma: 10, active: true }, // momentum 200 -> B
     { id: 5, name: 'An', alpha: 20, beta: 20, gamma: 20, active: true }, // momentum 400 -> A
   ],
-};
-
-test.describe('band', () => {
-  test('band classifies adjusted into five bands', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-band')).toHaveText('E');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-band')).toHaveText('D');

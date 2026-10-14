@@ -16,7 +16,6 @@ test.describe('biggest group', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('rollup-biggest-group')).toHaveText('East');
   });

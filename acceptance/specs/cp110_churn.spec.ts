@@ -4,7 +4,10 @@ import { resetAndSeed } from '../support/seed';
 // churn = tide - vector. vector = average of patrons' blend (cp108).
 //   vector: Ada (−3+200)/2=98, Ben 0, Dot -3, Gus 0
 //   tide: Ada 260, Ben 0, Dot 19, Gus 0 -> churn: Ada 162, Ben 0, Dot 22, Gus 0
-const SEED = {
+
+test.describe('churn', () => {
+  test('churn is tide minus vector', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Ada', alpha: 2, beta: 3,  gamma: 5, delta: 3,  epsilon: 4,   zeta: 10, active: true },
     { id: 2, name: 'Ben', alpha: 4, beta: 2,  gamma: 1, delta: 5,  epsilon: 2,   zeta: 1,  active: true },
@@ -19,13 +22,8 @@ const SEED = {
     { from: 1, to: 2 }, { from: 1, to: 3 }, { from: 1, to: 4 },
     { from: 3, to: 2 },
   ],
-};
-
-test.describe('churn', () => {
-  test('churn is tide minus vector', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-churn')).toHaveText('162');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-churn')).toHaveText('0');

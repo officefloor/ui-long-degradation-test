@@ -15,7 +15,6 @@ test.describe('grade tally', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('grade-tally-HIGH')).toHaveText('3');
     await expect(page.getByTestId('grade-tally-MID')).toHaveText('2');
     await expect(page.getByTestId('grade-tally-LOW')).toHaveText('2');

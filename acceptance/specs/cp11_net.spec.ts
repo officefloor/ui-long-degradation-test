@@ -12,7 +12,6 @@ test.describe('net', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-net')).toHaveText('47');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-net')).toHaveText('8');

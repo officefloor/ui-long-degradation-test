@@ -15,7 +15,6 @@ test.describe('blend', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-blend')).toHaveText('48');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-blend')).toHaveText('-3');

@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp244 (mutates cp27). decay = momentum - age, with age back in days.
 test.describe('decay', () => {
   test('decay is momentum minus age', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -14,7 +13,6 @@ test.describe('decay', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-decay')).toHaveText('3');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-decay')).toHaveText('1');

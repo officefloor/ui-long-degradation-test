@@ -16,7 +16,6 @@ test.describe('standing', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-standing')).toHaveText('2');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-standing')).toHaveText('1');

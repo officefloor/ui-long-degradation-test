@@ -13,7 +13,6 @@ test.describe('sway and torque', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-sway')).toHaveText('7');
     await expect(page.getByTestId('person-row-1').getByTestId('concept-torque')).toHaveText('26');

@@ -1,8 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (mutates cp21, cp22, cp23): weight remapped to LOW=1, MID=3, HIGH=5. That changes load
-// (momentum*weight) and total load. Updated cp21/cp22/cp23 ship under acceptance/specs/cp24/.
 test.describe('grade weight remapped', () => {
   test('wider weights change load and total load', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -14,7 +12,6 @@ test.describe('grade weight remapped', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-weight')).toHaveText('5');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-weight')).toHaveText('3');

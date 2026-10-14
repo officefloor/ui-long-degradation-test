@@ -24,7 +24,6 @@ test.describe('region tally', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('region-tally-N1')).toHaveText('2');
     await expect(page.getByTestId('region-tally-S2')).toHaveText('2');
     await expect(page.getByTestId('region-tally-E3')).toHaveText('3');

@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp20 (mutates cp19). Percentile follows the new alpha tie-break ranks, so
 // the two tied people swap percentiles.
-const SEED = {
+
+test.describe('percentile', () => {
+  test('percentile spreads 100..0 evenly by rank', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Ann', alpha: 2,  beta: 25, gamma: 2 },  // momentum 50, alpha 2  -> rank 3
     { id: 2, name: 'Bob', alpha: 10, beta: 5,  gamma: 10 }, // momentum 50, alpha 10 -> rank 2
@@ -11,13 +13,8 @@ const SEED = {
     { id: 4, name: 'Di',  alpha: 4,  beta: 5,  gamma: 4 },  // momentum 20  -> rank 4
     { id: 5, name: 'Ed',  alpha: 2,  beta: 5,  gamma: 2 },  // momentum 10  -> rank 5
   ],
-};
-
-test.describe('percentile', () => {
-  test('percentile spreads 100..0 evenly by rank', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-3').getByTestId('concept-percentile')).toHaveText('100');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-percentile')).toHaveText('75');

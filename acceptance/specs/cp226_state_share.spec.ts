@@ -15,7 +15,6 @@ test.describe('state share', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('state-share-FINAL')).toHaveText('28');
     await expect(page.getByTestId('state-share-REVIEW')).toHaveText('28');
     await expect(page.getByTestId('state-share-DRAFT')).toHaveText('42');

@@ -15,7 +15,6 @@ test.describe('coverage raised', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-coverage')).toHaveText('2');
   });
 });

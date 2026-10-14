@@ -16,7 +16,6 @@ test.describe('group size', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-concept-size')).toHaveText('2');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-size')).toHaveText('2');

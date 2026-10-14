@@ -1,21 +1,18 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp48 (mutates cp47). adjusted = combined + quality, quality now the score.
 //   combined = momentum: Dana 33, Ravi 8, Uma 100 ; quality 42, 5, 0 -> adjusted 75, 13, 100
-const SEED = {
+
+test.describe('adjusted', () => {
+  test('adjusted is combined plus quality', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Dana', alpha: 3, beta: 4,  gamma: 10, active: true, score: 42 },
     { id: 2, name: 'Ravi', alpha: 7, beta: 2,  gamma: 5,  active: true, score: 5 },
     { id: 3, name: 'Uma',  alpha: 5, beta: 20, gamma: 5,  active: true, score: null },
   ],
-};
-
-test.describe('adjusted', () => {
-  test('adjusted is combined plus quality', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-adjusted')).toHaveText('75');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-adjusted')).toHaveText('13');

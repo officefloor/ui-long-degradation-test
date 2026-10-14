@@ -13,7 +13,6 @@ test.describe('onset and anchor', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('sheet-anchor')).toHaveText('2020-01-31');
     await expect(page.getByTestId('person-row-1').getByTestId('person-onset')).toHaveText('2020-01-01');

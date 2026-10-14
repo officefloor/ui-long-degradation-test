@@ -15,7 +15,6 @@ test.describe('bracket recalibrated', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('person-row-1').getByTestId('concept-bracket')).toHaveText('Q4');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-bracket')).toHaveText('Q4');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-bracket')).toHaveText('Q3');

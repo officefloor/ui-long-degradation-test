@@ -15,7 +15,6 @@ test.describe('region counts', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('region-count-N1')).toHaveText('2');
     await expect(page.getByTestId('region-count-S2')).toHaveText('2');

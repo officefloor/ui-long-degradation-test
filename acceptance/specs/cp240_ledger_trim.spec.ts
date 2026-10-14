@@ -15,7 +15,6 @@ test.describe('ledger trims the apex', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-ledger')).toHaveText('1680');
     await expect(page.getByTestId('rollup-digest')).toHaveText('240');
     await expect(page.getByTestId('report-ledger')).toHaveText('1680');

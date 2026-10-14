@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp12 (mutates cp10). backing is now the SUM of all patrons' thrust;
 // still 'n/a' when the person has no patrons.
 test.describe('backing', () => {
   test('backing is the patron thrust, n/a without a patron', { tag: '@functionality' }, async ({ page }) => {
@@ -17,7 +16,6 @@ test.describe('backing', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-backing')).toHaveText('114');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-backing')).toHaveText('14');

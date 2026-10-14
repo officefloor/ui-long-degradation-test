@@ -15,7 +15,6 @@ test.describe('median', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-median-scaled')).toHaveText('240');
   });
 });

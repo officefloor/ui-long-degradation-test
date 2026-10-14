@@ -15,7 +15,6 @@ test.describe('ledger by grade', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('grade-ledger-HIGH')).toHaveText('3220');
     await expect(page.getByTestId('grade-ledger-LOW')).toHaveText('460');
     await expect(page.getByTestId('grade-ledger-MID')).toHaveText('0');

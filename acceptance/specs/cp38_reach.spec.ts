@@ -13,7 +13,6 @@ test.describe('reach', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-reach')).toHaveText('66');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-reach')).toHaveText('24');

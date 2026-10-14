@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp36 (mutates cp33). clout is the AVERAGE of patrons' effective.
-const SEED = {
+
+test.describe('clout', () => {
+  test('clout averages the patrons effective', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Uma',  alpha: 5, beta: 20, gamma: 5,  active: true },
     { id: 2, name: 'Ivo',  alpha: 2, beta: 30, gamma: 2,  active: true },
@@ -13,13 +15,8 @@ const SEED = {
     { personId: 3, patronId: 1 },
     { personId: 4, patronId: 3 }, { personId: 4, patronId: 2 },
   ],
-};
-
-test.describe('clout', () => {
-  test('clout averages the patrons effective', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-clout')).toHaveText('0');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-clout')).toHaveText('0');

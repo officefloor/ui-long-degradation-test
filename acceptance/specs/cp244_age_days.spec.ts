@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE REVERSAL (mutates cp26, cp27, cp28): age goes back to whole DAYS from onset to anchor
 // (undoing the weeks change of cp28). decay = momentum - age follows. Updated cp26/cp27/cp28 ship
-// under acceptance/specs/cp244/ with the day-based values restored.
 test.describe('age reverted to days', () => {
   test('age is whole days again and decay follows', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -16,7 +14,6 @@ test.describe('age reverted to days', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-age')).toHaveText('30');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-age')).toHaveText('7');

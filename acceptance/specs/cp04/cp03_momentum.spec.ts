@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp04 (mutates cp03). Carries the new momentum definition
 // momentum = thrust + 3*drift. drift and thrust are unchanged. Installed by basename so it WINS
-// over acceptance/specs/cp03_momentum.spec.ts in the cumulative gate suite from cp04 onward.
 test.describe('drift and momentum', () => {
   test('drift and momentum build on thrust', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -15,7 +13,6 @@ test.describe('drift and momentum', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-drift')).toHaveText('7');
     await expect(page.getByTestId('person-row-1').getByTestId('concept-momentum')).toHaveText('33');

@@ -15,7 +15,6 @@ test.describe('ledger total', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-ledger')).toHaveText('3680');
   });
 });

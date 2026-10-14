@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR for cp136: density
 test.describe('density', () => {
   test('density uses effective', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -16,7 +15,6 @@ test.describe('density', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-concept-density')).toHaveText('1');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-density')).toHaveText('1');

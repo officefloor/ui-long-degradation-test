@@ -15,7 +15,6 @@ test.describe('quota count', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-quota-count')).toHaveText('2');
   });
 });

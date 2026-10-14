@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp64 (mutates cp63). torque = force + 3*sway.
 test.describe('sway and torque', () => {
   test('sway and torque build on force', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -11,7 +10,6 @@ test.describe('sway and torque', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-sway')).toHaveText('7');
     await expect(page.getByTestId('person-row-1').getByTestId('concept-torque')).toHaveText('33');

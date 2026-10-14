@@ -15,7 +15,6 @@ test.describe('apex by bracket', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('apexname-bracket-Q4')).toHaveText('Ada');
     await expect(page.getByTestId('apexname-bracket-Q3')).toHaveText('Cam');
     await expect(page.getByTestId('apexname-bracket-Q2')).toHaveText('Eli');

@@ -15,7 +15,6 @@ test.describe('ledger by bracket', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('bracket-ledger-Q4')).toHaveText('2900');
     await expect(page.getByTestId('bracket-ledger-Q3')).toHaveText('640');
     await expect(page.getByTestId('bracket-ledger-Q2')).toHaveText('140');

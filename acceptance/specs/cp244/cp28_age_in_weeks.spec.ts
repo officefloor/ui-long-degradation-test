@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp244 (mutates cp28). The weeks change is reverted: age is whole DAYS
 // again, and decay follows. (This checkpoint's name predates the reversal.)
 test.describe('age in weeks', () => {
   test('age is whole days again and decay follows', { tag: '@functionality' }, async ({ page }) => {
@@ -15,7 +14,6 @@ test.describe('age in weeks', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-age')).toHaveText('30');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-age')).toHaveText('7');

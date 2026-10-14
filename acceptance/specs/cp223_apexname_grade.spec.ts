@@ -15,7 +15,6 @@ test.describe('apex by grade', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('apexname-grade-HIGH')).toHaveText('Ada');
     await expect(page.getByTestId('apexname-grade-MID')).toHaveText('Ben');
     await expect(page.getByTestId('apexname-grade-LOW')).toHaveText('Cam');

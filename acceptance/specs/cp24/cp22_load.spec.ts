@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp24 (mutates cp22). load uses the remapped weights.
 test.describe('load', () => {
   test('load is momentum times weight', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -12,7 +11,6 @@ test.describe('load', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-load')).toHaveText('165');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-load')).toHaveText('24');

@@ -12,7 +12,6 @@ test.describe('grade weight', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('person-grade')).toHaveText('HIGH');
     await expect(page.getByTestId('person-row-1').getByTestId('concept-weight')).toHaveText('3');

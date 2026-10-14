@@ -47,27 +47,26 @@ and the app itself must never call them.
 
 ### 4.1 The fixture
 
-A fixture is a JSON object. Each top-level key is a collection of rows (`clients`, `invoices`,
-...), a settings object, or a single value:
+A fixture is a JSON object. Each top-level key is a collection of rows (`people`, `patrons`, ...),
+a settings object, or a single value:
 
 ```json
 {
-  "asOf": "2026-02-05",
-  "clients":  [{ "id": 1, "name": "Acme Ltd", "email": "ops@acme.example" }],
-  "invoices": [{ "id": 1, "clientId": 1, "status": "SENT", "issueDate": "2026-01-10",
-                 "dueDate": "2026-02-09",
-                 "lineItems": [{ "id": 1, "description": "Work", "qty": 1, "unitPrice": 200 }] }]
+  "anchor": "2026-02-05",
+  "people":  [{ "id": 1, "name": "Dana", "alpha": 3, "beta": 4, "gamma": 10 }],
+  "patrons": [{ "personId": 1, "patronId": 2 }]
 }
 ```
 
-- Rows carry the ids the test then uses in its `data-testid`s (`invoice-row-1`). Store them as given.
+- Rows carry the ids the test then uses in its `data-testid`s (`person-row-1`). Store them as given.
 - A field means the same thing everywhere it appears. Store the value you are given; do not
-  reinterpret it.
+  reinterpret it. A relationship collection links rows by their ids (`patrons` links a person to
+  the people who are their patrons).
 - **A field a fixture leaves out takes its default.** The default must be the ordinary value a newly
-  created record would get (no discount, no rate, and so on).
-- **`asOf` is the test's "today".** When a fixture gives `asOf`, the app must treat that date as the
-  current date for everything date-dependent (overdue, ageing, windows, "this week"). Without it the
-  app uses the real date.
+  created record would get (a missing attribute is absent, not zero).
+- **`anchor` is the sheet's reference date.** When a fixture gives `anchor`, the app must treat that
+  date as the fixed point for everything date-dependent (for example a person's age from their onset
+  date). Without it the app uses the real date.
 
 ### 4.2 `POST /__test__/seed` stores every field, or refuses
 
@@ -82,10 +81,10 @@ A fixture is a JSON object. Each top-level key is a collection of rows (`clients
 Returns what is stored, in the same shape and with the same field names the fixture used, so that
 seeding a fixture and reading it back returns every field that was seeded, with the same value.
 
-- Return each collection under the same key, with nested rows nested the same way (an invoice's
-  `lineItems` inside the invoice).
+- Return each collection under the same key. A relationship collection comes back under its own key
+  (`patrons` as `patrons`), and any nested rows nested the same way they were seeded.
 - Return a field in the terms it was seeded in, even if the app stores it differently (a seeded
-  `discountPct` comes back as `discountPct`, even if it is stored as a discount row).
+  attribute comes back under the same name, even if it is stored in another shape).
 - Extra fields and extra rows (defaults, derived values) are fine. After `POST /__test__/reset` the
   read-back is empty: `{}` or empty collections.
 
@@ -100,8 +99,8 @@ If any of that fails, your test fails with a message that names the fixture and 
 example:
 
 ```
-test-data contract: the seed did not keep clients[id=3].archived (sent true, read back <missing>)
-  in the fixture of "archiving hides the client but keeps it"
+test-data contract: the seed did not keep people[id=3].alpha (sent 5, read back <missing>)
+  in the fixture of "momentum updates when a person's alpha changes"
 ```
 
 Fix the seed or read-back so that field is stored again. Data from features that a change request

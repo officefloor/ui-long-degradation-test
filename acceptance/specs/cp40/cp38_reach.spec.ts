@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp40 (mutates cp38). reach sums momentum*multiplier over all the
 // person's regions.
-const SEED = {
+
+test.describe('reach', () => {
+  test('reach sums over the regions', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Dana', alpha: 3, beta: 4,  gamma: 10 }, // momentum 33
     { id: 2, name: 'Ravi', alpha: 7, beta: 2,  gamma: 5 },  // momentum 8
@@ -14,13 +16,8 @@ const SEED = {
     { personId: 2, region: 'E5' },                                // 8*1 = 8
     { personId: 3, region: 'N1' }, { personId: 3, region: 'E7' }, // 100*2 + 100*1 = 300
   ],
-};
-
-test.describe('reach', () => {
-  test('reach sums over the regions', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-reach')).toHaveText('165');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-reach')).toHaveText('8');

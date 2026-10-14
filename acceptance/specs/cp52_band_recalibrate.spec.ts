@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (mutates cp49, cp50, cp51): band boundaries recalibrated to
 //   <0 E, 0..99 D, 100..249 C, 250..499 B, >=500 A.
 // That reclassifies people (adjusted 200 was B, now C; 400 was A, now B) and rescales. Multipliers
-// are unchanged (A=4,B=3,C=2,D=1,E=0). Updated cp49/cp50/cp51 ship under acceptance/specs/cp52/.
-const SEED = {
+
+test.describe('band recalibrated', () => {
+  test('new boundaries reclassify and rescale', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Ed', alpha: 3,  beta: 1,  gamma: 0,  active: true }, // -6  -> E; scaled 0
     { id: 2, name: 'Di', alpha: 5,  beta: 6,  gamma: 5,  active: true }, // 30  -> D; scaled 30
@@ -13,13 +14,8 @@ const SEED = {
     { id: 4, name: 'Bo', alpha: 10, beta: 20, gamma: 10, active: true }, // 200 -> C; scaled 400
     { id: 5, name: 'An', alpha: 20, beta: 20, gamma: 20, active: true }, // 400 -> B; scaled 1200
   ],
-};
-
-test.describe('band recalibrated', () => {
-  test('new boundaries reclassify and rescale', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-band')).toHaveText('E');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-band')).toHaveText('D');

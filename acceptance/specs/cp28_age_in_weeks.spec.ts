@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (mutates cp26, cp27): age is now complete seven-day weeks from onset to anchor, dropping
 // leftover days (truncated toward zero, so -10 days is -1 week). decay = momentum - age follows.
-// Updated cp26/cp27 ship under acceptance/specs/cp28/.
 test.describe('age in weeks', () => {
   test('age is complete weeks and decay follows', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -16,7 +14,6 @@ test.describe('age in weeks', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-age')).toHaveText('4');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-age')).toHaveText('1');

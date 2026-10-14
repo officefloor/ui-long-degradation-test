@@ -15,7 +15,6 @@ test.describe('digest', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-digest')).toHaveText('525');
   });
 });

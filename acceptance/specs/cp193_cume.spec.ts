@@ -15,7 +15,6 @@ test.describe('cumulative', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('person-row-1').getByTestId('concept-cume')).toHaveText('2000');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-cume')).toHaveText('2900');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-cume')).toHaveText('3300');

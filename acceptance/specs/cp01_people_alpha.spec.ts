@@ -13,7 +13,6 @@ test.describe('people with alpha', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('people-table')).toBeVisible();
     await expect(page.getByTestId(/^person-row-/)).toHaveCount(2);
@@ -26,7 +25,6 @@ test.describe('people with alpha', () => {
   test('adds a person', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({ people: [] });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('people-empty')).toBeVisible();
 
     await page.getByTestId('person-form-name').fill('Mira');

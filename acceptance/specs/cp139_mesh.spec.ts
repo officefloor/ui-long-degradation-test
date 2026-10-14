@@ -16,7 +16,6 @@ test.describe('mesh', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-mesh')).toHaveText('400');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-mesh')).toHaveText('480');

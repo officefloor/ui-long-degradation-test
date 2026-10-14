@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp128: spread from effective (mutates [126])
 test.describe('spread from effective', () => {
   test('spread uses effective', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -16,7 +15,6 @@ test.describe('spread from effective', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-concept-spread')).toHaveText('20');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-spread')).toHaveText('20');

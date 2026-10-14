@@ -12,7 +12,6 @@ test.describe('backing', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-backing')).toHaveText('14');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-backing')).toHaveText('14');

@@ -1,24 +1,20 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (mutates cp81, cp82): thrum = scaled + 2*torque (was + torque). spool = thrum - blend
 // follows. max thrum is still Dot, so cp83 is unaffected.
 //   thrum: Ada 15+66=81, Ben 0-4=-4, Dot 200+200=400
 //   spool: Ada 81-48=33, Ben -4-(-3)=-1, Dot 400-200=200
-// Updated cp81/cp82 ship under acceptance/specs/cp84/.
-const SEED = {
+
+test.describe('thrum coefficient raised to 2', () => {
+  test('thrum = scaled + 2*torque; spool follows', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Ada', alpha: 2, beta: 3,  gamma: 5, delta: 3, epsilon: 4,  zeta: 10, active: true },
     { id: 2, name: 'Ben', alpha: 4, beta: 2,  gamma: 1, delta: 5, epsilon: 2,  zeta: 1,  active: true },
     { id: 3, name: 'Dot', alpha: 5, beta: 20, gamma: 5, delta: 5, epsilon: 20, zeta: 5,  active: true },
   ],
-};
-
-test.describe('thrum coefficient raised to 2', () => {
-  test('thrum = scaled + 2*torque; spool follows', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-thrum')).toHaveText('81');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-thrum')).toHaveText('-4');

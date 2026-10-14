@@ -11,7 +11,6 @@ test.describe('worksheet isolation', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await page.getByTestId('sheet-id-input').fill('S1');
     await page.getByTestId('sheet-load').click();

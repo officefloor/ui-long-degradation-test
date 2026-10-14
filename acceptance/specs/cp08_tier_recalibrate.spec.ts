@@ -1,11 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (mutates cp05): tier thresholds recalibrated.
 //   momentum < 0          -> SINK
 //   0 <= momentum <= 199   -> STEADY   (was 0..99)
 //   momentum >= 200        -> SURGE    (was >= 100)
-// The updated cp05 spec ships under acceptance/specs/cp08/ with the corrected expected tiers.
 test.describe('tier recalibrated', () => {
   test('tier uses the new wider STEADY band', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -17,7 +15,6 @@ test.describe('tier recalibrated', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-tier')).toHaveText('SINK');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-tier')).toHaveText('STEADY');

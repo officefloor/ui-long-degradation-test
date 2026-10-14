@@ -24,7 +24,6 @@ test.describe('apex by region', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('apexname-region-N1')).toHaveText('Ada');
     await expect(page.getByTestId('apexname-region-S2')).toHaveText('Cam');
     await expect(page.getByTestId('apexname-region-E3')).toHaveText('Eli');

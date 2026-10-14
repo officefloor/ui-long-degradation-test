@@ -15,7 +15,6 @@ test.describe('tier share', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('tier-share-SURGE')).toHaveText('42');
     await expect(page.getByTestId('tier-share-STEADY')).toHaveText('42');
     await expect(page.getByTestId('tier-share-SINK')).toHaveText('14');

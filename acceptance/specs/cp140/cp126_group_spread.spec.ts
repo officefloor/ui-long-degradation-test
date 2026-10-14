@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR for cp140 (seed reshaped to memberships[]): spread
 test.describe('spread', () => {
   test('spread uses effective', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -17,7 +16,6 @@ test.describe('spread', () => {
       memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 2 }, { personId: 4, groupId: 2 }, { personId: 5, groupId: 3 }, { personId: 6, groupId: 3 }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-concept-spread')).toHaveText('20');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-spread')).toHaveText('20');

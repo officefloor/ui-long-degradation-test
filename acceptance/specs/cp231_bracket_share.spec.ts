@@ -15,7 +15,6 @@ test.describe('bracket share', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('bracket-share-Q4')).toHaveText('28');
     await expect(page.getByTestId('bracket-share-Q3')).toHaveText('28');
     await expect(page.getByTestId('bracket-share-Q2')).toHaveText('28');

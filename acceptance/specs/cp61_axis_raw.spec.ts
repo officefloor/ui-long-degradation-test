@@ -11,7 +11,6 @@ test.describe('second axis raw values', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('person-delta')).toHaveText('3');
     await expect(page.getByTestId('person-row-1').getByTestId('person-epsilon')).toHaveText('4');

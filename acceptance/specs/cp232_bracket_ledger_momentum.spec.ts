@@ -15,7 +15,6 @@ test.describe('bracket ledger by momentum', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('bracket-ledger-Q4')).toHaveText('800');
     await expect(page.getByTestId('bracket-ledger-Q3')).toHaveText('320');
     await expect(page.getByTestId('bracket-ledger-Q2')).toHaveText('140');

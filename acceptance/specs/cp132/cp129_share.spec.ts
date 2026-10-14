@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR for cp132: share
 test.describe('share', () => {
   test('share rounds to nearest', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -16,7 +15,6 @@ test.describe('share', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-share')).toHaveText('91');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-share')).toHaveText('109');

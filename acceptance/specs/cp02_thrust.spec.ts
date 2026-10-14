@@ -11,7 +11,6 @@ test.describe('thrust', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('person-beta')).toHaveText('4');
     await expect(page.getByTestId('person-row-1').getByTestId('concept-thrust')).toHaveText('12');
@@ -26,7 +25,6 @@ test.describe('thrust', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-thrust')).toHaveText('0');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-thrust')).toHaveText('-20');

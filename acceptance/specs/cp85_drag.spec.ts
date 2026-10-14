@@ -3,20 +3,18 @@ import { resetAndSeed } from '../support/seed';
 
 // drag classifies blend into levels: L0 (<0), L1 (0..99), L2 (100..199), L3 (>=200).
 //   blend: Ada 48 -> L1, Ben -3 -> L0, Dot 200 -> L3, Max 150 -> L2
-const SEED = {
+
+test.describe('drag', () => {
+  test('drag classifies blend into four levels', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Ada', alpha: 2, beta: 3,  gamma: 5, delta: 3, epsilon: 4,  zeta: 10, active: true },
     { id: 2, name: 'Ben', alpha: 4, beta: 2,  gamma: 1, delta: 5, epsilon: 2,  zeta: 1,  active: true },
     { id: 3, name: 'Dot', alpha: 5, beta: 20, gamma: 5, delta: 5, epsilon: 20, zeta: 5,  active: true },
     { id: 4, name: 'Max', alpha: 5, beta: 10, gamma: 5, delta: 5, epsilon: 20, zeta: 5,  active: true },
   ],
-};
-
-test.describe('drag', () => {
-  test('drag classifies blend into four levels', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-drag')).toHaveText('L1');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-drag')).toHaveText('L0');

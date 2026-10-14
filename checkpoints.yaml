@@ -144,6 +144,7 @@ checkpoints:
     type: mutative
     area: relation
     mutates: [9, 10, 11]
+    retires: ['cp11_net.spec.ts::net is momentum plus backing (0 when no patron)']
     test: acceptance/specs/cp12_patron_many.spec.ts
     request: |
       A person should be able to have more than one patron, not just one. Show all of a person's
@@ -179,6 +180,7 @@ checkpoints:
     type: mutative
     area: persist
     mutates: [14]
+    retires: ['cp14_worksheet_recall.spec.ts::opening an unknown sheet shows the missing state']
     test: acceptance/specs/cp16_unknown_sheet_blank.spec.ts
     request: |
       If I open a sheet name that does not exist yet, just start me a new empty sheet with that name
@@ -188,6 +190,7 @@ checkpoints:
   - id: cp17_rank
     type: additive
     area: calc
+    algorithm: rank-sort
     test: acceptance/specs/cp17_rank.spec.ts
     request: |
       For each person show their "rank" on the sheet. The person with the highest momentum is rank 1,
@@ -204,6 +207,7 @@ checkpoints:
   - id: cp19_percentile
     type: additive
     area: calc
+    algorithm: percentile-spread
     test: acceptance/specs/cp19_percentile.spec.ts
     request: |
       For each person also show a "percentile" from their rank. The best person is 100 and the worst
@@ -213,6 +217,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [17, 19]
+    retires: ['cp17_rank.spec.ts::rank orders by momentum desc, ties by name asc']
     test: acceptance/specs/cp20_rank_tiebreak.spec.ts
     request: |
       When two people have the same momentum, break the tie by the higher alpha instead of by name.
@@ -262,6 +267,7 @@ checkpoints:
   - id: cp26_age
     type: additive
     area: calc
+    algorithm: date-age
     test: acceptance/specs/cp26_age.spec.ts
     request: |
       For each person show their "age", which is the number of whole days from their onset date up to
@@ -278,6 +284,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [26, 27]
+    retires: ['cp26_age.spec.ts::age is whole days from onset to anchor']
     test: acceptance/specs/cp28_age_in_weeks.spec.ts
     request: |
       I think of age in whole weeks, not days. Age should now be the number of complete seven-day
@@ -311,6 +318,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [30, 31]
+    retires: ['cp30_effective.spec.ts::effective is net when active, else 0']
     test: acceptance/specs/cp32_inactive_halved.spec.ts
     request: |
       Do not drop inactive people to zero. An inactive person's effective should instead be half of
@@ -344,6 +352,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [33, 34, 35]
+    retires: ['cp33_clout.spec.ts::clout sums the patrons effective']
     test: acceptance/specs/cp36_clout_average.spec.ts
     request: |
       Clout should be the AVERAGE of the patrons' effective, not the total — add up the patrons'
@@ -378,6 +387,7 @@ checkpoints:
     type: mutative
     area: entity
     mutates: [37, 38, 39]
+    retires: ['cp37_region.spec.ts::shows each person their region', 'cp38_reach.spec.ts::reach is momentum times the region multiplier', 'cp39_region_counts.spec.ts::counts people per region']
     test: acceptance/specs/cp40_region_many.spec.ts
     request: |
       People can belong to more than one region now, not just one. Let me give a person several
@@ -413,6 +423,7 @@ checkpoints:
     type: mutative
     area: relation
     mutates: [41, 42, 43]
+    retires: ['cp41_allies.spec.ts::allies are symmetric and counted', 'cp42_synergy.spec.ts::synergy sums the allies thrust']
     test: acceptance/specs/cp44_allies_directed.spec.ts
     request: |
       Allies should be one-directional now. Let me say that A follows B without B following A. A
@@ -448,6 +459,7 @@ checkpoints:
     type: mutative
     area: entity
     mutates: [45, 46, 47]
+    retires: ['cp45_notes.spec.ts::shows notes and their total', 'cp46_quality.spec.ts::quality averages notes and is n/a without notes']
     test: acceptance/specs/cp48_notes_folded.spec.ts
     request: |
       I do not want several notes per person any more, just a single whole-number "score" on each
@@ -458,6 +470,7 @@ checkpoints:
   - id: cp49_band
     type: additive
     area: calc
+    algorithm: band-classify
     test: acceptance/specs/cp49_band.spec.ts
     request: |
       Put each person in a "band" from their adjusted value. Below 0 is band E. 0 to 49 is D. 50 to
@@ -491,6 +504,7 @@ checkpoints:
   - id: cp53_norm
     type: additive
     area: calc
+    algorithm: norm-mean
     test: acceptance/specs/cp53_norm.spec.ts
     request: |
       For each person show "norm", which is their scaled minus the average scaled across everyone on
@@ -514,7 +528,9 @@ checkpoints:
   - id: cp56_norm_median
     type: mutative
     area: calc
+    algorithm: norm-median
     mutates: [53, 54, 55]
+    retires: ['cp53_norm.spec.ts::norm is scaled minus the floor of the mean scaled']
     test: acceptance/specs/cp56_norm_median.spec.ts
     request: |
       Norm should be measured against the MIDDLE value, not the average. Subtract the median of
@@ -550,6 +566,7 @@ checkpoints:
     type: mutative
     area: status
     mutates: [57]
+    retires: ['cp57_state.spec.ts::advances DRAFT -> REVIEW -> FINAL with audit, then is terminal']
     test: acceptance/specs/cp60_rework.spec.ts
     request: |
       I do need a way to reopen a finished person. Add a REWORK state. A FINAL person may be moved to
@@ -597,6 +614,7 @@ checkpoints:
   - id: cp65_phase
     type: additive
     area: calc
+    algorithm: phase-classify
     test: acceptance/specs/cp65_phase.spec.ts
     request: |
       For each person show a label called "phase" from their torque. Below zero is EBB, from zero up
@@ -654,6 +672,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [69, 70]
+    retires: ['cp69_flux.spec.ts::flux sums the patrons force']
     test: acceptance/specs/cp72_flux_average.spec.ts
     request: |
       Flux should be the AVERAGE of the patrons' force, not the total — add up the patrons' force and
@@ -687,6 +706,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [73, 74, 75]
+    retires: ['cp73_swing.spec.ts::swing sums the followed torque']
     test: acceptance/specs/cp76_swing_positive.spec.ts
     request: |
       When working out swing, only count the people I follow whose torque is positive. Drop anyone
@@ -751,6 +771,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [81, 82]
+    retires: ['cp81_thrum.spec.ts::thrum is scaled plus torque']
     test: acceptance/specs/cp84_thrum_coefficient.spec.ts
     request: |
       Thrum should lean more on torque. Thrum should now be scaled plus two times torque.
@@ -759,6 +780,7 @@ checkpoints:
   - id: cp85_drag
     type: additive
     area: calc
+    algorithm: drag-levels
     test: acceptance/specs/cp85_drag.spec.ts
     request: |
       Put each person in a "drag" level from their blend. Below zero is L0, zero to ninety-nine is L1,
@@ -815,6 +837,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [89, 90, 91]
+    retires: ['cp89_gust.spec.ts::gust is reach plus torque']
     test: acceptance/specs/cp92_gust_coefficient.spec.ts
     request: |
       Gust should lean more on torque. Gust should now be reach plus two times torque.
@@ -847,6 +870,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [93, 94]
+    retires: ['cp93_brace.spec.ts::brace is influence plus force']
     test: acceptance/specs/cp96_brace_coefficient.spec.ts
     request: |
       Brace should lean more on force. Brace should now be influence plus two times force.
@@ -878,6 +902,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [97, 98, 99]
+    retires: ['cp97_yield.spec.ts::yield is pivot plus lift']
     test: acceptance/specs/cp100_yield_coefficient.spec.ts
     request: |
       Yield should lean more on lift. Yield should now be pivot plus two times lift.
@@ -909,6 +934,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [102, 103]
+    retires: ['cp102_pulse.spec.ts::pulse classifies strain by sign']
     test: acceptance/specs/cp104_pulse_tolerance.spec.ts
     request: |
       Treat small strains as flat. If strain is within 10 of zero either way it is FLAT, above 10 is
@@ -942,6 +968,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [105, 106]
+    retires: ['cp105_vector.spec.ts::vector sums the patrons blend']
     test: acceptance/specs/cp108_vector_average.spec.ts
     request: |
       Vector should be the AVERAGE of the patrons' blend, not the total — add up the patrons' blend
@@ -975,6 +1002,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [109, 110, 111]
+    retires: ['cp109_tide.spec.ts::tide sums the followed brace']
     test: acceptance/specs/cp112_tide_positive.spec.ts
     request: |
       When working out tide, only count the people I follow whose brace is positive. Drop anyone whose
@@ -984,6 +1012,7 @@ checkpoints:
   - id: cp113_ebb
     type: additive
     area: calc
+    algorithm: ebb-norm
     test: acceptance/specs/cp113_ebb.spec.ts
     request: |
       For each person show "ebb", which is their blend minus the middle blend across everyone on the
@@ -1008,6 +1037,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [113, 114, 115]
+    retires: ['cp113_ebb.spec.ts::ebb is blend minus the median blend']
     test: acceptance/specs/cp116_ebb_mean.spec.ts
     request: |
       Ebb should be measured against the average blend, not the middle one. Subtract the average of
@@ -1041,6 +1071,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [117, 118]
+    retires: ['cp117_flow.spec.ts::flow is yield plus charge plus tide']
     test: acceptance/specs/cp120_flow_drop_tide.spec.ts
     request: |
       Flow is counting tide twice over through charge. Drop tide from it — flow should now be just
@@ -1057,6 +1088,7 @@ checkpoints:
   - id: cp122_group_strength
     type: additive
     area: calc
+    algorithm: group-aggregate
     test: acceptance/specs/cp122_group_strength.spec.ts
     request: |
         For each group show its strength, the total of the scaled values of the people in it.
@@ -1070,6 +1102,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [122]
+    retires: ['cp122_group_strength.spec.ts::strength sums members\'' scaled']
     test: acceptance/specs/cp124_strength_effective.spec.ts
     request: |
         Strength should add up the people's effective values instead of their scaled values.
@@ -1097,6 +1130,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [126]
+    retires: ['cp126_group_spread.spec.ts::spread is max minus min scaled']
     test: acceptance/specs/cp128_spread_effective.spec.ts
     request: |
         Spread should use the people's effective values instead of their scaled values.
@@ -1110,6 +1144,7 @@ checkpoints:
   - id: cp130_standing
     type: additive
     area: calc
+    algorithm: within-group-rank
     test: acceptance/specs/cp130_standing.spec.ts
     request: |
         For each person show standing, their place within their group by scaled value highest first;
@@ -1124,6 +1159,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [129]
+    retires: ['cp129_share.spec.ts::share is scaled over group strength']
     test: acceptance/specs/cp132_share_nearest.spec.ts
     request: |
         Share should round to the nearest whole percent instead of rounding down.
@@ -1150,6 +1186,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [133]
+    retires: ['cp133_group_density.spec.ts::density counts members at/above cohesion']
     test: acceptance/specs/cp136_density_effective.spec.ts
     request: |
         Density should count members whose effective value is at or above cohesion, instead of their
@@ -1176,6 +1213,7 @@ checkpoints:
     type: mutative
     area: relation
     mutates: [121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139]
+    retires: ['cp121_groups.spec.ts::people belong to one named group', 'cp121_groups.spec.ts::each person shows their group', 'cp122_group_strength.spec.ts::strength sums members\'' effective', 'cp124_strength_effective.spec.ts::strength sums members\'' effective', 'cp125_group_cohesion.spec.ts::cohesion is strength over size', 'cp127_group_apex.spec.ts::apex names the top-scaled member', 'cp129_share.spec.ts::share rounds to nearest', 'cp130_standing.spec.ts::standing ranks within the group', 'cp131_belonging.spec.ts::belonging is strength minus scaled', 'cp132_share_nearest.spec.ts::share rounds to nearest', 'cp134_tether.spec.ts::tether is scaled minus cohesion', 'cp135_biggest_group.spec.ts::names the strongest group', 'cp137_anchorage.spec.ts::anchorage counts the person\''s groups', 'cp138_weave.spec.ts::weave is scaled plus cohesion', 'cp139_mesh.spec.ts::mesh is scaled times size']
     test: acceptance/specs/cp140_membership_many.spec.ts
     request: |
         Let me put a person into more than one group, not just one. Show all the groups a person is
@@ -1196,6 +1234,7 @@ checkpoints:
   - id: cp143_group_rank
     type: additive
     area: calc
+    algorithm: group-rank
     test: acceptance/specs/cp143_group_rank.spec.ts
     request: |
         For each group show its rank by strength, highest first; ties go to the group name earlier
@@ -1204,6 +1243,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [141]
+    retires: ['cp141_rung.spec.ts::rung is a within-group percentile']
     test: acceptance/specs/cp144_rung_over_size.spec.ts
     request: |
         Rung should divide by the group size rather than by one less than the size.
@@ -1231,6 +1271,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [146]
+    retires: ['cp146_breadth.spec.ts::breadth sums the sizes of the person\''s groups']
     test: acceptance/specs/cp148_breadth_count.spec.ts
     request: |
         Breadth should be the number of groups a person is in, not the total of their sizes.
@@ -1256,6 +1297,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [147]
+    retires: ['cp147_group_min.spec.ts::the lowest member scaled']
     test: acceptance/specs/cp152_group_min_effective.spec.ts
     request: |
         The group's lowest value should use the members' effective values instead of their scaled
@@ -1282,6 +1324,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [153]
+    retires: ['cp153_headroom.spec.ts::max scaled minus cohesion']
     test: acceptance/specs/cp156_headroom_full.spec.ts
     request: |
         Headroom should be the highest member scaled minus the lowest, not minus cohesion.
@@ -1294,6 +1337,7 @@ checkpoints:
   - id: cp158_median_strength
     type: additive
     area: calc
+    algorithm: median-strength
     test: acceptance/specs/cp158_median_strength.spec.ts
     request: |
         Show me the median strength across the groups (the middle value).
@@ -1307,6 +1351,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [157]
+    retires: ['cp157_depth.spec.ts::size minus standing']
     test: acceptance/specs/cp160_depth_from_standing.spec.ts
     request: |
         Depth should be one less than the person's standing, instead of size minus standing.
@@ -1332,6 +1377,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [159]
+    retires: ['cp159_vigor.spec.ts::strength times size']
     test: acceptance/specs/cp164_vigor_additive.spec.ts
     request: |
         Vigor should be strength plus size instead of strength times size.
@@ -1357,6 +1403,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [161]
+    retires: ['cp161_uplift.spec.ts::weave plus tether']
     test: acceptance/specs/cp168_lift_minus.spec.ts
     request: |
         Uplift should be weave minus tether instead of weave plus tether.
@@ -1382,6 +1429,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [169]
+    retires: ['cp169_footprint.spec.ts::scaled plus mesh']
     test: acceptance/specs/cp172_footprint_double.spec.ts
     request: |
         Footprint should be simply twice the person's scaled, instead of scaled plus mesh.
@@ -1408,6 +1456,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [174]
+    retires: ['cp174_contribution.spec.ts::scaled over total strength']
     test: acceptance/specs/cp176_contribution_nearest.spec.ts
     request: |
         Contribution should round to the nearest whole percent instead of rounding down.
@@ -1427,6 +1476,7 @@ checkpoints:
   - id: cp179_rank_global
     type: additive
     area: calc
+    algorithm: global-rank
     test: acceptance/specs/cp179_rank_global.spec.ts
     request: |
         For each person show their overall rank across everyone on the sheet by scaled value,
@@ -1435,6 +1485,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [177]
+    retires: ['cp177_reach_span.spec.ts::home strength plus cohesion']
     test: acceptance/specs/cp180_reach_span_strength.spec.ts
     request: |
         Reach span should be just the home group's strength, without adding the cohesion.
@@ -1461,6 +1512,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [182]
+    retires: ['cp182_gapval.spec.ts::gap is top minus second']
     test: acceptance/specs/cp184_gapval_span.spec.ts
     request: |
       Change the gap to be the highest value minus the LOWEST value, not the second highest.
@@ -1486,12 +1538,14 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [186]
+    retires: ['cp186_coverage.spec.ts::counts people at or above 100']
     test: acceptance/specs/cp188_coverage_threshold.spec.ts
     request: |
       Raise the bar for coverage: only count people with a value of at least five hundred now.
   - id: cp189_bracket
     type: additive
     area: calc
+    algorithm: quartile-bracket
     test: acceptance/specs/cp189_bracket.spec.ts
     request: |
       Put each person in a quartile by their value: Q4 for a thousand or more, Q3 from four hundred to nine hundred and ninety-nine, Q2 from one hundred to three hundred and ninety-nine, and Q1 below one hundred.
@@ -1517,6 +1571,7 @@ checkpoints:
   - id: cp193_cume
     type: additive
     area: calc
+    algorithm: cumulative
     test: acceptance/specs/cp193_cume.spec.ts
     request: |
       Going from the highest value down, show each person the running total of value counted so far including their own.
@@ -1536,6 +1591,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [195]
+    retires: ['cp195_concentration.spec.ts::top two share percent']
     test: acceptance/specs/cp196_concentration_top3.spec.ts
     request: |
       Use the top THREE people for that share, not the top two.
@@ -1561,12 +1617,14 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [198]
+    retires: ['cp198_grade_tally.spec.ts::counts per grade']
     test: acceptance/specs/cp200_grade_tally_merge.spec.ts
     request: |
       Fold the MID grade into HIGH for this count, so the grades reported are just HIGH (which now includes MID) and LOW.
   - id: cp201_skewval
     type: additive
     area: calc
+    algorithm: skew
     test: acceptance/specs/cp201_skewval.spec.ts
     request: |
       Show me how lopsided the sheet is: the average value minus the middle value (round the average down).
@@ -1586,6 +1644,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [202]
+    retires: ['cp202_tilt.spec.ts::above-mean minus below-mean']
     test: acceptance/specs/cp204_tilt_median.spec.ts
     request: |
       Measure the tilt around the middle value instead of the average: how many are above the middle minus how many are below it.
@@ -1604,6 +1663,7 @@ checkpoints:
   - id: cp207_stratum
     type: additive
     area: calc
+    algorithm: median-stratum
     test: acceptance/specs/cp207_stratum.spec.ts
     request: |
       Label each person TOP if their value is at or above the middle value, otherwise BOT.
@@ -1611,6 +1671,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [205]
+    retires: ['cp205_quota.spec.ts::top half by rank']
     test: acceptance/specs/cp208_quota_third.spec.ts
     request: |
       Tighten the quota to the top third of the sheet by value instead of the top half.
@@ -1636,6 +1697,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [210]
+    retires: ['cp210_ledger_region.spec.ts::sums scaled per region']
     test: acceptance/specs/cp212_ledger_region_surge.spec.ts
     request: |
       For the region totals, count only people in the SURGE tier.
@@ -1661,6 +1723,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [207, 214]
+    retires: ['cp207_stratum.spec.ts::top/bottom vs median']
     test: acceptance/specs/cp216_stratum_mean.spec.ts
     request: |
       Judge TOP and BOT against the average value instead of the middle value.
@@ -1686,6 +1749,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [217]
+    retires: ['cp217_tier_ledger.spec.ts::sums scaled per tier']
     test: acceptance/specs/cp220_tier_ledger_momentum.spec.ts
     request: |
       Make the tier totals add up the underlying momentum instead of the value.
@@ -1711,6 +1775,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [221]
+    retires: ['cp221_grade_ledger.spec.ts::sums scaled per grade']
     test: acceptance/specs/cp224_grade_ledger_merge.spec.ts
     request: |
       For the grade totals, fold MID into HIGH so only HIGH (including MID) and LOW are reported.
@@ -1736,12 +1801,14 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [225]
+    retires: ['cp225_state_ledger.spec.ts::sums scaled per state']
     test: acceptance/specs/cp228_state_ledger_decided.spec.ts
     request: |
       Leave DRAFT out of the state totals, reporting only FINAL and REVIEW (show DRAFT as zero).
   - id: cp229_bracket_ledger
     type: additive
     area: calc
+    algorithm: bracket-ledger
     test: acceptance/specs/cp229_bracket_ledger.spec.ts
     request: |
       Show me the total value in each quartile.
@@ -1761,6 +1828,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [229]
+    retires: ['cp229_bracket_ledger.spec.ts::sums scaled per quartile']
     test: acceptance/specs/cp232_bracket_ledger_momentum.spec.ts
     request: |
       Make the quartile totals add up momentum instead of value.
@@ -1786,6 +1854,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [234]
+    retires: ['cp234_report_mean.spec.ts::report shows the mean']
     test: acceptance/specs/cp236_report_mean_median.spec.ts
     request: |
       On the report screen show the middle value instead of the average.
@@ -1811,6 +1880,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [183, 206, 233]
+    retires: ['cp183_ledger.spec.ts::ledger sums all scaled', 'cp206_digest.spec.ts::mean value per person', 'cp233_report_screen.spec.ts::report screen re-reads figures']
     test: acceptance/specs/cp240_ledger_trim.spec.ts
     request: |
       Leave the single highest person out of the grand total, as an outlier. The average per person and the report total should follow.
@@ -1847,6 +1917,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [26, 27, 28]
+    retires: ['cp26_age.spec.ts::age is complete weeks from onset to anchor', 'cp28_age_in_weeks.spec.ts::age is complete weeks and decay follows']
     test: acceptance/specs/cp244_age_days.spec.ts
     request: |
       I was wrong to switch age to weeks. Put age back to the number of whole days from a person's
@@ -1863,6 +1934,7 @@ checkpoints:
   - id: cp246_standing_v
     type: additive
     area: calc
+    algorithm: standing-sort
     test: acceptance/specs/cp246_standing_v.spec.ts
     request: |
       For each person show their "sheet standing", their position when everyone is ordered by scaled
@@ -1879,6 +1951,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [53, 54, 55, 56]
+    retires: ['cp53_norm.spec.ts::norm is scaled minus the median scaled', 'cp56_norm_median.spec.ts::norm, outliers and count use the median']
     test: acceptance/specs/cp248_norm_mean.spec.ts
     request: |
       Go back to measuring norm against the average scaled, not the middle value. Subtract the average

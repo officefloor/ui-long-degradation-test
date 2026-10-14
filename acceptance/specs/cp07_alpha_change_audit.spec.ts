@@ -12,7 +12,6 @@ test.describe('alpha change audit', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('person-row-1').getByTestId('concept-thrust')).toHaveText('12');
 
     await page.getByTestId('person-edit-1').click();

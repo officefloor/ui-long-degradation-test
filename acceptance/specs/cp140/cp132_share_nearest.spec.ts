@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR for cp140 (seed reshaped to memberships[]): share rounded nearest
 test.describe('share rounded nearest', () => {
   test('share nearest', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -17,7 +16,6 @@ test.describe('share rounded nearest', () => {
       memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 2 }, { personId: 4, groupId: 2 }, { personId: 5, groupId: 3 }, { personId: 6, groupId: 3 }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-share')).toHaveText('91');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-share')).toHaveText('109');

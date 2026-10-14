@@ -15,7 +15,6 @@ test.describe('surge gap', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-gapval-surge')).toHaveText('1600');
   });
 });

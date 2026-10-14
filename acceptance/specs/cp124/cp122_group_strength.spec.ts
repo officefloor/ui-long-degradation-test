@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR for cp124: group strength
 test.describe('group strength', () => {
   test('strength sums members\' effective', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -16,7 +15,6 @@ test.describe('group strength', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-concept-strength')).toHaveText('220');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-strength')).toHaveText('100');

@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp12 (mutates cp11). net = momentum + backing, where backing is now the
 // SUM of all patrons' thrust (0 when the person has no patrons).
 test.describe('net', () => {
   test('net is momentum plus summed backing (0 when no patron)', { tag: '@functionality' }, async ({ page }) => {
@@ -17,7 +16,6 @@ test.describe('net', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-net')).toHaveText('147');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-net')).toHaveText('8');

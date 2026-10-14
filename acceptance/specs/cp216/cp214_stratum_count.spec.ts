@@ -15,7 +15,6 @@ test.describe('stratum counts', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('stratum-count-TOP')).toHaveText('2');
     await expect(page.getByTestId('stratum-count-BOT')).toHaveText('5');
   });

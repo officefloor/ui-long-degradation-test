@@ -15,7 +15,6 @@ test.describe('grade share', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('grade-share-HIGH')).toHaveText('42');
     await expect(page.getByTestId('grade-share-MID')).toHaveText('28');
     await expect(page.getByTestId('grade-share-LOW')).toHaveText('28');

@@ -16,7 +16,6 @@ test.describe('cohesion', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-concept-cohesion')).toHaveText('110');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-cohesion')).toHaveText('50');

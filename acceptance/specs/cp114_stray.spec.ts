@@ -3,7 +3,10 @@ import { resetAndSeed } from '../support/seed';
 
 // stray = yes when |ebb| > 100, else no.
 //   ebb (median-based): -40, -20, 0, 160, 820 -> no, no, no, yes, yes
-const SEED = {
+
+test.describe('stray', () => {
+  test('stray flags a large ebb magnitude', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Fay', alpha: 5,  beta: 8,  gamma: 5,  delta: 0, epsilon: 0, zeta: 0, active: true },
     { id: 2, name: 'Gus', alpha: 2,  beta: 30, gamma: 2,  delta: 0, epsilon: 0, zeta: 0, active: true },
@@ -11,13 +14,8 @@ const SEED = {
     { id: 4, name: 'Ivy', alpha: 4,  beta: 60, gamma: 4,  delta: 0, epsilon: 0, zeta: 0, active: true },
     { id: 5, name: 'Jo',  alpha: 10, beta: 90, gamma: 10, delta: 0, epsilon: 0, zeta: 0, active: true },
   ],
-};
-
-test.describe('stray', () => {
-  test('stray flags a large ebb magnitude', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-stray')).toHaveText('no');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-stray')).toHaveText('no');

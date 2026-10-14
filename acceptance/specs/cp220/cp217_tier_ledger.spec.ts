@@ -15,7 +15,6 @@ test.describe('ledger by tier', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('tier-ledger-SURGE')).toHaveText('1000');
     await expect(page.getByTestId('tier-ledger-STEADY')).toHaveText('260');
     await expect(page.getByTestId('tier-ledger-SINK')).toHaveText('-10');

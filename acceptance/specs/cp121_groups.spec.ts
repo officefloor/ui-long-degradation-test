@@ -16,7 +16,6 @@ test.describe('groups', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-name')).toHaveText('North');
     await expect(page.getByTestId('group-row-2').getByTestId('group-name')).toHaveText('South');
@@ -36,7 +35,6 @@ test.describe('groups', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('person-group')).toHaveText('North');
     await expect(page.getByTestId('person-row-2').getByTestId('person-group')).toHaveText('North');

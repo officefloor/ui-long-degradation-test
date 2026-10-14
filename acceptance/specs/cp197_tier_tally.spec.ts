@@ -15,7 +15,6 @@ test.describe('tier tally', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('tier-tally-SURGE')).toHaveText('3');
     await expect(page.getByTestId('tier-tally-STEADY')).toHaveText('3');
     await expect(page.getByTestId('tier-tally-SINK')).toHaveText('1');

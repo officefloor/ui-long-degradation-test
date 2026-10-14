@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MUTATIVE (mutates cp89, cp90, cp91): gust = reach + 2*torque (was + torque). coil and total gust
 // follow.
 //   gust: Ada 30+66=96, Ben -3-4=-7, Dot 100+200=300
 //   coil: Ada 96-15=81, Ben -7-(-1)=-6, Dot 300-100=200 ; total 96-7+300=389
-// Updated cp89/cp90/cp91 ship under acceptance/specs/cp92/.
-const SEED = {
+
+test.describe('gust coefficient raised to 2', () => {
+  test('gust = reach + 2*torque; coil and total follow', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Ada', alpha: 2, beta: 3,  gamma: 5, delta: 3, epsilon: 4,  zeta: 10, active: true },
     { id: 2, name: 'Ben', alpha: 4, beta: 2,  gamma: 1, delta: 5, epsilon: 2,  zeta: 1,  active: true },
@@ -15,13 +16,8 @@ const SEED = {
   regions: [
     { personId: 1, region: 'N1' }, { personId: 2, region: 'S2' }, { personId: 3, region: 'E5' },
   ],
-};
-
-test.describe('gust coefficient raised to 2', () => {
-  test('gust = reach + 2*torque; coil and total follow', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-gust')).toHaveText('96');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-gust')).toHaveText('-7');

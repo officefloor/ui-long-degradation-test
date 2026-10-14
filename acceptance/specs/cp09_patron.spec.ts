@@ -14,7 +14,6 @@ test.describe('patron', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('person-patrons')).toHaveText('Ravi');
     await expect(page.getByTestId('person-row-3').getByTestId('person-patrons')).toHaveText('Ravi');

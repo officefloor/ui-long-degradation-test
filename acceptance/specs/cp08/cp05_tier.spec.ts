@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../../support/seed';
 
-// UPDATED PRIOR shipped by cp08 (mutates cp05). Same seed as the original cp05, but under the
 // recalibrated thresholds (STEADY 0..199, SURGE >= 200) the momentum-100 person is now STEADY.
 test.describe('tier', () => {
   test('tier classifies momentum including the boundaries', { tag: '@functionality' }, async ({ page }) => {
@@ -15,7 +14,6 @@ test.describe('tier', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-tier')).toHaveText('SINK');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-tier')).toHaveText('STEADY');

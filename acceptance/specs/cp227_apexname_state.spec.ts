@@ -15,7 +15,6 @@ test.describe('apex by state', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('apexname-state-FINAL')).toHaveText('Ada');
     await expect(page.getByTestId('apexname-state-REVIEW')).toHaveText('Cam');
     await expect(page.getByTestId('apexname-state-DRAFT')).toHaveText('Dot');

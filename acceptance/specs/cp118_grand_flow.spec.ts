@@ -2,7 +2,10 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // grand flow rollup: sum of flows (skip n/a). 741 + -12 + 3416 = 4145.
-const SEED = {
+
+test.describe('grand flow', () => {
+  test('grand flow sums the flows', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
   people: [
     { id: 1, name: 'Ada', alpha: 2, beta: 3,  gamma: 5, delta: 3, epsilon: 4,  zeta: 10, kind: 'A', active: true },
     { id: 2, name: 'Ben', alpha: 4, beta: 2,  gamma: 1, delta: 5, epsilon: 2,  zeta: 1,  kind: 'B', active: true },
@@ -16,13 +19,8 @@ const SEED = {
     { from: 1, to: 2 }, { from: 1, to: 3 },
     { from: 3, to: 2 },
   ],
-};
-
-test.describe('grand flow', () => {
-  test('grand flow sums the flows', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed(SEED);
+});
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('rollup-grand-flow')).toHaveText('4145');
   });

@@ -2,17 +2,14 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 import { auditLines } from '../support/audit';
 
-// MUTATIVE (mutates cp57): a REWORK state is added. A FINAL person can be moved to REWORK via
 // `person-rework-<id>`, and a REWORK person back to FINAL via `person-advance-<id>`. Both changes are
 // audited. FINAL is therefore no longer terminal (cp57 asserted no rework control existed; the
-// updated cp57 ships under acceptance/specs/cp60/).
 test.describe('rework state', () => {
   test('FINAL can move to REWORK and back, with audit', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
       people: [{ id: 1, name: 'Al', alpha: 5, beta: 20, gamma: 5, state: 'FINAL' }],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('person-row-1').getByTestId('person-state')).toHaveText('FINAL');
 
     await page.getByTestId('person-rework-1').click();

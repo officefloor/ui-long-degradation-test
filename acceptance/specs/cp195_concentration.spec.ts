@@ -15,7 +15,6 @@ test.describe('concentration', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
     await expect(page.getByTestId('rollup-concentration')).toHaveText('78');
   });
 });

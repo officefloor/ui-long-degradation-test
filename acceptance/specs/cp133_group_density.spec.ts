@@ -16,7 +16,6 @@ test.describe('density', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-groups').click();
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-concept-density')).toHaveText('2');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-density')).toHaveText('1');

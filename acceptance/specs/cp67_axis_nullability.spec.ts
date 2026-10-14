@@ -11,7 +11,6 @@ test.describe('axis nullability', () => {
       ],
     });
     await page.goto('/');
-    await page.getByTestId('nav-worksheet').click();
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-force')).toHaveText('12');
     await expect(page.getByTestId('person-row-1').getByTestId('concept-blend')).toHaveText('48');
