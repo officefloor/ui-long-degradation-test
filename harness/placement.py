@@ -330,11 +330,16 @@ _CK_AGGREGATE = ["cbo", "rfc", "lcom", "lcom*", "tcc", "lcc", "dit", "fanin", "f
 
 
 def ck_metrics(worktree: str, src_dirs: list[str], ck_jar: str,
-               java_bin: str = "java", timeout: int = 900) -> Optional[dict]:
+               java_bin: str = "java", timeout: int = 900,
+               fns: Optional[list[dict]] = None, adj: Optional[dict] = None) -> Optional[dict]:
     """Per-class C&K metrics via the CK tool, aggregated (mean/max) + WMC distribution.
     Returns None (never zeros) if CK did not run — a blank column that `series_by_chain`
     drops, rather than a 0 that would flatten a trajectory. CK parses SOURCE (Eclipse JDT),
-    no compile, so it runs on a materialised tree exactly like lizard."""
+    no compile, so it runs on a materialised tree exactly like lizard.
+
+    With the layer's lizard records and call adjacency (`fns`, `adj`), CK's per-method
+    field use also feeds the implicit-data-reach and dependency-surplus columns
+    (harness.dataflow.data_reach)."""
     if not ck_jar or not os.path.isfile(ck_jar):
         return None
     import csv as _csv
@@ -342,6 +347,8 @@ def ck_metrics(worktree: str, src_dirs: list[str], ck_jar: str,
     import tempfile
     out_dir = tempfile.mkdtemp(prefix="ck_")
     rows: list[dict] = []
+    methods: list[dict] = []
+    fields: list[dict] = []
     try:
         for d in src_dirs:
             target = os.path.join(worktree, d)
@@ -362,6 +369,11 @@ def ck_metrics(worktree: str, src_dirs: list[str], ck_jar: str,
                 return None
             with open(cls_csv, encoding="utf-8", errors="replace") as fh:
                 rows.extend(list(_csv.DictReader(fh)))
+            for name, into in (("method.csv", methods), ("field.csv", fields)):
+                path = os.path.join(out_dir, name)
+                if os.path.isfile(path):
+                    with open(path, encoding="utf-8", errors="replace") as fh:
+                        into.extend(list(_csv.DictReader(fh)))
             for leftover in ("class.csv", "method.csv", "field.csv", "variable.csv"):
                 try:
                     os.remove(os.path.join(out_dir, leftover))
@@ -392,7 +404,34 @@ def ck_metrics(worktree: str, src_dirs: list[str], ck_jar: str,
     wmc_vals = col("wmc")
     out["ck_wmc_total"] = round(sum(wmc_vals), 2) if wmc_vals else None
     out.update(distribution_block(wmc_vals, "wmcdist_class"))
+    if fns is not None and adj is not None:
+        from .dataflow import data_reach
+        out.update(data_reach(worktree, rows, methods, fields, fns, adj))
     return out
+
+
+def ck_key_map(worktree: str, methods: list[dict], fns: list[dict]) -> dict:
+    """(CK class, CK method) -> lizard node key, matched by real file path, method name
+    and the nearest start line (within 5 lines). A CK method lizard does not list
+    (lambda bodies, initialisers) has no entry."""
+    by_file_name: dict = defaultdict(list)
+    for f in fns:
+        if "_key" in f:
+            by_file_name[(os.path.realpath(os.path.join(worktree, f["file"])),
+                          f["_meth"])].append(f)
+    key_of: dict = {}
+    for m in methods:
+        name = m.get("method", "").split("/")[0]
+        try:
+            line = int(m.get("line", ""))
+        except ValueError:
+            continue
+        cands = by_file_name.get((os.path.realpath(m.get("file", "")), name), [])
+        if cands:
+            best = min(cands, key=lambda f: abs(int(f["start"]) - line))
+            if abs(int(best["start"]) - line) <= 5:
+                key_of[(m["class"], m["method"])] = best["_key"]
+    return key_of
 
 
 # ---------------------------------------------------------------------------

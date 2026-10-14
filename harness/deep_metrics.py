@@ -542,6 +542,7 @@ def _call_index(worktree: str, fns: list[dict]) -> tuple[dict, dict]:
         cls = f["file"].split("/")[-1].removesuffix(".java")
         meth = f["name"].split("::")[-1]
         f["_cls"], f["_meth"] = cls, meth
+        f["_key"] = (cls, meth)   # node identity (overloads share one), as harness.dataflow reads it
         by_key[(cls, meth)] = f
         by_name[meth].append(f)
         path = os.path.join(worktree, f["file"])

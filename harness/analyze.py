@@ -31,8 +31,8 @@ from collections import Counter, defaultdict
 import numpy as np
 import yaml
 
-from . import (class_shape, correctness, cumulative_impact, doctor, metrics, stack_label,
-               stack_layer_options, stack_layers, stack_repo)
+from . import (class_shape, correctness, cumulative_impact, dataflow, doctor, metrics,
+               stack_label, stack_layer_options, stack_layers, stack_repo)
 from .run_experiment import CSV_FIELDS, phase_for
 
 try:
@@ -189,6 +189,10 @@ def _metrics_row(repo: str, commit_sha: str, prev_sha: str | None, app_cfg: dict
         subprocess.run(["rm", "-rf", tmp], capture_output=True, text=True)
 
 
+# One entry per recomputed chain and layer: dataflow.reach_chain_summary, for the reach section.
+REACH_CHAINS: list[dict] = []
+
+
 def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
                    tools: dict | None = None) -> list[dict]:
     """One row per (chain, checkpoint), rebuilt from capture and re-scored. prior_passing
@@ -214,6 +218,10 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
         print(f"  [{i_br}/{n_br}] {branch}: {n_cp} checkpoint(s)", flush=True)
         base_commit = caps[min(caps)].get("prev_sha")  # chain base (cp01's prev) — cum change-entropy
         baseline = correctness.Baseline()   # the same scoring the live run and --resume use
+        # Reach uptake follows each method along the chain (dataflow.reach_uptake), per layer:
+        # the previous checkpoint's reach sets, and the chain's arrival ledger.
+        reach_prev: dict = {}
+        reach_state: dict = {}
         n_noop = 0        # checkpoints the agent left unchanged -> no commit -> no structural row
         n_invalid = 0     # gates that aborted -> correctness is missing, not failed
         t_chain = time.time()
@@ -268,6 +276,14 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
             if app_cfg:
                 row.update(_metrics_row(repo, rec.get("commit_sha") or "",
                                         rec.get("prev_sha"), app_cfg, tools, base_commit))
+                for rkey in [c for c in row if c.startswith("_") and c.endswith("_reach")]:
+                    lyr = rkey[1:-len("_reach")]
+                    cur = row.pop(rkey)
+                    for c, v in dataflow.reach_uptake(reach_prev.get(lyr), cur,
+                                                      reach_state.setdefault(lyr, {}),
+                                                      i_cp).items():
+                        row[f"{lyr}_{c}"] = v
+                    reach_prev[lyr] = cur
             if outcome.gate_invalid:
                 n_invalid += 1
             if not (rec.get("commit_sha") or ""):
@@ -289,6 +305,10 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
                   f"  be[er={_heartbeat_val(row, 'backend_erosion')}"
                   f" sloc={_heartbeat_val(row, 'backend_sloc')}]"
                   f"  regr={_heartbeat_val(row, 'regressions')}" + flags, flush=True)
+        for lyr, st in reach_state.items():
+            REACH_CHAINS.append({"arm": f"{rows[-1].get('stack', '')} {lyr}" if rows else lyr,
+                                 "strategy": condition, "chain": chain,
+                                 "summary": dataflow.reach_chain_summary(st)})
         print(f"  recomputed {branch}: {n_cp} checkpoint(s)"
               + (f" ({n_noop} no-op)" if n_noop else "")
               + (f"  ! {n_invalid} INVALID GATE(S) — correctness excluded" if n_invalid else "")
@@ -688,6 +708,22 @@ _EXTRA_PLOT_BASES = [
     # Front-end additive units.
     ("fnpkg_cc_max", "most complex additive unit (CC)"),
     ("fnpkg_nloc_avg", "mean additive unit size (NLOC)"),
+    # Data flow vs control flow, collaborators vs data, injection scope and reach (Java;
+    # harness/dataflow.py).
+    ("dfdata_tramp_ratio", "tramp data: data parameters only handed on"),
+    ("dfdata_tramp_chain_max", "longest call chain a data type is handed down"),
+    ("dfdata_edge_carry_share", "call edges carrying a data parameter"),
+    ("drdata_implicit_share", "share of a method's data reached through data fields"),
+    ("drcol_field_span_max", "most methods tied to one collaborator field"),
+    ("dep_surplus_share", "dependency surplus: collaborators in scope but unused"),
+    ("reach_avail_share", "share of system types a method can reach"),
+    ("reach_used_share", "share of system types a method uses"),
+    ("reach_use_of_avail", "share of its reach a method uses"),
+    ("reach_avail_share_col", "share of collaborator types a method can reach"),
+    ("reach_shortcut_share", "shortcut uptake: new uses already in reach"),
+    ("reach_shortcut_share_newfns", "shortcut uptake: methods added to existing classes"),
+    ("reach_class_arrivals", "types arriving in a class's ambient reach"),
+    ("reach_arrival_lag_mean", "checkpoints from arrival in reach to first use"),
 ]
 EXTRA_PLOT_FIELDS = (
     [(f"{layer}_{base}", f"{_LAYER_NAME[layer]} {label}")
@@ -1465,6 +1501,11 @@ def main() -> int:
     print(f"writing csv -> {out_dir}", flush=True)
     csv_path = write_csv(rows, out_dir)
     audits = tool_lines + branch_audits(repo, run_id, cfg["app"])
+    # Reach: does a class's reach arrive before it is used? Ledger kept during the recompute.
+    if REACH_CHAINS:
+        audits += dataflow.reach_markdown(REACH_CHAINS)
+        with open(os.path.join(out_dir, "reach_arrivals.json"), "w") as fh:
+            json.dump({"run_id": run_id, "chains": REACH_CHAINS}, fh, indent=2)
     print("writing summary (slopes + chain-bootstrap CIs) ...", flush=True)
     summary_path = write_summary(rows, run_id, gammas, out_dir, extra_sections=audits)
 

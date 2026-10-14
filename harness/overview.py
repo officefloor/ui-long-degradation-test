@@ -55,6 +55,9 @@ FIELDS = [
     ("frontend_dup_density", "Front-end duplicated lines (share of LOC)"),
     ("backend_erosion", "Backend erosion"),
     ("backend_impact_composite", "Backend blast-radius impact"),
+    ("backend_reach_avail_share", "Backend: share of system types a method can reach"),
+    ("backend_reach_shortcut_share", "Backend: new uses already in reach (shortcuts)"),
+    ("backend_dep_surplus_share", "Backend: collaborators in scope but unused"),
     ("cost_usd", "Agent cost per checkpoint (USD)"),
 ]
 

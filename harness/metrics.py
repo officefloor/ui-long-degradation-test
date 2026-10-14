@@ -36,7 +36,7 @@ from typing import Callable, Optional
 
 import lizard
 
-from . import placement
+from . import dataflow, placement
 
 CC_THRESHOLD = 10
 IMPACT_RENAME_JACCARD = 0.6
@@ -129,7 +129,8 @@ def functions(root: str, globs: list[str]) -> list[dict]:
             continue
         for fn in analysis.function_list:
             out.append({
-                "file": rel, "name": fn.name, "container": _container(fn.name),
+                "file": rel, "name": fn.name, "long_name": fn.long_name,
+                "container": _container(fn.name),
                 "cc": int(fn.cyclomatic_complexity), "nloc": int(fn.nloc),
                 "start": int(fn.start_line), "end": int(fn.end_line),
             })
@@ -711,9 +712,20 @@ def compute_all(worktree: str, app_cfg: dict, tools: dict, base_commit: str,
                                         tools.get("pmd_metrics_rules") or "")
             for k, v in (pmd or {}).items():
                 row[f"{lyr}_{k}"] = v
+            # One call index for CK's field-reach measures and the data-flow columns below.
+            by_key, by_name = deep_metrics._call_index(worktree, fns)
+            adj = deep_metrics.call_adjacency(by_key, by_name)
             ck = placement.ck_metrics(worktree, src_dirs, tools.get("ck") or "",
-                                      tools.get("java") or "java")
+                                      tools.get("java") or "java", fns=fns, adj=adj)
             for k, v in (ck or {}).items():
+                row[f"{lyr}_{k}"] = v
+            # DATA FLOW vs CONTROL FLOW, collaborators vs data, dependency surplus and reach
+            # (harness/dataflow.py). The per-method reach sets are not a column: analyze pops
+            # `_{layer}_reach` and follows them along the chain (dataflow.reach_uptake).
+            dfl = dataflow.dataflow_all(worktree, fns, adj, prev_ref, "HEAD",
+                                        deep_metrics._is_prod_java)
+            row[f"_{lyr}_reach"] = dfl.pop("_reach", {})
+            for k, v in dfl.items():
                 row[f"{lyr}_{k}"] = v
         # ── deep metrics (harness.deep_metrics, ported from the REST arm) ───────────────────
         # Layer-generic first. Each returns blanks (never zeros) when its tool is absent, and
