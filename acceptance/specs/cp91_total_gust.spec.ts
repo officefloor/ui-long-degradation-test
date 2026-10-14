@@ -1,0 +1,24 @@
+import { test, expect } from '@playwright/test';
+import { resetAndSeed } from '../support/seed';
+
+// total gust rollup: sum of gusts (skip n/a). 63 + -5 + 200 = 258.
+const SEED = {
+  people: [
+    { id: 1, name: 'Ada', alpha: 2, beta: 3,  gamma: 5, delta: 3, epsilon: 4,  zeta: 10, active: true },
+    { id: 2, name: 'Ben', alpha: 4, beta: 2,  gamma: 1, delta: 5, epsilon: 2,  zeta: 1,  active: true },
+    { id: 3, name: 'Dot', alpha: 5, beta: 20, gamma: 5, delta: 5, epsilon: 20, zeta: 5,  active: true },
+  ],
+  regions: [
+    { personId: 1, region: 'N1' }, { personId: 2, region: 'S2' }, { personId: 3, region: 'E5' },
+  ],
+};
+
+test.describe('total gust', () => {
+  test('total gust sums the gusts', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed(SEED);
+    await page.goto('/');
+    await page.getByTestId('nav-worksheet').click();
+
+    await expect(page.getByTestId('rollup-total-gust')).toHaveText('258');
+  });
+});

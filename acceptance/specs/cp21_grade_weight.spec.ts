@@ -1,0 +1,22 @@
+import { test, expect } from '@playwright/test';
+import { resetAndSeed } from '../support/seed';
+
+// grade is one of LOW, MID, HIGH. weight is derived: LOW=1, MID=2, HIGH=3.
+test.describe('grade weight', () => {
+  test('weight comes from grade', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Dana', alpha: 3, beta: 4,  gamma: 10, grade: 'HIGH' },
+        { id: 2, name: 'Ravi', alpha: 7, beta: 2,  gamma: 5,  grade: 'MID' },
+        { id: 3, name: 'Uma',  alpha: 5, beta: 20, gamma: 5,  grade: 'LOW' },
+      ],
+    });
+    await page.goto('/');
+    await page.getByTestId('nav-worksheet').click();
+
+    await expect(page.getByTestId('person-row-1').getByTestId('person-grade')).toHaveText('HIGH');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-weight')).toHaveText('3');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-weight')).toHaveText('2');
+    await expect(page.getByTestId('person-row-3').getByTestId('concept-weight')).toHaveText('1');
+  });
+});

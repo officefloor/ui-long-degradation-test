@@ -1,284 +1,311 @@
-# ui-long-degradation-test — Design Notes
+# ui-long-degradation-test Design Notes
 
-_Captured 2026-09-19. Working design for a **full-stack erosion experiment that replicates the
-OfficeHQ change loop**: one application, grown from a near-empty base by ~60 plain-English change
-requests, each evolving schema + OfficeFloor server + front-end + its acceptance test together.
-This is a thinking document — it records decisions **and the reasoning behind them**, including
-where the design changed as we worked through it (it began as a front-end-only comparison against
-a constant backend; §2 records why that was dropped), and the empirical checks that settled open
-questions._
+_Originally captured 2026-09-19 as a full-stack erosion experiment with a business domain
+(clients, projects, invoices). Reframed 2026-10 to a **domain-free plasticity benchmark**. The app
+is now grown from a near-empty base by 250 plain-English change requests, each evolving schema plus
+server plus front-end plus its acceptance test together, but the subject matter carries no
+real-world meaning. It tracks arbitrary PEOPLE with arbitrary attribute values and named CONCEPTS
+computed from those values and from each other, over relationships whose cardinality migrates. This
+stays a thinking document. It records decisions and the reasoning behind them, including where the
+design changed as we worked through it. Section 2 records the two framing changes (front-end-only
+dropped, then the business domain dropped). The measurement machinery (Sections 5, 6, 8, 9, 14, 15)
+is unchanged from the original design and transfers verbatim._
 
 ---
 
 ## 1. Purpose
 
-Show whether the **OfficeHQ approach can evolve a whole application under constant English change
-requests without eroding** — flat structural erosion and low regressions across a long sequence
-(~60) of AI-authored, full-stack changes. This is not a front-end beauty contest; it is a
-**fidelity model of the OfficeHQ production change loop** (`~/OfficeHQ/DESIGN.md` §3): a plain-
-English request becomes a commit that changes the schema, the OfficeFloor server, and the front-
-end together, is gated (compile · tests · ImpactGate · security), and either holds or erodes.
+Show whether an architecture can absorb a long sequence of interwoven changes without eroding, when
+the problem itself is intrinsically coupled. The earlier framing asked whether a specific product
+loop stayed flat on a business app. The sharper question, and the one this version measures, is
+**plasticity**. Hold the behavioral contract fixed, apply a change of known shape, and measure what
+the solution has to do to absorb it. An architecture is plastic when a new rule, or a changed
+definition, or a migrated relationship ripples through without concentrating complexity into a
+hotspot and without breaking what already worked.
 
-The harness starts where OfficeHQ starts a new customer app: a **base** — a base front-end shell,
-Spring with the OfficeFloor plugin, and an **empty database (no tables)** — and evolves it from
-there, one English request at a time. What is measured is whether erosion stays flat as the app
-is *built from scratch* by prompts.
+The subject matter is deliberately meaningless. There are no invoices, clients or products.
+There are people with arbitrary names, raw attribute values, and concepts layered on top. This is
+on purpose. A business domain lets an agent lean on what it already knows about invoices, which
+confounds the measurement and ties the result to one domain. Stripping the domain leaves only the
+thing under test, which is whether the stack holds its shape as definitions interweave and the data
+model shifts underneath.
 
-Two references shape the design:
+Two references shape the design.
 
-- **The REST harness** (`~/spring-petclinic-rest-long-degradation-test`) — the established
-  method (number a checkpoint list 1..N, hand a fresh agent one at a time, gate and score each,
-  track erosion over the sequence) and the source of the reusable spine, metric names, and the
-  blind design. It measured *server* erosion on an existing app; this harness measures
-  *whole-stack* erosion while *growing* an app. Metric names are kept aligned so the two read as
-  one body of work.
-- **OfficeHQ** (`~/OfficeHQ/DESIGN.md`) — the product this validates. The harness *is* the
-  OfficeHQ loop, run against a deterministic checkpoint sequence so it can be scored.
+- **The REST harness** (`~/spring-petclinic-rest-long-degradation-test`) is the established method.
+  Number a checkpoint list 1..N, hand a fresh agent one checkpoint at a time, gate and score each,
+  and track erosion over the sequence. It is the source of the reusable spine, the metric names and
+  the blind design. It measured server erosion on an existing app. This harness measures whole-stack
+  erosion while growing an app from nothing. Metric names are kept aligned so the two read as one
+  body of work.
+- **OfficeHQ** (`~/OfficeHQ/DESIGN.md`) is the product this ultimately serves, an AI-augmented
+  pipeline that lets non-technical people build systems from plain English. That product needs a
+  front-end and a change loop that does not rot, which is why this harness is full-stack and models
+  the same loop. The domain-free design keeps the result from being about OfficeFloor or any one
+  framework, so it can stand as a general benchmark that any architecture runs against.
 
-The thesis under test is OfficeFloor's own, extended to the whole stack: a change should be
-**additive and local**. The architecture (OfficeFloor's additive composition on the server; the
-opinionated additive front-end shell on the client) that makes the additive path the path of
-least resistance, and the reach-across path structurally hard or loud, is the one that survives
-60 English requests.
+The hypothesis for why an architecture would resist is the additive-and-local one. The architecture
+that makes the additive path the path of least resistance, and the reach-across path structurally
+hard or loud, is the one that survives a long run of coupled changes. The benchmark is built to
+punish reach-across, by making later changes re-enter earlier definitions and relationships.
 
 ---
 
-## 2. The base, and what evolves (nothing is held constant)
+## 2. The world the suite evolves (nothing is held constant)
 
-This design began as "hold an OfficeFloor backend constant and vary only the front-end." That was
-dropped: it does not model OfficeHQ, where a user's English request evolves the **whole stack**.
-So there is **no constant layer** — every checkpoint may change all of:
+This design began as "hold a backend constant and vary only the front-end." That was dropped,
+because it does not model a real change loop, where one English request evolves the whole stack. So
+there is no constant layer. Every checkpoint may change all of the following.
 
-- **the database schema** — new tables/columns via migrations (the app starts with **no tables**);
-- **the OfficeFloor server** — new procedures/sections/endpoints;
-- **the front-end** — new pages/components/state;
-- **the acceptance test** — this checkpoint's own spec (§7).
+- The database schema, through new tables and columns via migrations. The app starts with no tables.
+- The server, through new procedures, sections and endpoints.
+- The front-end, through new pages, components and state.
+- The acceptance test, which is this checkpoint's own spec (Section 7).
 
-Within a single run the **whole stack is fixed** — it is one base repo (one technology stack). The
-study compares **technology stacks across runs**: each candidate stack is its own base repo (a
-home-level sibling `~/officehq-<frontend>-<backend>`), and the harness is run against each in turn
-to see which stack best resists erosion under the same evolution (§10). Both the front-end **and**
-the backend may vary between stacks. Within a run there are no in-run arms;
-the only optional in-run dimension is the **intervention condition** (§10) — the full OfficeHQ
-gated loop vs an ungated control — to quantify what the gates buy.
+Within a single run the whole stack is fixed, because it is one base repo and one technology stack.
+The study compares technology stacks across runs. Each candidate stack is its own base repo, a
+home-level sibling `~/officehq-<frontend>-<backend>`, and the harness runs the same checkpoint
+stream against each in turn to see which stack best resists erosion under the same evolution
+(Section 10). Both the front-end and the backend may vary between stacks. Within a run there are no
+in-run arms. The only optional in-run dimension is the intervention condition (Section 10), the
+gated loop against an ungated control, to quantify what the gates buy.
 
-Because everything churns, the **one thing that stays stable is the test contract** (`data-testid`
-+ UI-only assertions, §3). That is what makes a fully-evolving stack measurable at all, and
-it is the same reason OfficeHQ tracks functionality as tests, not specs (§7).
+Because everything churns, the one thing that stays stable is the test contract, which is
+`data-testid` plus UI-only assertions (Section 3). That is what makes a fully-evolving stack
+measurable at all.
+
+### The data model the requests build
+
+The app is a single worksheet screen. Each worksheet is identified by an arbitrary sheet id, and
+each test uses a fresh id, so tests are isolated. A worksheet holds PEOPLE with arbitrary names.
+Three layers grow on top of them, and this layering is the pressure.
+
+- **Raw values.** A person carries arbitrary attributes, for example whole numbers `alpha`, `beta`,
+  `gamma`, an enum `grade`, an `onset` date, an `active` flag. A missing raw value is allowed.
+- **Concepts.** Named values computed from raw values and, crucially, from other concepts, so the
+  definitions interweave. A concept shows the literal `n/a` when an input is missing. Examples run
+  from `thrust = alpha*beta` up through classifications, cross-person aggregations, rankings,
+  normalization and a status workflow.
+- **Relationships.** People link to people, and the cardinality of those links migrates over the
+  run. A one-to-many link becomes many-to-many, an attribute is promoted into a child entity, a set
+  of child rows folds back into a single attribute. These migrations change the model underneath a
+  concept whose surface contract is held fixed, which is the purest forced refactor the benchmark
+  can construct.
+
+Mutative checkpoints apply the pressure. They change a concept's definition, recalibrate a
+threshold, or migrate a relationship, while the higher concepts that read the changed one keep their
+contract. The full concept chain, the exact formulas, and the per-act structure are documented in
+the `checkpoints.yaml` header, in `acceptance/support/README.md` (the `data-testid` contract), and
+in `acceptance/support/ACT_AUTHORING_BRIEF.md` (the concept chain and the authoring rules). Those
+files are the living reference, so this document does not restate the formulas, which would rot.
+
+The stream is 250 checkpoints in five acts, boundaries at 60, 120, 180, 240 and 250. Acts I to IV
+run a repeating cycle of three additive checkpoints then one mutative, so every checkpoint whose
+number is divisible by four is mutative. Act I lays the concept spine. Act II adds a second raw axis
+and fuses it with the spine. Act III adds a groups entity with a many-to-many membership migration.
+Act IV adds reporting and rankings over the spine. Act V is a short finale of consistency sweeps and
+two reversals that undo earlier decisions. Roughly 91% of the stream is on the concept-pipeline
+spine, which is where the erosion pressure concentrates.
 
 ---
 
 ## 3. The implementation-agnostic seam: `data-testid` as a declared contract
 
-The REST harness is implementation-agnostic because its tests are black-box REST assertions
-(URLs, JSON fields, status codes) — the API *is* the contract. Here the whole stack (schema,
-server, front-end) is rewritten as the app evolves, so the tests need a seam that stays stable
-through all of that churn and never couples to any one implementation's internals.
+The REST harness is implementation-agnostic because its tests are black-box REST assertions over
+URLs, JSON fields and status codes. The API is the contract. Here the whole stack is rewritten as
+the app evolves, so the tests need a seam that stays stable through all of that churn and never
+couples to any one implementation's internals.
 
-**Decision: tests bind to `data-testid` attributes, and nothing else** — never CSS classes,
+The decision is that tests bind to `data-testid` attributes and nothing else. Never CSS classes,
 DOM structure, tag nesting, or visible copy. A test locates an element by its `data-testid`,
-performs the user action, and asserts on values read through other `data-testid` anchors.
-The same Playwright suite validates the app however the stack beneath is implemented, because
-all it depends on is the presence and behaviour of named anchors over the data the spec itself
-seeds (§9) — not on any schema, API, or DOM detail.
+performs the user action, and asserts on values read through other `data-testid` anchors. The same
+Playwright suite validates the app however the stack beneath is implemented, because all it depends
+on is the presence and behaviour of named anchors over the data the spec itself seeds (Section 9),
+not on any schema, API or DOM detail. The conventions are fixed. A people table is `people-table`, a
+row is `person-row-<id>`, a raw cell is `person-<attr>`, a computed concept cell is
+`concept-<name>`, and a worksheet rollup is `rollup-<name>`.
 
-**A second channel for side-effects: a known audit file.** Some rules aren't user-visible — an
-audit trail, a notification. The UI can't show them, so (like the REST arm asserting against an
-`AUDIT` logger) the app writes audited behaviour, one record per line, to a **known file** (the
-`Audit` service → `app.audit.file`), and specs assert by reading it (`e2e/support/audit.ts`).
-This is the *only* non-UI assertion channel, and it is a declared, stable contract exactly like
-`data-testid`: the file path and one-record-per-line format don't drift, so the stack beneath can
-still be rewritten freely as long as it keeps emitting the agreed records. `/__test__/reset` clears
-the file per spec (§9). Everything else is still asserted through the UI.
+A second channel covers side-effects. Some rules are not user-visible, for example an audit trail.
+The UI cannot show them, so the app writes audited behaviour one record per line to a known file,
+and specs assert by reading it (`auditLines()` from `acceptance/support/audit`). This is the only
+non-UI assertion channel. It is a declared, stable contract exactly like `data-testid`. The file
+path and the one-record-per-line format do not drift, so the stack beneath can still be rewritten
+freely as long as it keeps emitting the agreed records. A per-spec reset clears the file (Section 9).
+Everything else is still asserted through the UI.
 
-**Consequence — the anchors must be *provided* to the agent.** The agent cannot guess which
-`data-testid` values (or audit records) a hidden test expects. So each checkpoint's own test is
-handed to the agent (see §4): the test declares the anchors/records the new feature must expose,
-and the agent's job is to build a feature that exposes them and behaves correctly.
+A consequence is that the anchors must be provided to the agent. The agent cannot guess which
+`data-testid` values or audit records a hidden test expects. So each checkpoint's own test is handed
+to the agent (Section 4). The test declares the anchors and records the new feature must expose, and
+the agent's job is to build a feature that exposes them and behaves correctly.
 
-**The one genuinely new thing UI adds over REST.** A REST endpoint is *inherently* the
-contract; a `data-testid` is a **synthetic** contract layered on the DOM, so it must be
-*declared stable*. One rule, constant across the run, in the shared agent instructions:
+One genuinely new thing the UI adds over REST is worth naming. A REST endpoint is inherently the
+contract. A `data-testid` is a synthetic contract layered on the DOM, so it must be declared stable.
+One rule, constant across the run, sits in the shared agent instructions.
 
-> **Once introduced, a `data-testid` is immutable public API. Never rename or remove it.**
+> Once introduced, a `data-testid` is immutable public API. Never rename or remove it.
 
-With that rule, a prior anchor changing is unambiguously the architecture failing to localize
-a change — signal, not agent whimsy. Without it, anchor drift is noise. The rule is what makes
+With that rule, a prior anchor changing is unambiguously the architecture failing to localize a
+change, which is signal, not agent whimsy. Without it, anchor drift is noise. The rule is what makes
 `data-testid` a fair agnostic seam.
 
 ---
 
-## 4. Blind vs full — settled: **blind**
+## 4. Blind vs full, settled on blind
 
-The question was whether the agent, at checkpoint K, should see only checkpoint K's test
-(**blind**) or the whole cp1..cpK suite (**full**).
+The question was whether the agent, at checkpoint K, should see only checkpoint K's test (blind) or
+the whole cp1..cpK suite (full).
 
-The REST harness already answered this and the reasoning transfers with more force, not less:
-
-> With a full checklist of prior tests visible, regressions are ~0 by construction. Blind, the
-> agent must preserve behaviour from memory/architecture — that's the whole point of measuring
-> regression.
-
-Full mode makes the headline metric (Zero-Regression Rate) trivially 1.0 and deletes the
-signal. **Blind is chosen.**
+The REST harness already answered this and the reasoning transfers with more force, not less. With a
+full checklist of prior tests visible, regressions are near zero by construction. Blind, the agent
+must preserve behaviour from memory and architecture, which is the whole point of measuring
+regression. Full mode makes the headline metric, the Zero-Regression Rate, trivially 1.0 and deletes
+the signal. Blind is chosen.
 
 ### Why the `data-testid` regression worry dissolves under blind
 
-The initial worry: a `data-testid` drifting slightly registers as a regression even though
-the app still works — false positives that swamp the architecture signal.
+The initial worry was that a `data-testid` drifting slightly registers as a regression even though
+the app still works, so false positives swamp the architecture signal.
 
-It dissolves because **blind is only about prior *tests*, not prior *code*.** A fresh agent at
-checkpoint K sees the current source tree — which already contains every prior feature and its
-`data-testid` anchors embedded in the components. It just does not see the prior *test files*.
-Therefore:
+It dissolves because blind is only about prior tests, not prior code. A fresh agent at checkpoint K
+sees the current source tree, which already contains every prior feature and its `data-testid`
+anchors embedded in the components. It just does not see the prior test files. Two things follow.
 
-- The agent *can* preserve prior anchors — they are in the code it is editing.
-- Whether it *does* depends on whether adding feature K forces edits into the files where
-  feature J's anchors live. That is exactly the locality / blast-radius property under test.
+- The agent can preserve prior anchors, because they are in the code it is editing.
+- Whether it does depends on whether adding feature K forces edits into the files where feature J's
+  anchors live. That is exactly the locality and blast-radius property under test.
 
-So an anchor regression is not a false positive — it is the front-end equivalent of a
-blast-radius spill. A front-end with real structural resistance keeps feature K's work away
-from feature J's files, and J's anchors survive untouched. Blind regression rate ∝ architecture
-locality. That correlation *is* the experiment.
+So an anchor regression is not a false positive. It is the front-end equivalent of a blast-radius
+spill. A front-end with real structural resistance keeps feature K's work away from feature J's
+files, and J's anchors survive untouched. Blind regression rate tracks architecture locality. That
+correlation is the experiment.
 
 ### Optional ceiling control
 
-Run **full** once as a reference run — not for the real result, but to put on record how much
-regression the safety net hides (it will be ~0). It makes the blind numbers legible to readers
-and quantifies how much the architecture matters when the net is handed over.
+Run full once as a reference run. Not for the real result, but to put on record how much regression
+the safety net hides, which will be near zero. It makes the blind numbers legible to readers and
+quantifies how much the architecture matters when the net is handed over.
 
 ---
 
-## 5. Checkpoint lifecycle (the OfficeHQ loop, made deterministic)
+## 5. Checkpoint lifecycle (the change loop, made deterministic)
 
-Mirrors the REST harness's two-commit-per-checkpoint boundary, but each turn is a **full-stack**
-change and the oracle is a live, served app driven by Playwright. The app grows from the empty
-base (§2): at cp01 there are no tables; each checkpoint may add a migration, server code, and UI.
+This mirrors the REST harness's two-commit-per-checkpoint boundary, but each turn is a full-stack
+change and the oracle is a live, served app driven by Playwright. The app grows from the empty base
+(Section 2). At cp01 there are no tables. Each checkpoint may add a migration, server code and UI.
 
-For each checkpoint `k` (1→N):
+For each checkpoint `k` from 1 to N.
 
-0. **Blind agent view.** Install only this checkpoint's own test (`cpNN` Playwright spec) plus
-   shared test infra. The agent never sees prior tests. The current source tree (all prior
-   schema/server/front-end and its anchors) is present as normal.
-1. **Agent turn.** A **fresh** headless `claude -p` given this checkpoint's **plain-English change
-   request** (as an OfficeHQ user would write it) plus this checkpoint's own spec (so it knows the
-   `data-testid` anchors and values to satisfy), and the current code. No cross-checkpoint
-   memory. It authors the full-stack change — **migration + OfficeFloor server + front-end** — and
-   may run its own test as it works (§15). Cost / tokens / duration captured.
-2. **Build + serve the app.** Build this checkpoint's app into one runnable jar (Spring Boot host +
-   OfficeFloor REST + migrations + the SPA built into `static/`), then bring it up on one port and drive
-   it with Playwright (`correctness.serve()`, §14): `app.start` boots the jar (Flyway migrates the
-   **in-memory H2** up to this checkpoint's schema — starting from empty) and serves the SPA + API
-   on **PORT**; `wait_ready`; run the specs; `app.stop`. Data is seeded per-spec via the app's
-   `/__test__` endpoint (§9). (This stage does not exist in the REST arm and is the main new
-   moving part — see §9, §14.)
-3. **Gate + score.** Run the **full resolved cp01..cpK Playwright suite** against the running app
-   (never shown to the agent — gate, not context). Classify results (§6). Then run the code
-   metrics (§8) over the checkpoint's source — front-end **and** backend.
-4. **Reset commit.** Normalize + set the agent view for the next checkpoint (its own test only),
-   so cp(K+1) starts blind and the agent commit stays pure. Kept even if empty, so every
-   checkpoint is a clean two-commit boundary.
-5. **Capture.** Per-checkpoint raw capture (English request + rendered prompt, agent event stream,
-   build/test console, test outcomes, commit SHAs) committed with the reset, so each checkpoint
-   commit is self-contained and the run reconstructs from git alone.
+0. **Blind agent view.** Install only this checkpoint's own test (the `cpNN` Playwright spec) plus
+   shared test infra. The agent never sees prior tests. The current source tree, with all prior
+   schema, server and front-end and its anchors, is present as normal.
+1. **Agent turn.** A fresh headless `claude -p` is given this checkpoint's plain-English change
+   request, plus this checkpoint's own spec so it knows the `data-testid` anchors and values to
+   satisfy, plus the current code. There is no cross-checkpoint memory. It authors the full-stack
+   change, meaning migration plus server plus front-end, and may run its own test as it works
+   (Section 15). Cost, tokens and duration are captured.
+2. **Build and serve the app.** Build this checkpoint's app into one runnable jar (a Spring Boot host
+   plus the server plus migrations plus the SPA built into `static/`), bring it up on one port, and
+   drive it with Playwright (`correctness.serve()`, Section 14). `app.start` boots the jar, Flyway
+   migrates the in-memory H2 up to this checkpoint's schema starting from empty, and serves the SPA
+   and API on PORT, then `wait_ready`, then run the specs, then `app.stop`. Data is seeded per-spec
+   via the app's `/__test__` endpoint (Section 9). This stage does not exist in the REST arm and is
+   the main new moving part (Sections 9 and 14).
+3. **Gate and score.** Run the full resolved cp01..cpK Playwright suite against the running app,
+   never shown to the agent, so it is a gate, not context. Classify the results (Section 6). Then run
+   the code metrics (Section 8) over the checkpoint's source, front-end and backend.
+4. **Reset commit.** Normalize and set the agent view for the next checkpoint, its own test only, so
+   cp(K+1) starts blind and the agent commit stays pure. Kept even if empty, so every checkpoint is
+   a clean two-commit boundary.
+5. **Capture.** A per-checkpoint raw capture (the English request, the rendered prompt, the agent
+   event stream, the build and test console, the test outcomes, and the commit SHAs) is committed
+   with the reset, so each checkpoint commit is self-contained and the run reconstructs from git
+   alone.
 
-Deterministic per-spec seeding and strict awaiting on `data-testid` presence are load-bearing
-here (§9) — without them, UI flake manufactures regressions that have nothing to do with erosion.
+Deterministic per-spec seeding and strict awaiting on `data-testid` presence are load-bearing here
+(Section 9). Without them, UI flake manufactures regressions that have nothing to do with erosion.
 
 ---
 
 ## 6. Regression classification
 
-Carry over the REST harness's `regressions` vs `true_regressions` split and its `mutates`
-discipline, and add a UI-specific reason code so the *shape* of erosion is visible.
+Carry over the REST harness's `regressions` versus `true_regressions` split and its `mutates`
+discipline, and add a UI-specific reason code so the shape of erosion is visible.
 
-At checkpoint K, each prior-checkpoint test failure is classified:
+At checkpoint K, each prior-checkpoint test failure is classified.
 
-- **anchor-drift** — the element is present and functional, but its `data-testid` changed or
-  was removed. A contract regression. **Counts** — it is the locality signal.
-- **behaviour-loss** — the feature genuinely broke: a UI assertion fails (element gone, wrong
-  value, action fails) **or** an expected audit record is missing/changed in the audit file (§3).
-  Classic regression. **Counts.**
-- **seed-path** — the prior spec's `beforeEach` seed call (§9) failed because checkpoint K
-  changed the API/schema it relied on. **Counts** unless the change is declared `intended` (a
-  checkpoint that deliberately alters an API a prior seed used ships the updated prior spec, the
-  `mutates` discipline). This reason exists only because the backend evolves (§2); it isolates
-  "a full-stack change broke a prior feature's data setup" from UI erosion so the two don't blur.
-- **intended** — checkpoint K legitimately changes prior behaviour and ships a replacement
-  `cpJ` spec (the `mutates` discipline). **Excluded** from `true_regressions`.
+- **anchor-drift.** The element is present and functional, but its `data-testid` changed or was
+  removed. This is a contract regression, and it counts, because it is the locality signal.
+- **behaviour-loss.** The feature genuinely broke, meaning a UI assertion fails (element gone, wrong
+  value, action fails) or an expected audit record is missing or changed in the audit file
+  (Section 3). This is a classic regression, and it counts.
+- **seed-path.** The prior spec's seed call (Section 9) failed because checkpoint K changed the API
+  or schema it relied on. This counts unless the change is declared `intended`, which happens when a
+  checkpoint that deliberately alters an API a prior seed used ships the updated prior spec (the
+  `mutates` discipline). This reason exists only because the backend evolves (Section 2). It isolates
+  "a full-stack change broke a prior feature's data setup" from UI erosion so the two do not blur.
+- **intended.** Checkpoint K legitimately changes prior behaviour and ships a replacement `cpJ` spec
+  (the `mutates` discipline). This is excluded from `true_regressions`.
 
-- **infrastructure** — the connection or the runner failed (ECONNREFUSED, a crashed worker), not
-  the app's logic. **Excluded** from `true_regressions`.
+`regressions` is any prior test failing at K (raw). `true_regressions` is regressions minus intended
+mutations. anchor-drift, behaviour-loss and undeclared seed-path all count as regressions. Logging
+the reason tells you how the app erodes, front-end, backend, or data setup, a richer result than the
+REST arm can produce.
 
-`regressions` = any prior test that passed at the last scored checkpoint and does not pass at K
-(raw). `true_regressions` = behaviour that worked and no longer does: regressions minus
-`intended_regressions` (a test a copy retired or renamed, so it is absent), minus a test whose
-updated copy kept its title but changed what it expects (`fixtures.replaced_tests`: failing that on
-arrival means K did not carry its rule into the old scenario, counted as `unsatisfied_replacement`),
-minus infrastructure. A test a copy carried forward unchanged that now fails still counts.
-anchor-drift, behaviour-loss and (undeclared) seed-path all count as regressions; logging the
-reason tells you *how* the app erodes — front-end, backend, or data setup — a richer result than
-the REST arm can produce.
+The `mutates` discipline carries one obligation that this benchmark leans on heavily. A mutative
+checkpoint's `mutates` list must be the ripple closure, meaning every prior checkpoint whose asserted
+values change, not just the direct target. Because the concepts interweave, a change to one formula
+often changes three downstream concepts, and each of their specs is reshipped under the mutative's
+`cpNN/` folder. An unlisted prior that breaks is a true regression, which is the measurement working.
 
-A checkpoint is scored against the last checkpoint that was scored (`correctness.Baseline`). Two
-kinds give no per-test verdict and are never the baseline: a **gate-invalid** one (the host or
-runner failed: retried once, then voided) and an **app-broken** one (the code did not build, never
-became ready, or died mid-gate on both attempts; reported in its own column, never as
-regressions). The `mutates` and changed copies of either are carried to the next scored
-checkpoint, so its retirements are still excused there.
-
-Metric names stay aligned with the REST arm (EvoScore, Zero-Regression Rate, Normalized
-Change / SWE-CI) so the two studies read as one.
+Metric names stay aligned with the REST arm (EvoScore, Zero-Regression Rate, Normalized Change) so
+the two studies read as one.
 
 ---
 
-## 7. Tests-as-living-spec (and why this harness models the OfficeHQ product loop)
+## 7. Tests-as-living-spec
 
-Functionality for the **whole app** — schema, server, and UI — is tracked as **tests, not
-accumulating prose specs**. Users change their minds; a growing spec corpus goes stale,
-self-contradicts, and costs tokens to re-read. The accumulated test suite *is* the current
-specification of behaviour; a change of mind is a changed/replaced test (`mutates`), not a spec
-reconciliation. The English request is the *prompt*; the test is the *spec*. Because the tests
-assert only through the UI (§3), the entire stack beneath them can be regenerated freely — which
-is exactly why the tests, not the code, are OfficeHQ's system of record.
+Functionality for the whole app, schema, server and UI, is tracked as tests, not accumulating prose
+specs. Users change their minds, and a growing spec corpus goes stale, self-contradicts, and costs
+tokens to re-read. The accumulated test suite is the current specification of behaviour. A change of
+mind is a changed or replaced test (`mutates`), not a spec reconciliation. The English request is the
+prompt. The test is the spec. Because the tests assert only through the UI (Section 3), the entire
+stack beneath them can be regenerated freely, which is exactly why the tests, not the code, are the
+system of record.
 
-This composes with §4 into one coherent loop:
+This composes with Section 4 into one coherent loop, blind authoring plus full-suite gate plus
+tests-as-spec.
 
-**blind authoring + full-suite gate + tests-as-spec**
+- **tests-as-spec.** The suite is the current spec, so there is no prose corpus to rot.
+- **blind authoring.** The agent gets only this checkpoint's request plus its own test, the delta,
+  plus the code. It never reads the historical suite.
+- **full-suite gate.** The whole cp1..cpK suite runs after the turn as the regression gate. It never
+  enters the agent's context.
 
-- **tests-as-spec** — the suite is the current spec; no prose corpus to rot.
-- **blind authoring** — the AI gets only this checkpoint's request + its own test (the delta)
-  plus the code; it never reads the historical suite.
-- **full-suite gate** — the whole cp1..cpK suite runs *after* the turn as the regression gate;
-  it never enters the AI's context.
-
-The last split matters for OfficeHQ economics specifically (`~/OfficeHQ/DESIGN.md` §2): the
-full suite grows unbounded over a site's life, but because it is a *gate, not context*, the
-AI's token cost per change stays flat regardless of history. Stale-spec contradiction and token
-blowup are the same problem, and blind authoring solves both at once — which is part of what
-keeps OfficeHQ's marginal cost per change ~zero and the flat fee viable.
-
-So this harness is a **fidelity model of the OfficeHQ production change loop**, not just a
-benchmark: what blind measures here is what the product will actually do to a customer's app.
+The last split matters for the product economics. The full suite grows unbounded over an app's life,
+but because it is a gate and not context, the agent's token cost per change stays flat regardless of
+history. Stale-spec contradiction and token blowup are the same problem, and blind authoring solves
+both at once, which is part of what keeps the marginal cost per change near zero. So this harness is
+a fidelity model of the production change loop, not just a benchmark. What blind measures here is
+what the product will actually do to a customer's app.
 
 ---
 
-## 8. Metrics & measurement
+## 8. Metrics and measurement
 
-Erosion is measured across the **whole stack**: the front-end (TypeScript) **and** the OfficeFloor
-backend (Java) — the latter to confirm OfficeFloor stays flat even when grown greenfield, not just
-when extended on an existing app (the REST arm's finding). Both use the same Lizard/ImpactGate
+Erosion is measured across the whole stack, the front-end in TypeScript and the backend in Java. The
+backend is measured to confirm the server stays flat even when grown greenfield, not just when
+extended on an existing app (the REST arm's finding). Both use the same Lizard and ImpactGate
 pipeline and the same thresholds.
 
-### ImpactGate / Lizard — confirmed native (front-end TS and backend Java)
+### ImpactGate and Lizard, confirmed native for front-end TS and backend Java
 
-ImpactGate scores blast radius from Lizard's per-function CC / NLOC. Backend Java is what the REST
-arm already scores. For the front-end, checked empirically against the local install
-(`~/ImpactGate/.venv`):
+ImpactGate scores blast radius from Lizard's per-function CC and NLOC. Backend Java is what the REST
+arm already scores. For the front-end, this was checked empirically against the local install
+(`~/ImpactGate/.venv`).
 
-- Lizard's registered readers include `TypeScriptReader`, `TSXReader`, and `VueReader`.
-- Parsing samples returned real functions with complexity for `.ts`, `.tsx`, `.jsx`, plus the
-  `<script>` block of `.svelte` and embedded `<script>` in `.html`:
+- Lizard's registered readers include `TypeScriptReader`, `TSXReader` and `VueReader`.
+- Parsing samples returned real functions with complexity for `.ts`, `.tsx` and `.jsx`, plus the
+  `<script>` block of `.svelte` and embedded `<script>` in `.html`.
 
   ```
   a.ts     -> 2 fns: [('f',2,1),('g',1,1)]
@@ -288,327 +315,329 @@ arm already scores. For the front-end, checked empirically against the local ins
   a.html   -> 1 fn:  [('q',2,1)]               # only the embedded <script>
   ```
 
-So React/TS and Vue score out of the box — **no port needed.** But two subtleties matter more
-than language support:
+So React with TS, and Vue, score out of the box, with no port needed. Two subtleties matter more than
+language support.
 
-1. **Front-end metric visibility is format-dependent — so the shell's format matters.**
-   Pick the opinionated base shell's format for full Lizard fidelity: `.tsx`, `.ts`, `.vue` are
-   read fully (branching in JSX and script counted, components named). `.svelte` has **no
-   dedicated reader** (only the `<script>` function is seen; template and reactive `$:` logic is
-   invisible), and `.html`/HTMX exposes only embedded `<script>` (attribute logic invisible) — a
-   shell in either would under-count its own front-end erosion, so the base shell should be a
-   full-fidelity format. Backend Java is full-fidelity regardless.
-
-2. **Front-end cohesion container is the *file*, not the class.** The plugin qualifies units as
+1. **Front-end metric visibility is format-dependent, so the shell's format matters.** Pick the base
+   shell's format for full Lizard fidelity. `.tsx`, `.ts` and `.vue` are read fully, with branching
+   in JSX and script counted and components named. `.svelte` has no dedicated reader, so only the
+   `<script>` function is seen and template and reactive logic are invisible, and `.html` or HTMX
+   exposes only the embedded `<script>`, so attribute logic is invisible. A shell in either would
+   under-count its own front-end erosion, so the base shell should be a full-fidelity format. Backend
+   Java is full-fidelity regardless.
+2. **The front-end cohesion container is the file, not the class.** The plugin qualifies units as
    `Class::method` and falls back to file scope for free functions. Front-end components and hooks
-   are free functions, so every front-end unit collapses to file-scope containers; the
-   `Σ max(WMC_other,1)` term becomes "sum over other files," not "other classes." The formula is
-   internally consistent but the unit differs between the layers, so **track front-end and backend
-   erosion as separate series** and do not compare their absolute numbers to each other or to the
-   Java REST run. Backend Java keeps true `Class::method` containers, directly comparable to the
-   REST arm.
+   are free functions, so every front-end unit collapses to file-scope containers, and the
+   `Σ max(WMC_other,1)` term becomes a sum over other files, not other classes. The formula is
+   internally consistent, but the unit differs between the layers. So track front-end and backend
+   erosion as separate series, and do not compare their absolute numbers to each other or to the Java
+   REST run. Backend Java keeps true `Class::method` containers, directly comparable to the REST arm.
 
-### Boundary-violation count — a format-neutral co-metric
+### Boundary-violation count, a format-neutral co-metric
 
-Count how often the agent is *forced* to touch a shared/central file per checkpoint — on the
-front-end (router/manifest, global store, a shared primitive) **and** the backend (a shared
-config/wiring file). It measures the additive property directly on both layers, needs no Lizard
-visibility, and stays honest wherever Lizard's view is partial. Run it alongside ImpactGate, not
-as a fallback.
+Count how often the agent is forced to touch a shared or central file per checkpoint, on the
+front-end (a router or manifest, a global store, a shared primitive) and on the backend (a shared
+config or wiring file). It measures the additive property directly on both layers, needs no Lizard
+visibility, and stays honest wherever Lizard's view is partial. Run it alongside ImpactGate, not as a
+fallback.
 
 ### Normalization
 
-Normalize erosion **per unit of delivered behaviour**, not per change — a more capable
-framework lets the agent do more per change (bigger Δlines), which is not erosion. Use passing
-behaviour-test count / coverage as the denominator.
+Normalize erosion per unit of delivered behaviour, not per change. A more capable framework lets the
+agent do more per change, meaning bigger line deltas, which is not erosion. Use the passing
+behaviour-test count or coverage as the denominator.
 
 ### Longitudinal hygiene
 
-Prefer **`.tsx` over `.jsx`, TS over JS**: the JSX-under-JS reader emitted `(anonymous)` for
-the arrow in `.map`, and anonymous units are hard to track across 60 commits (a unit's drift is
-lost when it re-anonymizes). Stable unit identity matters for a trajectory study.
-
-Hold the agent, base shell, and gates **identical** across a run so the only variable is the
-sequence of English requests (and, if the intervention study is run, the gating condition — §10).
-
----
-
-## 9. Moving parts / risks (absent from the REST arm)
-
-1. **The oracle needs the app actually running.** MockMvc boots in-process; here the loop must
-   build this checkpoint's backend jar + front-end dist, boot the app (Flyway migrating the
-   in-memory H2 from empty up to the checkpoint's schema), serve it, and wait for reachability
-   every checkpoint. This is the main new source of harness fragility (build/serve stage §5.2).
-2. **Data seeding is per-spec, via the app's own API.** Because the schema evolves (§2), boot-time
-   fixtures would have to evolve too; instead each spec seeds the data it needs in `beforeEach`
-   through a **dedicated, profile-guarded test-support endpoint** (`POST /__test__/reset` +
-   `POST /__test__/seed`), so the spec stays self-contained with the schema at its checkpoint. A
-   reset before each spec gives inter-spec isolation without JVM restarts (the agent's `./e2e`
-   loop, §15, benefits too) and **also clears the audit file** (§3) so audit assertions start
-   clean. Schema is Flyway-on-boot; **data is per-spec** — keep the two separate. The seed API is a
-   versioned contract; a change that breaks a prior seed is a **seed-path** regression unless
-   declared `intended` (§6).
-3. **Flake is a false-regression source that erosion is not.** Async UI + non-deterministic data
-   manufacture regressions unrelated to erosion. Mitigate with the deterministic per-spec
-   reset+seed above and strict awaiting on `data-testid` presence, or flake contaminates the
-   published metric.
+Prefer `.tsx` over `.jsx` and TS over JS. The JSX-under-JS reader emitted `(anonymous)` for the
+arrow in `.map`, and anonymous units are hard to track across hundreds of commits, because a unit's
+drift is lost when it re-anonymizes. Stable unit identity matters for a trajectory study. Hold the
+agent, the base shell and the gates identical across a run, so the only variable is the sequence of
+English requests, and, if the intervention study runs, the gating condition (Section 10).
 
 ---
 
-## 10. What is run (per-stack runs + optional intervention study)
+## 9. Moving parts and risks (absent from the REST arm)
 
-The comparison is **across technology stacks**, one per **base repo** (a home-level sibling
-`~/officehq-<frontend>-<backend>`, e.g. `~/officehq-react-officefloor`; §14, `docs/SUT_CONTRACT.md`,
-`BASE_CHECKLIST.md`). Each base repo is a whole stack — a front-end framework **and** a backend
-(both may vary between stacks; e.g. a different front-end, or a different server behind it) — built
-for erosion resistance the way OfficeFloor is on the server: additive file/manifest routing · no
-global domain store · closed shared primitives · enforced feature-slice boundaries · scoped styles
-(see `~/OfficeHQ/DESIGN.md`). The harness runs the **same** ~60 English requests against each base
-repo (via `config.yaml → app.repo`) and compares their erosion trajectories — **which stack works
-best**. Pick front-end formats Lizard reads fully (`.tsx`/`.vue`, §8) so a stack's own erosion is
-visible.
+1. **The oracle needs the app actually running.** MockMvc boots in-process. Here the loop must build
+   this checkpoint's backend jar and front-end dist, boot the app with Flyway migrating the in-memory
+   H2 from empty up to the checkpoint's schema, serve it, and wait for reachability every checkpoint.
+   This is the main new source of harness fragility (the build-and-serve stage, Section 5.2).
+2. **Data seeding is per-spec, via the app's own API.** Because the schema evolves (Section 2),
+   boot-time fixtures would have to evolve too. Instead each spec seeds the data it needs through a
+   dedicated, profile-guarded test-support endpoint (`POST /__test__/reset` and `POST /__test__/seed`)
+   so the spec stays self-contained with the schema at its checkpoint. A reset before each spec gives
+   inter-spec isolation without JVM restarts (the agent's own test loop, Section 15, benefits too),
+   and it also clears the audit file (Section 3) so audit assertions start clean. Schema is
+   Flyway-on-boot, and data is per-spec. Keep the two separate. The seed API is a versioned contract.
+   A change that breaks a prior seed is a seed-path regression unless declared `intended` (Section 6).
+   The seed grows with the stream. It starts as a list of people and adds join lists for relationships
+   (patrons, regions, follows, memberships), groups, a sheet anchor date, and whole-sheet fixtures,
+   each introduced by the checkpoint that needs it.
+3. **Flake is a false-regression source that erosion is not.** Async UI and non-deterministic data
+   manufacture regressions unrelated to erosion. Mitigate with the deterministic per-spec reset and
+   seed above, and with strict awaiting on `data-testid` presence, or flake contaminates the
+   published metric. Oracles are kept exact by using small integers, so every asserted concept value
+   is a precise function of the seeded raw values.
 
-- **The experiment runs `just-solve`** (the default everywhere: `active_condition`, the driver,
-  doctor and verify-stack). Each stack is grown with no gate in the loop, over the 250 English
-  requests, replicated across `chains`, so the erosion trajectories (front-end and backend) and the
-  Zero-Regression Rate compare the stacks themselves.
-- **Optional intervention study — to quantify what the gates buy.** The `gated` condition (the
-  full OfficeHQ loop: compile · tests · ImpactGate · security) runs only on request
-  (`--condition gated`). Its delta against `just-solve` on the same stack shows the gate's effect
-  on full-stack erosion — the direct sequel to the REST arm's "ImpactGate reduces server erosion"
-  result. Recalibrate `block_percentile` for the current stream before a gated run.
+---
 
-The `arm` slot in the harness config therefore names the **intervention condition**, not a
-framework.
+## 10. What is run (per-stack runs plus optional intervention study)
+
+The comparison is across technology stacks, one per base repo, a home-level sibling
+`~/officehq-<frontend>-<backend>`, for example `~/officehq-react-officefloor` (Section 14,
+`docs/SUT_CONTRACT.md`, `BASE_CHECKLIST.md`). Each base repo is a whole stack, a front-end framework
+and a backend, both of which may vary between stacks. Each is built for erosion resistance in the
+additive style, with file or manifest routing, no global domain store, closed shared primitives,
+enforced feature-slice boundaries, and scoped styles. The harness runs the same checkpoint stream
+against each base repo (via `config.yaml`'s `app.repo`) and compares their erosion trajectories, to
+see which stack holds its shape. Pick front-end formats Lizard reads fully (`.tsx` or `.vue`,
+Section 8) so a stack's own erosion is visible.
+
+- **Primary run.** The full gated loop (compile, tests, ImpactGate, security) over the whole
+  checkpoint stream, replicated across `chains` for confidence intervals. The result is the erosion
+  trajectory, front-end and backend, and the Zero-Regression Rate as the app is grown from the empty
+  base. This alone answers whether the stack can evolve the app without eroding.
+- **Optional intervention study.** Reuse the REST harness's conditions as prompt and gate strategies,
+  not front-end arms. A `just-solve` ungated control against an `impact_gated` condition. The delta
+  shows the gate's effect on full-stack erosion, the direct sequel to the REST arm's finding that
+  ImpactGate reduces server erosion.
+
+The `arm` slot in the harness config therefore names the intervention condition, not a framework. A
+single-condition run, primary only, is the minimum. The intervention study is the upsell.
+
+Because the benchmark is domain-free, this across-stacks comparison is its headline use. Any
+architecture, from any vendor, can be dropped in as a base repo and scored on the same stream, which
+is what lets the result speak to plasticity in general rather than to one framework.
 
 ---
 
 ## 11. Naming
 
-`ui-long-degradation-test`, parallel to `spring-petclinic-rest-long-degradation-test`. The REST
-repo is the *server* long-degradation test on an existing app; this is the *whole-stack* one that
-*grows* an app the OfficeHQ way. "long-degradation" keeps the point (long sequence, structural
-decay); "ui" marks that the tests — the stable contract across the churn — drive through the UI.
+`ui-long-degradation-test`, parallel to `spring-petclinic-rest-long-degradation-test`. The REST repo
+is the server long-degradation test on an existing app. This is the whole-stack one that grows an
+app from nothing. "long-degradation" keeps the point, a long sequence and structural decay. "ui"
+marks that the tests, the stable contract across the churn, drive through the UI.
 
 ---
 
-## 12. Open decisions / next steps
+## 12. Open decisions and next steps
 
-- **The base (`base_ref`):** build the starting point — base front-end shell + Spring with the
-  OfficeFloor plugin + Flyway configured against empty in-memory H2 (no tables) + the whole-stack
-  `bin/start`/`bin/stop` + the `/__test__` seed/reset endpoint (§9). This is THE repo the run
-  evolves; get it right first.
-- **What app to build: RESOLVED — a generic business app: owners, projects, invoices.** This is
-  no longer a Spring-vs-OfficeFloor comparison, so there is no reference implementation to mirror;
-  the domain is chosen for what OfficeHQ users would actually build and recognise, and because it
-  naturally produces the erosion vectors (tables/forms/nav growth, shared-component reuse, cross-
-  feature screens like invoices-for-a-project, and audit rules). Each request is satisfiable as a
-  full-stack change (schema + server + UI, + audit file where relevant) — an app built from
-  nothing, so early checkpoints create the first tables (owners), then projects, then invoices.
-  *Superseded (October 2026):* the stream is now one invoice workspace over clients, invoices and
-  payments, with no projects and no other screens, to concentrate the load
-  (`acceptance/WORKSPACE.md`, `docs/STREAM_RESTRUCTURE_PLAN.md`).
-- **Checkpoint authoring:** each checkpoint = an English request (to the AI) + an experimenter-
-  authored `cpNN` spec (the objective gate, with the `data-testid` contract). Load the sequence
-  with reuse-pressure or nothing erodes and the experiment proves nothing.
-- **Embedded, not containerised (§15): RESOLVED — a single Spring Boot app** (OfficeFloor plugin +
-  in-memory H2 + static SPA), one JVM, no daemon; rebuilt per checkpoint but always embeddable
-  under Landlock, so the agent-test loop stands. See §14.
-- **Run the intervention study? (§10)** RESOLVED — the experiment runs `just-solve`; a `gated`
-  run is optional, to quantify what ImpactGate buys on full-stack erosion.
-- **ImpactGate wiring:** confirm file-scope containers are acceptable for the front-end series
-  (backend stays class-scoped); track the two layers separately (§8). A TS seed distribution is
-  needed before front-end grades mean anything (`harness/impact_gate.py`).
-- **Harness reuse:** resolved — see §13.
+- **The base (`base_ref`).** Build the starting point, a base front-end shell plus the backend plus
+  Flyway configured against empty in-memory H2 (no tables) plus the whole-stack `bin/start` and
+  `bin/stop` plus the `/__test__` seed and reset endpoint (Section 9). This is the repo the run
+  evolves. Get it right first. It must seed the growing shapes generically (a `people` list, the
+  relationship join lists, `groups`, `memberships`, a sheet `anchor`, and `sheets`) and accept null
+  raw values.
+- **What app to build. RESOLVED to the domain-free design.** Arbitrary people with arbitrary raw
+  values, named concepts layered on raw values and on each other, and relationships whose cardinality
+  migrates. The domain is deliberately meaningless so the agent cannot lean on domain knowledge and
+  the result is not tied to one domain. The full stream is in `checkpoints.yaml` and documented in
+  `acceptance/support/README.md` and `acceptance/support/ACT_AUTHORING_BRIEF.md`.
+- **Checkpoint authoring. RESOLVED.** 250 checkpoints in five acts, a three-additive then
+  one-mutative cadence, with reuse and coupling pressure built in via concepts-on-concepts and the
+  relationship migrations, so the stack is genuinely tested rather than proving nothing. Each
+  checkpoint is an English request to the agent plus an experimenter-authored `cpNN` spec, the
+  objective gate carrying the `data-testid` contract. Oracles are hand-verified with small integers.
+- **Validate the contract against a base. OPEN.** The specs were authored to the contract but not yet
+  executed, because the base app lives in a separate `~/officehq-*` repo. A first run confirms that
+  `/__test__` seeds the growing shapes, that edits drive through `person-edit-<id>` and the reused
+  form, and that an empty relationship cell reads as empty text.
+- **Embedded, not containerised (Section 15). RESOLVED.** A single Spring Boot app (the backend plus
+  in-memory H2 plus a static-served SPA), one JVM, no daemon, rebuilt per checkpoint but always
+  embeddable under Landlock, so the agent-test loop stands. See Section 14.
+- **Run the intervention study? (Section 10)** A primary gated run only, or also an ungated
+  `just-solve` control to quantify what the gate buys on full-stack erosion.
+- **ImpactGate wiring.** Confirm file-scope containers are acceptable for the front-end series, with
+  the backend staying class-scoped, and track the two layers separately (Section 8). A TS seed
+  distribution is needed before front-end grades mean anything (`harness/impact_gate.py`).
+- **Harness reuse. RESOLVED.** See Section 13.
 
 ---
 
-## 13. Repository & code-sharing strategy
+## 13. Repository and code-sharing strategy
 
-**Decision: separate repo, shared-by-copy now, extract a shared core only at N=3.** Not the
-same codebase as the REST arm, and not a shared library yet. Reasoning: the REST repo is a
-publication artifact mid-flight (`blog/`, baselines, its own Spring-vs-OfficeFloor thesis, the
-"each run reconstructs from its own commits" self-containment) — bolting a second, differently
--shaped experiment into it, or refactoring it now to extract interfaces, churns the thing being
-published for low reward. And abstracting a shared core from one example builds the wrong seam;
-we are at N=1.5 (REST done, UI starting). Copy now, extract when a stable second instance exists
-to factor *from*.
+The decision is a separate repo, shared by copy now, extracting a shared core only at N=3. Not the
+same codebase as the REST arm, and not a shared library yet. The reasoning is that the REST repo is a
+publication artifact mid-flight (`blog/`, baselines, its own thesis, the self-contained "each run
+reconstructs from its own commits" property). Bolting a second, differently shaped experiment into it,
+or refactoring it now to extract interfaces, churns the thing being published for low reward.
+Abstracting a shared core from one example builds the wrong seam, and we are at N=1.5, with REST done
+and UI starting. Copy now, extract when a stable second instance exists to factor from.
 
-The REST harness's modules split cleanly by reusability:
+The REST harness's modules split cleanly by reusability.
 
 | Module | Nature | Action here |
 |---|---|---|
-| `agent.py` | generic (headless `claude -p`, config isolation) | **vendored verbatim** |
-| `landlock.py` | generic + security-critical (makes blind airtight) | **vendored verbatim** |
-| `capture.py` | generic capture-not-derive | **vendored**, adjust tool list / result shape |
-| `analyze.py` stats | generic (slopes, bootstrap CIs, EvoScore, ZRR, plots) | **lift the stats verbatim** |
-| `correctness.py` | REST/Java (MockMvc, Surefire) | **rewrite** → build+serve+Playwright |
-| `metrics.py` | Java (Erosion over Java, ast-grep-java, jscpd) | **rewrite** → Lizard/TS + boundary count |
-| `class_shape.py` | Spring vocabulary | **drop** (JS analog much later, if ever) |
-| `quality_gate.py` | Java rules | **drop initially** (only the `impact_gated` arm needs it) |
-| `impact_gate.py` | wrapper generic, seed Java | **vendor wrapper**, needs a TS seed distribution |
+| `agent.py` | generic (headless `claude -p`, config isolation) | vendored verbatim |
+| `landlock.py` | generic and security-critical (makes blind airtight) | vendored verbatim |
+| `capture.py` | generic capture-not-derive | vendored, adjust tool list and result shape |
+| `analyze.py` stats | generic (slopes, bootstrap CIs, EvoScore, ZRR, plots) | lift the stats verbatim |
+| `correctness.py` | REST and Java (MockMvc, Surefire) | rewrite to build, serve, Playwright |
+| `metrics.py` | Java (Erosion over Java, ast-grep-java, jscpd) | rewrite to Lizard, TS, boundary count |
+| `class_shape.py` | Spring vocabulary | drop (a JS analog much later, if ever) |
+| `quality_gate.py` | Java rules | drop initially (only the `impact_gated` arm needs it) |
+| `impact_gate.py` | wrapper generic, seed Java | vendor the wrapper, needs a TS seed distribution |
 
-Vendored files carry a provenance header naming the source repo + SHA + date, so upstream fixes
-can be diffed in and a future extraction is mechanical.
+Vendored files carry a provenance header naming the source repo, SHA and date, so upstream fixes can
+be diffed in and a future extraction is mechanical.
 
-**The cheap insurance:** even where the *bodies* differ, keep the seam **function signatures
-identical** across the two repos — a `gate(built_tree) -> {results, pass/fail}` (correctness) and
-a `compute_all(...) -> row` (metrics). Both harnesses already have these two natural seams; they
-are just not behind an ABC. Matching the signatures now makes the eventual `long-degradation-core`
-extraction a lift, not a re-plumb.
+The cheap insurance is that even where the bodies differ, the seam function signatures stay identical
+across the two repos, a `gate(built_tree) -> {results, pass/fail}` for correctness and a
+`compute_all(...) -> row` for metrics. Both harnesses already have these two natural seams. Matching
+the signatures now makes the eventual `long-degradation-core` extraction a lift, not a re-plumb.
 
 ---
 
 ## 14. System under test: one evolving app, copy/sync isolation, and lifecycle
 
-### The code is one external folder — the evolving app
+### The code is one external folder, the evolving app
 
-There is a single external code folder per run (`app.repo` at `base_ref`) — the OfficeHQ-managed
-application: the base front-end shell **and** Spring-with-OfficeFloor **and** Flyway **and** the
-whole-stack `bin/start`/`bin/stop` **and** the `/__test__` seed endpoint, all in one repo that
-**evolves together** over the run. (There is no separate constant `sut.repo` anymore — nothing is
-constant, §2.) Each base repo is a **technology stack**, a home-level sibling named
-`~/officehq-<frontend>-<backend>` (e.g. `~/officehq-react-officefloor`); swap stacks by pointing
-`app.repo` at another and running again (§10). The harness never edits `base_ref` in place; it is
-only ever **read** as the
-start point, keeping `~/ui-long-degradation-test` (the harness) separate from the app it grows.
+There is a single external code folder per run (`app.repo` at `base_ref`), the managed application,
+which is the base front-end shell and the backend and Flyway and the whole-stack `bin/start` and
+`bin/stop` and the `/__test__` seed endpoint, all in one repo that evolves together over the run.
+There is no separate constant `sut.repo`, because nothing is constant (Section 2). Each base repo is
+a technology stack, a home-level sibling named `~/officehq-<frontend>-<backend>`, for example
+`~/officehq-react-officefloor`. Swap stacks by pointing `app.repo` at another and running again
+(Section 10). The harness never edits `base_ref` in place. It is only ever read as the start point,
+keeping `~/ui-long-degradation-test`, the harness, separate from the app it grows.
 
-### Copy/sync + Landlock — reused verbatim from the REST arm
+### Copy/sync plus Landlock, reused verbatim from the REST arm
 
-The mechanism that makes the blind view airtight and copies the right specs in is lifted unchanged
-(the helpers are generic; §13). Per (condition, chain) the harness:
+The mechanism that makes the blind view airtight and copies the right specs in is lifted unchanged,
+because the helpers are generic (Section 13). Per condition and chain the harness does the following.
 
-1. `make_worktree` — branches an `evolve/<run_id>/<condition>/chain<n>` line from the **untouched**
-   `base_ref` into `work_root`: the production tree + `.git` history + capture staging. Every
-   checkpoint commit lands here; the base branch is never written.
-2. `mirror_source` — rsyncs the worktree (excluding `.git`, build output, results) into a **flat
-   `sandbox_root` that IS the agent's cwd** — history-less, no `.git` to `git log`, so the agent
+1. `make_worktree` branches an `evolve/<run_id>/<condition>/chain<n>` line from the untouched
+   `base_ref` into `work_root`, carrying the production tree plus `.git` history plus capture
+   staging. Every checkpoint commit lands here. The base branch is never written.
+2. `mirror_source` rsyncs the worktree (excluding `.git`, build output and results) into a flat
+   `sandbox_root` that is the agent's cwd, history-less, with no `.git` to `git log`, so the agent
    cannot infer the checkpoint sequence.
-3. installs the agent's **test view** into the sandbox's acceptance dest — blind: this checkpoint's
-   own Playwright spec only, neutralised so nothing hints at a checkpoint number.
-4. **Landlock** confines the agent (and every child) to sandbox + toolchain; withheld specs and
-   everything else return `EACCES`. Fails closed.
-5. after the turn: mirror the sandbox back onto the worktree (propagating the agent's edits and
-   deletions while preserving `.git` and the harness-managed specs), restore visible specs to
-   authored, commit the **pure agent delta**.
+3. It installs the agent's test view into the sandbox's acceptance dest, blind, this checkpoint's own
+   Playwright spec only, neutralised so nothing hints at a checkpoint number.
+4. Landlock confines the agent and every child to the sandbox plus the toolchain. Withheld specs and
+   everything else return `EACCES`. It fails closed.
+5. After the turn it mirrors the sandbox back onto the worktree, propagating the agent's edits and
+   deletions while preserving `.git` and the harness-managed specs, restores visible specs to
+   authored, and commits the pure agent delta.
 
 This isolation spine is identical to the REST arm.
 
-### The whole-stack launcher — one start/stop, part of the evolving app
+### The whole-stack launcher, one start and stop, part of the evolving app
 
-Because the oracle drives a real browser, the app must actually run. **A single whole-stack `start`
-brings the whole app up on one port**, and `stop` tears it down. The launcher lives **in the app
-repo and evolves with it** — it is not a constant layer.
+Because the oracle drives a real browser, the app must actually run. A single whole-stack `start`
+brings the whole app up on one port, and `stop` tears it down. The launcher lives in the app repo and
+evolves with it. It is not a constant layer.
 
-- **Build then run.** The harness first builds this checkpoint's app (`correctness.build()`): a
-  Maven build whose `frontend-maven-plugin` compiles the SPA into `static/`, then
-  `spring-boot-maven-plugin` repackages the app into one runnable jar. Keeping build distinct from
-  start cleanly separates a compile failure from a start failure.
-- **`app.start_cmd`** receives `PORT`, boots the jar — **Flyway migrates the in-memory H2 from
-  empty up to this checkpoint's schema** — and Spring serves the SPA + the OfficeFloor REST routes
-  on `PORT`. Schema comes up on boot; **data does not** (seeded per-spec, §9).
-- **`app.stop_cmd`** kills the JVM and frees `PORT`; the in-memory H2 dies with it, so it is a
-  clean reset. **Idempotent** (safe after a crash; the harness may kill by port as a backstop).
-- The **harness owns** only port choice and readiness polling (`app.health_url` + a known
-  `data-testid` anchor).
+- **Build then run.** The harness first builds this checkpoint's app (`correctness.build()`), a Maven
+  build whose `frontend-maven-plugin` compiles the SPA into `static/`, then `spring-boot-maven-plugin`
+  repackages the app into one runnable jar. Keeping build distinct from start cleanly separates a
+  compile failure from a start failure.
+- **`app.start_cmd`** receives PORT, boots the jar (Flyway migrates the in-memory H2 from empty up to
+  this checkpoint's schema), and Spring serves the SPA and the REST routes on PORT. Schema comes up on
+  boot. Data does not, because it is seeded per-spec (Section 9).
+- **`app.stop_cmd`** kills the JVM and frees PORT. The in-memory H2 dies with it, so it is a clean
+  reset. It is idempotent, safe after a crash, and the harness may kill by port as a backstop.
+- The harness owns only port choice and readiness polling (`app.health_url` plus a known `data-testid`
+  anchor).
 
-A gate run (`correctness.serve()`): build → `app.start` on `PORT` → `wait_ready` → run Playwright
-against `http://localhost:$PORT` → per-spec `beforeEach` reset+seed via `/__test__` → `app.stop`.
+A gate run (`correctness.serve()`) is build, then `app.start` on PORT, then `wait_ready`, then run
+Playwright against `http://localhost:$PORT`, with per-spec reset and seed via `/__test__`, then
+`app.stop`.
 
-### The concrete SUT — Spring Boot 4 hosts, OfficeFloor REST via the starter (chosen)
+### The concrete SUT, Spring Boot 4 hosts, OfficeFloor REST via the starter (chosen)
 
-Chosen (over WoOF-hosts-Spring, which is pinned to Spring Boot 3.x) to run **Spring Boot 4.1.0**.
+Chosen over WoOF-hosts-Spring, which is pinned to Spring Boot 3.x, so as to run Spring Boot 4.1.0.
 Verified against the OfficeFloor tutorials (`SpringRestGettingStartedHttpServer`,
-`SpringRestDataJpaHttpServer`) and BOM (`net.officefloor:bom` @ 4.0.2). One JVM, no daemon, no
-container — resolving the §15 embedded constraint — rebuilt each checkpoint. Pinned in
-`~/officehq-react-officefloor` (`pom.xml`, `src/main/**`):
+`SpringRestDataJpaHttpServer`) and the BOM (`net.officefloor:bom` at 4.0.2). One JVM, no daemon, no
+container, resolving the Section 15 embedded constraint, rebuilt each checkpoint. Pinned in
+`~/officehq-react-officefloor` (`pom.xml`, `src/main/**`). This is one example stack. The benchmark
+runs against any stack that meets the SUT contract.
 
-- **Spring Boot 4 is the host; OfficeFloor REST is added via the starter**
-  (`net.officefloor.springboot:officefloor-rest-spring-boot-4-starter` + `spring-boot-starter-web`;
-  parent `spring-boot-starter-parent` 4.1.0). Standard `@SpringBootApplication` main; normal
+- **Spring Boot 4 is the host, and OfficeFloor REST is added via the starter**
+  (`net.officefloor.springboot:officefloor-rest-spring-boot-4-starter` plus `spring-boot-starter-web`,
+  parent `spring-boot-starter-parent` 4.1.0). A standard `@SpringBootApplication` main, and a normal
   `spring-boot-maven-plugin` repackage.
-- **Domain REST is additive OfficeFloor YAML** — `officefloor/rest/<path>.<METHOD>.yml`
-  (`service: { class: … }`) + a logic class per endpoint. This preserves the additive-backend
-  property under test even though Spring hosts (`shared_surfaces.backend` = `officefloor/**`).
-- **H2 in-memory + Flyway on boot**, Spring-managed (`spring.datasource` H2, `spring.flyway`,
-  `ddl-auto=none`), from `src/main/resources/db/migration` — schema built up checkpoint by
-  checkpoint (§5's "code + migration"); starts **empty**.
-- **The SPA is served from `src/main/resources/static`** (Spring's static handler); the front-end
-  builds there via `frontend-maven-plugin`. Deep-link fallback in `SpaConfig` (unknown non-`api/`
-  → `index.html`). No external `FRONTEND_DIST` seam (that only existed to keep a constant backend,
-  which is gone).
-- **Data seeding is per-spec via a profile-guarded `/__test__` `@RestController`** (`reset` +
-  `seed`), not a boot-time step (§9) — because the schema evolves, fixtures live with each spec.
-- **Readiness** is Spring Actuator's `/actuator/health` (`app.health_url`), plus a known
-  `data-testid` anchor.
+- **Domain REST is additive OfficeFloor YAML**, `officefloor/rest/<path>.<METHOD>.yml`
+  (`service: { class: … }`) plus a logic class per endpoint. This preserves the additive-backend
+  property under test even though Spring hosts (`shared_surfaces.backend` is `officefloor/**`).
+- **H2 in-memory plus Flyway on boot**, Spring-managed (`spring.datasource` H2, `spring.flyway`,
+  `ddl-auto=none`), from `src/main/resources/db/migration`, with the schema built up checkpoint by
+  checkpoint (Section 5's "code plus migration"), starting empty.
+- **The SPA is served from `src/main/resources/static`** via Spring's static handler, and the
+  front-end builds there via `frontend-maven-plugin`. A deep-link fallback in `SpaConfig` sends an
+  unknown non-`api/` path to `index.html`. There is no external `FRONTEND_DIST` seam, which only
+  existed to keep a constant backend, which is gone.
+- **Data seeding is per-spec via a profile-guarded `/__test__` `@RestController`** (`reset` and
+  `seed`), not a boot-time step (Section 9), because the schema evolves, so fixtures live with each
+  spec.
+- **Readiness** is Spring Actuator's `/actuator/health` (`app.health_url`), plus a known `data-testid`
+  anchor.
 
-So `app.start` is essentially:
+So `app.start` is essentially the following.
 
 ```sh
 exec java -jar target/app.jar --server.port="$PORT" --spring.profiles.active=harness
 ```
 
-Playwright (external TS specs) drives it at `http://localhost:$PORT`, binding only to
-`data-testid` (the testing-boundary invariant, below).
+Playwright, external TS specs, drives it at `http://localhost:$PORT`, binding only to `data-testid`,
+the testing-boundary invariant below.
 
-### The testing-boundary invariant — why the whole stack can evolve behind the UI
+### The testing-boundary invariant, why the whole stack can evolve behind the UI
 
-Playwright asserts through **two declared contracts only**: the **UI** (`data-testid`) for
-user-visible behaviour, and the **known audit file** (§3) for audited side-effects. It *arranges*
-data through the constant-shaped `/__test__` seed API (Arrange, not Assert; §9). It never asserts
-against the domain API, the database, arbitrary logs, or internal state. Therefore the entire
-stack — schema, OfficeFloor server, front-end — may be rewritten freely as long as those two
-contracts hold. That is exactly what is measured: whether OfficeHQ keeps the test contract intact
-while it grows the whole app under English requests. See `docs/SUT_CONTRACT.md` for what the app
-repo must provide.
+Playwright asserts through two declared contracts only, the UI (`data-testid`) for user-visible
+behaviour, and the known audit file (Section 3) for audited side-effects. It arranges data through the
+constant-shaped `/__test__` seed API (Arrange, not Assert, Section 9). It never asserts against the
+domain API, the database, arbitrary logs, or internal state. Therefore the entire stack, schema,
+server and front-end, may be rewritten freely as long as those two contracts hold. That is exactly
+what is measured, whether the stack keeps the test contract intact while it grows the whole app under
+English requests. See `docs/SUT_CONTRACT.md` for what the app repo must provide.
 
 ---
 
 ## 15. Running the tests during the agent turn (inside confinement)
 
-The agent must be able to **run its test as it works** — the UI analog of `mvn test` in the REST
-arm. In the REST arm that is cheap: MockMvc boots the app in-process, no server. Here a Playwright
-spec only passes against the **whole running stack**, so "let the agent run the test" means "let
-the agent bring the whole stack up, on a port, from inside the Landlock sandbox, and drive a
-browser at it." That has three consequences worth stating.
+The agent must be able to run its test as it works, the UI analog of `mvn test` in the REST arm. In
+the REST arm that is cheap, because MockMvc boots the app in-process with no server. Here a Playwright
+spec only passes against the whole running stack, so "let the agent run the test" means "let the
+agent bring the whole stack up, on a port, from inside the Landlock sandbox, and drive a browser at
+it." That has three consequences worth stating.
 
 ### One agent test command, running only the visible spec
 
-The agent is given a single command — `acceptance.agent_test_cmd` (e.g. `./e2e`), pinned into the
-app and documented in the harness-owned `AGENTS.md`. It builds the app, brings it up via `app.start`, runs
-the **currently-visible spec(s) only** (which `beforeEach` reset+seed via `/__test__`), and tears
-down (`app.stop`). Blind holds by construction: the agent can only run what it can see (its own
-checkpoint's spec), never the withheld priors. This is exactly the REST arm's condition — the agent
-iterates against its own test — moved to a served, full-stack app.
+The agent is given a single command, `acceptance.agent_test_cmd` (for example `./e2e`), pinned into
+the app and documented in the pinned `CLAUDE.md`. It builds the app, brings it up via `app.start`,
+runs the currently-visible spec or specs only (which reset and seed via `/__test__`), and tears down
+(`app.stop`). Blind holds by construction, because the agent can only run what it can see, its own
+checkpoint's spec, never the withheld priors. This is exactly the REST arm's condition, the agent
+iterating against its own test, moved to a served, full-stack app.
 
 ### Scoring is still the post-turn gate, not the agent's runs
 
-The agent running its spec is for its **own iteration only**. Correctness/regression scoring is
-unchanged: after the turn, the harness restores the **pinned operational scaffolding** — the
-`bin/start`/`bin/stop` scripts, the `./e2e` command and the stack's `DESIGN.md`, reinstalls the
-harness-owned `AGENTS.md` (and the agent service's shim, e.g. `CLAUDE.md`) — and the visible
-specs to authored, then runs the **full cp01..cpK suite** (`correctness.run_tests`). The
-*application code* the agent wrote (schema migrations, OfficeFloor server, front-end, and the
-evolving `/__test__` seed endpoint) is the agent's delta and is kept; only the fixed scaffolding
-and the specs are restored. So the agent cannot influence the score by editing the launch/test
-scripts or its visible spec (the REST arm's `detect_agent_tamper` discipline, extended to the
-scripts). The launch command stays constant across checkpoints even though the app evolves, which
-is what lets it be pinned.
+The agent running its spec is for its own iteration only. Correctness and regression scoring is
+unchanged. After the turn, the harness restores the pinned operational scaffolding, the `bin/start`
+and `bin/stop` scripts, the `./e2e` command, and `CLAUDE.md` and `AGENTS.md`, and the visible specs to
+authored, then runs the full cp01..cpK suite (`correctness.run_tests`). The application code the agent
+wrote, the schema migrations, the server, the front-end, and the evolving `/__test__` seed endpoint,
+is the agent's delta and is kept. Only the fixed scaffolding and the specs are restored. So the agent
+cannot influence the score by editing the launch or test scripts or its visible spec, the REST arm's
+`detect_agent_tamper` discipline, extended to the scripts. The launch command stays constant across
+checkpoints even though the app evolves, which is what lets it be pinned.
 
-### The stack must be launchable inside Landlock — which constrains the SUT
+### The stack must be launchable inside Landlock, which constrains the SUT
 
-Landlock is **filesystem-only**: it does not restrict loopback networking, so serving on
-`localhost` and driving Playwright at it work under confinement. What it does mean is that
-**every process the app spawns is a Landlock child** and can touch only the allowlist. Therefore
-the whole-stack app must be **in-process / embeddable** — the Spring Boot jar with embedded H2 and
-a static-served SPA — **not** a Docker/daemon-backed stack, because a daemon lives outside the
-confinement and a Docker socket cannot be granted cleanly. Concretely the allowlist adds, read-
-only, the toolchain (node + the Playwright browser binaries, the JRE) and, writable **under the
-sandbox**, the build output, the Playwright cache, tmp, and the npm/pnpm store (H2 is in-memory —
-no DB data dir). `landlock.default_allowlist` gains these binds (`isolation.extra_ro_binds` /
-`extra_rw_binds`). Still fails closed — if the toolchain isn't reachable or a withheld sentinel is
-readable, the turn is refused.
+Landlock is filesystem-only. It does not restrict loopback networking, so serving on `localhost` and
+driving Playwright at it work under confinement. What it does mean is that every process the app
+spawns is a Landlock child and can touch only the allowlist. Therefore the whole-stack app must be
+in-process and embeddable, the Spring Boot jar with embedded H2 and a static-served SPA, not a Docker
+or daemon-backed stack, because a daemon lives outside the confinement and a Docker socket cannot be
+granted cleanly. Concretely the allowlist adds, read-only, the toolchain (node plus the Playwright
+browser binaries, the JRE), and, writable under the sandbox, the build output, the Playwright cache,
+tmp, and the npm or pnpm store (H2 is in-memory, so there is no DB data dir).
+`landlock.default_allowlist` gains these binds (`isolation.extra_ro_binds` and `extra_rw_binds`). It
+still fails closed. If the toolchain is not reachable or a withheld sentinel is readable, the turn is
+refused.
 
-**This is the single biggest constraint the harness places on the SUT:** the app has to run
-embedded, not containerised — satisfied by the single Spring Boot app (§14), which is why the
-agent-test loop stands.
+This is the single biggest constraint the harness places on the SUT. The app has to run embedded, not
+containerised, satisfied by the single Spring Boot app (Section 14), which is why the agent-test loop
+stands.
