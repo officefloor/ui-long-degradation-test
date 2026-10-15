@@ -45,50 +45,55 @@ eight carry a runnable `base-empty` branch. The four named cells pass `verify-st
 (build · start · readiness · seed · stop). A real run token is still required before any run.
 
 The horizon is a property of the **checkpoint stream**, not the stacks, so the 250-checkpoint
-`checkpoints.yaml` drives every stack unchanged. Runs made before the October 2026 rewrite used a
-different stream and are not comparable with later ones.
+`checkpoints.yaml` drives every stack unchanged. Runs are comparable only when they share the same
+stream version.
 
-## 3. The erosion engine: one screen, three entities
+## 3. The erosion engine: one screen, one concept spine
 
 Erosion pressure only accumulates if change keeps landing on the **same code**. The stream
-therefore concentrates by construction: all 250 requests land on **one screen**, the invoice
-workspace at `/`, over **three entities**, the client, the invoice (with its lines) and the payment
-(with its allocations). No request adds a page, a route or a fourth entity. Every request makes the
-few actions behind that screen (create or update an invoice, add or edit a line, send, record a
-payment) do more, so the backend's request handling is concentrated too.
+therefore concentrates by construction: all 250 requests land on **one screen**, the worksheet at
+`/`, over arbitrary **people** who carry raw attribute values, named **concepts** computed from
+those values and from each other, and **relationships** between people whose cardinality migrates
+underneath concepts that are held stable. No request adds a page, a route or a screen of its own: a
+new concept is a value, a rule or a relationship on what already exists, never a fourth thing with a
+screen of its own. Every request makes the few handlers behind that screen do more, so the backend's
+request handling is concentrated too.
 
 ```
-line → tiers / rate card / minimum → discounts (largest-remainder split) → tax (region,
-     reverse charge, inclusive) → rounding → TOTAL → approval / credit limit / hold → send
-payment → reference / remittance match → allocation order → credit / deposits / instalments
-     → interest / write-off / cash rounding → amountDue → status → risk → dunning
+raw values (alpha, beta, gamma, …) → concepts (thrust, drift, momentum) → concepts on concepts
+     (tier, rank, percentile, load, age, effective) → aggregates over relationships (backing,
+     clout, influence, synergy) → group concepts (strength, cohesion, standing) → rollups and
+     reports (totals, quartile brackets, cross-tabs, leaderboards) over the whole spine
 ```
 
-The design goal is to **break the architecture early and keep loading it**: there is no breadth
-act and no low-pressure control region. The specification every checkpoint is written against is
-[`acceptance/WORKSPACE.md`](../acceptance/WORKSPACE.md); the reasoning, and why the earlier stream
-(three money screens plus a control region) was replaced, is in
-[`STREAM_RESTRUCTURE_PLAN.md`](./STREAM_RESTRUCTURE_PLAN.md). Earlier runs used that earlier stream
-and are not comparable; it is in git history.
+The subject matter is deliberately meaningless, so an agent cannot lean on domain knowledge; what is
+measured is purely whether the stack absorbs interwoven definitions and changing relationships
+without eroding. The design goal is to **break the architecture early and keep loading it**: there
+is no breadth act and no low-pressure control region. The specification every checkpoint is written
+against is [`acceptance/WORKSPACE.md`](../acceptance/WORKSPACE.md), with the full concept chain in
+[`acceptance/support/ACT_AUTHORING_BRIEF.md`](../acceptance/support/ACT_AUTHORING_BRIEF.md).
 
 ## 4. Enforced properties
 
 ### 4.1 Concentration
-Carried by construction, not by a percentage: one screen and three entities. `checkpoint_lint`
+Carried by construction, not by a percentage: one screen and one concept spine. `checkpoint_lint`
 refuses any spec that navigates anywhere but `/` or clicks a `nav-*` control.
 
 ### 4.2 Cadence: 3 additive : 1 mutative
 Checkpoint `n` is mutative exactly when `n % 4 == 0`. Every addition adds a rule that interacts with
 what is there; every mutation changes the result of a rule or algorithm already in place, and ships
-updated copies of the specs it changes. One mutation per act from Act II is a **reversal** that
-removes accumulated complexity, after which later requests build on what is left.
+updated copies of the specs it changes. The finale (Act V) carries two **reversals** — mutations that
+put an earlier algorithm back to a simpler form (age to days, norm to the mean) — each on a leaf
+concept so its ripple stays small and is shipped in full.
 
 ### 4.3 Algorithms in every act
-At least three checkpoints per act carry `algorithm: <name>`: precise, concentrated logic (check
-digits, ISO 11649 references, largest-remainder allocation, annuities, compound interest, FX
-triangulation, tiered pricing, tax-inclusive reconciliation, cash rounding, calendar proration,
-Jaro–Winkler matching, risk scores, SHA-256 fingerprints, business-day calendars, dunning). Most get
-a later mutation to a revised version (`<name>-revised`).
+At least three checkpoints per 50-checkpoint block carry `algorithm: <name>`: a concept whose correct
+result a naive implementation gets wrong — rank and percentile with a stated tie-break, band and tier
+classification by thresholds, age by whole weeks from a reference date, the mean-then-median
+normalisation, group aggregation and within-group rank, quartile brackets, cumulative totals and
+cross-tabs, skew. Each states the rule in plain words and asserts a case a near miss gets wrong (a
+rounding direction, a tie-break, a boundary, an even/odd count). Several get a later mutation to a
+revised version.
 
 ### 4.4 The lint: audit before paying for a run
 
@@ -101,35 +106,32 @@ hidden test data (a field a replacement copy seeds must appear in a visible spec
 the hidden suite into visible specs, undeclared retirements, and duplicate YAML keys.
 
 ### 4.5 Exact figures
-Every expected value comes from `acceptance/reference/` (`algorithms.py` for the algorithms,
-`model.py` for the rules in force at each checkpoint) or carries its arithmetic in a comment.
-`check_scenarios.py` flags any figure that changes other than at a declared mutation, and
-`verify_specs.py` checks the specs and the scenario registry agree. The `act*_authoring/` generators
-render specs, copies and the yaml from one source.
+Every expected value is small enough to check by hand and carries its arithmetic in a comment
+(`// momentum 12 + 3*7 = 33`). There is no separate reference implementation in this stream: the
+oracles are hand-derived from each request and verified against those comments (`WORKSPACE.md` §7).
 
-## 5. Phase structure: five acts of 50
+## 5. Phase structure: five acts
 
-| Act | CPs | What keeps loading the workspace |
+| Act | CPs | What keeps loading the worksheet |
 |---|---|---|
-| **I — build the spine fast** | 1–50 | clients, invoices, lines, discounts, tax, totals, send, payments, allocation, status |
-| **II — money over time** | 51–100 | deposits, credit notes, refunds, retention, instalments, interest, late fees, currency |
-| **III — rules that interact** | 101–150 | tax by region, reverse charge, tiered pricing, rate cards, minimums, surcharges, cash rounding, withholding |
-| **IV — cross-cutting states** | 151–200 | approvals, credit limits and holds, disputes, recurring billing with proration, milestones, risk |
-| **V — keep loading** | 201–250 | sent snapshots, duplicate fingerprints, credit and rebill, adjustment notes on sent invoices, business-day calendar, dunning, mod-11 invoice numbers; instalment plans removed (cp212) |
+| **I — the concept spine** | 1–60 | raw values; concepts on concepts (thrust, drift, momentum); classification (tier, band); rank and percentile; load, age, effective; the first relationship (patrons) and its 1-1 → 1-many → many-many migrations |
+| **II — a second axis, fused** | 61–120 | a second raw triple (delta, epsilon, zeta) growing force, sway and torque, fused with the spine and aggregated over the relationships |
+| **III — groups** | 121–180 | a groups entity, many-to-many membership, and per-group and per-member concepts (strength, cohesion, spread, share, standing, within-group rank) |
+| **IV — reporting over the spine** | 181–240 | rollups, rankings and reports over the whole spine: totals, quartile brackets, cross-tabs by region/tier/grade/state, leaderboards |
+| **V — consistency finale** | 241–250 | whole-stack sweeps that compose the spine, plus two reversals that undo earlier decisions (age back to days, norm back to the mean) |
 
-The amount of complexity added per request is meant to hold level or climb for all 250 requests,
-so its placement keeps being negotiated. The full act design, with the algorithms of each act, is
-`WORKSPACE.md` §2 and §5; the rules in force at each act boundary are in
-`acceptance/reference/vocabulary.md`.
+The amount of complexity added per request is meant to hold level or climb for all 250 requests, so
+its placement keeps being negotiated. The full act design and the exact concept chain are in
+`acceptance/WORKSPACE.md` §2 and §5 and `acceptance/support/ACT_AUTHORING_BRIEF.md`.
 
 ## 6. Checkpoint authoring rules
 
 `WORKSPACE.md` §6 is authoritative. In short:
 
-- A plain-English `request` a workspace user would type, plus a Playwright spec binding only to
+- A plain-English `request` a worksheet user would type, plus a Playwright spec binding only to
   `data-testid` and the audit file. Specs start with `resetAndSeed(...)` and `page.goto('/')`.
-- **Checkpoint-free spec content**: the agent's own spec is neutralised to `acceptance.spec.ts`,
-  and its comments describe behaviour only (the lint rejects mentions of copies or mutations).
+- **Checkpoint-free spec content**: the agent sees only the current checkpoint's spec, and its
+  comments describe behaviour only (the lint rejects mentions of copies or mutations).
 - **Mutative checkpoints ship updated copies** in `acceptance/specs/cpNNN/`, each carrying forward
   the latest version in force; a test dropped on purpose is listed under `retires:`.
 - **Data-testids are immutable public API**, removed only when a request removes their feature.
@@ -165,12 +167,13 @@ Mirrored from the REST arm's "cold-reader comprehension probe" and wired into th
 (`config.yaml → probe:`, the run-loop call in `run_experiment.py`, the read in `analyze.py`; the
 `agent.probe()` function already existed here, dormant). At each **Act boundary**
 (`at_checkpoints: [50, 100, 150, 200, 250]`) a **fresh, read-only, history-less** agent — the
-acceptance specs excluded from its view — reads the evolved code and (1) enumerates every rule
-applied to an invoice on the workspace and (2) judges how hard the logic was to find and follow.
+acceptance specs excluded from its view — reads the evolved code and (1) enumerates every concept
+and rule applied to a person on the worksheet and (2) judges how hard the logic was to find and follow.
 
-- `probe_recall` — fraction of that Act's expected rules the cold reader could name (a crude
-  **completeness** proxy; the expected lists are cumulative and drop what each act's reversal removed, such as late fees
-  from cp150, retention from cp200 and instalment plans at cp250, so a stack still surfacing one failed to reverse it).
+- `probe_recall` — fraction of that Act's expected concepts the cold reader could name (a crude
+  **completeness** proxy; the expected lists are cumulative and drop what each reversal removed, such
+  as the week-based age and the median normalisation undone in Act V, so a stack still surfacing the
+  old form failed to reverse it).
 - `probe_cache_read_tokens` / `probe_cost_usd` — the **comprehension-cost** proxy: a tangled
   mutative codebase costs more to read than an additive one that enumerates its own units.
 - `cp<NN>.probe.jsonl` — the raw answer, kept for the qualitative "all rules implemented + readable"
@@ -193,12 +196,11 @@ constraint**. (The REST study's 6,000 implementations cost $8,634 at list prices
 
 ## 10. Authoring status
 
-The stream was rewritten in place (October 2026) as the single-workspace stream described above:
-250 checkpoints in five acts, every fourth mutative, at least three algorithms per act, one reversal
-per act from Act II. The lint, the spec compile, the fixture contract at every checkpoint and the
-reference checks (`check_scenarios.py`, `verify_specs.py`, `algorithms.py`) all pass. No
-implementation of this stream exists yet, so the first run is also its calibration: it will show
-any test that is unsatisfiable or ambiguous.
+The stream is the single-worksheet, domain-free stream described above: 250 checkpoints in five
+acts, every fourth mutative, at least three algorithms per 50-checkpoint block, with two reversals in
+the finale. The lint, the spec compile (`npx playwright test --list`) and the fixture contract at
+every checkpoint all pass; oracles are hand-checked from the arithmetic each spec carries. The first
+run on any stack is also its calibration: it surfaces any test that is unsatisfiable or ambiguous.
 
 ## 11. Handoff notes (not vibe slop)
 
