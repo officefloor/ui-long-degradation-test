@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // dropped, truncated toward zero).
 test.describe('age in days', () => {

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('ledger by grade', () => {
   test('MID folded into HIGH', { tag: '@functionality' }, async ({ page }) => {

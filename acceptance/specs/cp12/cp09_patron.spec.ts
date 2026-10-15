@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // join list and the patrons cell lists every patron name sorted ascending.
 test.describe('patron', () => {

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('biggest group', () => {
   test('strongest group', { tag: '@functionality' }, async ({ page }) => {

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('grade tally', () => {
   test('counts per grade with MID merged', { tag: '@functionality' }, async ({ page }) => {

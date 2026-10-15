@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // again, and decay follows. (This checkpoint's name predates the reversal.)
 test.describe('age in weeks', () => {

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 //   combined = momentum: Dana 33, Ravi 8, Uma 100 ; quality 42, 5, 0 -> adjusted 75, 13, 100
 

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('bracket', () => {
   test('assigns a quartile', { tag: '@functionality' }, async ({ page }) => {

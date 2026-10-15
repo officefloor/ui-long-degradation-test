@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('quota top half', () => {
   test('top third by rank', { tag: '@functionality' }, async ({ page }) => {

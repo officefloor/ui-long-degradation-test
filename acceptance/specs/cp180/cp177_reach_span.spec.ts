@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('reach span', () => {
   test('home strength only', { tag: '@functionality' }, async ({ page }) => {

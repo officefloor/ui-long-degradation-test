@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // recalibrated thresholds (STEADY 0..199, SURGE >= 200) the momentum-100 person is now STEADY.
 test.describe('tier', () => {

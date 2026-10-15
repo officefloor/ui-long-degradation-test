@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('strength from effective', () => {
   test('strength sums effective', { tag: '@functionality' }, async ({ page }) => {

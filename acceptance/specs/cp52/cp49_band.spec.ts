@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 //   <0 E, 0..99 D, 100..249 C, 250..499 B, >=500 A.
 

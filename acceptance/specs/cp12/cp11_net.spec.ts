@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // SUM of all patrons' thrust (0 when the person has no patrons).
 test.describe('net', () => {

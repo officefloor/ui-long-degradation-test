@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // now starts a fresh empty sheet with that id instead of showing a missing state.
 test.describe('worksheet recall', () => {

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('groups', () => {
   test('people belong to named groups', { tag: '@functionality' }, async ({ page }) => {

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('rung', () => {
   test('rung divides by size', { tag: '@functionality' }, async ({ page }) => {

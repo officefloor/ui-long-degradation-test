@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('sway and torque', () => {
   test('sway and torque build on force', { tag: '@functionality' }, async ({ page }) => {

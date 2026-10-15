@@ -184,6 +184,33 @@ def screen_violations(checkpoints: list[dict], harness_root: str) -> list[str]:
     return out
 
 
+_REL_IMPORT = re.compile(r"""from\s+(['"])(\.{1,2}/[^'"]+)\1""")
+
+
+def unresolved_imports(checkpoints: list[dict], harness_root: str) -> list[str]:
+    """Relative imports that will not resolve once installed. Every spec — a `cp<NN>/` copy
+    included — is installed by basename into the one specs folder, so its imports resolve from
+    the OWN spec's folder, not the copy's: `../../support/seed` from a copy is a compile error
+    that empties the whole gate report (run 202610152334's cp04). An import landing in
+    `support/` is taken as resolved: that folder is e2e/support, which the stack also fills
+    (audit.ts), so only the depth of the path can be checked there."""
+    support = os.path.join(harness_root, "acceptance", "support") + os.sep
+    out = []
+    for cp in checkpoints:
+        own = own_spec(cp)
+        installed = os.path.join(harness_root, os.path.dirname(own)) if own else harness_root
+        for e in spec_entries(cp, harness_root):
+            path = os.path.join(harness_root, e)
+            if not os.path.isfile(path):
+                continue
+            for m in _REL_IMPORT.finditer(open(path).read()):
+                target = os.path.normpath(os.path.join(installed, m.group(2)))
+                if not target.startswith(support) and \
+                        not any(os.path.isfile(target + ext) for ext in ("", ".ts", ".js")):
+                    out.append(f"cp{cp['n']:02d} {e}: imports {m.group(2)!r}, absent once installed")
+    return out
+
+
 def own_spec_leaks(checkpoints: list[dict], harness_root: str) -> list[str]:
     """Checkpoints whose OWN (agent-visible) spec mentions the harness's process."""
     out = []

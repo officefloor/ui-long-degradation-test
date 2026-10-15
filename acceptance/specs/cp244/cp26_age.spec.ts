@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('age in days', () => {
   test('age is whole days from onset to anchor', { tag: '@functionality' }, async ({ page }) => {

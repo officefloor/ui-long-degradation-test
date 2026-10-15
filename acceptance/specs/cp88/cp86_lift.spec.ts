@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 //   Ada 48*1=48, Ben 0, Dot 200*3=600, Max 150*3=450
 

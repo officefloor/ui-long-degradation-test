@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
-import { auditLines } from '../../support/audit';
+import { resetAndSeed } from '../support/seed';
+import { auditLines } from '../support/audit';
 
 // audit are unchanged. FINAL is no longer terminal: there is no forward advance, but a rework
 // control is now present (cp57 had asserted it did not exist).

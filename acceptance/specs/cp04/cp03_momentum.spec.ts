@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // momentum = thrust + 3*drift. drift and thrust are unchanged. Installed by basename so it WINS
 test.describe('drift and momentum', () => {

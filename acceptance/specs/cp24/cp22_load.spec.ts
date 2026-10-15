@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('load', () => {
   test('load is momentum times weight', { tag: '@functionality' }, async ({ page }) => {

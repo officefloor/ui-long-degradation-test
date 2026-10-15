@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 //   Ed -6 E, Di 30 D, Cy 100 C, Cz 120 C, Bo 200 C, An 400 B -> A0 B1 C3 D1 E1
 

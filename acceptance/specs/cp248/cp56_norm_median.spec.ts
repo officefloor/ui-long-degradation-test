@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 // against the MEAN again, so norms, outliers and the count return to their mean-based values.
 // (This checkpoint's name predates the reversal.)

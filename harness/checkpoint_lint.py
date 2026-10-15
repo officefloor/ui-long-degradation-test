@@ -14,6 +14,8 @@ The stream is designed to concentrate complexity on one screen and three entitie
   6. COVERAGE — a copy drops an earlier test only when the checkpoint lists it under `retires:`,
      and only for a checkpoint it mutates.
   7. YAML — no mapping repeats a key (safe_load would silently keep the last).
+  8. IMPORTS — every relative import in a spec resolves from the folder it is installed into
+     (copies go in by basename beside the own specs, so `../../` from a copy breaks the gate).
 
     .venv/bin/python -m harness.checkpoint_lint --config config.yaml
 
@@ -140,6 +142,10 @@ def main() -> int:
     dropped = fixtures.undeclared_retirements(numbered, harness_root)
     report("coverage", dropped, "restore the test in the copy, or list it under retires:")
 
+    # ---- 8. imports resolve where the spec is installed -------------------------------------
+    unresolved = fixtures.unresolved_imports(numbered, harness_root)
+    report("imports", unresolved, "a copy is installed beside the own specs: use '../support/...'")
+
     # ---- report -----------------------------------------------------------------------------
     n_mut = sum(1 for cp in numbered if cp.get("type") == "mutative")
     n_alg = sum(1 for cp in numbered if cp.get("algorithm"))
@@ -151,6 +157,7 @@ def main() -> int:
     print(f"  hidden test data : {len(hidden)} replacement field(s) unseen by a visible spec")
     print(f"  visible-spec leak: {len(leaks)} own spec(s) describe the hidden suite")
     print(f"  dropped coverage : {len(dropped)} test(s) dropped without a retires: entry")
+    print(f"  broken imports   : {len(unresolved)} spec import(s) absent once installed")
     print()
     if problems:
         print("FAIL — fix before paying for a run:")

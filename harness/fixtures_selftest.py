@@ -124,6 +124,22 @@ def test_a_copy_may_drop_a_test_only_if_retired():
         assert any("ships no copy" in v for v in f.undeclared_retirements(cps, root))
 
 
+def test_a_copy_imports_from_where_it_is_installed_not_where_it_is_written():
+    with tempfile.TemporaryDirectory() as root:
+        S = "acceptance/specs"
+        good = "import { resetAndSeed } from '../support/seed';\n"
+        specs = {"acceptance/support/.keep": "",
+                 f"{S}/cp01_a.spec.ts": good,
+                 f"{S}/cp02_b.spec.ts": good,
+                 f"{S}/cp02/cp01_a.spec.ts": good.replace("../", "../../")}
+        cps = _stream(root, specs, [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
+                                    {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts", "mutates": [1]}])
+        assert f.unresolved_imports(cps, root) == [
+            f"cp02 {S}/cp02/cp01_a.spec.ts: imports '../../support/seed', absent once installed"]
+        open(os.path.join(root, S, "cp02/cp01_a.spec.ts"), "w").write(good)
+        assert f.unresolved_imports(cps, root) == []
+
+
 def test_replaced_tests_are_kept_titles_whose_body_changed():
     """A copy that keeps a title but changes what it does is listed; one carried unchanged, or
     changed only in its comments, is not; a new title is not (it has no earlier version)."""

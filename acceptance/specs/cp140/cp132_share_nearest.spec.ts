@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetAndSeed } from '../../support/seed';
+import { resetAndSeed } from '../support/seed';
 
 test.describe('share rounded nearest', () => {
   test('share nearest', { tag: '@functionality' }, async ({ page }) => {
