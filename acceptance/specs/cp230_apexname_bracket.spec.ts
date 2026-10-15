@@ -20,4 +20,20 @@ test.describe('apex by bracket', () => {
     await expect(page.getByTestId('apexname-bracket-Q2')).toHaveText('Eli');
     await expect(page.getByTestId('apexname-bracket-Q1')).toHaveText('Gwe');
   });
+
+  // Per-quartile apex tie-break: Bob and Cat tie at the top value (scaled 2000); all three sit in
+  // Q4 (value >= 800 under the recalibrated cut-offs), so the Q4 apex is the alphabetically-first
+  // of the tied pair (Bob). Ace is Q4 too (scaled 900 >= 800) but lower.
+  test('bracket apex tie-break picks the alphabetically-first name', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Ace', alpha: 10, beta: 30, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // momentum 300 -> band B x3 -> scaled 900 -> Q4
+        { id: 2, name: 'Cat', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // momentum 500 -> band A x4 -> scaled 2000 -> Q4
+        { id: 3, name: 'Bob', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // momentum 500 -> band A x4 -> scaled 2000 -> Q4
+      ],
+    });
+    await page.goto('/');
+    // Q4 by value desc, ties by name asc: Bob(2000), Cat(2000), Ace(900) -> apex Bob
+    await expect(page.getByTestId('apexname-bracket-Q4')).toHaveText('Bob');
+  });
 });

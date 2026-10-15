@@ -25,4 +25,23 @@ test.describe('global rank', () => {
     await expect(page.getByTestId('person-row-5').getByTestId('concept-rank-global')).toHaveText('1');
     await expect(page.getByTestId('person-row-6').getByTestId('concept-rank-global')).toHaveText('6');
   });
+
+  // Tie-break: two people with equal scaled anywhere on the sheet.
+  // Zed and Ann: alpha 5 * beta 12 = 60 momentum (gamma=alpha so drift 0); adjusted 60 in band D
+  // (0..99) => *1 => scaled 60 each. Global rank is highest scaled first, and the scaled tie
+  // breaks by name => Ann 1st, Zed 2nd (earlier name wins over the lower person id).
+  test('global rank breaks ties by name', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      groups: [{ id: 1, name: 'North' }],
+      people: [
+        { id: 1, name: 'Zed', alpha: 5, beta: 12, gamma: 5, active: true },
+        { id: 2, name: 'Ann', alpha: 5, beta: 12, gamma: 5, active: true },
+      ],
+      memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 1 }],
+    });
+    await page.goto('/');
+
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-rank-global')).toHaveText('2');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-rank-global')).toHaveText('1');
+  });
 });

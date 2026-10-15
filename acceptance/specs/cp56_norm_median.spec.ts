@@ -29,4 +29,29 @@ test.describe('norm against the median', () => {
     await expect(page.getByTestId('person-row-1').getByTestId('concept-outlier')).toHaveText('no');
     await expect(page.getByTestId('rollup-outlier-count')).toHaveText('2');
   });
+
+  test('an even number of people uses the lower of the two middle values', { tag: '@functionality' }, async ({ page }) => {
+    // scaled sorted: 40, 60, 240, 900 -> the two middle values are 60 and 240, median = lower = 60
+    // norm: 40-60=-20, 60-60=0, 240-60=180, 900-60=840 ; outliers (|norm|>100): no, no, yes, yes -> count 2
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Fay', alpha: 5,  beta: 8,  gamma: 5,  active: true }, // scaled 40
+        { id: 2, name: 'Gus', alpha: 2,  beta: 30, gamma: 2,  active: true }, // scaled 60
+        { id: 4, name: 'Ivy', alpha: 4,  beta: 30, gamma: 4,  active: true }, // scaled 240
+        { id: 5, name: 'Jo',  alpha: 10, beta: 30, gamma: 10, active: true }, // scaled 900
+      ],
+    });
+    await page.goto('/');
+
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-norm')).toHaveText('-20');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-norm')).toHaveText('0');
+    await expect(page.getByTestId('person-row-4').getByTestId('concept-norm')).toHaveText('180');
+    await expect(page.getByTestId('person-row-5').getByTestId('concept-norm')).toHaveText('840');
+
+    await expect(page.getByTestId('person-row-4').getByTestId('concept-outlier')).toHaveText('yes');
+    await expect(page.getByTestId('person-row-5').getByTestId('concept-outlier')).toHaveText('yes');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-outlier')).toHaveText('no');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-outlier')).toHaveText('no');
+    await expect(page.getByTestId('rollup-outlier-count')).toHaveText('2');
+  });
 });

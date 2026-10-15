@@ -24,4 +24,16 @@ test.describe('percentile', () => {
     await expect(page.getByTestId('person-row-4').getByTestId('concept-percentile')).toHaveText('25');
     await expect(page.getByTestId('person-row-5').getByTestId('concept-percentile')).toHaveText('0');
   });
+
+  test('a single person is 100', { tag: '@functionality' }, async ({ page }) => {
+    // N=1: (N-rank)/(N-1) is 0/0, so the lone person is defined as 100.
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Ann', alpha: 5, beta: 20, gamma: 5 }, // momentum 100 -> only person
+      ],
+    });
+    await page.goto('/');
+
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-percentile')).toHaveText('100');
+  });
 });

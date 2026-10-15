@@ -3,7 +3,8 @@ import { resetAndSeed } from '../support/seed';
 
 // cp167: even size
 test.describe('even size', () => {
-  test('yes when the size is even', { tag: '@functionality' }, async ({ page }) => {
+  test('yes when the size is even, no when it is odd', { tag: '@functionality' }, async ({ page }) => {
+    // North size 2 -> yes, South size 2 -> yes, East size 3 -> no
     await resetAndSeed({
       groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }, { id: 3, name: 'East' }],
       people: [
@@ -13,13 +14,14 @@ test.describe('even size', () => {
         { id: 4, name: 'Dot', alpha: 5, beta: 8, gamma: 5, active: true },
         { id: 5, name: 'Eli', alpha: 10, beta: 30, gamma: 10, active: true },
         { id: 6, name: 'Fia', alpha: 5, beta: 6, gamma: 5, active: true },
+        { id: 7, name: 'Gus', alpha: 3, beta: 7, gamma: 3, active: true },
       ],
-      memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 2 }, { personId: 4, groupId: 2 }, { personId: 5, groupId: 3 }, { personId: 6, groupId: 3 }],
+      memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 2 }, { personId: 4, groupId: 2 }, { personId: 5, groupId: 3 }, { personId: 6, groupId: 3 }, { personId: 7, groupId: 3 }],
     });
     await page.goto('/');
 
     await expect(page.getByTestId('group-row-1').getByTestId('group-concept-even')).toHaveText('yes');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-even')).toHaveText('yes');
-    await expect(page.getByTestId('group-row-3').getByTestId('group-concept-even')).toHaveText('yes');
+    await expect(page.getByTestId('group-row-3').getByTestId('group-concept-even')).toHaveText('no');
   });
 });

@@ -288,7 +288,9 @@ checkpoints:
     test: acceptance/specs/cp28_age_in_weeks.spec.ts
     request: |
       I think of age in whole weeks, not days. Age should now be the number of complete seven-day
-      weeks from onset to the anchor (drop any leftover days).
+      weeks from onset to the anchor (drop any leftover days). If the onset is after the anchor the
+      age is negative, counted the same way toward zero, so an onset ten days after the anchor is
+      minus one week, not minus two.
 
   # ---- Cycle 8 (cp29-32): the active flag and gating -----------------------------------------------
   - id: cp29_active
@@ -559,8 +561,9 @@ checkpoints:
     area: status
     test: acceptance/specs/cp59_state_guard.spec.ts
     request: |
-      Once a person is FINAL they should not be allowed to go backwards to REVIEW or DRAFT. If I try,
-      stop me and show that it is not allowed.
+      Let me move a person back a step, the reverse of moving them forward. Once a person is FINAL,
+      though, they should not be allowed to go backwards to REVIEW or DRAFT. If I try, stop me and
+      show that it is not allowed. Anyone who is not yet FINAL can step back as normal.
 
   - id: cp60_rework
     type: mutative
@@ -718,8 +721,8 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp77_verge.spec.ts
     request: |
-      Give each person a "kind" that is one of A, B or C. From the kind show a "verge": A is 1, B is
-      2, C is 4.
+      Give each person a "kind" that is one of A, B or C, and show it. From the kind show a "verge":
+      A is 1, B is 2, C is 4.
 
   - id: cp78_pivot
     type: additive
@@ -1217,7 +1220,8 @@ checkpoints:
     test: acceptance/specs/cp140_membership_many.spec.ts
     request: |
         Let me put a person into more than one group, not just one. Show all the groups a person is
-        in.
+        in. Where one of a person's own figures depends on "their group" and they are now in several,
+        use the group whose name comes first alphabetically.
   - id: cp141_rung
     type: additive
     area: calc
@@ -1246,7 +1250,8 @@ checkpoints:
     retires: ['cp141_rung.spec.ts::rung is a within-group percentile']
     test: acceptance/specs/cp144_rung_over_size.spec.ts
     request: |
-        Rung should divide by the group size rather than by one less than the size.
+        Rung should divide by the group size rather than by one less than the size. A group of one
+        is still 100.
   - id: cp145_home_group
     type: additive
     area: calc
@@ -1471,8 +1476,9 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp178_group_balance.spec.ts
     request: |
-        For each group show balance, its strength minus its cohesion multiplied by its size (the
-        leftover).
+        For each group show balance: its strength, minus its cohesion multiplied by its size.
+        (Cohesion is the whole-number share per member, rounded down, so this leftover is what the
+        strength carries over and above an even share for everyone in the group.)
   - id: cp179_rank_global
     type: additive
     area: calc
@@ -1586,7 +1592,8 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp195_concentration.spec.ts
     request: |
-      Show me what share of the whole total the top two people make up, as a whole-number percent.
+      Show me what share of the whole total the top two people make up, as a whole-number percent,
+      rounded down.
   - id: cp196_concentration_top3
     type: mutative
     area: calc
@@ -1594,7 +1601,8 @@ checkpoints:
     retires: ['cp195_concentration.spec.ts::top two share percent']
     test: acceptance/specs/cp196_concentration_top3.spec.ts
     request: |
-      Use the top THREE people for that share, not the top two.
+      Use the top THREE people for that share, not the top two. Keep showing it as a whole-number
+      percent, rounded down.
   - id: cp197_tier_tally
     type: additive
     area: calc
@@ -1653,7 +1661,9 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp205_quota.spec.ts
     request: |
-      Mark each person yes or no for whether they are in the top half of the sheet by value.
+      Mark each person yes or no for whether they are in the top half of the sheet by value. Rank
+      everyone from the highest value to the lowest; if there is an odd number of people, round the
+      half up so the one in the middle is marked yes.
   - id: cp206_digest
     type: additive
     area: calc
@@ -1674,7 +1684,8 @@ checkpoints:
     retires: ['cp205_quota.spec.ts::top half by rank']
     test: acceptance/specs/cp208_quota_third.spec.ts
     request: |
-      Tighten the quota to the top third of the sheet by value instead of the top half.
+      Tighten the quota to the top third of the sheet by value instead of the top half. Take only a
+      whole third — round the number of people down, dropping any remainder.
   - id: cp209_region_tally
     type: additive
     area: calc
@@ -1883,7 +1894,7 @@ checkpoints:
     retires: ['cp183_ledger.spec.ts::ledger sums all scaled', 'cp206_digest.spec.ts::mean value per person', 'cp233_report_screen.spec.ts::report screen re-reads figures']
     test: acceptance/specs/cp240_ledger_trim.spec.ts
     request: |
-      Leave the single highest person out of the grand total, as an outlier. The average per person and the report total should follow.
+      Leave the single highest person out of the grand total, as an outlier. The average per person and the report total should follow. The outlier is only left out of the totals, not removed from the sheet, so work the average out over everyone — divide the trimmed total by the full head count.
 
   # ===================================================================================================
   # ACT V (cp241-250): "stress finale" — whole-stack consistency sweeps that compose the spine, and
@@ -1951,7 +1962,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [53, 54, 55, 56]
-    retires: ['cp53_norm.spec.ts::norm is scaled minus the median scaled', 'cp56_norm_median.spec.ts::norm, outliers and count use the median']
+    retires: ['cp53_norm.spec.ts::norm is scaled minus the median scaled', 'cp56_norm_median.spec.ts::norm, outliers and count use the median', 'cp56_norm_median.spec.ts::an even number of people uses the lower of the two middle values']
     test: acceptance/specs/cp248_norm_mean.spec.ts
     request: |
       Go back to measuring norm against the average scaled, not the middle value. Subtract the average

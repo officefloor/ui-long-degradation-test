@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // median. That changes every ebb, flips strays and the count.
-//   mean = (40+60+80+240+900)/5 = 264
-//   ebb: -224, -204, -184, -24, 636 ; stray: yes, yes, yes, no, yes -> count 4
+//   mean = (40+60+81+240+900)/5 = 1321/5 = 264.2 -> floor 264 (exercises the rounding down)
+//   ebb: -224, -204, -183, -24, 636 ; stray: yes, yes, yes, no, yes -> count 4
 
 test.describe('ebb against the mean', () => {
   test('ebb, strays and count use the mean', { tag: '@functionality' }, async ({ page }) => {
@@ -11,7 +11,7 @@ test.describe('ebb against the mean', () => {
   people: [
     { id: 1, name: 'Fay', alpha: 5,  beta: 8,  gamma: 5,  delta: 0, epsilon: 0, zeta: 0, active: true },
     { id: 2, name: 'Gus', alpha: 2,  beta: 30, gamma: 2,  delta: 0, epsilon: 0, zeta: 0, active: true },
-    { id: 3, name: 'Hal', alpha: 8,  beta: 10, gamma: 8,  delta: 0, epsilon: 0, zeta: 0, active: true },
+    { id: 3, name: 'Hal', alpha: 9,  beta: 9,  gamma: 9,  delta: 0, epsilon: 0, zeta: 0, active: true },
     { id: 4, name: 'Ivy', alpha: 4,  beta: 60, gamma: 4,  delta: 0, epsilon: 0, zeta: 0, active: true },
     { id: 5, name: 'Jo',  alpha: 10, beta: 90, gamma: 10, delta: 0, epsilon: 0, zeta: 0, active: true },
   ],

@@ -21,4 +21,18 @@ test.describe('portion', () => {
     await expect(page.getByTestId('person-row-3').getByTestId('concept-portion')).toHaveText('72');
     await expect(page.getByTestId('person-row-4').getByTestId('concept-portion')).toHaveText('3');
   });
+
+  test('portion is n/a when the grand scaled is zero', { tag: '@functionality' }, async ({ page }) => {
+    // every momentum is below zero -> band E -> scaled 0 -> grand scaled 0 -> portion n/a for all
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Lo', alpha: 5, beta: 1, gamma: 0, active: true }, // thrust 5, drift -5, momentum -10 -> scaled 0
+        { id: 2, name: 'Mo', alpha: 4, beta: 1, gamma: 0, active: true }, // thrust 4, drift -4, momentum -8  -> scaled 0
+      ],
+    });
+    await page.goto('/');
+
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-portion')).toHaveText('n/a');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-portion')).toHaveText('n/a');
+  });
 });

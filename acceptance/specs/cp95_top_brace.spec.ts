@@ -16,4 +16,19 @@ test.describe('top brace', () => {
 
     await expect(page.getByTestId('rollup-top-brace')).toHaveText('Dot');
   });
+
+  // Tie-break: identical inputs give equal brace (influence + 2*force), so the alphabetical
+  // tie-break decides. Bob is seeded first / lower id to prove it is name order, not seed order.
+  //   each: momentum 1 -> influence 1; force 1; brace 1 + 2*1 = 3
+  test('breaks a brace tie alphabetically', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Bob', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, active: true }, // brace 3
+        { id: 2, name: 'Ana', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, active: true }, // brace 3
+      ],
+    });
+    await page.goto('/');
+
+    await expect(page.getByTestId('rollup-top-brace')).toHaveText('Ana');
+  });
 });

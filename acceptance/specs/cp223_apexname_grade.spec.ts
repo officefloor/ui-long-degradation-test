@@ -19,4 +19,19 @@ test.describe('apex by grade', () => {
     await expect(page.getByTestId('apexname-grade-MID')).toHaveText('Ben');
     await expect(page.getByTestId('apexname-grade-LOW')).toHaveText('Cam');
   });
+
+  // Per-grade apex tie-break: within grade HIGH, Bob and Cat tie at the top value (scaled 2000);
+  // the alphabetically-first name (Bob) is the grade's apex. Ace is HIGH but lower (scaled 900).
+  test('grade apex tie-break picks the alphabetically-first name', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Ace', alpha: 10, beta: 30, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // momentum 300 -> band B x3 -> scaled 900
+        { id: 2, name: 'Cat', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // momentum 500 -> band A x4 -> scaled 2000
+        { id: 3, name: 'Bob', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // momentum 500 -> band A x4 -> scaled 2000
+      ],
+    });
+    await page.goto('/');
+    // HIGH by value desc, ties by name asc: Bob(2000), Cat(2000), Ace(900) -> apex Bob
+    await expect(page.getByTestId('apexname-grade-HIGH')).toHaveText('Bob');
+  });
 });

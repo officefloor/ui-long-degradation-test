@@ -16,4 +16,19 @@ test.describe('max thrum', () => {
 
     await expect(page.getByTestId('rollup-max-thrum')).toHaveText('Dot');
   });
+
+  // Tie-break: identical inputs give equal thrum (scaled + 2*torque), so the alphabetical tie-break
+  // decides. Bob is seeded first / lower id to prove it is name order, not seed order.
+  //   each: momentum 1 -> adjusted 1 -> band D x1 -> scaled 1; torque 1; thrum 1 + 2*1 = 3
+  test('breaks a thrum tie alphabetically', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Bob', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, active: true }, // thrum 3
+        { id: 2, name: 'Ana', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, active: true }, // thrum 3
+      ],
+    });
+    await page.goto('/');
+
+    await expect(page.getByTestId('rollup-max-thrum')).toHaveText('Ana');
+  });
 });

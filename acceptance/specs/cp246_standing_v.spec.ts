@@ -21,4 +21,21 @@ test.describe('sheet standing', () => {
     await expect(page.getByTestId('person-row-1').getByTestId('concept-standing-v')).toHaveText('3');
     await expect(page.getByTestId('person-row-4').getByTestId('concept-standing-v')).toHaveText('4');
   });
+
+  // tie on scaled: Amy and Bea both mom120 -> band C x2 -> scaled 240; name asc gives Amy the better standing.
+  //   Cal mom60 -> band D x1 -> scaled 60 (last)
+  test('standing breaks a scaled tie by name', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Amy', alpha: 4, beta: 30, gamma: 4, active: true }, // scaled 240 -> standing 1
+        { id: 2, name: 'Bea', alpha: 4, beta: 30, gamma: 4, active: true }, // scaled 240 -> standing 2
+        { id: 3, name: 'Cal', alpha: 2, beta: 30, gamma: 2, active: true }, // scaled 60  -> standing 3
+      ],
+    });
+    await page.goto('/');
+
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-standing-v')).toHaveText('1');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-standing-v')).toHaveText('2');
+    await expect(page.getByTestId('person-row-3').getByTestId('concept-standing-v')).toHaveText('3');
+  });
 });

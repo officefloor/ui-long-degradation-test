@@ -16,4 +16,18 @@ test.describe('apex by scaled', () => {
     await page.goto('/');
     await expect(page.getByTestId('rollup-apex-v')).toHaveText('Cam');
   });
+
+  // tie on the top scaled: Amy and Bea both mom120 -> band C x2 -> scaled 240; name asc picks Amy.
+  //   Cal mom60 -> band D x1 -> scaled 60 (lower)
+  test('apex breaks a tie by name', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Amy', alpha: 4, beta: 30, gamma: 4, active: true }, // scaled 240
+        { id: 2, name: 'Bea', alpha: 4, beta: 30, gamma: 4, active: true }, // scaled 240
+        { id: 3, name: 'Cal', alpha: 2, beta: 30, gamma: 2, active: true }, // scaled 60
+      ],
+    });
+    await page.goto('/');
+    await expect(page.getByTestId('rollup-apex-v')).toHaveText('Amy'); // 240 tie -> Amy before Bea
+  });
 });

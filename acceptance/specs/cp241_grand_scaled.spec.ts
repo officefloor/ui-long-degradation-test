@@ -4,6 +4,7 @@ import { resetAndSeed } from '../support/seed';
 // Whole-stack sweep: grand scaled = sum of every person's scaled. Bare roster (active, no
 // patrons/allies/score), so adjusted = momentum and scaled = momentum * band multiplier (cp52 bands).
 //   Ada mom60 D x1 =60, Ben 120 C x2 =240, Cam 300 B x3 =900, Dot 45 D x1 =45 ; sum 1245
+//   Eli alpha missing -> momentum n/a -> scaled n/a, skipped from the sum (still 1245)
 
 test.describe('grand scaled', () => {
   test('sums every scaled', { tag: '@functionality' }, async ({ page }) => {
@@ -13,9 +14,11 @@ test.describe('grand scaled', () => {
     { id: 2, name: 'Ben', alpha: 4,  beta: 30, gamma: 4,  active: true }, // scaled 240
     { id: 3, name: 'Cam', alpha: 10, beta: 30, gamma: 10, active: true }, // scaled 900
     { id: 4, name: 'Dot', alpha: 3,  beta: 15, gamma: 3,  active: true }, // scaled 45
+    { id: 5, name: 'Eli', alpha: null, beta: 30, gamma: 5, active: true }, // alpha missing -> scaled n/a
   ],
 });
     await page.goto('/');
-    await expect(page.getByTestId('rollup-grand-scaled')).toHaveText('1245');
+    await expect(page.getByTestId('person-row-5').getByTestId('concept-scaled')).toHaveText('n/a');
+    await expect(page.getByTestId('rollup-grand-scaled')).toHaveText('1245'); // Eli's n/a scaled is skipped
   });
 });

@@ -24,4 +24,23 @@ test.describe('standing', () => {
     await expect(page.getByTestId('person-row-5').getByTestId('concept-standing')).toHaveText('1');
     await expect(page.getByTestId('person-row-6').getByTestId('concept-standing')).toHaveText('2');
   });
+
+  // Tie-break: two members of one group with equal scaled but different alpha.
+  // Ann: alpha 4 * beta 15 = 60; Bea: alpha 6 * beta 10 = 60 (gamma=alpha so drift 0); each
+  // adjusted 60 in band D (0..99) => *1 => scaled 60. Standing is highest scaled first, and the
+  // scaled tie breaks to the HIGHER alpha => Bea (alpha 6) is 1st, Ann (alpha 4) is 2nd, even
+  // though Ann's name is earlier.
+  test('standing breaks ties by higher alpha', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      groups: [{ id: 1, name: 'North' }],
+      people: [
+        { id: 1, name: 'Ann', alpha: 4, beta: 15, gamma: 4, active: true, groupId: 1 },
+        { id: 2, name: 'Bea', alpha: 6, beta: 10, gamma: 6, active: true, groupId: 1 },
+      ],
+    });
+    await page.goto('/');
+
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-standing')).toHaveText('2');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-standing')).toHaveText('1');
+  });
 });

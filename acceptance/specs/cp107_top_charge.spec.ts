@@ -23,4 +23,20 @@ test.describe('top charge', () => {
 
     await expect(page.getByTestId('rollup-top-charge')).toHaveText('Dot');
   });
+
+  // Tie-break: identical inputs give equal charge, so the alphabetical tie-break decides. Bob is
+  // seeded first / lower id to prove it is name order, not seed order.
+  //   each: torque 1; verge A=2 -> pivot 2; blend 2 -> drag L1 x1 -> lift 2; yield 2 + 2*2 = 6
+  //   no patrons -> vector 0; charge 0 + 6 = 6
+  test('breaks a charge tie alphabetically', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Bob', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, kind: 'A', active: true }, // charge 6
+        { id: 2, name: 'Ana', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, kind: 'A', active: true }, // charge 6
+      ],
+    });
+    await page.goto('/');
+
+    await expect(page.getByTestId('rollup-top-charge')).toHaveText('Ana');
+  });
 });

@@ -18,4 +18,21 @@ test.describe('apex and runner-up', () => {
     await expect(page.getByTestId('rollup-apexname')).toHaveText('Ada');
     await expect(page.getByTestId('rollup-runnerup')).toHaveText('Ben');
   });
+
+  // Apex tie-break: Bob and Cat tie at the top value (scaled 2000); the name first alphabetically
+  // (Bob) is the apex, the other (Cat) the runner-up. Ace is lower (scaled 900) and never apex
+  // despite sorting first by name, proving value wins before the name tie-break is applied.
+  test('apex tie-break picks the alphabetically-first name', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Ace', alpha: 10, beta: 30, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // thrust 300, drift 0, momentum 300 -> band B x3 -> scaled 900
+        { id: 2, name: 'Cat', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // thrust 500, drift 0, momentum 500 -> band A x4 -> scaled 2000
+        { id: 3, name: 'Bob', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // thrust 500, drift 0, momentum 500 -> band A x4 -> scaled 2000
+      ],
+    });
+    await page.goto('/');
+    // sorted by value desc, ties by name asc: Bob(2000), Cat(2000), Ace(900)
+    await expect(page.getByTestId('rollup-apexname')).toHaveText('Bob');
+    await expect(page.getByTestId('rollup-runnerup')).toHaveText('Cat');
+  });
 });

@@ -22,4 +22,25 @@ test.describe('group rank', () => {
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-rank')).toHaveText('3');
     await expect(page.getByTestId('group-row-3').getByTestId('group-concept-rank')).toHaveText('1');
   });
+
+  // Tie-break: two groups with equal strength.
+  // Each group has one active member with effective 60 (Cal alpha 5 * beta 12 = 60, Dot alpha 6 *
+  // beta 10 = 60; gamma=alpha so drift 0, no patrons so net = momentum, active so effective =
+  // net). Strength Beta = 60, Alpha = 60. Rank is highest strength first; the strength tie breaks
+  // to the group name earlier in the alphabet => Alpha is rank 1, Beta is rank 2 (name wins over
+  // the lower group id).
+  test('group rank breaks ties by earlier name', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      groups: [{ id: 1, name: 'Beta' }, { id: 2, name: 'Alpha' }],
+      people: [
+        { id: 1, name: 'Cal', alpha: 5, beta: 12, gamma: 5, active: true },
+        { id: 2, name: 'Dot', alpha: 6, beta: 10, gamma: 6, active: true },
+      ],
+      memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 2 }],
+    });
+    await page.goto('/');
+
+    await expect(page.getByTestId('group-row-1').getByTestId('group-concept-rank')).toHaveText('2');
+    await expect(page.getByTestId('group-row-2').getByTestId('group-concept-rank')).toHaveText('1');
+  });
 });

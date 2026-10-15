@@ -19,4 +19,20 @@ test.describe('apex by tier', () => {
     await expect(page.getByTestId('apexname-tier-STEADY')).toHaveText('Dot');
     await expect(page.getByTestId('apexname-tier-SINK')).toHaveText('Gwe');
   });
+
+  // Per-tier apex tie-break: Bob and Cat tie at the top value (scaled 2000); all three are SURGE
+  // (momentum >= 200), so the SURGE apex is the alphabetically-first of the tied pair (Bob).
+  // Ace is SURGE too (momentum 300) but lower (scaled 900).
+  test('tier apex tie-break picks the alphabetically-first name', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({
+      people: [
+        { id: 1, name: 'Ace', alpha: 10, beta: 30, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // momentum 300 (SURGE) -> band B x3 -> scaled 900
+        { id: 2, name: 'Cat', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // momentum 500 (SURGE) -> band A x4 -> scaled 2000
+        { id: 3, name: 'Bob', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // momentum 500 (SURGE) -> band A x4 -> scaled 2000
+      ],
+    });
+    await page.goto('/');
+    // SURGE by value desc, ties by name asc: Bob(2000), Cat(2000), Ace(900) -> apex Bob
+    await expect(page.getByTestId('apexname-tier-SURGE')).toHaveText('Bob');
+  });
 });
