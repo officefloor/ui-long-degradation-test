@@ -2,8 +2,7 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // A sheet's people, raw values and concepts are recalled when the sheet is opened again, even after
-// the page is refreshed. Opening an id that does not exist shows a 'sheet-missing' state (this is
-// what cp16 later changes).
+// the page is refreshed. Opening an id that does not exist shows a 'sheet-missing' state.
 test.describe('worksheet recall', () => {
   test('a sheet recalls its data after a page refresh', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

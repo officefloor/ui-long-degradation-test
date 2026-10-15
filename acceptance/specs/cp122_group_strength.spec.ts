@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp122: group strength
+// group strength
 test.describe('group strength', () => {
   test('strength sums members\' scaled', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

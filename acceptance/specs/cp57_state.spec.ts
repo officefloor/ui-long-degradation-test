@@ -4,7 +4,7 @@ import { auditLines } from '../support/audit';
 
 // State workflow: each person starts at DRAFT and moves forward DRAFT -> REVIEW -> FINAL via
 // `person-advance-<id>`. Each change writes STATE_CHANGED id=<id> from=<old> to=<new>. FINAL is
-// terminal: no advance control, and no rework control exists yet (cp60 adds rework).
+// terminal: no advance control, and no rework control exists yet.
 test.describe('state workflow', () => {
   test('advances DRAFT -> REVIEW -> FINAL with audit, then is terminal', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

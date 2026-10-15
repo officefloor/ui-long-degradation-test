@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp141: rung
+// rung
 test.describe('rung', () => {
   test('rung is a within-group percentile', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

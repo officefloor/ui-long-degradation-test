@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp178: balance = strength - cohesion*size, where cohesion = floor(strength/size). This is the
+// balance = strength - cohesion*size, where cohesion = floor(strength/size). This is the
 // leftover (strength mod size) once each member takes the floored even share. Strengths are chosen
 // NOT divisible by size so the leftover is non-zero, and the groups vary in size (3, 2, 1).
 test.describe('balance', () => {

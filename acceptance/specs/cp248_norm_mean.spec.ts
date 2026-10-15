@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// MEAN of scaled (undoing the median change of cp56). Outliers and the count follow.
+// MEAN of scaled (no longer the median). Outliers and the count follow.
 //   scaled 40,60,80,240,900 ; mean floor = 1320/5 = 264
 //   norm: -224,-204,-184,-24,636 ; outliers (|norm|>100): yes,yes,yes,no,yes -> count 4
 

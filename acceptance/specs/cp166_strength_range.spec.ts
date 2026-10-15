@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp166: strength range
+// strength range
 test.describe('strength range', () => {
   test('strongest minus weakest strength', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

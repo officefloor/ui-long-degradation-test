@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// top flow is still Dot, so cp119 is unaffected.
+// top flow is still Dot.
 //   flow: Ada 162+260=422, Ben -6-6=-12, Dot 1700+1697=3397 ; grand 422-12+3397=3807
 
 test.describe('flow drops tide', () => {

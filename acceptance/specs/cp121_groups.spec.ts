@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp121: groups entity + single membership
+// groups entity + single membership
 test.describe('groups', () => {
   test('people belong to one named group', { tag: '@core' }, async ({ page }) => {
     await resetAndSeed({

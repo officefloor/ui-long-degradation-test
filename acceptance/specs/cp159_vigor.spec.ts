@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp159: vigor
+// vigor
 test.describe('vigor', () => {
   test('strength times size', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

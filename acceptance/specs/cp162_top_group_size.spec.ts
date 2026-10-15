@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp162: top group size
+// top group size
 test.describe('top group size', () => {
   test('size of the strongest group', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

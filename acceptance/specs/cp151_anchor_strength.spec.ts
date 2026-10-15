@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp151: anchor strength
+// anchor strength
 test.describe('anchor strength', () => {
   test('the home group\'s strength', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

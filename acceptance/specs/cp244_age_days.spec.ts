@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// (undoing the weeks change of cp28). decay = momentum - age follows. Updated cp26/cp27/cp28 ship
+// Age is whole days again, no longer whole weeks. decay = momentum - age follows.
 test.describe('age reverted to days', () => {
   test('age is whole days again and decay follows', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

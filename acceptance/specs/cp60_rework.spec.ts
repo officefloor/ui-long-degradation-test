@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 import { auditLines } from '../support/audit';
 
-// `person-rework-<id>`, and a REWORK person back to FINAL via `person-advance-<id>`. Both changes are
-// audited. FINAL is therefore no longer terminal (cp57 asserted no rework control existed; the
+// A FINAL person moves to REWORK via `person-rework-<id>`, and a REWORK person back to FINAL via
+// `person-advance-<id>`. Both changes are audited, so FINAL is no longer terminal.
 test.describe('rework state', () => {
   test('FINAL can move to REWORK and back, with audit', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

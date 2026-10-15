@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp134: tether
+// tether
 test.describe('tether', () => {
   test('tether is scaled minus cohesion', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

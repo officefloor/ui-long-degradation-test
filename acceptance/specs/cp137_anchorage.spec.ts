@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp137: anchorage
+// anchorage
 test.describe('anchorage', () => {
   test('anchorage counts the person\'s groups', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

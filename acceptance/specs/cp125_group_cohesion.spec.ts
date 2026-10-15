@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp125: cohesion
+// cohesion
 test.describe('cohesion', () => {
   test('cohesion is strength over size', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

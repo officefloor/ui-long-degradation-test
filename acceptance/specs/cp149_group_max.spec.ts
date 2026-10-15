@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp149: group max
+// group max
 test.describe('group max', () => {
   test('the highest member scaled', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

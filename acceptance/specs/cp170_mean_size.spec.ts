@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp170: mean size
+// mean size
 test.describe('mean size', () => {
   test('the average group size', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

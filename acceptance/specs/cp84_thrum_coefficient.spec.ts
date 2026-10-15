@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// follows. max thrum is still Dot, so cp83 is unaffected.
+// follows. max thrum is still Dot.
 //   thrum: Ada 15+66=81, Ben 0-4=-4, Dot 200+200=400
 //   spool: Ada 81-48=33, Ben -4-(-3)=-1, Dot 400-200=200
 

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp153: headroom
+// headroom
 test.describe('headroom', () => {
   test('max scaled minus cohesion', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp140: membership migrates to MANY-TO-MANY. Seed shape becomes memberships[]; cp121-139 are
-// reshipped under cp140/ (one membership each, same values). Demo: Dot also joins North, so
-// North effective-strength = 100+120+40 = 260, size 3; Dot is in North and South, anchorage 2.
+// Membership becomes MANY-TO-MANY: a person may belong to several groups (seeded as memberships[]).
+// Dot also joins North, so North effective-strength = 100+120+40 = 260, size 3; Dot is in North
+// and South, anchorage 2.
 
 test.describe('many memberships', () => {
   test('a group reflects a shared member', { tag: '@functionality' }, async ({ page }) => {

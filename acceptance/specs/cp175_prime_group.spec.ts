@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp175: prime group
+// prime group
 test.describe('prime group', () => {
   test('names the strongest group', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

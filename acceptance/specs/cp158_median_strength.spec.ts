@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp158: median strength
+// median strength
 test.describe('median strength', () => {
   test('the middle group strength', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

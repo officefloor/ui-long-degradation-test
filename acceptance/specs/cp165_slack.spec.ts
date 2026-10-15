@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp165: slack
+// slack
 test.describe('slack', () => {
   test('cohesion minus scaled', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

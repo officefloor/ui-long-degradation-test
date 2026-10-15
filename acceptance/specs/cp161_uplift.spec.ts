@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp161: uplift
+// uplift
 test.describe('uplift', () => {
   test('weave plus tether', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

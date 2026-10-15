@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp139: mesh
+// mesh
 test.describe('mesh', () => {
   test('mesh is scaled times size', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

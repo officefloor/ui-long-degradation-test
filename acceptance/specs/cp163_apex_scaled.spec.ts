@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp163: apex scaled
+// apex scaled
 test.describe('apex scaled', () => {
   test('the apex member\'s scaled', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

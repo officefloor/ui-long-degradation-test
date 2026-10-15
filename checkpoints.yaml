@@ -60,7 +60,8 @@ checkpoints:
     test: acceptance/specs/cp02_thrust.spec.ts
     request: |
       Each person should also have a second whole number called "beta". For each person show me a
-      value called "thrust", which is their alpha multiplied by their beta.
+      value called "thrust", which is their alpha multiplied by their beta. I can leave beta blank
+      when I add a person and fill it in later.
 
   - id: cp03_momentum
     type: additive
@@ -68,7 +69,8 @@ checkpoints:
     test: acceptance/specs/cp03_momentum.spec.ts
     request: |
       Give each person a third whole number called "gamma". For each person show "drift", which is
-      gamma minus alpha, and show "momentum", which is their thrust plus two times their drift.
+      gamma minus alpha, and show "momentum", which is their thrust plus two times their drift. I can
+      leave gamma blank when I add a person and fill it in later.
 
   - id: cp04_momentum_coefficient
     type: mutative

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp154: group count
+// group count
 test.describe('group count', () => {
   test('counts the groups', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

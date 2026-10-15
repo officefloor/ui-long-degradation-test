@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // norm = scaled - floor(mean of scaled across everyone computable).
-// scaled here (adjusted=momentum, cp52 bands D=x1 for 0..99, C=x2 for 100..249, B=x3 for 250..499):
+// scaled here (adjusted=momentum, bands D=x1 for 0..99, C=x2 for 100..249, B=x3 for 250..499):
 //   Fay mom40 ->40, Gus 60 ->60, Hal 81 ->81, Ivy 120 ->240, Jo 300 ->900
 //   mean = (40+60+81+240+900)/5 = 1321/5 = 264.2 -> floor 264 (exercises the rounding down)
 //   norm: -224, -204, -183, -24, 636

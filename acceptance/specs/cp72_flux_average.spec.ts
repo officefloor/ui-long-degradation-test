@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// (0 if none). crest = blend + flux follows. top crest is still Dot, so cp71 is unaffected.
+// (0 if none). crest = blend + flux follows. top crest is still Dot.
 //   flux: Ada (10+100)/2=55, Ben 0, Dot 10/1=10
 //   crest: Ada 48+55=103, Ben -3, Dot 200+10=210
 //   Rix patrons Ada/Ben/Dot force 12/10/100 -> flux (12+10+100)/3 = 122/3 = 40.67 -> floor 40

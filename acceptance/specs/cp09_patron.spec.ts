@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // First relationship: a person may have one patron (another person). Seeded as patronId on the
-// person (many-to-one). The patron is shown through `person-patrons` (one name here; cp12 will make
-// it many). A person with no patron shows an empty patrons cell.
+// person (many-to-one). The patron is shown through `person-patrons` (one name here).
+// A person with no patron shows an empty patrons cell.
 test.describe('patron', () => {
   test('shows each person their patron by name', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

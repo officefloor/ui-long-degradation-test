@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp177: reach span
+// reach span
 test.describe('reach span', () => {
   test('home strength plus cohesion', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

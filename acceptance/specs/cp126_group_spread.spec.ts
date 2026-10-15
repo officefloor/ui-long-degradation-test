@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp126: spread
+// spread
 test.describe('spread', () => {
   test('spread is max minus min scaled', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

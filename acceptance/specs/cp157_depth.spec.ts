@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp157: depth
+// depth
 test.describe('depth', () => {
   test('size minus standing', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

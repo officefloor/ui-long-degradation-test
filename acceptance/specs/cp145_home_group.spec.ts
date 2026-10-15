@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp145: home group
+// home group
 test.describe('home group', () => {
   test('names the person\'s home group', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

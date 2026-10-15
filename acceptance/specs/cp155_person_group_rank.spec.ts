@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp155: person group rank
+// person group rank
 test.describe('person group rank', () => {
   test('the home group\'s rank', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

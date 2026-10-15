@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp130: standing
+// standing
 test.describe('standing', () => {
   test('standing ranks within the group', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

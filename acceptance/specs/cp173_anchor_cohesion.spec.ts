@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp173: anchor cohesion
+// anchor cohesion
 test.describe('anchor cohesion', () => {
   test('the home group\'s cohesion', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

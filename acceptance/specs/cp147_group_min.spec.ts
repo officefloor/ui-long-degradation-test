@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp147: group min
+// group min
 test.describe('group min', () => {
   test('the lowest member scaled', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

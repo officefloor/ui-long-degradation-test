@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp150: strongest member
+// strongest member
 test.describe('strongest member', () => {
   test('names the top-scaled person', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

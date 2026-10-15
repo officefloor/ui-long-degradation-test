@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp123: group size
+// group size
 test.describe('group size', () => {
   test('size counts members', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

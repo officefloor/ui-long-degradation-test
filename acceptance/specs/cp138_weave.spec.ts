@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp138: weave
+// weave
 test.describe('weave', () => {
   test('weave is scaled plus cohesion', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

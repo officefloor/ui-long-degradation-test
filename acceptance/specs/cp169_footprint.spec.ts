@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp169: footprint
+// footprint
 test.describe('footprint', () => {
   test('scaled plus mesh', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

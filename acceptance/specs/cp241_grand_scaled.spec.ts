@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // Whole-stack sweep: grand scaled = sum of every person's scaled. Bare roster (active, no
-// patrons/allies/score), so adjusted = momentum and scaled = momentum * band multiplier (cp52 bands).
+// patrons/allies/score), so adjusted = momentum and scaled = momentum * band multiplier.
 //   Ada mom60 D x1 =60, Ben 120 C x2 =240, Cam 300 B x3 =900, Dot 45 D x1 =45 ; sum 1245
 //   Eli alpha missing -> momentum n/a -> scaled n/a, skipped from the sum (still 1245)
 

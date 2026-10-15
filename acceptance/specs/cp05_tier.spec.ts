@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// Classification concept: tier from momentum (momentum = thrust + 3*drift, per cp04).
+// Classification concept: tier from momentum (momentum = thrust + 3*drift).
 //   momentum < 0        -> SINK
 //   0 <= momentum <= 99  -> STEADY
 //   momentum >= 100      -> SURGE

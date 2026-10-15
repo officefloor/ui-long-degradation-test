@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// churn = tide - vector. vector = average of patrons' blend (cp108).
+// churn = tide - vector. vector = average of patrons' blend.
 //   vector: Ada (−3+200)/2=98, Ben 0, Dot -3, Gus 0
 //   tide: Ada 260, Ben 0, Dot 19, Gus 0 -> churn: Ada 162, Ben 0, Dot 22, Gus 0
 

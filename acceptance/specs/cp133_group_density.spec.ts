@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp133: density
+// density
 test.describe('density', () => {
   test('density counts members at/above cohesion', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

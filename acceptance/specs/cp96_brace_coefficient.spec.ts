@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// top brace is still Dot, so cp95 is unaffected.
+// top brace is still Dot.
 //   brace: Ada 15+24=39, Ben -1+20=19, Dot 100+200=300 ; total 39+19+300=358
 
 test.describe('brace coefficient raised to 2', () => {

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp127: apex
+// apex
 test.describe('apex', () => {
   test('apex names the top-scaled member', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

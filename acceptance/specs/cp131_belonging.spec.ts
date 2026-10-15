@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp131: belonging
+// belonging
 test.describe('belonging', () => {
   test('belonging is strength minus scaled', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

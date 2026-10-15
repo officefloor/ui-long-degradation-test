@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp171: groups above
+// groups above
 test.describe('groups above', () => {
   test('count of groups over 200', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

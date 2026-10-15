@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp174: contribution
+// contribution
 test.describe('contribution', () => {
   test('scaled over total strength', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

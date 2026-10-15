@@ -170,6 +170,16 @@ def test_screen_violations_flag_other_urls_and_nav_clicks():
         assert len(v) == 2 and v[0].startswith("cp02") and "/invoices" in v[0] and "nav-" in v[1], v
 
 
+def test_an_own_spec_naming_a_checkpoint_is_a_leak():
+    with tempfile.TemporaryDirectory() as root:
+        S = "acceptance/specs"
+        cps = _stream(root, {f"{S}/cp01_a.spec.ts": "// tier from momentum, per cp04.\n",
+                             f"{S}/cp02_b.spec.ts": "// tier from momentum; cp4 and xcp04 are not tokens.\n"},
+                      [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
+                       {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts"}])
+        assert f.own_spec_leaks(cps, root) == ["cp01 cp01_a.spec.ts: mentions cp04"]
+
+
 def test_process_leaks_flag_harness_wording_not_behaviour():
     assert f.process_leaks("An updated copy of the discount spec ships in the sibling override folder.") \
         == ["override folder", "sibling", "updated copy"]

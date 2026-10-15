@@ -156,6 +156,11 @@ _PROCESS_LEAK = re.compile(r"sibling|override folder|updated cop(?:y|ies)|shippe
                            r"\bmutates\b|\bmutative\b", re.I)
 
 
+# A sequence token (cp01..cp250). The runner refuses to install an own spec carrying one, so the
+# lint must refuse it first: run 202610152358 aborted at cp05 on a comment "per cp04".
+CP_TOKEN = re.compile(r"\bcp\d{2,}\b", re.IGNORECASE)
+
+
 def process_leaks(text: str) -> list[str]:
     """Harness-process phrases in a spec the agent will see (empty when clean)."""
     return sorted({m.group(0).lower() for m in _PROCESS_LEAK.finditer(text)})
@@ -217,7 +222,8 @@ def own_spec_leaks(checkpoints: list[dict], harness_root: str) -> list[str]:
     for cp in checkpoints:
         own = own_spec(cp)
         if own:
-            hits = process_leaks(open(os.path.join(harness_root, own)).read())
+            text = open(os.path.join(harness_root, own)).read()
+            hits = process_leaks(text) + sorted({m.group(0) for m in CP_TOKEN.finditer(text)})
             if hits:
                 out.append(f"cp{cp['n']:02d} {os.path.basename(own)}: mentions {', '.join(hits)}")
     return out

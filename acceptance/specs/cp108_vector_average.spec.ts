@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// charge = vector + yield follows. top charge is still Dot, so cp107 is unaffected.
+// charge = vector + yield follows. top charge is still Dot.
 //   vector: Ada (−3+200)/2=98, Ben 0, Dot -3/1=-3
 //   charge: Ada 98+162=260, Ben -6, Dot -3+1700=1697
 

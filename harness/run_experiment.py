@@ -58,10 +58,8 @@ CSV_FIELDS = [
 ]
 
 NEUTRAL_SPEC = "acceptance.spec.ts"   # the single agent-visible spec, name carries no cpNN hint
-_CP_TOKEN = re.compile(r"\bcp\d{2,}\b", re.IGNORECASE)   # a real sequence token is cp01..cp250
-                                                         # (2+ digits, word-boundaried); narrowing
-                                                         # avoids false aborts on incidental "cpN"
-                                                         # substrings while still catching leaks.
+_CP_TOKEN = fixtures.CP_TOKEN   # a real sequence token is cp01..cp250 (2+ digits,
+                                # word-boundaried); checkpoint_lint refuses the same tokens.
 
 OAUTH_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
 

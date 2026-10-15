@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp179: global rank
+// global rank
 test.describe('global rank', () => {
   test('rank across all people', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

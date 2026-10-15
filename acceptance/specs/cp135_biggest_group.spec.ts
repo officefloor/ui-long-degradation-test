@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp135: biggest group
+// biggest group
 test.describe('biggest group', () => {
   test('names the strongest group', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

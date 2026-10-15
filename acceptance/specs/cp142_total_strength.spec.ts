@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp142: total strength
+// total strength
 test.describe('total strength', () => {
   test('sums every group\'s strength', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

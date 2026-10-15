@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp129: share
+// share
 test.describe('share', () => {
   test('share is scaled over group strength', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

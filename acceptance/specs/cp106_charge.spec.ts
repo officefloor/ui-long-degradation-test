@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// charge = vector + yield (yield = pivot + 2*lift from cp100, patron-independent).
+// charge = vector + yield (yield = pivot + 2*lift, patron-independent).
 //   yield: Ada 162, Ben -6, Dot 1700 ; vector: Ada 197, Ben 0, Dot -3
 //   charge: Ada 359, Ben -6, Dot 1697
 

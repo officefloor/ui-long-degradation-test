@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// cp167: even size
+// even size
 test.describe('even size', () => {
   test('yes when the size is even, no when it is odd', { tag: '@functionality' }, async ({ page }) => {
     // North size 2 -> yes, South size 2 -> yes, East size 3 -> no
