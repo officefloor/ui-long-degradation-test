@@ -282,17 +282,21 @@ checkpoints:
     request: |
       For each person show "decay", which is their momentum minus their age.
 
-  - id: cp28_age_in_weeks
+  - id: cp28_audit_everything
     type: mutative
-    area: calc
-    mutates: [26, 27]
-    retires: ['cp26_age.spec.ts::age is whole days from onset to anchor']
-    test: acceptance/specs/cp28_age_in_weeks.spec.ts
+    area: status
+    mutates: [7]
+    test: acceptance/specs/cp28_audit_everything.spec.ts
     request: |
-      I think of age in whole weeks, not days. Age should now be the number of complete seven-day
-      weeks from onset to the anchor (drop any leftover days). If the onset is after the anchor the
-      age is negative, counted the same way toward zero, so an onset ten days after the anchor is
-      minus one week, not minus two.
+      Keep a record of every change I make to a person, not just alpha. Whenever I save a person's
+      editor, write one record for each detail that actually changed: any of their numbers, their
+      name, their grade, their onset date, and any other detail of a person that I add later. Each
+      record is one line: CHANGED id=<id> field=<field> from=<old> to=<new>, where <field> is the
+      detail's name in lower case (alpha, beta, gamma, name, grade, onset), and each value is written
+      the way the person's row shows it. A blank value is written as nothing, so a first onset is
+      recorded as from= followed by nothing. A detail saved with the value it already had writes no
+      record, and adding a new person writes none. An alpha change is now recorded this way too,
+      instead of the alpha record I asked for before. Age stays in whole days.
 
   # ---- Cycle 8 (cp29-32): the active flag and gating -----------------------------------------------
   - id: cp29_active
@@ -685,39 +689,49 @@ checkpoints:
       Flux should be the AVERAGE of the patrons' force, not the total — add up the patrons' force and
       divide by how many patrons there are, rounded down. No patrons is still zero.
 
-  # ---- Cycle 4 (cp73-76): aggregate torque over follows --------------------------------------------
-  - id: cp73_swing
+  # ---- Cycle 4 (cp73-76): a cross-cutting rule — putting people on hold -------------------------
+  - id: cp73_hold
     type: additive
     area: calc
-    test: acceptance/specs/cp73_swing.spec.ts
+    test: acceptance/specs/cp73_hold.spec.ts
     request: |
-      For each person show "swing", which is the total of the torque of the people they follow. No
-      one followed means a swing of zero.
+      Let me put a person on hold, and take them off hold again. Show for each person whether they
+      are on hold. A person on hold still shows on the list with all of their own figures, but leave
+      them out of every figure worked out across the whole sheet: every total, every count, the ranks
+      and percentiles, the leader, every "top" name, and every average or middle value taken across
+      everyone. A person on hold shows "n/a" for their rank and percentile. Their own norm is still
+      worked out, measured against the middle value of the people who are not on hold.
 
-  - id: cp74_haul
+  - id: cp74_hold_links
+    type: additive
+    area: relation
+    test: acceptance/specs/cp74_hold_links.spec.ts
+    request: |
+      A person on hold should not count towards anyone else's figures either. Leave a patron who is
+      on hold out of backing, clout and flux, and leave a person on hold out of the synergy of anyone
+      who follows them. Clout and flux average over only the patrons who are not on hold. If all of a
+      person's patrons are on hold, treat them as having no patrons. A person on hold still has their
+      own backing, clout, flux and synergy worked out from their own patrons and follows as usual.
+
+  - id: cp75_total_blend
     type: additive
     area: calc
-    test: acceptance/specs/cp74_haul.spec.ts
+    test: acceptance/specs/cp75_total_blend.spec.ts
     request: |
-      For each person show "haul", which is their crest plus their swing.
+      Show me the "total blend" for the whole sheet, which is everyone's blend added together. Leave
+      out anyone whose blend cannot be worked out.
 
-  - id: cp75_total_haul
-    type: additive
-    area: calc
-    test: acceptance/specs/cp75_total_haul.spec.ts
-    request: |
-      Show me the "total haul" for the whole sheet, which is everyone's haul added together. Leave out
-      anyone whose haul cannot be worked out.
-
-  - id: cp76_swing_positive
+  - id: cp76_hold_half
     type: mutative
     area: calc
-    mutates: [73, 74, 75]
-    retires: ['cp73_swing.spec.ts::swing sums the followed torque']
-    test: acceptance/specs/cp76_swing_positive.spec.ts
+    mutates: [73, 75]
+    test: acceptance/specs/cp76_hold_half.spec.ts
     request: |
-      When working out swing, only count the people I follow whose torque is positive. Drop anyone
-      whose torque is zero or below.
+      Leaving people on hold out entirely is too harsh for totals. In every total worked out across
+      the whole sheet, count a person on hold at half of their value, rounded down to the whole
+      number below, so minus seven counts as minus four. Counts, ranks, percentiles, the leader, the
+      "top" names, and the averages and middle values still leave them out, and they still do not
+      count towards anyone else's patron or follow figures.
 
   # ---- Cycle 5 (cp77-80): kind weighting -----------------------------------------------------------
   - id: cp77_verge
@@ -743,45 +757,59 @@ checkpoints:
       Show me the "total pivot" for the sheet, which is everyone's pivot added together. Leave out
       anyone whose pivot cannot be worked out.
 
-  - id: cp80_verge_remap
+  - id: cp80_inactive_patrons
+    type: mutative
+    area: relation
+    mutates: [12, 36, 72]
+    test: acceptance/specs/cp80_inactive_patrons.spec.ts
+    request: |
+      A patron who is not active should no longer count towards anyone's figures that are worked out
+      from their patrons. Leave inactive patrons out of backing, clout and flux, and out of every
+      figure worked out from a person's patrons that I ask for later. Clout and flux average over
+      only the patrons who are active (and not on hold). If none of a person's patrons is active,
+      treat them as having no patrons. Inactive patrons are still listed among a person's patrons,
+      and an inactive person's own figures are still worked out from their own patrons as usual.
+
+  # ---- Cycle 6 (cp81-84): constants become settings ------------------------------------------------
+  - id: cp81_region_settings
+    type: additive
+    area: calc
+    test: acceptance/specs/cp81_region_settings.spec.ts
+    request: |
+      Each sheet should have its own region multipliers. Let me set, for the sheet I am on, what an N
+      region, an S region and a region with any other first letter multiply by, show me the values
+      the sheet is using, and save them for that sheet only. Reach should use the multipliers of the
+      sheet the person is on. A new sheet starts with N as 2, S as 3 and every other first letter as
+      1.
+
+  - id: cp82_band_settings
+    type: additive
+    area: calc
+    test: acceptance/specs/cp82_band_settings.spec.ts
+    request: |
+      Let me set the band boundaries and the band multipliers for the sheet I am on too: the value
+      where each of the bands D, C, B and A starts (anything below where D starts is E), and what
+      each band from A to E multiplies by. Band, scaled and everything worked out from them should
+      use the sheet's own values. A new sheet starts with the ones I use now: D from 0, C from 100,
+      B from 250 and A from 500, with multipliers A 4, B 3, C 2, D 1 and E 0.
+
+  - id: cp83_weight_settings
+    type: additive
+    area: calc
+    test: acceptance/specs/cp83_weight_settings.spec.ts
+    request: |
+      Let me set the weight of each grade for the sheet I am on as well. Weight, load and the total
+      load should use the sheet's own weights. A new sheet starts with LOW 1, MID 3 and HIGH 5.
+
+  - id: cp84_region_defaults
     type: mutative
     area: calc
-    mutates: [77, 78, 79]
-    test: acceptance/specs/cp80_verge_remap.spec.ts
+    mutates: [38, 40, 81]
+    test: acceptance/specs/cp84_region_defaults.spec.ts
     request: |
-      Spread the kinds further apart. Verge should now be 2 for A, 3 for B and 5 for C.
-
-  # ---- Cycle 6 (cp81-84): fuse with scaled ---------------------------------------------------------
-  - id: cp81_thrum
-    type: additive
-    area: calc
-    test: acceptance/specs/cp81_thrum.spec.ts
-    request: |
-      For each person show "thrum", which is their scaled plus their torque.
-
-  - id: cp82_spool
-    type: additive
-    area: calc
-    test: acceptance/specs/cp82_spool.spec.ts
-    request: |
-      For each person show "spool", which is their thrum minus their blend.
-
-  - id: cp83_max_thrum
-    type: additive
-    area: calc
-    test: acceptance/specs/cp83_max_thrum.spec.ts
-    request: |
-      Show me the name of the person with the highest thrum. If two tie, pick the one whose name
-      comes first alphabetically.
-
-  - id: cp84_thrum_coefficient
-    type: mutative
-    area: calc
-    mutates: [81, 82]
-    retires: ['cp81_thrum.spec.ts::thrum is scaled plus torque']
-    test: acceptance/specs/cp84_thrum_coefficient.spec.ts
-    request: |
-      Thrum should lean more on torque. Thrum should now be scaled plus two times torque.
+      Change the region multipliers a sheet starts with: an N region should now multiply by 3 and an
+      S region by 2, and any other first letter stays at 1. A multiplier I have already set myself on
+      a sheet keeps its value; any multiplier a sheet has not been given uses the new starting value.
 
   # ---- Cycle 7 (cp85-88): classify blend -----------------------------------------------------------
   - id: cp85_drag
@@ -840,14 +868,21 @@ checkpoints:
       Show me the "total gust" for the sheet, which is everyone's gust added together. Leave out
       anyone whose gust cannot be worked out.
 
-  - id: cp92_gust_coefficient
+  - id: cp92_negatives_as_zero
     type: mutative
     area: calc
-    mutates: [89, 90, 91]
-    retires: ['cp89_gust.spec.ts::gust is reach plus torque']
-    test: acceptance/specs/cp92_gust_coefficient.spec.ts
+    mutates: [75, 76, 79, 83, 91]
+    test: acceptance/specs/cp92_negatives_as_zero.spec.ts
     request: |
-      Gust should lean more on torque. Gust should now be reach plus two times torque.
+      Negative values should not pull the sheet's totals down. In every total worked out across the
+      whole sheet that adds up one value for each person (the total load, the total effective, the
+      total for people who are FINAL, the total blend, the total pivot, the total gust, and every
+      such total I ask for later), count a negative value as zero. For a person on hold, first take
+      half of their value, rounded down as before, and then count that half as zero if it is
+      negative. Nothing else changes: each person's own figures still show negative values as they
+      are, figures worked out from a person's patrons or from the people they follow are not totals
+      across the sheet and keep negative values, and counts, ranks, averages and middle values still
+      use negative values as they are.
 
   # ---- Cycle 9 (cp93-96): fuse with influence ------------------------------------------------------
   - id: cp93_brace
@@ -905,47 +940,71 @@ checkpoints:
       Show me the "total yield" for the sheet, which is everyone's yield added together. Leave out
       anyone whose yield cannot be worked out.
 
-  - id: cp100_yield_coefficient
+  - id: cp100_followers_too
     type: mutative
-    area: calc
-    mutates: [97, 98, 99]
-    retires: ['cp97_yield.spec.ts::yield is pivot plus lift']
-    test: acceptance/specs/cp100_yield_coefficient.spec.ts
+    area: relation
+    mutates: [42, 43, 44, 74]
+    retires: ['cp44_allies_directed.spec.ts::synergy and combined follow only the followed people']
+    test: acceptance/specs/cp100_followers_too.spec.ts
     request: |
-      Yield should lean more on lift. Yield should now be pivot plus two times lift.
+      Following should count both ways in the figures. Every figure worked out from the people a
+      person follows should also count the people who follow them: synergy now totals the thrust of
+      the people they follow and of the people who follow them, and every such figure I ask for later
+      works the same way. Each person counts once, so when two people follow each other each counts
+      the other once, not twice. People on hold still count towards nobody's figures. The list of the
+      people a person follows, and the count of them, stay as they are.
 
-  # ---- Cycle 11 (cp101-104): difference and classify ----------------------------------------------
-  - id: cp101_strain
+  # ---- Cycle 11 (cp101-104): shared identity -------------------------------------------------------
+  - id: cp101_shared_people
+    type: additive
+    area: entity
+    test: acceptance/specs/cp101_shared_people.spec.ts
+    request: |
+      Let me put a person who is already on one of my other sheets onto the sheet I have open. Give
+      me a list of the people on my other sheets to choose from, each shown as the sheet's name, a
+      colon, a space and the person's name (for example "S1: Dana"), and a button that adds the one
+      I choose. It is the same person, not a copy: their name, their alpha, beta and gamma, and
+      every other value I enter for them, including their regions, are shared between the sheets.
+      So changing their alpha on one sheet changes it on every sheet they are on, and every figure
+      worked out from it follows. Their state is shared too: moving them forward or back on one
+      sheet moves them on every sheet. On each sheet they count in that sheet's figures just like
+      anyone else on it.
+
+  - id: cp102_links_per_sheet
+    type: additive
+    area: relation
+    test: acceptance/specs/cp102_links_per_sheet.spec.ts
+    request: |
+      A shared person's patrons and the people they follow belong to each sheet separately. The
+      patrons I give them on one sheet are not their patrons on any other sheet, and the same goes
+      for the people they follow, so their backing, clout, flux, net, synergy and every other figure
+      worked out from their patrons or the people they follow can differ from sheet to sheet. On
+      each sheet they are on, other people there can have them as a patron or follow them, and
+      those figures use their shared numbers and their figures on that sheet.
+
+  - id: cp103_shared_settings
     type: additive
     area: calc
-    test: acceptance/specs/cp101_strain.spec.ts
+    test: acceptance/specs/cp103_shared_settings.spec.ts
     request: |
-      For each person show "strain", which is their crest minus their brace.
+      Each sheet's own settings (its region multipliers, band boundaries, band multipliers and grade
+      weights) apply to everyone on that sheet, shared people included. A shared person's figures on
+      a sheet are worked out with that sheet's settings, not the settings of the sheet they came
+      from, so the same person can have a different reach, weight, load, band and scaled on two
+      sheets. Changing one sheet's settings changes their figures on that sheet only.
 
-  - id: cp102_pulse
-    type: additive
-    area: calc
-    test: acceptance/specs/cp102_pulse.spec.ts
-    request: |
-      For each person show "pulse" from their strain. Below zero is NEG, exactly zero is FLAT, above
-      zero is POS.
-
-  - id: cp103_pulse_counts
-    type: additive
-    area: calc
-    test: acceptance/specs/cp103_pulse_counts.spec.ts
-    request: |
-      Show me how many people on the sheet are NEG, FLAT and POS.
-
-  - id: cp104_pulse_tolerance
+  - id: cp104_state_per_sheet
     type: mutative
-    area: calc
-    mutates: [102, 103]
-    retires: ['cp102_pulse.spec.ts::pulse classifies strain by sign']
-    test: acceptance/specs/cp104_pulse_tolerance.spec.ts
+    area: status
+    mutates: [101]
+    retires: ['cp101_shared_people.spec.ts::state is shared: moving a shared person forward moves them on every sheet']
+    test: acceptance/specs/cp104_state_per_sheet.spec.ts
     request: |
-      Treat small strains as flat. If strain is within 10 of zero either way it is FLAT, above 10 is
-      POS, below minus 10 is NEG.
+      A person's state should belong to each sheet they are on, not be shared. Moving a shared
+      person forward, back or into rework on one sheet must not change their state on any other
+      sheet, and each sheet's final total counts them only when they are FINAL on that sheet. When I
+      put a person onto another sheet, they start at DRAFT on that sheet, whatever their state is
+      elsewhere. Their name, numbers and other values stay shared.
 
   # ---- Cycle 12 (cp105-108): aggregate blend over patrons -----------------------------------------
   - id: cp105_vector
@@ -987,8 +1046,9 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp109_tide.spec.ts
     request: |
-      For each person show "tide", which is the total of the brace of the people they follow. No one
-      followed means zero.
+      For each person show "tide", which is the total of the brace of the people they follow and of
+      the people who follow them, each person counted once, as for every figure worked out from the
+      people a person follows. No one counted means zero.
 
   - id: cp110_churn
     type: additive
@@ -1012,43 +1072,75 @@ checkpoints:
     retires: ['cp109_tide.spec.ts::tide sums the followed brace']
     test: acceptance/specs/cp112_tide_positive.spec.ts
     request: |
-      When working out tide, only count the people I follow whose brace is positive. Drop anyone whose
-      brace is zero or below.
+      When working out tide, only count the people whose brace is positive, among the people the
+      person follows and the people who follow them. Drop anyone whose brace is zero or below.
 
-  # ---- Cycle 14 (cp113-116): normalize across the sheet -------------------------------------------
-  - id: cp113_ebb
+  # ---- Cycle 14 (cp113-116): history and as-of ----------------------------------------------------
+  - id: cp113_raw_history
+    type: additive
+    area: persist
+    test: acceptance/specs/cp113_raw_history.spec.ts
+    request: |
+      When I change a person's alpha, beta or gamma in their editor, let me also give the date the
+      change takes effect. The date box starts blank, and a blank date means the sheet's anchor date.
+      Keep every change with its date instead of overwriting the number. The numbers I gave when I
+      added the person are their starting values, and only the numbers I actually change are
+      recorded; a second change to the same number on the same date replaces the first. Show each
+      person's history of changes, newest first, as "date number value" entries joined by "; ", for
+      example "2026-02-01 alpha 9; 2026-01-10 alpha 5". Changes on the same date are listed alpha,
+      then beta, then gamma. A person with no changes shows an empty history. The alpha, beta and
+      gamma shown for a person, and every figure worked out from them, use for each number the
+      latest change dated on or before the anchor date (a change dated exactly on the anchor counts),
+      or the starting value if there is none. A change dated after the anchor is kept and listed but
+      does not count yet. If the sheet has no anchor date, every dated change counts, and a change
+      without a date just replaces the number and is not listed.
+
+  - id: cp114_as_of
     type: additive
     area: calc
-    algorithm: ebb-norm
-    test: acceptance/specs/cp113_ebb.spec.ts
+    test: acceptance/specs/cp114_as_of.spec.ts
     request: |
-      For each person show "ebb", which is their blend minus the middle blend across everyone on the
-      sheet. For an even number of people use the lower of the two middle values.
+      Let me look at the whole sheet as it stood on another date. Give me an "as of" date box with an
+      apply button and a clear button. When I apply an as-of date, work everything on the sheet out
+      from each person's alpha, beta and gamma as they stood on that date: for each number, the
+      latest change dated on or before the as-of date (a change dated exactly on that date counts),
+      or the starting value if there is none. That covers the alpha, beta and gamma shown for each
+      person, every figure for each person, and every total, count, rank, leader and other figure
+      across the sheet. Only alpha, beta and gamma go back in time: everything else about a person,
+      and their patrons and follows, stays as it is now, and age is still counted to the anchor
+      date. The as-of date can be any date, even one after the anchor. Looking as of a date never
+      changes any stored number or the history. Clearing the as-of date goes back to the current
+      figures, which use the anchor date as before. People on hold are treated as usual in every
+      figure across the sheet.
 
-  - id: cp114_stray
+  - id: cp115_momentum_change
     type: additive
     area: calc
-    test: acceptance/specs/cp114_stray.spec.ts
+    algorithm: as-of-delta
+    test: acceptance/specs/cp115_momentum_change.spec.ts
     request: |
-      Mark a person as a "stray" when their ebb is more than 100 away from zero in either direction.
-      Show yes or no for each person.
+      For each person show "momentum change": their momentum now minus their momentum on the as-of
+      date. "Now" always means on the sheet's anchor date, which is what the sheet shows with no
+      as-of date chosen, even when the as-of date is after the anchor. Show "n/a" when no as-of date
+      is chosen, or when either momentum cannot be worked out. While an as-of date is chosen,
+      momentum itself still shows the as-of value.
 
-  - id: cp115_stray_count
-    type: additive
-    area: calc
-    test: acceptance/specs/cp115_stray_count.spec.ts
-    request: |
-      Show me how many strays there are on the whole sheet.
-
-  - id: cp116_ebb_mean
+  - id: cp116_linked_history
     type: mutative
-    area: calc
-    mutates: [113, 114, 115]
-    retires: ['cp113_ebb.spec.ts::ebb is blend minus the median blend']
-    test: acceptance/specs/cp116_ebb_mean.spec.ts
+    area: relation
+    mutates: [114, 115]
+    test: acceptance/specs/cp116_linked_history.spec.ts
     request: |
-      Ebb should be measured against the average blend, not the middle one. Subtract the average of
-      everyone's blend, rounded down.
+      Links have dates too. A patron link or a follow can have a start date; one without a start date
+      has always been there. A link counts on a date only if it starts on or before that date (a
+      link starting exactly on that date counts). When I look at the sheet as of a date, leave out
+      every patron and follow that starts after that date, and for the current figures leave out any
+      that starts after the anchor date. This applies to every figure that combines a person's
+      patrons or the people they follow (backing, clout, flux, vector, synergy, tide and everything
+      worked out from them), and the linked people's own numbers are taken on that same date. A
+      person none of whose patrons count is treated as having no patrons. The lists of a person's
+      patrons and of the people they follow, and the follow count, still show every link whatever
+      its date.
 
   # ---- Cycle 15 (cp117-120): the grand fusion -----------------------------------------------------
   - id: cp117_flow
@@ -1105,14 +1197,18 @@ checkpoints:
     test: acceptance/specs/cp123_group_size.spec.ts
     request: |
         For each group show its size, how many people are in it.
-  - id: cp124_strength_effective
+  - id: cp124_group_effective
     type: mutative
     area: calc
     mutates: [122]
-    retires: ['cp122_group_strength.spec.ts::strength sums members\'' scaled']
-    test: acceptance/specs/cp124_strength_effective.spec.ts
+    retires: ["cp122_group_strength.spec.ts::strength sums members\\' scaled"]
+    test: acceptance/specs/cp124_group_effective.spec.ts
     request: |
-        Strength should add up the people's effective values instead of their scaled values.
+      Every figure I see for a group that is worked out from the values of the people in it should
+      use their effective values instead of their scaled values. Strength becomes the total of the
+      members' effective values, and every group figure I ask for from now on that is worked out from
+      its members' values uses their effective values too. A person's own figures, including the ones
+      that compare a person with their group, still use that person's own scaled value.
   - id: cp125_group_cohesion
     type: additive
     area: calc
@@ -1124,23 +1220,29 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp126_group_spread.spec.ts
     request: |
-        For each group show spread, the difference between the highest and lowest scaled value in
-        it.
+        For each group show spread, the difference between the highest and lowest of its members'
+        values, using the same member values that its strength adds up.
   - id: cp127_group_apex
     type: additive
     area: calc
     test: acceptance/specs/cp127_group_apex.spec.ts
     request: |
-        For each group show apex, the name of the member with the highest scaled value; ties go to
-        the name earlier in the alphabet.
-  - id: cp128_spread_effective
+        For each group show apex, the name of the member with the highest value, using the same
+        member values that its strength adds up; ties go to the name earlier in the alphabet.
+  - id: cp128_group_hold
     type: mutative
     area: calc
-    mutates: [126]
-    retires: ['cp126_group_spread.spec.ts::spread is max minus min scaled']
-    test: acceptance/specs/cp128_spread_effective.spec.ts
+    mutates: [122, 123]
+    test: acceptance/specs/cp128_group_hold.spec.ts
     request: |
-        Spread should use the people's effective values instead of their scaled values.
+      People on hold should be left out of their groups' figures too. Leave a person on hold out of
+      every figure for a group: its size, its spread, its apex, and every group figure I ask for
+      later, including any order or place worked out within a group, where a person on hold shows
+      n/a for their own place. The one exception is a group's total, its strength: there, count a
+      person on hold at half of their value, rounded down to the whole number below, as the sheet's
+      totals do. A negative value still counts as it is in a group's strength. Figures worked out
+      from strength and size, like cohesion, use these. A person on hold still shows which groups
+      they are in, and their own figures are worked out as usual.
   - id: cp129_share
     type: additive
     area: calc
@@ -1175,8 +1277,8 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp133_group_density.spec.ts
     request: |
-        For each group show density, how many of its members have a scaled value at or above the
-        group's cohesion.
+        For each group show density, how many of its members have a value at or above the group's
+        cohesion, using the same member values that its strength adds up.
   - id: cp134_tether
     type: additive
     area: calc
@@ -1189,15 +1291,19 @@ checkpoints:
     test: acceptance/specs/cp135_biggest_group.spec.ts
     request: |
         Show me the name of the group with the highest strength.
-  - id: cp136_density_effective
+  - id: cp136_group_no_draft
     type: mutative
-    area: calc
-    mutates: [133]
-    retires: ['cp133_group_density.spec.ts::density counts members at/above cohesion']
-    test: acceptance/specs/cp136_density_effective.spec.ts
+    area: status
+    mutates: [122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134]
+    test: acceptance/specs/cp136_group_no_draft.spec.ts
     request: |
-        Density should count members whose effective value is at or above cohesion, instead of their
-        scaled value.
+      People still in DRAFT should not count in their groups yet. Leave a member whose state is DRAFT
+      out of every figure for a group, its strength included: its size, cohesion, spread, apex and
+      density, and every group figure I ask for later. A DRAFT member also has no place in the order
+      within their group, so their standing shows n/a. Members in REVIEW, FINAL or REWORK count as
+      before (a member on hold still counts at half in strength), and a member who is both DRAFT and
+      on hold is left out entirely. A DRAFT person still shows which groups they are in, and their own
+      figures, including the ones that compare them with their group, are worked out as usual.
   - id: cp137_anchorage
     type: additive
     area: calc
@@ -1219,10 +1325,10 @@ checkpoints:
   - id: cp140_membership_many
     type: mutative
     area: relation
-    mutates: [121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139]
+    mutates: [121, 122, 123, 125, 126, 127, 129, 130, 131, 132, 133, 134, 135, 137, 138, 139]
     keeps_anchors: [group-name, group-concept-cohesion, concept-share, concept-belonging, concept-tether,
                     rollup-biggest-group, concept-weave, concept-mesh]
-    retires: ['cp121_groups.spec.ts::people belong to one named group', 'cp121_groups.spec.ts::each person shows their group', 'cp122_group_strength.spec.ts::strength sums members\'' effective', 'cp124_strength_effective.spec.ts::strength sums members\'' effective', 'cp125_group_cohesion.spec.ts::cohesion is strength over size', 'cp127_group_apex.spec.ts::apex names the top-scaled member', 'cp129_share.spec.ts::share rounds to nearest', 'cp130_standing.spec.ts::standing ranks within the group', 'cp131_belonging.spec.ts::belonging is strength minus scaled', 'cp132_share_nearest.spec.ts::share rounds to nearest', 'cp134_tether.spec.ts::tether is scaled minus cohesion', 'cp135_biggest_group.spec.ts::names the strongest group', 'cp137_anchorage.spec.ts::anchorage counts the person\''s groups', 'cp138_weave.spec.ts::weave is scaled plus cohesion', 'cp139_mesh.spec.ts::mesh is scaled times size']
+    retires: ['cp121_groups.spec.ts::people belong to one named group', 'cp121_groups.spec.ts::each person shows their group', 'cp122_group_strength.spec.ts::strength sums members\'' effective', 'cp125_group_cohesion.spec.ts::cohesion is strength over size', 'cp127_group_apex.spec.ts::apex names the top-scaled member', 'cp129_share.spec.ts::share rounds to nearest', 'cp130_standing.spec.ts::standing ranks within the group', 'cp131_belonging.spec.ts::belonging is strength minus scaled', 'cp132_share_nearest.spec.ts::share rounds to nearest', 'cp134_tether.spec.ts::tether is scaled minus cohesion', 'cp135_biggest_group.spec.ts::names the strongest group', 'cp137_anchorage.spec.ts::anchorage counts the person\''s groups', 'cp138_weave.spec.ts::weave is scaled plus cohesion', 'cp139_mesh.spec.ts::mesh is scaled times size']
     test: acceptance/specs/cp140_membership_many.spec.ts
     request: |
         Let me put a person into more than one group, not just one. Show all the groups a person is
@@ -1249,15 +1355,17 @@ checkpoints:
     request: |
         For each group show its rank by strength, highest first; ties go to the group name earlier
         in the alphabet.
-  - id: cp144_rung_over_size
+  - id: cp144_group_ties
     type: mutative
     area: calc
-    mutates: [141]
-    retires: ['cp141_rung.spec.ts::rung is a within-group percentile']
-    test: acceptance/specs/cp144_rung_over_size.spec.ts
+    mutates: [127, 130]
+    test: acceptance/specs/cp144_group_ties.spec.ts
     request: |
-        Rung should divide by the group size rather than by one less than the size. A group of one
-        is still 100.
+      Make ties inside a group work the same way everywhere. Whenever a figure picks the top person in
+      a group, or puts the people of a group in order (the apex, a person's standing and their rung,
+      and every such group figure I ask for later), break a tie in value by the higher alpha, and if
+      the alpha is the same too, by the name that comes first in the alphabet. This replaces the
+      earlier tie-breaks for those figures.
   - id: cp145_home_group
     type: additive
     area: calc
@@ -1277,21 +1385,30 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp147_group_min.spec.ts
     request: |
-        For each group show its lowest scaled value among its members.
-  - id: cp148_breadth_count
+        For each group show its lowest member value: the lowest of its members' values, using the
+        same member values that its strength adds up.
+  - id: cp148_all_their_groups
     type: mutative
-    area: calc
-    mutates: [146]
-    retires: ['cp146_breadth.spec.ts::breadth sums the sizes of the person\''s groups']
-    test: acceptance/specs/cp148_breadth_count.spec.ts
+    area: relation
+    mutates: [140]
+    test: acceptance/specs/cp148_all_their_groups.spec.ts
     request: |
-        Breadth should be the number of groups a person is in, not the total of their sizes.
+      When one of a person's own figures depends on "their group" and they are in several groups,
+      stop using only the group whose name comes first. Work the figure out for each group they are
+      in, each with its own rounding as before, then show the average of those results, rounded down
+      to the whole number below. This applies to share, standing, belonging, tether, weave, mesh and
+      rung, and to every such figure I ask for later. Leave out a group where the figure cannot be
+      worked out for them (for example a group where they have no standing), and show n/a if it
+      cannot be worked out for any of their groups. A figure that is defined by their home group, the
+      group whose name comes first, still uses only that group, and a figure worked out from other
+      figures of the person uses those figures as they are.
   - id: cp149_group_max
     type: additive
     area: calc
     test: acceptance/specs/cp149_group_max.spec.ts
     request: |
-        For each group show its highest scaled value among its members.
+        For each group show its highest member value: the highest of its members' values, using the
+        same member values that its strength adds up.
   - id: cp150_strongest_member
     type: additive
     area: calc
@@ -1304,21 +1421,27 @@ checkpoints:
     test: acceptance/specs/cp151_anchor_strength.spec.ts
     request: |
         For each person show anchor strength, the strength of their home group.
-  - id: cp152_group_min_effective
+  - id: cp152_nested_groups
     type: mutative
-    area: calc
-    mutates: [147]
-    retires: ['cp147_group_min.spec.ts::the lowest member scaled']
-    test: acceptance/specs/cp152_group_min_effective.spec.ts
+    area: relation
+    mutates: [140]
+    test: acceptance/specs/cp152_nested_groups.spec.ts
     request: |
-        The group's lowest value should use the members' effective values instead of their scaled
-        values.
+      Let a group sit inside another group. Each group can have a parent group; show each group's
+      parent group by name, or nothing for a group that has none. A parent group's figures include
+      the members of every group inside it, at any depth, as well as its own members, and each person
+      counts once even if they are in several of those groups. A person still belongs only to the
+      groups they were put in: the groups shown for them, their home group, how many groups they are
+      in and their own figures from their groups are unchanged. Figures across all groups, like the
+      total strength, the strongest group and the group ranks, take each group's own figures, so a
+      member of a group inside another counts in both.
   - id: cp153_headroom
     type: additive
     area: calc
     test: acceptance/specs/cp153_headroom.spec.ts
     request: |
-        For each group show headroom, its highest member scaled minus its cohesion.
+        For each group show headroom, its highest member value minus its cohesion, using the same
+        member values that its strength adds up.
   - id: cp154_group_count
     type: additive
     area: calc
@@ -1338,7 +1461,8 @@ checkpoints:
     retires: ['cp153_headroom.spec.ts::max scaled minus cohesion']
     test: acceptance/specs/cp156_headroom_full.spec.ts
     request: |
-        Headroom should be the highest member scaled minus the lowest, not minus cohesion.
+        Headroom should be the group's highest member value minus its lowest member value, not minus
+        cohesion.
   - id: cp157_depth
     type: additive
     area: calc
@@ -1358,14 +1482,24 @@ checkpoints:
     test: acceptance/specs/cp159_vigor.spec.ts
     request: |
         For each group show vigor, its strength multiplied by its size.
-  - id: cp160_depth_from_standing
+  - id: cp160_round_nearest
     type: mutative
     area: calc
-    mutates: [157]
-    retires: ['cp157_depth.spec.ts::size minus standing']
-    test: acceptance/specs/cp160_depth_from_standing.spec.ts
+    mutates: [30, 31, 32, 33, 34, 36, 72, 73, 74, 75, 76, 82, 91, 92, 94, 96, 105, 106, 108, 110, 111, 112,
+              117, 118, 120, 128, 148]
+    retires: ['cp30_effective.spec.ts::effective is net when active, else half of net rounded down',
+              'cp32_inactive_halved.spec.ts::inactive effective is half of net rounded down',
+              'cp76_hold_half.spec.ts::totals count a held person at half, rounded down']
+    test: acceptance/specs/cp160_round_nearest.spec.ts
     request: |
-        Depth should be one less than the person's standing, instead of size minus standing.
+      Stop rounding down. Wherever a figure divides and is rounded down to a whole number, round it to
+      the nearest whole number instead, with a half rounding up to the larger number, so 12.5 becomes
+      13 and -2.5 becomes -2. This covers every such figure on the sheet: an inactive person's half of
+      their net, the averages over patrons such as clout, flux and vector, percentiles and rung, a
+      group's cohesion, the average over a person's groups, a person on hold counted at half in a
+      total, and every other figure I asked to be rounded down. A division that comes out whole is
+      unchanged. When I ask for a new figure later and say how to round it, round that figure the way
+      I say.
   - id: cp161_uplift
     type: additive
     area: calc
@@ -1383,15 +1517,23 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp163_apex_scaled.spec.ts
     request: |
-        For each group show the scaled value of its apex member.
-  - id: cp164_vigor_additive
+        For each group show the value of its apex member: the same member value that its strength
+        adds up, for the member its apex names.
+  - id: cp164_solo_groups
     type: mutative
-    area: calc
-    mutates: [159]
-    retires: ['cp159_vigor.spec.ts::strength times size']
-    test: acceptance/specs/cp164_vigor_additive.spec.ts
+    area: entity
+    mutates: [135, 142, 143, 154, 158, 162]
+    test: acceptance/specs/cp164_solo_groups.spec.ts
     request: |
-        Vigor should be strength plus size instead of strength times size.
+      Someone who is in no group should still count when I compare or combine groups across the
+      sheet. In every figure worked out across all the groups (the strongest group, the total
+      strength, the group ranks, how many groups there are, the middle group strength, the size of the
+      strongest group, and every such figure I ask for later), count each person who is in no group as
+      a group of their own, named after them and holding only them. Such a group follows every group
+      rule: a person on hold counts at half in its strength and is not counted in its size, and a
+      person in DRAFT leaves it empty, with strength 0 and size 0, but it still counts as a group. It
+      gets no row in the list of groups, and that person's own figures that depend on their group stay
+      n/a.
   - id: cp165_slack
     type: additive
     area: calc
@@ -1463,14 +1605,23 @@ checkpoints:
     test: acceptance/specs/cp175_prime_group.spec.ts
     request: |
         Show me the name of the single strongest group.
-  - id: cp176_contribution_nearest
+  - id: cp176_missing_as_zero
     type: mutative
     area: calc
-    mutates: [174]
-    retires: ['cp174_contribution.spec.ts::scaled over total strength']
-    test: acceptance/specs/cp176_contribution_nearest.spec.ts
+    mutates: [6, 23, 24, 46, 48, 67, 75, 79, 83, 91, 94, 99, 115, 118]
+    retires: ['cp06_concept_nullability.spec.ts::missing raw value makes the concepts that need it n/a',
+              'cp46_quality.spec.ts::quality is the score, n/a without one',
+              'cp67_axis_nullability.spec.ts::missing second-axis value makes the concepts that need it n/a']
+    test: acceptance/specs/cp176_missing_as_zero.spec.ts
     request: |
-        Contribution should round to the nearest whole percent instead of rounding down.
+      A missing number should count as zero everywhere. When a person has no alpha, beta, gamma,
+      delta, epsilon, zeta or score, every figure works it out as if that number were 0, so no figure
+      shows n/a just because one of these numbers is missing. The number's own cell on the person's row
+      still shows it as missing, as it does now. Everything else that shows n/a for another reason
+      stays as it is: a person with no patrons still has n/a for backing, a person with no grade, kind,
+      onset or region still has n/a for the figures that need it, a person on hold still shows n/a for
+      their rank and percentile, a person in no group still has n/a for the figures that need their
+      group, and a figure that would divide by zero still shows n/a.
   - id: cp177_reach_span
     type: additive
     area: calc
@@ -1483,8 +1634,9 @@ checkpoints:
     test: acceptance/specs/cp178_group_balance.spec.ts
     request: |
         For each group show balance: its strength, minus its cohesion multiplied by its size.
-        (Cohesion is the whole-number share per member, rounded down, so this leftover is what the
-        strength carries over and above an even share for everyone in the group.)
+        (Cohesion is the share per member rounded to the nearest whole number, a half rounding up, so
+        balance is what the strength carries over an even whole-number share for everyone in the
+        group; it is negative when the share was rounded up.)
   - id: cp179_rank_global
     type: additive
     area: calc
@@ -1520,14 +1672,31 @@ checkpoints:
     test: acceptance/specs/cp183_ledger.spec.ts
     request: |
       Show me the grand total of everyone's value on the sheet.
-  - id: cp184_gapval_span
+  - id: cp184_ties_listed
     type: mutative
     area: calc
-    mutates: [182]
-    retires: ['cp182_gapval.spec.ts::gap is top minus second']
-    test: acceptance/specs/cp184_gapval_span.spec.ts
+    mutates: [18, 20, 35, 71, 95, 107, 119, 150, 181, 182]
+    retires: ['cp35_top_influence.spec.ts::top influence tie is broken by name ascending',
+              'cp71_top_crest.spec.ts::breaks a crest tie alphabetically',
+              'cp95_top_brace.spec.ts::breaks a brace tie alphabetically',
+              'cp107_top_charge.spec.ts::breaks a charge tie alphabetically',
+              'cp119_top_flow.spec.ts::breaks a flow tie alphabetically',
+              'cp181_apexname.spec.ts::apex tie-break picks the alphabetically-first name']
+    test: acceptance/specs/cp184_ties_listed.spec.ts
     request: |
-      Change the gap to be the highest value minus the LOWEST value, not the second highest.
+      When two or more people are level at the top, name all of them instead of picking one. Every
+      name the sheet shows for the person at the top of a figure becomes the names of everyone level
+      at the top, joined by a comma and a space, in alphabetical order. Level means the same value of
+      the figure being compared, so the tie-breaks I gave before (the name that comes first, and the
+      higher alpha for the leader) no longer pick one of them. This covers the leader (everyone level
+      at the top momentum), the person with the highest influence, crest, brace, charge and flow, the
+      strongest member, the person with the highest value, and every such top name I ask for later,
+      unless I say then how to break a tie. The runner-up becomes everyone level at the next value
+      below the top value, joined the same way, and the gap at the top becomes the top value minus that
+      next value; when nobody is below the top value, the runner-up and the gap show n/a. The list of
+      the top three names keeps its own order. A name picked inside a group, like a group's apex, and
+      the name of a group, like the strongest group, keep their own tie-breaks. People on hold are
+      still left out of all of these.
   - id: cp185_headcount
     type: additive
     area: calc
@@ -1546,14 +1715,22 @@ checkpoints:
     test: acceptance/specs/cp187_range_scaled.spec.ts
     request: |
       Show me the spread of values: the highest value minus the lowest.
-  - id: cp188_coverage_threshold
+  - id: cp188_counts_need_momentum
     type: mutative
     area: calc
-    mutates: [186]
-    retires: ['cp186_coverage.spec.ts::counts people at or above 100']
-    test: acceptance/specs/cp188_coverage_threshold.spec.ts
+    mutates: [31, 39, 51, 55, 87, 185, 186]
+    test: acceptance/specs/cp188_counts_need_momentum.spec.ts
     request: |
-      Raise the bar for coverage: only count people with a value of at least five hundred now.
+      Someone whose momentum is 0 should not be counted. Leave anyone whose momentum is 0 out of every
+      count of people across the sheet; that includes someone with no alpha, beta or gamma at all,
+      since a missing number counts as zero. This covers how many people are active, how many are in
+      each region, in each band and at each drag level, how many outliers there are, how many people
+      are on the sheet, how many have a value of at least one hundred, and every count of people I ask
+      for later; and when a figure asks whether anyone at all is in a band, a region or the like, such
+      a person does not make it count either. Nothing else changes: they still show on the list with
+      all of their own figures, and they still count as usual in every total, rank, percentile, top
+      name, average and middle value, and in every figure for a group (a group's size still counts
+      them). People on hold are still left out of every count, as before.
   - id: cp189_bracket
     type: additive
     area: calc
@@ -1586,7 +1763,10 @@ checkpoints:
     algorithm: cumulative
     test: acceptance/specs/cp193_cume.spec.ts
     request: |
-      Going from the highest value down, show each person the running total of value counted so far including their own.
+      Going from the highest value down, show each person the running total of value counted so far
+      including their own. People level on value go in alphabetical order of name. A person on hold is
+      left out of the order and the running total, and shows n/a for their own; a negative value counts
+      as zero, as it does in the sheet's totals.
   - id: cp194_median_scaled
     type: additive
     area: calc
@@ -1600,15 +1780,20 @@ checkpoints:
     request: |
       Show me what share of the whole total the top two people make up, as a whole-number percent,
       rounded down.
-  - id: cp196_concentration_top3
+  - id: cp196_top_n_ties
     type: mutative
     area: calc
-    mutates: [195]
-    retires: ['cp195_concentration.spec.ts::top two share percent']
-    test: acceptance/specs/cp196_concentration_top3.spec.ts
+    mutates: [191, 195]
+    test: acceptance/specs/cp196_top_n_ties.spec.ts
     request: |
-      Use the top THREE people for that share, not the top two. Keep showing it as a whole-number
-      percent, rounded down.
+      Don't cut between people who are level. Whenever a figure takes the top so many people by value
+      (the names of the top three, the share of the whole total that the top two make up, and every
+      such figure I ask for later), also take everyone level with the last person inside the cut-off,
+      so more people than that can be taken. The top three names then list everyone taken, highest
+      first, with people level on value in alphabetical order, and the top two's share adds up the
+      value of everyone taken; it is still a whole-number percent, rounded down. People level with each
+      other inside the cut-off take no one extra. People on hold are never taken, and the whole total
+      still counts a person on hold at half.
   - id: cp197_tier_tally
     type: additive
     area: calc
@@ -1654,22 +1839,32 @@ checkpoints:
     test: acceptance/specs/cp203_spanwidth.spec.ts
     request: |
       Show me how many different bands have at least one person in them.
-  - id: cp204_tilt_median
+  - id: cp204_middle_not_average
     type: mutative
     area: calc
-    mutates: [202]
+    mutates: [170, 202]
     retires: ['cp202_tilt.spec.ts::above-mean minus below-mean']
-    test: acceptance/specs/cp204_tilt_median.spec.ts
+    test: acceptance/specs/cp204_middle_not_average.spec.ts
     request: |
-      Measure the tilt around the middle value instead of the average: how many are above the middle minus how many are below it.
+      Stop using averages across the sheet. Every average taken across the whole sheet becomes the
+      middle value instead: sort the values and take the one in the middle, and for an even number of
+      values take the lower of the two middle ones. So the tilt now counts how many people are above
+      the middle value minus how many are below it, and the average group size becomes the middle
+      group size, over the same groups as before. The lopsidedness is the one exception: it exists to
+      compare the two, so it is still the average value (rounded down) minus the middle value.
+      Averages over a person's own patrons or followed people, or over their groups, are not across the
+      sheet and stay as they are. When I ask for a new average later, I mean the ordinary average, the
+      total divided by how many there are. People on hold are still left out of these figures.
   - id: cp205_quota
     type: additive
     area: calc
     test: acceptance/specs/cp205_quota.spec.ts
     request: |
       Mark each person yes or no for whether they are in the top half of the sheet by value. Rank
-      everyone from the highest value to the lowest; if there is an odd number of people, round the
-      half up so the one in the middle is marked yes.
+      everyone who is not on hold from the highest value to the lowest, people whose momentum is 0
+      included; if there is an odd number of people, round the half up so the one in the middle is
+      marked yes. Anyone level with the last person marked yes is marked yes too. A person on hold has
+      no place in the ranking and shows n/a.
   - id: cp206_digest
     type: additive
     area: calc
@@ -1683,15 +1878,22 @@ checkpoints:
     test: acceptance/specs/cp207_stratum.spec.ts
     request: |
       Label each person TOP if their value is at or above the middle value, otherwise BOT.
-  - id: cp208_quota_third
+  - id: cp208_percent_of_counted
     type: mutative
     area: calc
-    mutates: [205]
-    retires: ['cp205_quota.spec.ts::top half by rank']
-    test: acceptance/specs/cp208_quota_third.spec.ts
+    mutates: [195, 196]
+    test: acceptance/specs/cp208_percent_of_counted.spec.ts
     request: |
-      Tighten the quota to the top third of the sheet by value instead of the top half. Take only a
-      whole third — round the number of people down, dropping any remainder.
+      Every percentage on the sheet should be a share of the people who count, never of everyone
+      listed. The people who count are everyone who is not on hold and whose momentum is not 0. Someone
+      who does not count adds nothing to either side of a percentage: not to the part, and not to the
+      whole, so a person on hold no longer adds half of their value to the whole. So the share of the
+      whole total that the top two make up now takes the top two (and anyone level with the second)
+      from the people who count only, out of the value of the people who count added together, a
+      negative value counting as zero; it is still rounded down. This applies to every percentage I ask
+      for later too. A percentile is a place in the ranking, not a share, and stays as it is, and the
+      percentages worked out from a group (share and contribution) keep their group rules. Figures that
+      are not percentages, like the top three names, still take everyone they took before.
   - id: cp209_region_tally
     type: additive
     area: calc
@@ -1710,14 +1912,18 @@ checkpoints:
     test: acceptance/specs/cp211_apexname_region.spec.ts
     request: |
       Show me the top person by value in each region.
-  - id: cp212_ledger_region_surge
+  - id: cp212_breakdowns_full
     type: mutative
     area: calc
     mutates: [210]
-    retires: ['cp210_ledger_region.spec.ts::sums scaled per region']
-    test: acceptance/specs/cp212_ledger_region_surge.spec.ts
+    test: acceptance/specs/cp212_breakdowns_full.spec.ts
     request: |
-      For the region totals, count only people in the SURGE tier.
+      In a total broken down by region, count a person on hold at their full value, not half. This
+      applies to every total I split by region, tier, grade, state or quartile, now and later: a person
+      on hold counts in full in the part they belong to (a negative value still counts as zero). Every
+      other total across the whole sheet, including the grand total and the total for the people who
+      are FINAL, still counts a person on hold at half, rounded to the nearest whole number. A person on
+      hold is still left out of every count, and of the top names, ranks, averages and middle values.
   - id: cp213_quota_count
     type: additive
     area: calc
@@ -1736,14 +1942,25 @@ checkpoints:
     test: acceptance/specs/cp215_coverage_share.spec.ts
     request: |
       Show me what percent of the sheet is covered, as a whole number rounded down.
-  - id: cp216_stratum_mean
+  - id: cp216_dense_ranks
     type: mutative
     area: calc
-    mutates: [207, 214]
-    retires: ['cp207_stratum.spec.ts::top/bottom vs median']
-    test: acceptance/specs/cp216_stratum_mean.spec.ts
+    mutates: [17, 19, 20, 176, 179, 188]
+    retires: ['cp17_rank.spec.ts::rank orders by momentum desc, ties by higher alpha',
+              'cp20_rank_tiebreak.spec.ts::a momentum tie is broken by higher alpha',
+              'cp179_rank_global.spec.ts::global rank breaks ties by name']
+    test: acceptance/specs/cp216_dense_ranks.spec.ts
     request: |
-      Judge TOP and BOT against the average value instead of the middle value.
+      Make every rank across the sheet a shared rank. When people are level on the figure a rank is
+      worked out from, they share the same rank, and the next rank follows straight on: two people
+      level at the top are both 1 and the next person is 2, not 3. This covers each person's rank by
+      momentum (the higher alpha no longer separates two people with the same momentum), their overall
+      rank by scaled (the name no longer separates them), and every rank across the sheet I ask for
+      later, unless I say then how to order people who are level. A percentile follows the shared
+      ranks: the top rank is 100, the lowest rank is 0, and the ranks in between are spread evenly,
+      rounded to the nearest whole number; if everyone shares rank 1 they are all 100. The leader is
+      everyone at rank 1. People on hold still have no rank or percentile. Places inside a group, like a
+      person's standing and rung, and the ranks of groups keep their own tie-breaks.
   - id: cp217_tier_ledger
     type: additive
     area: calc
@@ -1762,14 +1979,26 @@ checkpoints:
     test: acceptance/specs/cp219_tier_share.spec.ts
     request: |
       Show me what percent of the sheet is in each tier, rounded down.
-  - id: cp220_tier_ledger_momentum
+  - id: cp220_trim_top
     type: mutative
     area: calc
-    mutates: [217]
-    retires: ['cp217_tier_ledger.spec.ts::sums scaled per tier']
-    test: acceptance/specs/cp220_tier_ledger_momentum.spec.ts
+    mutates: [23, 24, 28, 31, 32, 58, 73, 75, 76, 79, 80, 82, 83, 91, 92, 94, 96, 99, 101, 104, 111, 112,
+              114, 118, 120, 160, 176, 183, 210, 212, 217]
+    test: acceptance/specs/cp220_trim_top.spec.ts
     request: |
-      Make the tier totals add up the underlying momentum instead of the value.
+      Leave the single biggest contributor out of every total. In every total worked out across the
+      whole sheet that adds up one value for each person (the total load, the total effective, the
+      total for people who are FINAL, the total blend, pivot, gust, brace, yield and tide, the grand
+      flow, the grand total, the totals split by region and by tier, and every such total I ask for
+      later), work out each person's contribution first and then leave out the highest one. A
+      person's contribution follows the rules in this order: a person on hold counts at half, rounded
+      to the nearest whole number (or in full in a total split by region, tier, grade, state or
+      quartile); then a negative value counts as zero; then the single highest contribution is left
+      out, even when it is a person on hold. If several contributions are level at the highest, leave
+      out only one of them. A total split by region, tier or the like leaves out the highest
+      contribution within each part, and a part with only one contributor shows 0. The running total
+      by value, the averages and the percentages are not totals and still take everyone in. Totals of
+      group figures, like a group's strength and the total strength of all groups, are not affected.
   - id: cp221_grade_ledger
     type: additive
     area: calc
@@ -1788,14 +2017,25 @@ checkpoints:
     test: acceptance/specs/cp223_apexname_grade.spec.ts
     request: |
       Show me the top person by value for each grade.
-  - id: cp224_grade_ledger_merge
+  - id: cp224_history_grade_active
     type: mutative
     area: calc
-    mutates: [221]
-    retires: ['cp221_grade_ledger.spec.ts::sums scaled per grade']
-    test: acceptance/specs/cp224_grade_ledger_merge.spec.ts
+    mutates: [113, 114]
+    test: acceptance/specs/cp224_history_grade_active.spec.ts
     request: |
-      For the grade totals, fold MID into HIGH so only HIGH (including MID) and LOW are reported.
+      Keep a dated history of a person's grade and of whether they are active, the same way as for
+      alpha, beta and gamma. In the editor, a change to the grade, or to active (typed as yes or no), is
+      dated by the same date box (blank still means the anchor date) and kept with its date instead of
+      overwriting; only what actually changed is recorded, a second change of the same thing on the
+      same date replaces the first, and each change still writes its CHANGED record. List these changes
+      in the person's history too, as "date grade value" and "date active yes" or "date active no",
+      newest first; changes on the same date are listed alpha, beta, gamma, grade, then active. The
+      grade and active shown for a person, and every figure that uses them (weight, load, effective,
+      the active count, whether a patron counts, the grade counts and totals, and everything worked out
+      from them), use the latest change dated on or before the anchor date, or the as-of date when I
+      have applied one, else the value the person started with. A change dated after that date is
+      listed but does not count yet. Everything else I said about the as-of view still holds: the
+      person's other details, their patrons and follows, and age stay as they are now.
   - id: cp225_state_ledger
     type: additive
     area: calc
@@ -1814,14 +2054,20 @@ checkpoints:
     test: acceptance/specs/cp227_apexname_state.spec.ts
     request: |
       Show me the top person by value in each state.
-  - id: cp228_state_ledger_decided
+  - id: cp228_hold_from
     type: mutative
     area: calc
-    mutates: [225]
-    retires: ['cp225_state_ledger.spec.ts::sums scaled per state']
-    test: acceptance/specs/cp228_state_ledger_decided.spec.ts
+    mutates: [73, 114]
+    test: acceptance/specs/cp228_hold_from.spec.ts
     request: |
-      Leave DRAFT out of the state totals, reporting only FINAL and REVIEW (show DRAFT as zero).
+      Give a hold a start date. Show for each person the date their hold starts, or nothing if their
+      hold has no start date. A person only counts as on hold on and after that date: on the date the
+      sheet is showing (the anchor date, or the as-of date when I have applied one), a hold that starts
+      later has not started yet, so the person shows as not on hold and counts in every figure like
+      anyone else; a hold that starts exactly on that date has started. A hold with no start date has
+      always been on, and if the sheet has no anchor date every hold counts. When I put someone on hold
+      with the button, their hold starts on the sheet's anchor date; taking them off hold clears it.
+      Once a hold has started, every rule for people on hold applies as before.
   - id: cp229_bracket_ledger
     type: additive
     area: calc
@@ -1841,14 +2087,24 @@ checkpoints:
     test: acceptance/specs/cp231_bracket_share.spec.ts
     request: |
       Show me what percent of the sheet is in each quartile, rounded down.
-  - id: cp232_bracket_ledger_momentum
+  - id: cp232_held_in_totals
     type: mutative
     area: calc
-    mutates: [229]
-    retires: ['cp229_bracket_ledger.spec.ts::sums scaled per quartile']
-    test: acceptance/specs/cp232_bracket_ledger_momentum.spec.ts
+    mutates: [76, 81]
+    test: acceptance/specs/cp232_held_in_totals.spec.ts
     request: |
-      Make the quartile totals add up momentum instead of value.
+      Let each sheet choose how people on hold count in its totals. Add a setting for the sheet I am on,
+      next to the other sheet settings, saved with them for that sheet only and showing the value the
+      sheet is using: "out" leaves people on hold out of the totals, "half" counts them at half of their
+      value (rounded to the nearest whole number, as now), and "full" counts them at their full value.
+      A sheet that has not chosen uses "half", so nothing changes until I choose. The choice covers
+      every total across the whole sheet that counts people on hold at half today: the grand total, the
+      total for the people who are FINAL, the total load and every other such total, now and later. It
+      does not change the totals split by region, tier, grade, state or quartile, which still count
+      people on hold in full, and it does not change the running total. In every total a negative value
+      still counts as zero and the highest contribution is still left out, in that order, after the
+      choice is applied. People on hold are still left out of every count, rank, top name, average,
+      middle value and percentage whatever the sheet chooses.
   - id: cp233_report_screen
     type: additive
     area: persist
@@ -1867,14 +2123,23 @@ checkpoints:
     test: acceptance/specs/cp235_report_top.spec.ts
     request: |
       On the report screen show the name of the top person by value.
-  - id: cp236_report_mean_median
+  - id: cp236_dated_settings
     type: mutative
     area: calc
-    mutates: [234]
-    retires: ['cp234_report_mean.spec.ts::report shows the mean']
-    test: acceptance/specs/cp236_report_mean_median.spec.ts
+    mutates: [81, 114, 232]
+    test: acceptance/specs/cp236_dated_settings.spec.ts
     request: |
-      On the report screen show the middle value instead of the average.
+      Let a change to a sheet's settings take effect on a date. Next to the settings, give me a date box
+      that starts blank. When I save with a date in it, keep the values I typed as a change from that
+      date instead of overwriting the sheet's settings; when I save with it blank, change the sheet's
+      own settings as before. On the date the sheet is showing (the anchor date, or the as-of date when
+      I have applied one), each setting (each region multiplier, band boundary, band multiplier, grade
+      weight, and the choice for people on hold in totals) is the latest dated change on or before
+      that date that changes it, a change dated exactly on that date counting; if there is none, the
+      sheet's own value; if the sheet has none, the usual starting value. A change dated after that
+      date is kept but does not count yet, and if the sheet has no anchor date every dated change
+      counts. Every figure follows the settings in force on the date shown, and the settings boxes show
+      those values. Looking as of a date never changes any setting.
   - id: cp237_gapval_surge
     type: additive
     area: calc
@@ -1893,15 +2158,18 @@ checkpoints:
     test: acceptance/specs/cp239_apex_nonfinal.spec.ts
     request: |
       Show me the top person by value who is not yet FINAL.
-  - id: cp240_ledger_trim
+  - id: cp240_hold_per_sheet
     type: mutative
     area: calc
-    mutates: [183, 206, 233]
-    keeps_anchors: [report-headcount]
-    retires: ['cp183_ledger.spec.ts::ledger sums all scaled', 'cp206_digest.spec.ts::mean value per person', 'cp233_report_screen.spec.ts::report screen re-reads figures']
-    test: acceptance/specs/cp240_ledger_trim.spec.ts
+    mutates: [73, 101, 228]
+    test: acceptance/specs/cp240_hold_per_sheet.spec.ts
     request: |
-      Leave the single highest person out of the grand total, as an outlier. The average per person and the report total should follow. The outlier is only left out of the totals, not removed from the sheet, so work the average out over everyone — divide the trimmed total by the full head count.
+      A shared person's hold should belong to each sheet they are on, like their state. Putting a shared
+      person on hold, or taking them off hold, on one sheet must not change whether they are on hold on
+      any other sheet, and the start date of a hold belongs to that sheet too. Every figure on a sheet
+      treats a person as on hold only when they are on hold on that sheet. When I put a person onto
+      another sheet, they start there not on hold, whatever their hold is elsewhere. Their name, numbers
+      and other shared values stay shared.
 
   # ===================================================================================================
   # ACT V (cp241-250): "stress finale" — whole-stack consistency sweeps that compose the spine, and
@@ -1928,18 +2196,26 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp243_portion.spec.ts
     request: |
-      For each person show their "portion", which is their scaled as a whole-number percentage of the
-      grand scaled, rounded down. If the grand scaled is zero, portion shows "n/a".
+      For each person show their "portion": their scaled as a whole-number percentage, rounded down, of
+      the scaled of everyone who counts added together (everyone not on hold and whose momentum is not
+      0, a negative scaled counting as zero; nobody is left out of this whole as the highest). A person
+      who does not count has no portion and shows "n/a", and if that whole is zero, portion shows "n/a".
 
-  - id: cp244_age_days
+  - id: cp244_shared_history_own_date
     type: mutative
     area: calc
-    mutates: [26, 27, 28]
-    retires: ['cp26_age.spec.ts::age is complete weeks from onset to anchor', 'cp28_age_in_weeks.spec.ts::age is complete weeks and decay follows']
-    test: acceptance/specs/cp244_age_days.spec.ts
+    mutates: [101, 113, 114, 115]
+    test: acceptance/specs/cp244_shared_history_own_date.spec.ts
     request: |
-      I was wrong to switch age to weeks. Put age back to the number of whole days from a person's
-      onset to the sheet anchor.
+      A shared person's history is shared, but each sheet looks at it on its own date. A dated change I
+      make to a shared person on any sheet is the same change on every sheet they are on, and is listed
+      in their history everywhere. Each sheet works their figures out on its own date: its own anchor
+      date, or the as-of date I have applied on that sheet, so the same change can count on one sheet
+      and not yet on another. An as-of date belongs to the sheet I applied it on: opening another sheet
+      shows that sheet on its own date, not on the as-of date of the sheet I left, and when I come back
+      to the first sheet it is still shown as of its date until I clear it. Reloading the page still
+      goes back to the current figures. The momentum change on a sheet compares that sheet's own anchor
+      date with its own as-of date.
 
   - id: cp245_apex_v
     type: additive
@@ -1968,8 +2244,9 @@ checkpoints:
   - id: cp248_norm_mean
     type: mutative
     area: calc
-    mutates: [53, 54, 55, 56]
-    retires: ['cp53_norm.spec.ts::norm is scaled minus the median scaled', 'cp56_norm_median.spec.ts::norm, outliers and count use the median', 'cp56_norm_median.spec.ts::an even number of people uses the lower of the two middle values']
+    mutates: [53, 54, 55, 56, 73, 82, 188]
+    retires: ['cp53_norm.spec.ts::norm is scaled minus the median scaled', 'cp56_norm_median.spec.ts::norm, outliers and count use the median', 'cp56_norm_median.spec.ts::an even number of people uses the lower of the two middle values',
+              'cp188_counts_need_momentum.spec.ts::every count of people skips momentum 0; ranks and middle values keep them']
     test: acceptance/specs/cp248_norm_mean.spec.ts
     request: |
       Go back to measuring norm against the average scaled, not the middle value. Subtract the average
@@ -1987,4 +2264,4 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp250_grand_total.spec.ts
     request: |
-      Show me the "grand total" for the sheet, which is the grand scaled plus the grand influence.
+      Show me the "grand sum" for the sheet, which is the grand scaled plus the grand influence.

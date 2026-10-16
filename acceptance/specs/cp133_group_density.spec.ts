@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// density
+// density: how many members have a value at or above the group's cohesion, a group figure worked
+// out from members' values using their effective. Everyone active, no patrons: effective = momentum.
+//   North Ann 100, Bea 120, strength 220, cohesion 110 -> Bea -> 1
+//   South Cal 60, Dot 40, strength 100, cohesion 50 -> Cal -> 1
+//   East Eli 300, Fia 30, strength 330, cohesion 165 -> Eli -> 1
 test.describe('density', () => {
   test('density counts members at/above cohesion', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -17,7 +21,7 @@ test.describe('density', () => {
     });
     await page.goto('/');
 
-    await expect(page.getByTestId('group-row-1').getByTestId('group-concept-density')).toHaveText('2');
+    await expect(page.getByTestId('group-row-1').getByTestId('group-concept-density')).toHaveText('1');
     await expect(page.getByTestId('group-row-2').getByTestId('group-concept-density')).toHaveText('1');
     await expect(page.getByTestId('group-row-3').getByTestId('group-concept-density')).toHaveText('1');
   });

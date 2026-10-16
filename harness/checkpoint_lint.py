@@ -18,6 +18,8 @@ The stream is designed to concentrate complexity on one screen and three entitie
      (copies go in by basename beside the own specs, so `../../` from a copy breaks the gate).
   9. ANCHORS — a hidden copy asserts only test ids the agent can know: named in its own spec,
      asserted by a test still in force, or declared under `keeps_anchors:` as surviving a retirement.
+ 10. STANDING HOLD — from cp77, every test asserting a sheet-wide or patron/follow figure seeds a held
+     person, so the hold rule (cp73-76) keeps being exercised for the rest of the run.
 
     .venv/bin/python -m harness.checkpoint_lint --config config.yaml
 
@@ -152,6 +154,10 @@ def main() -> int:
     unseen = fixtures.hidden_anchor_violations(numbered, harness_root)
     report("anchors", unseen, "name it in the own spec, or list it under keeps_anchors: if it survives")
 
+    # ---- 10. the hold rule stays exercised ---------------------------------------------------
+    unheld = fixtures.standing_hold_violations(numbered, harness_root)
+    report("standing hold", unheld, "seed one held person that would change the figure if counted")
+
     # ---- report -----------------------------------------------------------------------------
     n_mut = sum(1 for cp in numbered if cp.get("type") == "mutative")
     n_alg = sum(1 for cp in numbered if cp.get("algorithm"))
@@ -165,6 +171,7 @@ def main() -> int:
     print(f"  dropped coverage : {len(dropped)} test(s) dropped without a retires: entry")
     print(f"  broken imports   : {len(unresolved)} spec import(s) absent once installed")
     print(f"  unseen anchors   : {len(unseen)} test id(s) a hidden copy asserts that the agent cannot know")
+    print(f"  standing hold    : {len(unheld)} sheet-wide test(s) without a held person")
     print()
     if problems:
         print("FAIL — fix before paying for a run:")

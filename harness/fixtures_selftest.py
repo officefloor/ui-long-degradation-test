@@ -188,6 +188,22 @@ def test_a_copy_may_assert_only_anchors_the_agent_can_know():
         assert f.hidden_anchor_violations(cps, root) == []
 
 
+def test_sheet_wide_tests_after_the_hold_cycle_seed_a_held_person():
+    with tempfile.TemporaryDirectory() as root:
+        S = "acceptance/specs"
+        total = "getByTestId('rollup-total-load');"
+        specs = {f"{S}/cp01_a.spec.ts": _spec("early total", "{ people: [] }", total),
+                 f"{S}/cp02_b.spec.ts": _spec("late total", "{ people: [] }", total)
+                 + _spec("held total", "{ people: [{ id: 9, hold: true }] }", total)
+                 + _spec("own figure", "{ people: [] }", "getByTestId('concept-thrust');")
+                 + _spec("group total", "{ people: [] }", "getByTestId('rollup-total-strength');")
+                 + _spec("sheet control", "{ people: [] }", "getByTestId('sheet-id-input');")}
+        cps = _stream(root, specs, [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
+                                    {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts"}])
+        assert f.standing_hold_violations(cps, root, since=2) == [
+            "cp02 cp02_b.spec.ts::late total seeds no held person"]
+
+
 def test_an_own_spec_naming_a_checkpoint_is_a_leak():
     with tempfile.TemporaryDirectory() as root:
         S = "acceptance/specs"

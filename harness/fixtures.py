@@ -414,6 +414,39 @@ def hidden_anchor_violations(checkpoints: list[dict], harness_root: str) -> list
     return out
 
 
+# Figures that combine people across the whole sheet, or over a person's patrons and follows: the
+# figures the standing hold rule reaches. Group figures are not sheet-wide (a held person is never
+# put in a group), so the group rollups are left out.
+_SHEET_WIDE = re.compile(
+    r"^(?!group-|person-|concept-|sheet-|nav-|people-|rollup-(?:biggest-group|group-count|groups-above|mean-size|"
+    r"median-strength|prime-group|strength-range|top-group-size|total-strength)$)"
+    r"[a-z]"
+    r"|^concept-(?:rank|percentile|rank-global|norm|outlier|quota|cume|stratum|portion|"
+    r"backing|clout|flux|synergy|vector|tide)$")
+_HELD = re.compile(r"\bhold\s*:\s*true\b|person-hold-")   # seeded, or put on hold through the UI
+
+
+def standing_hold_violations(checkpoints: list[dict], harness_root: str, since: int = 77) -> list[str]:
+    """Tests from checkpoint `since` on that assert a sheet-wide or patron/follow figure without
+    seeding a held person. The hold rule (cp73-76) is standing: a held person is left out of those
+    figures (totals count them at half) for the rest of the run, so every such test carries one, and
+    a structure that forgot the rule on a newer figure fails it. Matching is by test id, a heuristic:
+    seeding a held person where it was not needed is harmless."""
+    out = []
+    for cp in checkpoints:
+        if cp["n"] < since:
+            continue
+        for e in spec_entries(cp, harness_root):
+            path = os.path.join(harness_root, e)
+            if not os.path.isfile(path):
+                continue
+            for title, body in test_bodies(path).items():
+                if any(_SHEET_WIDE.search(m.group(2)) for m in _LITERAL_TESTID.finditer(body)) \
+                        and not _HELD.search(body):
+                    out.append(f"cp{cp['n']:02d} {os.path.basename(e)}::{title} seeds no held person")
+    return out
+
+
 def hidden_field_violations(checkpoints: list[dict], harness_root: str) -> list[str]:
     """Replacement copies that seed a field no VISIBLE spec has seeded up to their checkpoint.
 

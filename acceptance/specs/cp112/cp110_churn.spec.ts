@@ -1,6 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
+// churn = tide - vector ; tide counts the positive brace of the people a person follows and of the
+// people who follow them, each once. brace: Ada 200, Ben 19, Dot 307, Gus -59 ; vector: Ada 98, Dot -3
+//   Ada follows Ben, Dot, Gus -> 19+307 = 326 -> churn 326-98 = 228
+//   Ben followed by Ada, Dot -> 200+307 = 507 -> churn 507
+//   Dot follows Ben, followed by Ada -> 19+200 = 219 -> churn 219+3 = 222
+//   Gus followed by Ada -> 200 -> churn 200
+
 
 test.describe('churn', () => {
   test('churn is tide minus vector', { tag: '@functionality' }, async ({ page }) => {
@@ -22,9 +29,9 @@ test.describe('churn', () => {
 });
     await page.goto('/');
 
-    await expect(page.getByTestId('person-row-1').getByTestId('concept-churn')).toHaveText('221');
-    await expect(page.getByTestId('person-row-2').getByTestId('concept-churn')).toHaveText('0');
-    await expect(page.getByTestId('person-row-3').getByTestId('concept-churn')).toHaveText('22');
-    await expect(page.getByTestId('person-row-4').getByTestId('concept-churn')).toHaveText('0');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-churn')).toHaveText('228'); // positive braces 19 + 307 = 326, minus vector 98
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-churn')).toHaveText('507');
+    await expect(page.getByTestId('person-row-3').getByTestId('concept-churn')).toHaveText('222');
+    await expect(page.getByTestId('person-row-4').getByTestId('concept-churn')).toHaveText('200');
   });
 });

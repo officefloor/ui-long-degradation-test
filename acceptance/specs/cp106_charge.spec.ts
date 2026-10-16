@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// charge = vector + yield (yield = pivot + 2*lift, patron-independent).
-//   yield: Ada 162, Ben -6, Dot 1700 ; vector: Ada 197, Ben 0, Dot -3
-//   charge: Ada 359, Ben -6, Dot 1697
+// charge = vector + yield (yield = pivot + lift, patron-independent).
+//   yield: Ada 33+48 = 81, Ben -4+0 = -4, Dot 400+600 = 1000 ; vector: Ada 197, Ben 0, Dot -3
+//   charge: Ada 197+81 = 278, Ben -4, Dot -3+1000 = 997
 
 test.describe('charge', () => {
   test('charge is vector plus yield', { tag: '@functionality' }, async ({ page }) => {
@@ -23,8 +23,8 @@ test.describe('charge', () => {
 });
     await page.goto('/');
 
-    await expect(page.getByTestId('person-row-1').getByTestId('concept-charge')).toHaveText('359');
-    await expect(page.getByTestId('person-row-2').getByTestId('concept-charge')).toHaveText('-6');
-    await expect(page.getByTestId('person-row-3').getByTestId('concept-charge')).toHaveText('1697');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-charge')).toHaveText('278');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-charge')).toHaveText('-4');
+    await expect(page.getByTestId('person-row-3').getByTestId('concept-charge')).toHaveText('997');
   });
 });

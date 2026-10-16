@@ -4,6 +4,13 @@ import { resetAndSeed } from '../support/seed';
 test.describe('share', () => {
   test('share rounds to nearest', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
+      // the sheet's own band multipliers: B is x5 here, not x3
+      settings: { bandMultipliers: { A: 4, B: 5, C: 2, D: 1, E: 0 } },
+      anchor: '2026-03-01',
+      // Fia's beta change is dated after the anchor: it does not count yet
+      history: [
+        { personId: 6, field: 'beta', value: 70, from: '2026-04-01' },
+      ],
       groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }, { id: 3, name: 'East' }],
       people: [
         { id: 1, name: 'Ann', alpha: 5, beta: 20, gamma: 5, active: true, groupId: 1 },
@@ -20,7 +27,9 @@ test.describe('share', () => {
     await expect(page.getByTestId('person-row-2').getByTestId('concept-share')).toHaveText('109');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-share')).toHaveText('60');
     await expect(page.getByTestId('person-row-4').getByTestId('concept-share')).toHaveText('40');
-    await expect(page.getByTestId('person-row-5').getByTestId('concept-share')).toHaveText('273');
+    // Eli: momentum 300, band B x5 on this sheet = scaled 1500; East strength 300 + 30 = 330;
+    // 1500*100/330 = 454.5 -> 455 to the nearest
+    await expect(page.getByTestId('person-row-5').getByTestId('concept-share')).toHaveText('455');
     await expect(page.getByTestId('person-row-6').getByTestId('concept-share')).toHaveText('9');
   });
 });

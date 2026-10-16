@@ -3,7 +3,15 @@ import { resetAndSeed } from '../support/seed';
 
 test.describe('apex and runner-up', () => {
   test('names the top two people', { tag: '@functionality' }, async ({ page }) => {
+    // Hela is on hold: left out of sheet-wide figures, counted at half in totals. Her scaled is
+    // 2400 (thrust 600, drift 0, band A x4); counted, she would be the apex and Ada the runner-up.
+    // Sol is shared from sheet S9: counted here like anyone; his scaled 1200 (momentum 400, band B x3)
+    // makes him the runner-up
     await resetAndSeed({
+      sheets: [
+        { id: 'S9', people: [{ id: 1, name: 'Sol', alpha: 10, beta: 40, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }] },
+      ],
+      shares: [{ personId: 8, fromSheetId: 'S9', fromPersonId: 1 }],
       people: [
         { id: 1, name: 'Ada', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true },
         { id: 2, name: 'Ben', alpha: 10, beta: 30, gamma: 10, grade: 'MID', state: 'FINAL', active: true },
@@ -12,27 +20,37 @@ test.describe('apex and runner-up', () => {
         { id: 5, name: 'Eli', alpha: 8, beta: 10, gamma: 8, grade: 'MID', state: 'DRAFT', active: true },
         { id: 6, name: 'Fin', alpha: 2, beta: 30, gamma: 2, grade: 'LOW', state: 'REVIEW', active: true },
         { id: 7, name: 'Gwe', alpha: 5, beta: 1, gamma: 0, grade: 'HIGH', state: 'DRAFT', active: true },
+        { id: 9, name: 'Hela', alpha: 10, beta: 60, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true, hold: true },
       ],
     });
     await page.goto('/');
     await expect(page.getByTestId('rollup-apexname')).toHaveText('Ada');
-    await expect(page.getByTestId('rollup-runnerup')).toHaveText('Ben');
+    await expect(page.getByTestId('rollup-runnerup')).toHaveText('Sol');
   });
 
-  // Apex tie-break: Bob and Cat tie at the top value (scaled 2000); the name first alphabetically
-  // (Bob) is the apex, the other (Cat) the runner-up. Ace is lower (scaled 900) and never apex
-  // despite sorting first by name, proving value wins before the name tie-break is applied.
+  // Tie-break: Bob and Cat tie at the second value (scaled 2000) under Sol's 2400; the name first
+  // alphabetically (Bob) is the runner-up. Ace is lower (scaled 900) and never picked despite
+  // sorting first by name, proving value wins before the name tie-break is applied.
+  // Hela is on hold: left out of sheet-wide figures, counted at half in totals; counted, her 2400
+  // would tie Sol's and make her the apex (first by name) and Sol the runner-up.
   test('apex tie-break picks the alphabetically-first name', { tag: '@functionality' }, async ({ page }) => {
+    // Sol is shared from sheet S9: counted here like anyone; his scaled 2400 (thrust 600, band A x4)
+    // makes him the apex, and the tie at 2000 gives the runner-up to Bob
     await resetAndSeed({
+      sheets: [
+        { id: 'S9', people: [{ id: 1, name: 'Sol', alpha: 10, beta: 60, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }] },
+      ],
+      shares: [{ personId: 8, fromSheetId: 'S9', fromPersonId: 1 }],
       people: [
         { id: 1, name: 'Ace', alpha: 10, beta: 30, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // thrust 300, drift 0, momentum 300 -> band B x3 -> scaled 900
         { id: 2, name: 'Cat', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // thrust 500, drift 0, momentum 500 -> band A x4 -> scaled 2000
         { id: 3, name: 'Bob', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true }, // thrust 500, drift 0, momentum 500 -> band A x4 -> scaled 2000
+        { id: 9, name: 'Hela', alpha: 10, beta: 60, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true, hold: true }, // on hold: thrust 600, drift 0 -> band A x4 -> scaled 2400
       ],
     });
     await page.goto('/');
-    // sorted by value desc, ties by name asc: Bob(2000), Cat(2000), Ace(900)
-    await expect(page.getByTestId('rollup-apexname')).toHaveText('Bob');
-    await expect(page.getByTestId('rollup-runnerup')).toHaveText('Cat');
+    // sorted by value desc, ties by name asc: Sol(2400), Bob(2000), Cat(2000), Ace(900)
+    await expect(page.getByTestId('rollup-apexname')).toHaveText('Sol');
+    await expect(page.getByTestId('rollup-runnerup')).toHaveText('Bob');
   });
 });

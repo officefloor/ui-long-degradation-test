@@ -1,17 +1,24 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
+// Group members are in REVIEW: a member still in DRAFT would be left out of the group's figures.
+
+// density: how many members have a value at or above the group's cohesion, a group figure worked
+// out from members' values using their effective. Everyone active, no patrons: effective = momentum.
+//   North Ann 100, Bea 120, strength 220, cohesion 110 -> Bea -> 1
+//   South Cal 60, Dot 40, strength 100, cohesion 50 -> Cal -> 1
+//   East Eli 300, Fia 30, strength 330, cohesion 165 -> Eli -> 1
 test.describe('density', () => {
-  test('density uses effective', { tag: '@functionality' }, async ({ page }) => {
+  test('density counts members at/above cohesion', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
       groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }, { id: 3, name: 'East' }],
       people: [
-        { id: 1, name: 'Ann', alpha: 5, beta: 20, gamma: 5, active: true, groupId: 1 },
-        { id: 2, name: 'Bea', alpha: 4, beta: 30, gamma: 4, active: true, groupId: 1 },
-        { id: 3, name: 'Cal', alpha: 6, beta: 10, gamma: 6, active: true, groupId: 2 },
-        { id: 4, name: 'Dot', alpha: 5, beta: 8, gamma: 5, active: true, groupId: 2 },
-        { id: 5, name: 'Eli', alpha: 10, beta: 30, gamma: 10, active: true, groupId: 3 },
-        { id: 6, name: 'Fia', alpha: 5, beta: 6, gamma: 5, active: true, groupId: 3 },
+        { id: 1, name: 'Ann', alpha: 5, beta: 20, gamma: 5, active: true, groupId: 1, state: 'REVIEW' },
+        { id: 2, name: 'Bea', alpha: 4, beta: 30, gamma: 4, active: true, groupId: 1, state: 'REVIEW' },
+        { id: 3, name: 'Cal', alpha: 6, beta: 10, gamma: 6, active: true, groupId: 2, state: 'REVIEW' },
+        { id: 4, name: 'Dot', alpha: 5, beta: 8, gamma: 5, active: true, groupId: 2, state: 'REVIEW' },
+        { id: 5, name: 'Eli', alpha: 10, beta: 30, gamma: 10, active: true, groupId: 3, state: 'REVIEW' },
+        { id: 6, name: 'Fia', alpha: 5, beta: 6, gamma: 5, active: true, groupId: 3, state: 'REVIEW' },
       ],
     });
     await page.goto('/');

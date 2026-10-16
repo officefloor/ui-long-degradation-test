@@ -2,10 +2,10 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // yield = pivot + lift.
-//   pivot = torque*verge (verge A=2,B=3,C=5): Ada 33*2=66, Ben -2*3=-6, Dot 100*5=500
+//   pivot = torque*verge (verge A=1,B=2,C=4): Ada 33*1=33, Ben -2*2=-4, Dot 100*4=400
 //   lift = blend*drag-mult (L1 for 0..49 =1, L0 for <0 =0, L3 for >=150 =3):
 //     blend Ada 48 -> L1 -> 48 ; Ben -3 -> L0 -> 0 ; Dot 200 -> L3 -> 600
-//   yield: Ada 114, Ben -6, Dot 1100
+//   yield: Ada 33+48=81, Ben -4+0=-4, Dot 400+600=1000
 
 test.describe('yield', () => {
   test('yield is pivot plus lift', { tag: '@functionality' }, async ({ page }) => {
@@ -21,8 +21,8 @@ test.describe('yield', () => {
 });
     await page.goto('/');
 
-    await expect(page.getByTestId('person-row-1').getByTestId('concept-yield')).toHaveText('114');
-    await expect(page.getByTestId('person-row-2').getByTestId('concept-yield')).toHaveText('-6');
-    await expect(page.getByTestId('person-row-3').getByTestId('concept-yield')).toHaveText('1100');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-yield')).toHaveText('81');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-yield')).toHaveText('-4');
+    await expect(page.getByTestId('person-row-3').getByTestId('concept-yield')).toHaveText('1000');
   });
 });

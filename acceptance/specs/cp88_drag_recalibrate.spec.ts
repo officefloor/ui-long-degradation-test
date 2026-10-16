@@ -4,6 +4,8 @@ import { resetAndSeed } from '../support/seed';
 // L2 (50..149), L3 (>=150). Multipliers unchanged. The blend-150 person moves L2 -> L3.
 //   drag: Ada 48 L1, Ben -3 L0, Dot 200 L3, Max 150 L3
 //   lift: Ada 48, Ben 0, Dot 600, Max 150*3=450 ; counts L0 1, L1 1, L2 0, L3 2
+// Hela is on hold: left out of sheet-wide figures, so of the counts too.
+//   Hela blend 50 + 200 = 250 -> L3, not counted (L3 stays 2)
 
 test.describe('drag recalibrated', () => {
   test('new thresholds reclassify and rescale', { tag: '@functionality' }, async ({ page }) => {
@@ -13,6 +15,7 @@ test.describe('drag recalibrated', () => {
     { id: 2, name: 'Ben', alpha: 4, beta: 2,  gamma: 1, delta: 5, epsilon: 2,  zeta: 1,  active: true },
     { id: 3, name: 'Dot', alpha: 5, beta: 20, gamma: 5, delta: 5, epsilon: 20, zeta: 5,  active: true },
     { id: 4, name: 'Max', alpha: 5, beta: 10, gamma: 5, delta: 5, epsilon: 20, zeta: 5,  active: true },
+    { id: 9, name: 'Hela', alpha: 5, beta: 10, gamma: 5, delta: 5, epsilon: 40, zeta: 5,  active: true, hold: true },
   ],
 });
     await page.goto('/');

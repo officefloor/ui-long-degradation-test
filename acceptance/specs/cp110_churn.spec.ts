@@ -3,7 +3,11 @@ import { resetAndSeed } from '../support/seed';
 
 // churn = tide - vector. vector = average of patrons' blend.
 //   vector: Ada (−3+200)/2=98, Ben 0, Dot -3, Gus 0
-//   tide: Ada 260, Ben 0, Dot 19, Gus 0 -> churn: Ada 162, Ben 0, Dot 22, Gus 0
+//   tide counts the people a person follows and the people who follow them, each once:
+//     Ada follows Ben 19, Dot 307 (net 108, clout -1, influence 107, +2*100), Gus -59 -> 267
+//     Ben is followed by Ada (brace 200) and Dot (307) -> 507
+//     Dot follows Ben 19, is followed by Ada 200 -> 219 ; Gus is followed by Ada -> 200
+//   churn: Ada 267-98=169, Ben 507-0=507, Dot 219-(-3)=222, Gus 200-0=200
 
 test.describe('churn', () => {
   test('churn is tide minus vector', { tag: '@functionality' }, async ({ page }) => {
@@ -25,9 +29,9 @@ test.describe('churn', () => {
 });
     await page.goto('/');
 
-    await expect(page.getByTestId('person-row-1').getByTestId('concept-churn')).toHaveText('162');
-    await expect(page.getByTestId('person-row-2').getByTestId('concept-churn')).toHaveText('0');
-    await expect(page.getByTestId('person-row-3').getByTestId('concept-churn')).toHaveText('22');
-    await expect(page.getByTestId('person-row-4').getByTestId('concept-churn')).toHaveText('0');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-churn')).toHaveText('169');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-churn')).toHaveText('507');
+    await expect(page.getByTestId('person-row-3').getByTestId('concept-churn')).toHaveText('222');
+    await expect(page.getByTestId('person-row-4').getByTestId('concept-churn')).toHaveText('200');
   });
 });

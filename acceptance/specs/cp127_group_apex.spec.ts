@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// apex
+// apex: the member with the highest value, and a group figure worked out from members' values
+// uses their effective. Everyone active with no patrons: effective = momentum.
+//   North Ann 100, Bea 120 -> Bea ; South Cal 60, Dot 40 -> Cal ; East Eli 300, Fia 30 -> Eli
 test.describe('apex', () => {
   test('apex names the top-scaled member', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -22,10 +24,10 @@ test.describe('apex', () => {
     await expect(page.getByTestId('group-row-3').getByTestId('group-concept-apex')).toHaveText('Eli');
   });
 
-  // Tie-break: one group whose top scaled value is shared by two members.
-  // Bea and Ann: alpha 5 * beta 12 = 60 momentum (gamma=alpha so drift 0); adjusted 60 in band D
-  // (0..99) => multiplier 1 => scaled 60 each. The highest scaled is tied, so apex goes to the
-  // earlier name => Ann (even though Bea is seeded first / lower id).
+  // Tie-break: one group whose top value is shared by two members.
+  // Bea and Ann: alpha 5 * beta 12 = 60 momentum (gamma=alpha so drift 0), active, so effective 60
+  // each. The highest value is tied, so apex goes to the earlier name => Ann (even though Bea is
+  // seeded first / lower id).
   test('apex breaks ties by earlier name', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
       groups: [{ id: 1, name: 'North' }],

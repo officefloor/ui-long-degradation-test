@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
+// charge = vector + yield, vector the average of the patrons' blend (rounded down).
+//   yield (pivot + lift): Ada 33+48 = 81, Ben -4+0 = -4, Dot 400+600 = 1000
+//   vector: Ada (-3+200)/2 = 98, Ben 0, Dot -3
+//   charge: Ada 98+81 = 179, Ben -4, Dot -3+1000 = 997
 
 test.describe('charge', () => {
   test('charge is vector plus yield', { tag: '@functionality' }, async ({ page }) => {
@@ -20,8 +24,8 @@ test.describe('charge', () => {
 });
     await page.goto('/');
 
-    await expect(page.getByTestId('person-row-1').getByTestId('concept-charge')).toHaveText('260');
-    await expect(page.getByTestId('person-row-2').getByTestId('concept-charge')).toHaveText('-6');
-    await expect(page.getByTestId('person-row-3').getByTestId('concept-charge')).toHaveText('1697');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-charge')).toHaveText('179');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-charge')).toHaveText('-4');
+    await expect(page.getByTestId('person-row-3').getByTestId('concept-charge')).toHaveText('997');
   });
 });

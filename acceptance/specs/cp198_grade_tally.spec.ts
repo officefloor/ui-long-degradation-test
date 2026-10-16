@@ -3,7 +3,14 @@ import { resetAndSeed } from '../support/seed';
 
 test.describe('grade tally', () => {
   test('counts per grade', { tag: '@functionality' }, async ({ page }) => {
+    // Hela is on hold: left out of sheet-wide figures, counted at half in totals. She is HIGH;
+    // counted, HIGH would be 4.
+    // Sol is shared from sheet S9: counted here like anyone (momentum 100, STEADY, LOW, REVIEW)
     await resetAndSeed({
+      sheets: [
+        { id: 'S9', people: [{ id: 1, name: 'Sol', alpha: 5, beta: 20, gamma: 5, grade: 'LOW', state: 'REVIEW', active: true }] },
+      ],
+      shares: [{ personId: 8, fromSheetId: 'S9', fromPersonId: 1 }],
       people: [
         { id: 1, name: 'Ada', alpha: 10, beta: 50, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true },
         { id: 2, name: 'Ben', alpha: 10, beta: 30, gamma: 10, grade: 'MID', state: 'FINAL', active: true },
@@ -12,11 +19,12 @@ test.describe('grade tally', () => {
         { id: 5, name: 'Eli', alpha: 8, beta: 10, gamma: 8, grade: 'MID', state: 'DRAFT', active: true },
         { id: 6, name: 'Fin', alpha: 2, beta: 30, gamma: 2, grade: 'LOW', state: 'REVIEW', active: true },
         { id: 7, name: 'Gwe', alpha: 5, beta: 1, gamma: 0, grade: 'HIGH', state: 'DRAFT', active: true },
+        { id: 9, name: 'Hela', alpha: 10, beta: 60, gamma: 10, grade: 'HIGH', state: 'FINAL', active: true, hold: true },
       ],
     });
     await page.goto('/');
     await expect(page.getByTestId('grade-tally-HIGH')).toHaveText('3');
     await expect(page.getByTestId('grade-tally-MID')).toHaveText('2');
-    await expect(page.getByTestId('grade-tally-LOW')).toHaveText('2');
+    await expect(page.getByTestId('grade-tally-LOW')).toHaveText('3');
   });
 });

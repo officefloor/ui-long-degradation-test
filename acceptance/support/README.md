@@ -56,6 +56,18 @@ The worksheet is the single screen. Everything is scoped to one worksheet at a t
 - a person's patrons               within `person-row-<id>`: `person-patrons` (names, comma+space joined, sorted asc)
 - allies / follows                 `ally-form-person`, `ally-form-other`, `ally-form-submit`; `person-allies`
 
+### Hold, settings, shared people, history (the depth cycles)
+- hold                             `person-hold-<id>` toggles it; `person-hold` in the row shows `yes`/`no`
+                                   (on the date shown); `person-hold-from` shows the hold's start date (cp228)
+- sheet settings                   `sheet-setting-region-N|S|other`, `sheet-setting-band-from-D|C|B|A`,
+                                   `sheet-setting-band-mult-A..E`, `sheet-setting-weight-LOW|MID|HIGH`,
+                                   `sheet-setting-held-totals` (`out`/`half`/`full`, cp232),
+                                   `sheet-settings-effective-date` (dated save, cp236), `sheet-settings-save`
+- shared people                    `person-share-select` (options `<sheet id>: <name>`), `person-share-add`
+- history and as-of                `person-form-effective-date`, `person-history`, `sheet-as-of`,
+                                   `sheet-as-of-apply`, `sheet-as-of-clear`; `person-form-active`
+                                   (`yes`/`no`, dated like grade, cp224)
+
 ### Audit file format
 Lines are `EVENT key=value key=value ...`. Numeric concept values in audit lines use the
 same plain integer rendering as the UI. Introduced by the checkpoint that needs them.

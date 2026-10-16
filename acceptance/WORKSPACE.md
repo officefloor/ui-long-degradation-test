@@ -72,7 +72,7 @@ The full `data-testid` vocabulary is in `support/README.md`. In outline.
 | people | `people-table`, `people-empty`, rows `person-row-<id>` with raw cells `person-<attr>` and concept cells `concept-<name>`; form `person-form-<attr>`, `person-form-submit`, `person-form-<attr>-error`; editor `person-edit-<id>` |
 | rollups | `rollup-<name>`, and keyed rollups like `band-count-<X>`, `region-count-<R>`, `tier-tally-<T>` |
 | relationships | `person-patrons`, `person-allies`, `person-ally-count`; forms for linking people |
-| groups (Act III) | `group-row-<id>`, `group-name`, `group-concept-<name>`, `person-group` |
+| groups (Act III) | `group-row-<id>`, `group-name`, `group-concept-<name>`, `group-parent` (cp152), `person-group` |
 
 Naming rules.
 - A row is `<thing>-row-<id>`, using the record's id.
@@ -95,10 +95,24 @@ concept.
   patrons: [{ personId, patronId }],                    // many-to-many from cp12
   regions: [{ personId, region }],                      // a promoted child entity from cp40
   follows: [{ from, to }],                              // directed, from cp44
-  groups:  [{ id, name }], memberships: [{ personId, groupId }],  // Act III
-  sheets:  [{ id, people, ... }],                       // persistence, from cp13
+  groups:  [{ id, name, parentId }], memberships: [{ personId, groupId }],  // Act III; parentId from cp152
+  sheets:  [{ id, people, ... }],                       // persistence, from cp13; any collection may be per sheet
+  settings: { regionMultipliers, bandFrom, bandMultipliers, gradeWeights,   // per sheet, from cp81
+              heldInTotals },                                               // 'out' | 'half' | 'full', from cp232
+  settingsHistory: [{ from, settings: { ... } }],       // dated settings changes, per sheet, from cp236
+  shares:  [{ sheetId, personId, fromSheetId, fromPersonId, state,          // shared people, from cp101
+              hold, holdFrom }],                                            // per-sheet hold, from cp240
+  history: [{ personId, field, value, from }],          // dated alpha/beta/gamma from cp113; grade/active from cp224
 }
 ```
+
+A share without `sheetId` puts the person onto the default (top-level) sheet.
+`people[].hold` (from cp73) puts a person on hold; `people[].holdFrom` (yyyy-mm-dd, from cp228) is
+the date the hold starts (absent: always on). Patron and follow rows may carry `since` (yyyy-mm-dd,
+from cp116); it is not `from`, because `follows[].from` is the follower. A `history` entry's `field`
+is `alpha`, `beta` or `gamma`, and from cp224 also `grade` (value `LOW`/`MID`/`HIGH`) or `active`
+(value `true`/`false`). A `settingsHistory` entry names only the settings it changes, in the shape
+of `settings`; each counts from its `from` date on the date the sheet shows (anchor or as-of).
 
 Conventions.
 - Numbers are plain integers. Division rounds down unless a request says otherwise, and the spec
@@ -144,7 +158,25 @@ chain.
    before that checkpoint.
 6. No early pass. A request must not be satisfiable by what earlier requests already demand. If it
    might be, its test includes a case that distinguishes the new rule.
-7. Consistency forward. When a request changes a rule, every later request and spec that depends on
+7. The hold rule is standing. From cp77, every test that asserts a sheet-wide figure (a total,
+   count, rank, percentile, leader, top name, average or middle value) or a patron or follow
+   figure seeds one held person, chosen so that counting them wrongly would change an asserted
+   figure. A held person is left out of those figures, and totals count them at half (rounded
+   down; to the nearest from cp160), a negative value counting as zero from cp92
+   (`checkpoint_lint` check 10). Before cp128 never put a held person in a group; from cp128 a held
+   member is left out of the group's figures (half in its strength), and from cp136 a group member
+   only counts when their state is not DRAFT, so a group test seeds its members a state. Later
+   rules on holds and totals: from cp212 a total split by region, tier, grade, state or quartile
+   counts a held person in full; from cp220 every total then leaves out its single highest
+   contribution (after the hold rule and negatives as zero), so a held person's value must still
+   change an asserted figure once trimmed (often a count or top name in the same test); from cp228 a
+   hold counts only from its `holdFrom` date; from cp232 a sheet's `heldInTotals` choice replaces the
+   half in the unsplit totals; from cp240 a shared person's hold is per sheet (`shares[].hold`). From
+   cp208 a percentage leaves a held person out of both sides (not half).
+8. Surviving anchors. When a mutation retires tests whose test ids still exist in the app, it lists
+   those ids under `keeps_anchors:`. A hidden copy may assert only ids the agent can know
+   (`checkpoint_lint` check 9).
+9. Consistency forward. When a request changes a rule, every later request and spec that depends on
    it is updated in the same change, and the mutation's `mutates:` names them all.
 
 ## 7. Checks after each act
@@ -153,5 +185,16 @@ chain.
   per act, hidden fields, visible-spec leaks, retirements, duplicate keys.
 - Compile. Every spec passes `npx playwright test --list`.
 - The test-data contract builds at every checkpoint (`harness.fixtures.fixture_contract`).
-- Oracles are checked by hand from the request, from the arithmetic each spec carries in its
-  comments. There is no separate reference implementation in this stream.
+- `.venv/bin/python -m harness.spec_check --config config.yaml`. Every assertion in every test is
+  evaluated against the reference model (`harness/oracle/`, one versioned definition per concept,
+  taken from the requests) at every checkpoint where the test is in force. A mismatch is a wrong
+  expected value, or a mutation that missed a checkpoint it changes. Hand arithmetic in comments is
+  still required, but the model is the check: a wrong oracle the app passes bends the code (run
+  202610160010 added a second brace rule to match cp109's wrong tide). The agent never sees the
+  model.
+- `.venv/bin/python -m harness.probe_check --config config.yaml`. The standing rules (hold from
+  cp77, settings from cp85, identity from cp105, history from cp117) hold only if their probes
+  bite. Each probe is ablated the way an app ignoring the rule would read the fixture (hold
+  cleared, settings dropped, shares dropped, history dates ignored), and at least one asserted
+  value must change. A test written from a rule's checkpoint on whose asserted figures depend on
+  the rule must carry a probe that bites, in its fixture or by driving the rule in the UI.
