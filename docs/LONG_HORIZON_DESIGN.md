@@ -1,5 +1,8 @@
 # Long-Horizon Extension — Design Notes
 
+> **Branch `early-overload-250`:** this branch restructures the stream to be **overloaded early** — a compressed spine, the hub `keel` at cp9, and the cross-cutting rules front-loaded to cp4–20 — and removes Act VI, leaving **250 checkpoints**. The back-loaded canonical 300-stream is unchanged on `main`. See [docs/EARLY_OVERLOAD_DESIGN.md](./EARLY_OVERLOAD_DESIGN.md). The text below describes the canonical method, most of which still applies.
+
+
 How `ui-long-degradation-test` extends from 60 to ~250 checkpoints to test whether the
 additive-vs-mutative erosion gap **compounds** over a long sequence of AI-authored changes, and
 how the checkpoint stream is kept concentrated, realistic, and handoff-ready rather than vibe slop.

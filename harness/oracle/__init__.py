@@ -6,34 +6,24 @@ for checking the expected values in the specs (harness/spec_check.py); the agent
     evaluate(fixture, k=109)                 # {('person-row-1', 'concept-tide'): '267', ...}
     evaluate(fixture, k=116, sheet='S2', as_of='2026-02-01')
 
-Layout
-- core.py     the world a fixture describes (sheets, shared people, history), the evaluation context
-              `Ctx` with the cross-cutting rules (hold, settings, links, as-of, n/a, floor division),
-              the versioned registry, and the lazy screen `View`.
-- session.py  a browser session: the stored world plus UI state, driven step by step by spec_check.
-- act1.py     Act I, cp01-cp60 (cp28 records every changed detail: `record_change`).
-- act2.py     Act II, cp61-cp120, including the depth cycles cp73-76, 81-84, 101-104, 113-116.
-- act3.py     Act III, cp121-cp180, with its group rules (effective members cp124, hold cp128, DRAFT
-              cp136, ties cp144, all their groups cp148, nested groups cp152, groups of one cp164).
-- act4.py, act5.py   Acts IV and V.
-- act6.py     Act VI, cp251-300: the finale. cp251-260 is the DEEP layer — stacks fathom -> cascade
-              -> ripple -> ballast -> keystone on norm/scaled (chain depth ~16-17), adds the rivals
-              relationship (directed cp255 -> mutual cp256 -> one cp260), and two cross-cutting rules on
-              Ctx: trim the lowest off every total (cp252) and drop SINK people from every count
-              (cp258). cp261-280 is the HUB layer — a central `keel` value read by 53 concepts,
-              redefined at cp262 and cp280 so one change moves the whole battery. cp281-300 is the
-              POST-PEAK tail — keel redefined again (cp282), every gauge globally rounded (cp288), and
-              the lowest-contribution trim reversed (cp300, TRIM_BOTTOM_END). Cadence is 1:1 throughout.
+This branch runs the RESTRUCTURED EARLY-OVERLOAD stream (cp1-250, Act VI removed); the back-loaded
+canonical 300-stream and its act modules live on `main`. See docs/EARLY_OVERLOAD_DESIGN.md.
 
-Cross-cutting rules of Phase 2 on Ctx (core.py): inactive patrons (cp80), negatives as zero in
-sheet-wide totals (cp92), followers in follow figures (cp100), nearest rounding (cp160, `div`/`half`),
-missing raw numbers as zero (cp176, `raw`), tied top names listed (cp184, `top`), counts without
-momentum 0 (cp188, `headcounted`), held in full in breakdown totals (cp212) or per the sheet's choice
-(cp232, `held_mode`), totals trimmed of their highest contribution (cp220, `total`), dated grade and
-active (cp224), hold start dates (cp228, `held`), dated settings (cp236, `setting`), per-sheet hold for
-shared people (cp240), every total also trimmed of its lowest contribution (cp252, `total`), and a SINK
-person left out of every count (cp258, `headcounted`). Act IV's conversions (cp196 top-N ties, cp204 middle values, cp208 percentages,
-cp216 dense ranks) live in act4.py.
+Layout
+- core.py     the world a fixture describes, the evaluation context `Ctx`, the versioned registry,
+              and the lazy screen `View`. Its own cross-cutting rules are gated >= cp73, so they stay
+              dormant; this stream's rules activate early and live in overload.py.
+- session.py  a browser session: the stored world plus UI state, driven step by step by spec_check.
+- overload.py the whole restructured stream (cp1-250), in the canonical vocabulary. A compressed
+              spine (thrust -> momentum -> scaled -> norm, cp2-6) lets the hub `keel` stand up at cp9,
+              read by ~40 concepts (a god-sized hub from the first act). The cross-cutting rules switch
+              on EARLY (reimplemented here as helpers): every total trims its highest AND lowest from
+              cp4 (`etotal`), every divide rounds to nearest from cp8 (`ediv`), a held person leaves
+              every figure from cp12 (`eheld`), a SINK person (keel<0) leaves every count from cp16
+              (`eheadcount`), a missing raw counts as zero from cp20 (`eraw`). `keel` is redefined ten
+              times (cp9/16/32/52/60/64/100/148/200/240), each ripple wider than the last; a `patrons`
+              relationship migrates directed -> mutual at cp40. cp61-250 is the coping tail: sustained
+              load (reader tweaks, a growing battery of sheet-wide figures) on the overloaded core.
 
 Extension pattern (for an act author)
 1. Work only in your act's module. Import the decorators from `.core`:

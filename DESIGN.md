@@ -1,5 +1,8 @@
 # ui-long-degradation-test Design Notes
 
+> **Branch `early-overload-250`:** this branch restructures the stream to be **overloaded early** — a compressed spine, the hub `keel` at cp9, and the cross-cutting rules front-loaded to cp4–20 — and removes Act VI, leaving **250 checkpoints**. The back-loaded canonical 300-stream is unchanged on `main`. See [docs/EARLY_OVERLOAD_DESIGN.md](./docs/EARLY_OVERLOAD_DESIGN.md). The text below describes the canonical method, most of which still applies.
+
+
 _Originally captured 2026-09-19 as a full-stack erosion experiment with a business domain
 (clients, projects, invoices). Reframed 2026-10 to a **domain-free plasticity benchmark**. The app
 is now grown from a near-empty base by 250 plain-English change requests, each evolving schema plus

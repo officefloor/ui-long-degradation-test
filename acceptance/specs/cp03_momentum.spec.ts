@@ -1,23 +1,16 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// Concepts upon concepts. drift = gamma - alpha. momentum = thrust + 2*drift (thrust itself is a
-// concept, so momentum is a concept built on a concept). Person is { id, name, alpha, beta, gamma }.
-test.describe('drift and momentum', () => {
-  test('drift and momentum build on thrust', { tag: '@functionality' }, async ({ page }) => {
-    await resetAndSeed({
-      people: [
-        // thrust 12, drift 10-3=7,  momentum 12 + 2*7  = 26
-        { id: 1, name: 'Dana', alpha: 3, beta: 4, gamma: 10 },
-        // thrust 14, drift 5-7=-2, momentum 14 + 2*-2 = 10
-        { id: 2, name: 'Ravi', alpha: 7, beta: 2, gamma: 5 },
-      ],
-    });
+// keel: Ada None, Ben None, Cam None, Dot None
+
+test.describe('momentum', () => {
+  test('momentum', { tag: '@functionality' }, async ({ page }) => {
+    await resetAndSeed({people: [{id: 1, name: "Ada", alpha: 3, beta: 5, gamma: 4}, {id: 2, name: "Ben", alpha: 2, beta: 6, gamma: 3}, {id: 3, name: "Cam", alpha: 5, beta: 4, gamma: 9}, {id: 4, name: "Dot", alpha: 4, beta: 3, gamma: 2}, {id: 5, name: "Sid", alpha: 4, beta: 2, gamma: 0}, {id: 9, name: "Hz", alpha: 2, beta: 5, gamma: 3, hold: true}, {id: 6, name: "Moe", alpha: 2, beta: 4, gamma: null}], patrons: [{personId: 1, patronId: 2}, {personId: 1, patronId: 3}]});
     await page.goto('/');
 
-    await expect(page.getByTestId('person-row-1').getByTestId('concept-drift')).toHaveText('7');
-    await expect(page.getByTestId('person-row-1').getByTestId('concept-momentum')).toHaveText('26');
-    await expect(page.getByTestId('person-row-2').getByTestId('concept-drift')).toHaveText('-2');
-    await expect(page.getByTestId('person-row-2').getByTestId('concept-momentum')).toHaveText('10');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-momentum')).toHaveText('18');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-momentum')).toHaveText('15');
+    await expect(page.getByTestId('person-row-3').getByTestId('concept-momentum')).toHaveText('32');
+    await expect(page.getByTestId('person-row-4').getByTestId('concept-momentum')).toHaveText('6');
   });
 });
