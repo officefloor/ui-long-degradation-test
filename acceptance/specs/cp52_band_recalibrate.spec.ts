@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-//   <0 E, 0..99 D, 100..249 C, 250..499 B, >=500 A.
-// That reclassifies people (adjusted 200 was B, now C; 400 was A, now B) and rescales. Multipliers
+// Band boundaries on adjusted: below 0 is E, 0 to 99 is D, 100 to 249 is C, 250 to 499 is B, and
+// 500 or more is A. Scaled is adjusted times the band's multiplier (E 0, D 1, C 2, B 3), so an
+// adjusted of 200 is band C (scaled 400) and an adjusted of 400 is band B (scaled 1200).
 
 test.describe('band recalibrated', () => {
   test('new boundaries reclassify and rescale', { tag: '@functionality' }, async ({ page }) => {

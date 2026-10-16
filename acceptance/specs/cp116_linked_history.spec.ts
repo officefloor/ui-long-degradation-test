@@ -21,13 +21,13 @@ import { resetAndSeed } from '../support/seed';
 //
 //   now:  Ada backing 28+100=128, clout (22+100)/2=61, net 33+128=161, adjusted 161+61=222 (C)
 //         Ben backing n/a, net 22, synergy 100, adjusted 22+100=122 (C)
-//         Cy  adjusted 100 (C) ; Dot backing 28+10=38, clout (22+10)/2=16, net 10+38=48,
+//         Cy  synergy 28 (followed by Ben), adjusted 100+28=128 (C) ; Dot backing 28+10=38, clout (22+10)/2=16, net 10+38=48,
 //         adjusted 48+16=64 (D) ; Sol adjusted 10 (D)
 //         band counts C 3, D 2 (Hela, adjusted 100, is not counted)
 //   as of 2026-02-01:
 //         Ada backing 14, clout 8, net 33+14=47, adjusted 55 (D)
 //         Ben net 8, synergy 0, adjusted 8 (D)
-//         Cy  adjusted 100 (C) ; Dot backing 14+10=24 (Ben's link starts that day), clout (8+10)/2=9,
+//         Cy  adjusted 100 (C, Ben's follow not started) ; Dot backing 14+10=24 (Ben's link starts that day), clout (8+10)/2=9,
 //         net 10+24=34, adjusted 43 (D) ; Sol 10 (D)
 //         band counts C 1, D 4
 

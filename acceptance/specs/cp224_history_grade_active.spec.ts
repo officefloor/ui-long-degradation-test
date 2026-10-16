@@ -116,18 +116,20 @@ test.describe('history covers grade and active', () => {
 
     // grade MID from 2026-02-20 (before the anchor, so it counts): load 100 * 4 = 400
     await page.getByTestId('person-edit-1').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Ann');
     await page.getByTestId('person-form-grade').fill('MID');
     await page.getByTestId('person-form-effective-date').fill('2026-02-20');
     await page.getByTestId('person-form-submit').click();
-    expect(auditLines()).toContain('CHANGED id=1 field=grade from=LOW to=MID');
+    await expect.poll(() => auditLines()).toContain('CHANGED id=1 field=grade from=LOW to=MID');
     await expect(ann.getByTestId('person-grade')).toHaveText('MID');
     await expect(ann.getByTestId('concept-load')).toHaveText('400');
 
     // not active, date left blank: from the anchor 2026-03-01, which counts: effective half of 100 = 50
     await page.getByTestId('person-edit-1').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Ann');
     await page.getByTestId('person-form-active').fill('no');
     await page.getByTestId('person-form-submit').click();
-    expect(auditLines()).toContain('CHANGED id=1 field=active from=yes to=no');
+    await expect.poll(() => auditLines()).toContain('CHANGED id=1 field=active from=yes to=no');
     await expect(ann.getByTestId('person-active')).toHaveText('no');
     await expect(ann.getByTestId('concept-effective')).toHaveText('50');
     await expect(ann.getByTestId('person-history')).toHaveText('2026-03-01 active no; 2026-02-20 grade MID');

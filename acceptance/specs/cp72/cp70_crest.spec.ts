@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
+// crest = blend + flux; flux = average of the patrons' force, rounded down.
+//   blend (momentum + torque): Ada 15+33=48, Ben -1-2=-3, Dot 100+100=200
+//   flux: Ada (10+100)/2=55, Ben 0, Dot 10/1=10
+//   crest: Ada 48+55=103, Ben -3+0=-3, Dot 200+10=210
 
 test.describe('crest', () => {
   test('crest is blend plus flux', { tag: '@functionality' }, async ({ page }) => {

@@ -87,9 +87,11 @@ test.describe('links per sheet', () => {
     await page.goto('/');
     await page.getByTestId('sheet-id-input').fill('S1');
     await page.getByTestId('sheet-load').click();
+    await expect(page.getByTestId('sheet-current-id')).toHaveText('S1');
 
     // Dana alpha 8 -> thrust 32, drift 10-8 = 2, momentum 32 + 6 = 38
     await page.getByTestId('person-edit-1').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-alpha').fill('8');
     await page.getByTestId('person-form-submit').click();
     await expect(page.getByTestId('person-row-1').getByTestId('concept-net')).toHaveText('52'); // 38 + 14

@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// (was 0). Active people are unchanged. total effective follows; active count is unchanged.
+// An inactive person's effective is half of their net, rounded down to a whole number. An active
+// person's effective is their net. The total effective adds everyone's effective, and the active
+// count counts only the active people.
 
 test.describe('inactive halved', () => {
   test('inactive effective is half of net rounded down', { tag: '@functionality' }, async ({ page }) => {

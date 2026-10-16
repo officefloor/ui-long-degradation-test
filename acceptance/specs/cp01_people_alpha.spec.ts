@@ -15,7 +15,7 @@ test.describe('people with alpha', () => {
     await page.goto('/');
 
     await expect(page.getByTestId('people-table')).toBeVisible();
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(2);
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(2);
     await expect(page.getByTestId('person-row-1').getByTestId('person-name')).toHaveText('Dana');
     await expect(page.getByTestId('person-row-1').getByTestId('person-alpha')).toHaveText('3');
     await expect(page.getByTestId('person-row-2').getByTestId('person-name')).toHaveText('Ravi');
@@ -31,8 +31,8 @@ test.describe('people with alpha', () => {
     await page.getByTestId('person-form-alpha').fill('5');
     await page.getByTestId('person-form-submit').click();
 
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(1);
-    const row = page.getByTestId(/^person-row-/).first();
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(1);
+    const row = page.getByTestId(/^person-row-\d+$/).first();
     await expect(row.getByTestId('person-name')).toHaveText('Mira');
     await expect(row.getByTestId('person-alpha')).toHaveText('5');
   });

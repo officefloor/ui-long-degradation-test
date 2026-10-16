@@ -106,7 +106,9 @@ concept.
 }
 ```
 
-A share without `sheetId` puts the person onto the default (top-level) sheet.
+A share without `sheetId` puts the person onto the default (top-level) sheet. A top-level `anchor`
+is the default sheet's only: a named sheet whose test depends on dates seeds its own `anchor`
+(the reference model does not let a named sheet borrow it, since no request says it would).
 `people[].hold` (from cp73) puts a person on hold; `people[].holdFrom` (yyyy-mm-dd, from cp228) is
 the date the hold starts (absent: always on). Patron and follow rows may carry `since` (yyyy-mm-dd,
 from cp116); it is not `from`, because `follows[].from` is the follower. A `history` entry's `field`
@@ -178,6 +180,15 @@ chain.
    (`checkpoint_lint` check 9).
 9. Consistency forward. When a request changes a rule, every later request and spec that depends on
    it is updated in the same change, and the mutation's `mutates:` names them all.
+10. Deterministic for the agent. Every value a test in force asserts follows from the request
+   wording, never from a choice the model happens to make: a default a fixture leaves out is
+   stated by a request (people start active, cp29; the starting sheet holds the top-level people,
+   cp13); a test asserts no figure that rests on an unstated tie-break (spec_check reports it as
+   `<ambiguous: ...>`); a test never assumes the id of a row created through the UI (find it by
+   name); and after every action the test waits on a visible result before the next action or the
+   audit read (`expect.poll(() => auditLines())`; after `person-edit-<id>`, the name filled in the
+   form; after `sheet-load`, `sheet-current-id`; after a save that changes nothing visible on the
+   anchor, the new `person-history` entry).
 
 ## 7. Checks after each act
 
@@ -191,7 +202,10 @@ chain.
   expected value, or a mutation that missed a checkpoint it changes. Hand arithmetic in comments is
   still required, but the model is the check: a wrong oracle the app passes bends the code (run
   202610160010 added a second brace rule to match cp109's wrong tide). The agent never sees the
-  model.
+  model. A value that rests on a choice no request states (a tie with no stated tie-break) is
+  reported as a mismatch `<ambiguous: ...>`. A green run is not proof of determinism by itself:
+  when in doubt, flip an unstated choice in a scratch copy of the model and rerun; every assertion
+  that changes is a test a correct agent can fail.
 - `.venv/bin/python -m harness.probe_check --config config.yaml`. The standing rules (hold from
   cp77, settings from cp85, identity from cp105, history from cp117) hold only if their probes
   bite. Each probe is ablated the way an app ignoring the rule would read the fixture (hold

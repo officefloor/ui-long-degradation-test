@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
+// drag from blend: below 0 L0, 0..49 L1, 50..149 L2, 150 or more L3.
+//   blend (momentum + torque): Ada 15+33=48 -> L1, Ben -1-2=-3 -> L0,
+//   Dot 100+100=200 -> L3, Max 50+100=150 -> L3
 
 test.describe('drag', () => {
   test('drag classifies blend into four levels', { tag: '@functionality' }, async ({ page }) => {

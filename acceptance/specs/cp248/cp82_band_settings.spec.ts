@@ -137,6 +137,7 @@ test.describe('band settings per sheet', () => {
     await expect(page.getByTestId('person-row-1').getByTestId('concept-scaled')).toHaveText('600');
     await expect(page.getByTestId('band-count-D')).toHaveText('1'); // Sol
     await page.getByTestId('sheet-as-of-clear').click();
+    await expect(page.getByTestId('band-count-D')).toHaveText('2'); // Ann, Sol again
 
     await page.getByTestId('sheet-id-input').fill('S2');
     await page.getByTestId('sheet-load').click();

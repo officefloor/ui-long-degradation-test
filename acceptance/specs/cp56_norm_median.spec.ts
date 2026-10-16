@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// even count the median is the lower of the two middle values). That changes every norm, flips
-// outliers and the count.
+// Norm is a person's scaled minus the median of everyone's scaled. With an even number of people
+// the median is the lower of the two middle values. Outliers (|norm| > 100) and their count follow
+// from the norm.
 //   scaled sorted: 40, 60, 80, 240, 900 -> median 80
 //   norm: -40, -20, 0, 160, 820 ; outliers (|norm|>100): no,no,no,yes,yes -> count 2
 

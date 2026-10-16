@@ -106,6 +106,8 @@ function makeRecorder() {
     return make(false);
   }
   expectFn.soft = expectFn;
+  // expect.poll(() => auditLines()) retries the read; traced as the read itself
+  expectFn.poll = (fn) => expectFn(fn());
 
   return { events, page, expect: expectFn };
 }
@@ -131,7 +133,10 @@ async function traceSpec(path) {
   // eslint-disable-next-line no-new-func
   const run = new Function('test', 'expect', 'resetAndSeed', 'auditLines', body);
   let seedHook = null;
-  run(test, (...a) => seedHook.expect(...a), (fx) => seedHook.seed(fx), auditLines);
+  const expectProxy = (...a) => seedHook.expect(...a);
+  expectProxy.soft = (...a) => seedHook.expect(...a);
+  expectProxy.poll = (...a) => seedHook.expect.poll(...a);
+  run(test, expectProxy, (fx) => seedHook.seed(fx), auditLines);
   const out = [];
   for (const t of tests) {
     const rec = makeRecorder();

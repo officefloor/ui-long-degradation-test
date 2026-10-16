@@ -18,15 +18,15 @@ test.describe('state per sheet', () => {
     await resetAndSeed({
       anchor: '2026-03-01',
       sheets: [
-        { id: 'S1', settings: { bandMultipliers: { A: 4, B: 3, C: 2, D: 2, E: 0 } }, people: [
+        { id: 'S1', anchor: '2026-03-01', settings: { bandMultipliers: { A: 4, B: 3, C: 2, D: 2, E: 0 } }, people: [
           { id: 1, name: 'Dana', alpha: 5,  beta: 20, gamma: 5,  active: true, state: 'FINAL' },              // momentum 100, band C, scaled 200
           { id: 2, name: 'Ravi', alpha: 7,  beta: 2,  gamma: 5,  active: true, state: 'FINAL' },              // momentum 8, band D, scaled 16
           { id: 9, name: 'Hela', alpha: 5,  beta: 15, gamma: 5,  active: true, state: 'FINAL', hold: true },  // momentum 75, band D, scaled 150, held
         ] },
-        { id: 'S2', people: [
+        { id: 'S2', anchor: '2026-03-01', people: [
           { id: 1, name: 'Kai', alpha: 2, beta: 3, gamma: 5, active: true, state: 'FINAL' },                  // momentum 15, band D, scaled 15
         ] },
-        { id: 'S3', people: [] },
+        { id: 'S3', anchor: '2026-03-01', people: [] },
       ],
       shares: [
         { sheetId: 'S2', personId: 5, fromSheetId: 'S1', fromPersonId: 1, state: 'REVIEW' }, // Dana on S2 as 5
@@ -53,9 +53,11 @@ test.describe('state per sheet', () => {
     await expect(page.getByTestId('rollup-final-total')).toHaveText('91');
     // a change dated after the anchor does not count yet: Ravi's beta 20 from 2026-04-01 leaves 91
     await page.getByTestId('person-edit-2').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Ravi');
     await page.getByTestId('person-form-beta').fill('20');
     await page.getByTestId('person-form-effective-date').fill('2026-04-01');
     await page.getByTestId('person-form-submit').click();
+    await expect(page.getByTestId('person-row-2').getByTestId('person-history')).toContainText('2026-04-01 beta 20');
     await expect(page.getByTestId('rollup-final-total')).toHaveText('91');
     // as of 2026-05-01 Ravi's beta 20 counts: momentum 7*20 + 3*(5-7) = 134, band C, scaled 268;
     // 200 + 268 + 75 = 543, Ravi's 268 left out -> 275
@@ -63,6 +65,7 @@ test.describe('state per sheet', () => {
     await page.getByTestId('sheet-as-of-apply').click();
     await expect(page.getByTestId('rollup-final-total')).toHaveText('275');
     await page.getByTestId('sheet-as-of-clear').click();
+    await expect(page.getByTestId('rollup-final-total')).toHaveText('91');
 
     await page.getByTestId('person-rework-1').click();
     await expect(page.getByTestId('person-row-1').getByTestId('person-state')).toHaveText('REWORK');
@@ -87,22 +90,23 @@ test.describe('state per sheet', () => {
     await resetAndSeed({
       anchor: '2026-03-01',
       sheets: [
-        { id: 'S1', settings: { bandMultipliers: { A: 4, B: 3, C: 2, D: 2, E: 0 } }, people: [
+        { id: 'S1', anchor: '2026-03-01', settings: { bandMultipliers: { A: 4, B: 3, C: 2, D: 2, E: 0 } }, people: [
           { id: 1, name: 'Dana', alpha: 5,  beta: 20, gamma: 5,  active: true, state: 'FINAL' },              // scaled 200
           { id: 9, name: 'Hela', alpha: 5,  beta: 15, gamma: 5,  active: true, state: 'FINAL', hold: true },  // scaled 150, held
         ] },
-        { id: 'S2', people: [] },
+        { id: 'S2', anchor: '2026-03-01', people: [] },
       ],
     });
     await page.goto('/');
     await page.getByTestId('sheet-id-input').fill('S2');
     await page.getByTestId('sheet-load').click();
+    await expect(page.getByTestId('sheet-current-id')).toHaveText('S2');
 
     await page.getByTestId('person-share-select').selectOption({ label: 'S1: Dana' });
     await page.getByTestId('person-share-add').click();
 
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(1);
-    const dana = page.getByTestId(/^person-row-/).first();
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(1);
+    const dana = page.getByTestId(/^person-row-\d+$/).first();
     await expect(dana.getByTestId('person-name')).toHaveText('Dana');
     await expect(dana.getByTestId('person-state')).toHaveText('DRAFT');
 
@@ -117,9 +121,11 @@ test.describe('state per sheet', () => {
     await expect(page.getByTestId('rollup-final-total')).toHaveText('75');
     // a change dated after the anchor does not count yet: Hela's beta 30 from 2026-04-01 leaves 75
     await page.getByTestId('person-edit-9').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Hela');
     await page.getByTestId('person-form-beta').fill('30');
     await page.getByTestId('person-form-effective-date').fill('2026-04-01');
     await page.getByTestId('person-form-submit').click();
+    await expect(page.getByTestId('person-row-9').getByTestId('person-history')).toContainText('2026-04-01 beta 30');
     await expect(page.getByTestId('rollup-final-total')).toHaveText('75');
     // as of 2026-05-01 Hela's beta 30 counts: momentum 150, band C, scaled 300, half 150;
     // 200 + 150 = 350, Dana's 200 left out -> 150

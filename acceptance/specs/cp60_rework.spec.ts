@@ -18,8 +18,7 @@ test.describe('rework state', () => {
     await page.getByTestId('person-advance-1').click();
     await expect(page.getByTestId('person-row-1').getByTestId('person-state')).toHaveText('FINAL');
 
-    const lines = auditLines();
-    expect(lines).toContain('STATE_CHANGED id=1 from=FINAL to=REWORK');
-    expect(lines).toContain('STATE_CHANGED id=1 from=REWORK to=FINAL');
+    await expect.poll(() => auditLines()).toContain('STATE_CHANGED id=1 from=FINAL to=REWORK');
+    await expect.poll(() => auditLines()).toContain('STATE_CHANGED id=1 from=REWORK to=FINAL');
   });
 });

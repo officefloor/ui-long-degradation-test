@@ -7,8 +7,9 @@ test.describe('global rank', () => {
     // Hela is on hold and in no group: left out of sheet-wide figures, counted at half in totals.
     // Her scaled is 2400 (thrust 600, drift 0, band A x4); counted, she would push everyone down
     // one place. She shows n/a for her own rank.
-    // Sol is shared from sheet S9 and in no group: counted here like anyone (scaled 50, ranked 5th:
-    // Eli 300, Bea 120, Ann 100, Cal 60, Sol 50, Dot 40, Fia 30)
+    // Sol is shared from sheet S9 and in no group: counted here like anyone (scaled 50, ranked 5th).
+    // Scaled (adjusted * band multiplier): Eli 300*3 = 900, Bea 120*2 = 240, Ann 100*2 = 200,
+    // Cal 60, Sol 50, Dot 40, Fia 30 (band D x1)
     await resetAndSeed({
       sheets: [
         { id: 'S9', people: [{ id: 1, name: 'Sol', alpha: 5, beta: 10, gamma: 5, active: true }] },
@@ -42,7 +43,8 @@ test.describe('global rank', () => {
   // (0..99) => *1 => scaled 60 each. Global rank is highest scaled first, and the scaled tie
   // breaks by name => Ann 1st, Zed 2nd (earlier name wins over the lower person id).
   // Hela is on hold and in no group: left out of sheet-wide figures, counted at half in totals.
-  // Her scaled is 200 (thrust 100, drift 0, band C x2); counted, Ann would be 2nd and Zed 3rd.
+  // Her scaled is 200 (thrust 100, drift 0, band C x2); counted, she would be 1st, Ann 2nd, Sol 3rd
+  // and Zed 4th.
   test('global rank breaks ties by name', { tag: '@functionality' }, async ({ page }) => {
     // Sol is shared from sheet S9: counted here like anyone; his scaled 60 ties too, so Ann 1, Sol 2, Zed 3
     await resetAndSeed({

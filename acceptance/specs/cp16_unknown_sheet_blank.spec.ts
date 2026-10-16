@@ -17,6 +17,6 @@ test.describe('unknown sheet starts blank', () => {
     await page.getByTestId('person-form-beta').fill('1');
     await page.getByTestId('person-form-gamma').fill('1');
     await page.getByTestId('person-form-submit').click();
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(1);
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(1);
   });
 });

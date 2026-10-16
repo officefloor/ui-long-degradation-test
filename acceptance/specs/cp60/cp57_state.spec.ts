@@ -2,8 +2,9 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 import { auditLines } from '../support/audit';
 
-// audit are unchanged. FINAL is no longer terminal: there is no forward advance, but a rework
-// control is now present (cp57 had asserted it did not exist).
+// State workflow: each person starts at DRAFT and moves forward DRAFT -> REVIEW -> FINAL via
+// `person-advance-<id>`, each change writing STATE_CHANGED id=<id> from=<old> to=<new>. At FINAL
+// there is no forward advance, but a rework control is present.
 test.describe('state workflow', () => {
   test('advances DRAFT -> REVIEW -> FINAL with audit; FINAL offers rework', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -22,8 +23,7 @@ test.describe('state workflow', () => {
     await expect(page.getByTestId('person-advance-1')).toBeHidden();
     await expect(page.getByTestId('person-rework-1')).toBeVisible();
 
-    const lines = auditLines();
-    expect(lines).toContain('STATE_CHANGED id=1 from=DRAFT to=REVIEW');
-    expect(lines).toContain('STATE_CHANGED id=1 from=REVIEW to=FINAL');
+    await expect.poll(() => auditLines()).toContain('STATE_CHANGED id=1 from=DRAFT to=REVIEW');
+    await expect.poll(() => auditLines()).toContain('STATE_CHANGED id=1 from=REVIEW to=FINAL');
   });
 });

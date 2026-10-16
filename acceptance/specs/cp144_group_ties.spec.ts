@@ -22,12 +22,13 @@ test.describe('ties inside groups', () => {
       ],
       groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }],
       people: [
-        { id: 1, name: 'Ann', alpha: 4, beta: 25, gamma: 4, active: true, state: 'REVIEW', groupId: 1 },
-        { id: 2, name: 'Bob', alpha: 5, beta: 20, gamma: 5, active: true, state: 'REVIEW', groupId: 1 },
-        { id: 3, name: 'Cyd', alpha: 2, beta: 10, gamma: 2, active: true, state: 'REVIEW', groupId: 1 },
-        { id: 4, name: 'Eve', alpha: 5, beta: 8,  gamma: 5, active: true, state: 'REVIEW', groupId: 2 },
-        { id: 5, name: 'Dan', alpha: 5, beta: 8,  gamma: 5, active: true, state: 'REVIEW', groupId: 2 },
+        { id: 1, name: 'Ann', alpha: 4, beta: 25, gamma: 4, active: true, state: 'REVIEW' },
+        { id: 2, name: 'Bob', alpha: 5, beta: 20, gamma: 5, active: true, state: 'REVIEW' },
+        { id: 3, name: 'Cyd', alpha: 2, beta: 10, gamma: 2, active: true, state: 'REVIEW' },
+        { id: 4, name: 'Eve', alpha: 5, beta: 8,  gamma: 5, active: true, state: 'REVIEW' },
+        { id: 5, name: 'Dan', alpha: 5, beta: 8,  gamma: 5, active: true, state: 'REVIEW' },
       ],
+      memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 1 }, { personId: 4, groupId: 2 }, { personId: 5, groupId: 2 }],
     });
     await page.goto('/');
 

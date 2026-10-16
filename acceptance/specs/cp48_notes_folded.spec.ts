@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // Each person has a single whole-number score, shown in `person-score` (empty when none). note-sum
-// is now the score; quality is the score; no score
-// is still 'n/a' quality. adjusted = combined + quality follows.
+// is the score (0 with no score), and quality is the score ('n/a' with no score). adjusted is
+// combined plus quality, counting an 'n/a' quality as 0.
 //   Dana score 42 -> note-sum 42, quality 42, adjusted 33+42=75
 //   Ravi score 5  -> note-sum 5,  quality 5,  adjusted 8+5=13
 //   Uma no score   -> note-sum 0,  quality n/a, adjusted 100+0=100

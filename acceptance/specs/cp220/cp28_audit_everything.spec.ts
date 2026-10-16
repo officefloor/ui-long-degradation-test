@@ -39,6 +39,7 @@ test.describe('audit everything', () => {
     await page.goto('/');
 
     await page.getByTestId('person-edit-1').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-alpha').fill('8');
     await page.getByTestId('person-form-beta').fill('5');
     await page.getByTestId('person-form-gamma').fill('10');
@@ -54,10 +55,10 @@ test.describe('audit everything', () => {
     // rollup-total-load: Dana 230 + Ravi 88 + Hela 13 (half of 25) + Sol 10 = 341; leave out the highest contribution, Dana's 230 -> 111
     await expect(page.getByTestId('rollup-total-load')).toHaveText('111');
 
-    expect(auditLines()).toContain('CHANGED id=1 field=alpha from=3 to=8');
-    expect(auditLines()).toContain('CHANGED id=1 field=beta from=4 to=5');
-    expect(auditLines()).toContain('CHANGED id=1 field=grade from=LOW to=HIGH');
-    expect(auditLines()).toContain('CHANGED id=1 field=onset from=2026-02-01 to=2026-02-15');
+    await expect.poll(() => auditLines()).toContain('CHANGED id=1 field=alpha from=3 to=8');
+    await expect.poll(() => auditLines()).toContain('CHANGED id=1 field=beta from=4 to=5');
+    await expect.poll(() => auditLines()).toContain('CHANGED id=1 field=grade from=LOW to=HIGH');
+    await expect.poll(() => auditLines()).toContain('CHANGED id=1 field=onset from=2026-02-01 to=2026-02-15');
     // gamma was saved unchanged: no line for it; alpha has no separate alpha line
     expect(auditLines()).not.toContain('CHANGED id=1 field=gamma from=10 to=10');
     expect(auditLines()).not.toContain('ALPHA_CHANGED id=1 from=3 to=8');
@@ -76,6 +77,7 @@ test.describe('audit everything', () => {
     await expect(page.getByTestId('person-row-2').getByTestId('concept-age')).toHaveText('n/a');
 
     await page.getByTestId('person-edit-2').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Ravi');
     await page.getByTestId('person-form-name').fill('Rafa');
     await page.getByTestId('person-form-onset').fill('2026-02-22');
     await page.getByTestId('person-form-submit').click();
@@ -85,7 +87,7 @@ test.describe('audit everything', () => {
     await expect(page.getByTestId('person-row-2').getByTestId('concept-age')).toHaveText('7');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-decay')).toHaveText('15');
 
-    expect(auditLines()).toContain('CHANGED id=2 field=name from=Ravi to=Rafa');
-    expect(auditLines()).toContain('CHANGED id=2 field=onset from= to=2026-02-22');
+    await expect.poll(() => auditLines()).toContain('CHANGED id=2 field=name from=Ravi to=Rafa');
+    await expect.poll(() => auditLines()).toContain('CHANGED id=2 field=onset from= to=2026-02-22');
   });
 });

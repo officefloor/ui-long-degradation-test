@@ -15,6 +15,7 @@ test.describe('alpha change audit', () => {
     await expect(page.getByTestId('person-row-1').getByTestId('concept-thrust')).toHaveText('12');
 
     await page.getByTestId('person-edit-1').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-alpha').fill('8');
     await page.getByTestId('person-form-submit').click();
 
@@ -23,6 +24,6 @@ test.describe('alpha change audit', () => {
     await expect(page.getByTestId('person-row-1').getByTestId('concept-thrust')).toHaveText('32');
     await expect(page.getByTestId('person-row-1').getByTestId('concept-momentum')).toHaveText('38');
 
-    expect(auditLines()).toContain('ALPHA_CHANGED id=1 from=3 to=8');
+    await expect.poll(() => auditLines()).toContain('ALPHA_CHANGED id=1 from=3 to=8');
   });
 });

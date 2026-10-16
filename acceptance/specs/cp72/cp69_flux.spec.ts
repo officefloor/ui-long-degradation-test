@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
+// flux = average of the patrons' force, rounded down (0 if no patrons).
+//   force: Ada 3*4=12, Ben 5*2=10, Dot 5*20=100
+//   Ada patrons Ben, Dot -> (10+100)/2 = 55; Ben none -> 0; Dot patron Ben -> 10/1 = 10
 
 test.describe('flux', () => {
   test('flux averages the patrons force', { tag: '@functionality' }, async ({ page }) => {

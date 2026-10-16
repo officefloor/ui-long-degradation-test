@@ -105,8 +105,9 @@ checkpoints:
     area: status
     test: acceptance/specs/cp07_alpha_change_audit.spec.ts
     request: |
-      Let me change a person's alpha after I have added them. Every time alpha changes, keep a record
-      of it so I can check back later what it was before and what it became.
+      Let me change a person's alpha after I have added them. Opening a person to change them shows
+      the form with their current values filled in. Every time alpha changes, keep a record of it so I
+      can check back later what it was before and what it became.
 
   - id: cp08_tier_recalibrate
     type: mutative
@@ -160,7 +161,8 @@ checkpoints:
     test: acceptance/specs/cp13_worksheet_id.spec.ts
     request: |
       I work on several separate sheets of people. Let me type a name for the sheet I am working on
-      and show me which sheet is currently open. The people I add belong to the open sheet.
+      and show me which sheet is currently open. The people I add belong to the open sheet. Until I
+      open a sheet by name I am on a starting sheet, which keeps the people I already have.
 
   - id: cp14_worksheet_recall
     type: additive
@@ -168,7 +170,8 @@ checkpoints:
     test: acceptance/specs/cp14_worksheet_recall.spec.ts
     request: |
       When I come back later and open a sheet by its name, I want to see the people and all their
-      numbers and values exactly as I left them, even after the page has been refreshed.
+      numbers and values exactly as I left them, even after the page has been refreshed. If I open a
+      name that has no sheet yet, tell me it is missing.
 
   - id: cp15_worksheet_isolation
     type: additive
@@ -304,7 +307,8 @@ checkpoints:
     area: entity
     test: acceptance/specs/cp29_active.spec.ts
     request: |
-      Let me mark each person as active or not active. Show whether each person is active.
+      Let me mark each person as active or not active. Show whether each person is active. Everyone
+      starts out active: a person is active until I mark them not active.
 
   - id: cp30_effective
     type: additive
@@ -400,8 +404,8 @@ checkpoints:
     request: |
       People can belong to more than one region now, not just one. Let me give a person several
       regions. Reach should be the sum, over each of the person's regions, of their momentum times
-      that region's multiplier. The per-region counts should count a person once in every region they
-      belong to.
+      that region's multiplier, so a person in no region has a reach of 0. The per-region counts
+      should count a person once in every region they belong to.
 
   # ---- Cycle 11 (cp41-44): a many-to-many relationship, then made directional ----------------------
   - id: cp41_allies
@@ -766,8 +770,9 @@ checkpoints:
       A patron who is not active should no longer count towards anyone's figures that are worked out
       from their patrons. Leave inactive patrons out of backing, clout and flux, and out of every
       figure worked out from a person's patrons that I ask for later. Clout and flux average over
-      only the patrons who are active (and not on hold). If none of a person's patrons is active,
-      treat them as having no patrons. Inactive patrons are still listed among a person's patrons,
+      only the patrons who are active (and not on hold). If none of a person's patrons counts (each
+      is inactive or on hold), treat them as having no patrons. A person I have never marked counts
+      as active. Inactive patrons are still listed among a person's patrons,
       and an inactive person's own figures are still worked out from their own patrons as usual.
 
   # ---- Cycle 6 (cp81-84): constants become settings ------------------------------------------------
@@ -1173,8 +1178,8 @@ checkpoints:
     retires: ['cp117_flow.spec.ts::flow is yield plus charge plus tide']
     test: acceptance/specs/cp120_flow_drop_tide.spec.ts
     request: |
-      Flow is counting tide twice over through charge. Drop tide from it — flow should now be just
-      yield plus charge.
+      Flow should no longer include tide. Drop tide from it — flow should now be just yield plus
+      charge.
 
   - id: cp121_groups
     type: additive
@@ -1325,7 +1330,7 @@ checkpoints:
   - id: cp140_membership_many
     type: mutative
     area: relation
-    mutates: [121, 122, 123, 125, 126, 127, 129, 130, 131, 132, 133, 134, 135, 137, 138, 139]
+    mutates: [121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139]
     keeps_anchors: [group-name, group-concept-cohesion, concept-share, concept-belonging, concept-tether,
                     rollup-biggest-group, concept-weave, concept-mesh]
     retires: ['cp121_groups.spec.ts::people belong to one named group', 'cp121_groups.spec.ts::each person shows their group', 'cp122_group_strength.spec.ts::strength sums members\'' effective', 'cp125_group_cohesion.spec.ts::cohesion is strength over size', 'cp127_group_apex.spec.ts::apex names the top-scaled member', 'cp129_share.spec.ts::share rounds to nearest', 'cp130_standing.spec.ts::standing ranks within the group', 'cp131_belonging.spec.ts::belonging is strength minus scaled', 'cp132_share_nearest.spec.ts::share rounds to nearest', 'cp134_tether.spec.ts::tether is scaled minus cohesion', 'cp135_biggest_group.spec.ts::names the strongest group', 'cp137_anchorage.spec.ts::anchorage counts the person\''s groups', 'cp138_weave.spec.ts::weave is scaled plus cohesion', 'cp139_mesh.spec.ts::mesh is scaled times size']
@@ -1431,8 +1436,9 @@ checkpoints:
       parent group by name, or nothing for a group that has none. A parent group's figures include
       the members of every group inside it, at any depth, as well as its own members, and each person
       counts once even if they are in several of those groups. A person still belongs only to the
-      groups they were put in: the groups shown for them, their home group, how many groups they are
-      in and their own figures from their groups are unchanged. Figures across all groups, like the
+      groups they were put in: the groups shown for them, their home group and how many groups they
+      are in are unchanged. Their own figures that compare them with a group use that group's
+      figures, which now include the members of the groups inside it. Figures across all groups, like the
       total strength, the strongest group and the group ranks, take each group's own figures, so a
       member of a group inside another counts in both.
   - id: cp153_headroom
@@ -1475,7 +1481,8 @@ checkpoints:
     algorithm: median-strength
     test: acceptance/specs/cp158_median_strength.spec.ts
     request: |
-        Show me the median strength across the groups (the middle value).
+        Show me the median strength across the groups (the middle value; with an even number of
+        groups, the lower of the two middle values).
   - id: cp159_vigor
     type: additive
     area: calc
@@ -1618,8 +1625,8 @@ checkpoints:
       delta, epsilon, zeta or score, every figure works it out as if that number were 0, so no figure
       shows n/a just because one of these numbers is missing. The number's own cell on the person's row
       still shows it as missing, as it does now. Everything else that shows n/a for another reason
-      stays as it is: a person with no patrons still has n/a for backing, a person with no grade, kind,
-      onset or region still has n/a for the figures that need it, a person on hold still shows n/a for
+      stays as it is: a person with no patrons still has n/a for backing, a person with no grade, kind or
+      onset still has n/a for the figures that need it, a person in no region still has a reach of 0, a person on hold still shows n/a for
       their rank and percentile, a person in no group still has n/a for the figures that need their
       group, and a figure that would divide by zero still shows n/a.
   - id: cp177_reach_span
@@ -1659,7 +1666,7 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp181_apexname.spec.ts
     request: |
-      Across the sheet, show me the name of the person with the highest value, and the name of the second highest. If two people are level, use the one whose name comes first alphabetically.
+      By a person's value I mean their scaled, here and from now on. Across the sheet, show me the name of the person with the highest value, and the name of the second highest. If two people are level, use the one whose name comes first alphabetically.
   - id: cp182_gapval
     type: additive
     area: calc
@@ -1941,7 +1948,7 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp215_coverage_share.spec.ts
     request: |
-      Show me what percent of the sheet is covered, as a whole number rounded down.
+      Show me what percent of the people on the sheet have a value of at least one hundred, as a whole number rounded down.
   - id: cp216_dense_ranks
     type: mutative
     area: calc
@@ -2110,7 +2117,7 @@ checkpoints:
     area: persist
     test: acceptance/specs/cp233_report_screen.spec.ts
     request: |
-      Give me a separate report screen that shows the grand total and the number of people, matching the worksheet.
+      On the worksheet, add a report panel that shows the grand total and the number of people, matching the worksheet's own figures.
   - id: cp234_report_mean
     type: additive
     area: calc

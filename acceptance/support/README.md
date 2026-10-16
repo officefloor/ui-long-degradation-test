@@ -46,7 +46,8 @@ The worksheet is the single screen. Everything is scoped to one worksheet at a t
 - form fields                      `person-form-<attr>`  e.g. `person-form-name`, `person-form-alpha`
 - form submit                      `person-form-submit`
 - field error                      `person-form-<attr>-error`
-- open a person's editor           `person-edit-<id>`  (then reuse `person-form-*` + submit)
+- open a person's editor           `person-edit-<id>`  (fills `person-form-*` with that person's current
+                                   values; then change fields + submit)
 
 ### Worksheet rollups (concepts over all people)
 - `rollup-<name>`                  e.g. `rollup-total-thrust`, `rollup-leader`

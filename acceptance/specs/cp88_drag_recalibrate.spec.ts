@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// L2 (50..149), L3 (>=150). Multipliers unchanged. The blend-150 person moves L2 -> L3.
+// drag from blend: L0 (below 0), L1 (0..49), L2 (50..149), L3 (>=150). Multipliers unchanged. The blend-150 person moves L2 -> L3.
 //   drag: Ada 48 L1, Ben -3 L0, Dot 200 L3, Max 150 L3
 //   lift: Ada 48, Ben 0, Dot 600, Max 150*3=450 ; counts L0 1, L1 1, L2 0, L3 2
 // Hela is on hold: left out of sheet-wide figures, so of the counts too.

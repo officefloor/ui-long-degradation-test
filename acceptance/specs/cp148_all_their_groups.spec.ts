@@ -11,7 +11,7 @@ import { resetAndSeed } from '../support/seed';
 //   Able: Ann, Bob       -> strength 160, size 2, cohesion 80
 //   Bold: Ann, Cyd, Dee  -> strength 280, size 3, cohesion 280/3 = 93
 // Ann, in Able and Bold:
-//   share     300*100/160 = 187.5 -> 187 ; 300*100/280 = 107.1 -> 107 ; average (187+107)/2 = 147
+//   share     300*100/160 = 187.5 -> 188 (to nearest) ; 300*100/280 = 107.1 -> 107 ; average (188+107)/2 = 147.5 -> 147
 //   standing  1 in Able ; 2 in Bold (Cyd 450 first)              ; (1+2)/2 = 1.5 -> 1
 //   belonging 160-300 = -140 ; 280-300 = -20                     ; (-140-20)/2 = -80
 //   tether    300-80 = 220 ; 300-93 = 207                        ; 427/2 = 213

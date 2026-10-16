@@ -88,8 +88,8 @@ test.describe('breakdown totals count a held person in full', () => {
     await expect(page.getByTestId('ledger-region-N')).toHaveText('1853');
     await expect(page.getByTestId('rollup-ledger')).toHaveText('1977');
     await page.getByTestId('person-hold-9').click();
-    await expect(page.getByTestId('ledger-region-N')).toHaveText('1853');
     await expect(page.getByTestId('rollup-ledger')).toHaveText('2353');
+    await expect(page.getByTestId('ledger-region-N')).toHaveText('1853');
     await expect(page.getByTestId('region-tally-N')).toHaveText('3');
   });
 });

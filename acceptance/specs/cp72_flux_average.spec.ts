@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// (0 if none). crest = blend + flux follows. top crest is still Dot.
+// flux = average of the patrons' force, rounded down (0 if no patrons). crest = blend + flux.
+//   force: Ada 3*4=12, Ben 5*2=10, Dot 5*20=100, Rix 1*1=1
+//   blend (momentum + torque): Ada 15+33=48, Ben -1-2=-3, Dot 100+100=200
 //   flux: Ada (10+100)/2=55, Ben 0, Dot 10/1=10
 //   crest: Ada 48+55=103, Ben -3, Dot 200+10=210
 //   Rix patrons Ada/Ben/Dot force 12/10/100 -> flux (12+10+100)/3 = 122/3 = 40.67 -> floor 40

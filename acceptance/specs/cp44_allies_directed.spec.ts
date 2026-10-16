@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// to `follows: [{ from, to }]` (allies[] is gone). A person's allies are now only the people they
-// follow; synergy sums only the followed people's thrust; combined follows.
+// Allies are one-directional: the seed gives who follows whom as `follows: [{ from, to }]`. A
+// person's allies are only the people they follow, and synergy sums only the followed people's
+// thrust. Combined is influence plus synergy.
 //   follows: Dana->Ravi, Dana->Uma, Uma->Dana
 //   allies(followed): Dana [Ravi,Uma], Ravi [], Uma [Dana]
 //   synergy: Dana 14+100=114, Ravi 0, Uma 12

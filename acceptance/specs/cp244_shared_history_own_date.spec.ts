@@ -43,6 +43,7 @@ test.describe('shared history, each sheet on its own date', () => {
 
     // a change made on S2 is shared: gamma 20 from 2026-01-20, before both anchors
     await page.getByTestId('person-edit-5').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-gamma').fill('20');
     await page.getByTestId('person-form-effective-date').fill('2026-01-20');
     await page.getByTestId('person-form-submit').click();

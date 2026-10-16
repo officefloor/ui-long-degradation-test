@@ -101,17 +101,22 @@ test.describe('dated settings', () => {
     await expect(ann.getByTestId('concept-load')).toHaveText('900');
     await expect(page.getByTestId('rollup-total-load')).toHaveText('210');
 
-    // HIGH 7 with no date changes the sheet's own value, but the dated 9 still counts on the anchor
+    // HIGH 7 and LOW 2 with no date change the sheet's own values: LOW 2 counts at once (Ben 50 * 2
+    // = 100), but the dated HIGH 9 still counts on the anchor (Ann 900);
+    // 900, 100, Cyd 80, Sol 60, Hela 180 at half (90): 1230 - 900 -> 330
     await page.getByTestId('sheet-setting-weight-HIGH').fill('7');
+    await page.getByTestId('sheet-setting-weight-LOW').fill('2');
     await page.getByTestId('sheet-settings-save').click();
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-load')).toHaveText('100');
     await expect(ann.getByTestId('concept-load')).toHaveText('900');
+    await expect(page.getByTestId('rollup-total-load')).toHaveText('330');
 
     // as of 2026-02-01, before the dated change: the sheet's own 7 -> Ann 700
     await page.getByTestId('sheet-as-of').fill('2026-02-01');
     await page.getByTestId('sheet-as-of-apply').click();
     await expect(page.getByTestId('sheet-setting-weight-HIGH')).toHaveValue('7');
     await expect(ann.getByTestId('concept-load')).toHaveText('700');
-    // 700, 50, 40, Sol 30, Hela 140 at half (70): 890 - 700 -> 190
-    await expect(page.getByTestId('rollup-total-load')).toHaveText('190');
+    // 700, Ben 100, Cyd 80, Sol 60, Hela 140 at half (70): 1010 - 700 -> 310
+    await expect(page.getByTestId('rollup-total-load')).toHaveText('310');
   });
 });

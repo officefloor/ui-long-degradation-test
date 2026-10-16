@@ -6,6 +6,7 @@ test.describe('region tally', () => {
     // Hela is on hold: she still shows on the list, but is left out of sheet-wide figures (counted at half in totals).
     // Sol is shared from sheet S9, where she is in region S2: counted here like anyone (momentum 30).
     // S2 holds Cam, Dot and Sol; Hela is in S2 but on hold, so she is not counted -> 3.
+    // N1 (Ada) and N2 (Ben) are different regions though they share a first letter: 1 each.
     await resetAndSeed({
       sheets: [
         { id: 'S9', people: [
@@ -25,7 +26,7 @@ test.describe('region tally', () => {
       ],
       regions: [
         { personId: 1, region: 'N1' },
-        { personId: 2, region: 'N1' },
+        { personId: 2, region: 'N2' },
         { personId: 3, region: 'S2' },
         { personId: 4, region: 'S2' },
         { personId: 5, region: 'E3' },
@@ -35,7 +36,8 @@ test.describe('region tally', () => {
       ],
     });
     await page.goto('/');
-    await expect(page.getByTestId('region-tally-N1')).toHaveText('2');
+    await expect(page.getByTestId('region-tally-N1')).toHaveText('1');
+    await expect(page.getByTestId('region-tally-N2')).toHaveText('1');
     await expect(page.getByTestId('region-tally-S2')).toHaveText('3');
     await expect(page.getByTestId('region-tally-E3')).toHaveText('3');
   });

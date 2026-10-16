@@ -26,6 +26,7 @@ test.describe('raw history', () => {
 
     // alpha 9 from 2026-02-01: alpha 9 -> thrust 9*4=36, drift 10-9=1, momentum 36 + 3*1 = 39
     await page.getByTestId('person-edit-1').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-alpha').fill('9');
     await page.getByTestId('person-form-effective-date').fill('2026-02-01');
     await page.getByTestId('person-form-submit').click();
@@ -36,6 +37,7 @@ test.describe('raw history', () => {
     // on or before the anchor, so alpha stays 9 and momentum stays 39 (taking the last one typed would
     // give 5*4 + 3*5 = 35)
     await page.getByTestId('person-edit-1').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-alpha').fill('5');
     await page.getByTestId('person-form-effective-date').fill('2026-01-10');
     await page.getByTestId('person-form-submit').click();
@@ -46,6 +48,7 @@ test.describe('raw history', () => {
     // beta 6 with the date left blank takes effect on the anchor 2026-03-01, which counts:
     // thrust 9*6=54, drift 1, momentum 54 + 3 = 57
     await page.getByTestId('person-edit-1').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-beta').fill('6');
     await page.getByTestId('person-form-submit').click();
     await expect(dana.getByTestId('person-beta')).toHaveText('6');
@@ -54,6 +57,7 @@ test.describe('raw history', () => {
 
     // gamma 20 from 2026-04-01 is after the anchor: listed, but gamma stays 10 and momentum stays 57
     await page.getByTestId('person-edit-1').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-gamma').fill('20');
     await page.getByTestId('person-form-effective-date').fill('2026-04-01');
     await page.getByTestId('person-form-submit').click();

@@ -77,7 +77,7 @@ class Session:
     # -- reading
     def ctx(self, as_of: str | None = ...) -> Ctx:
         return Ctx(self.world, self.k, self.sheet, self.as_of if as_of is ... else as_of,
-                   self.registry, dict(self.flags, form=self.form))
+                   self.registry, dict(self.flags, form=self.form, editing=self.editing))
 
     def view(self) -> View:
         return View(self.ctx())

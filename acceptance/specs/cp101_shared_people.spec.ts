@@ -33,8 +33,8 @@ test.describe('shared people', () => {
     await page.getByTestId('person-share-add').click();
 
     // Uma, Hela and now Ravi
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(3);
-    const ravi = page.getByTestId(/^person-row-/)
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(3);
+    const ravi = page.getByTestId(/^person-row-\d+$/)
       .filter({ has: page.getByTestId('person-name').getByText('Ravi', { exact: true }) });
     await expect(ravi.getByTestId('person-alpha')).toHaveText('7');
     await expect(ravi.getByTestId('concept-momentum')).toHaveText('8');
@@ -45,13 +45,14 @@ test.describe('shared people', () => {
     // editing Ravi here edits the one Ravi: alpha 4 -> thrust 8, drift 5-4 = 1, momentum 8 + 3 = 11
     const rowId = (await ravi.getAttribute('data-testid'))!.replace('person-row-', '');
     await page.getByTestId(`person-edit-${rowId}`).click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Ravi');
     await page.getByTestId('person-form-alpha').fill('4');
     await page.getByTestId('person-form-submit').click();
     await expect(ravi.getByTestId('concept-momentum')).toHaveText('11');
 
     await page.getByTestId('sheet-id-input').fill('S1');
     await page.getByTestId('sheet-load').click();
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(2);
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(2);
     await expect(page.getByTestId('person-row-2').getByTestId('person-name')).toHaveText('Ravi');
     await expect(page.getByTestId('person-row-2').getByTestId('person-alpha')).toHaveText('4');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-momentum')).toHaveText('11');
@@ -75,13 +76,14 @@ test.describe('shared people', () => {
     await page.getByTestId('sheet-id-input').fill('S2');
     await page.getByTestId('sheet-load').click();
 
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(2);
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(2);
     await expect(page.getByTestId('person-row-7').getByTestId('person-name')).toHaveText('Dana');
     await expect(page.getByTestId('person-row-7').getByTestId('person-alpha')).toHaveText('3');
     await expect(page.getByTestId('person-row-7').getByTestId('concept-momentum')).toHaveText('33');
 
     // alpha 8 -> thrust 32, drift 10-8 = 2, momentum 32 + 3*2 = 38
     await page.getByTestId('person-edit-7').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-alpha').fill('8');
     await page.getByTestId('person-form-submit').click();
     await expect(page.getByTestId('person-row-7').getByTestId('person-alpha')).toHaveText('8');

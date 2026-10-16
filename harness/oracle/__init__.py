@@ -53,5 +53,5 @@ Extension pattern (for an act author)
 6. Check: `.venv/bin/python -m harness.spec_check --config config.yaml --through <K>`; the
    UNMODELLED section lists what your act still lacks, grouped by concept.
 """
-from .core import ABSENT, REGISTRY, Ctx, Unmodelled, View, World, evaluate  # noqa: F401
+from .core import ABSENT, REGISTRY, Ambiguous, Ctx, Unmodelled, View, World, evaluate  # noqa: F401
 from .session import Session  # noqa: F401

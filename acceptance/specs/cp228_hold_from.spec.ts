@@ -104,6 +104,7 @@ test.describe('a hold has a start date', () => {
     await expect(page.getByTestId('rollup-headcount')).toHaveText('4');
 
     await page.getByTestId('sheet-as-of-clear').click();
+    await expect(page.getByTestId('person-row-2').getByTestId('person-hold')).toHaveText('yes');
     await page.getByTestId('person-hold-2').click();
     await expect(page.getByTestId('person-row-2').getByTestId('person-hold')).toHaveText('no');
     await expect(page.getByTestId('person-row-2').getByTestId('person-hold-from')).toHaveText('');

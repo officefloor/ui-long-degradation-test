@@ -95,9 +95,12 @@ test.describe('a shared person is on hold per sheet', () => {
     await page.goto('/');
     await page.getByTestId('sheet-id-input').fill('S2');
     await page.getByTestId('sheet-load').click();
+    await expect(page.getByTestId('sheet-current-id')).toHaveText('S2');
     await page.getByTestId('person-share-select').selectOption({ label: 'S1: Dana' });
     await page.getByTestId('person-share-add').click();
-    await expect(page.getByTestId('person-row-2').getByTestId('person-hold')).toHaveText('no');
+    const dana = page.getByTestId(/^person-row-\d+$/)
+      .filter({ has: page.getByTestId('person-name').getByText('Dana', { exact: true }) });
+    await expect(dana.getByTestId('person-hold')).toHaveText('no');
     await expect(page.getByTestId('rollup-headcount')).toHaveText('2');
     await page.getByTestId('sheet-id-input').fill('S1');
     await page.getByTestId('sheet-load').click();

@@ -15,7 +15,8 @@ import { resetAndSeed } from '../support/seed';
 //        zeta -> torque 0 ; no grade -> load n/a
 //   Hela (on hold) momentum 100, LOW load 200 -> 100 in the total
 //   Sol is shared from sheet S9 as row 8: counted here like anyone. Momentum 5, LOW load 10
-// rank by momentum, level momentum sharing a rank: Bob 20 -> 1, Ann 9 and Cyd 9 -> 2, Sol 5 -> 4
+// rank by momentum, level momentum sharing a rank and the next rank following on: Bob 20 -> 1,
+// Ann 9 and Cyd 9 -> 2, Sol 5 -> 3
 // total load 18 + 60 + 100 + 10 = 188 (Cyd's load is n/a and left out)
 // A change dated after the anchor does not count yet: Ann's gamma 2 from 2026-04-01.
 test.describe('missing numbers count as zero', () => {

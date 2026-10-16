@@ -84,6 +84,7 @@ test.describe('band settings per sheet', () => {
       sheets: [
         {
           id: 'S1',
+          anchor: '2026-03-01',
           // D from 0, C from 50, B from 150, A from 300; multipliers A 5, B 4, C 3, D 2, E 1
           settings: {
             bandFrom: { D: 0, C: 50, B: 150, A: 300 },
@@ -101,6 +102,7 @@ test.describe('band settings per sheet', () => {
         },
         {
           id: 'S2',
+          anchor: '2026-03-01',
           people: [
             { id: 1, name: 'Ann',  alpha: 5,  beta: 8,  gamma: 5,  active: true }, // adjusted 40  -> D, 40*1=40
             { id: 2, name: 'Bo',   alpha: 6,  beta: 20, gamma: 6,  active: true }, // adjusted 120 -> C, 120*2=240
@@ -144,9 +146,11 @@ test.describe('band settings per sheet', () => {
 
     // a change dated after the anchor does not count yet: Cy's beta 30 from 2026-04-01 leaves him C
     await page.getByTestId('person-edit-3').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Cy');
     await page.getByTestId('person-form-beta').fill('30');
     await page.getByTestId('person-form-effective-date').fill('2026-04-01');
     await page.getByTestId('person-form-submit').click();
+    await expect(page.getByTestId('person-row-3').getByTestId('person-history')).toContainText('2026-04-01 beta 30');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-band')).toHaveText('C');
     // as of 2026-05-01 Cy's beta 30 counts on S2: adjusted 11*30 = 330 -> B
     await page.getByTestId('sheet-as-of').fill('2026-05-01');

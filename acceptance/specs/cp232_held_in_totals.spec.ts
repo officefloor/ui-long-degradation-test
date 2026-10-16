@@ -134,6 +134,7 @@ test.describe('each sheet chooses how held people count in totals', () => {
     await page.getByTestId('sheet-as-of-apply').click();
     await expect(page.getByTestId('rollup-ledger')).toHaveText('1450');
     await page.getByTestId('sheet-as-of-clear').click();
+    await expect(page.getByTestId('rollup-ledger')).toHaveText('950');
     await page.getByTestId('sheet-id-input').fill('S2');
     await page.getByTestId('sheet-load').click();
     await expect(page.getByTestId('rollup-ledger')).toHaveText('750');

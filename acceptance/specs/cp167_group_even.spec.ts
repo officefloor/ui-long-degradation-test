@@ -8,7 +8,7 @@ test.describe('even size', () => {
   test('yes when the size is even, no when it is odd', { tag: '@functionality' }, async ({ page }) => {
     // North size 2 -> yes, South size 2 -> yes, East size 3 -> no
     await resetAndSeed({
-      groups: [{ id: 1, name: 'North', state: 'REVIEW' }, { id: 2, name: 'South', state: 'REVIEW' }, { id: 3, name: 'East', state: 'REVIEW' }],
+      groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }, { id: 3, name: 'East' }],
       people: [
         { id: 1, name: 'Ann', alpha: 5, beta: 20, gamma: 5, active: true, state: 'REVIEW' },
         { id: 2, name: 'Bea', alpha: 4, beta: 30, gamma: 4, active: true, state: 'REVIEW' },

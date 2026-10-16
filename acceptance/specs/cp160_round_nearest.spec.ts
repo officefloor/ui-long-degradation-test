@@ -18,7 +18,7 @@ import { resetAndSeed } from '../support/seed';
 // Pod: Ann and Cyd -> strength 13+20 = 33, size 2, cohesion 33/2 = 16.5 -> 17
 // Sol is shared from sheet S9 as row 8: counted here like anyone. Sol is on hold, and the hold is part of the person, so Sol is on hold here too:
 // effective 5, left out of percentiles, counted at 5/2 = 2.5 -> 3 in the total.
-// The anchor is 2026-03-01. Dee's beta becomes 9 from 2026-04-01: a change dated after the anchor does not count yet.
+// The anchor is 2026-03-01 (S9 gives its own anchor, the same date). Dee's beta becomes 9 from 2026-04-01: a change dated after the anchor does not count yet.
 test.describe('round to nearest', () => {
   test('figures that divide round to the nearest whole number, halves up', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
@@ -33,7 +33,7 @@ test.describe('round to nearest', () => {
       ],
       memberships: [{ personId: 1, groupId: 1 }, { personId: 3, groupId: 1 }],
       patrons: [{ personId: 2, patronId: 3 }, { personId: 2, patronId: 4 }],
-      sheets: [{ id: 'S9', people: [{ id: 1, name: 'Sol', alpha: 1, beta: 5, gamma: 1, active: true, hold: true }] }],
+      sheets: [{ id: 'S9', anchor: '2026-03-01', people: [{ id: 1, name: 'Sol', alpha: 1, beta: 5, gamma: 1, active: true, hold: true }] }],
       shares: [{ personId: 8, fromSheetId: 'S9', fromPersonId: 1 }],
       history: [{ personId: 4, field: 'beta', value: 9, from: '2026-04-01' }],
     });

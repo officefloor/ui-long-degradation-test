@@ -112,6 +112,11 @@ HISTORY_FIELDS_LATER = ("grade", "active")      # dated from cp224
 HELD_TOTALS_DEFAULT = "half"
 
 
+class Ambiguous(Exception):
+    """Raised when a figure depends on a choice no request states (an unstated tie-break): a correct
+    app may show another value, so the assertion is a spec defect, reported as a mismatch."""
+
+
 class Unmodelled(Exception):
     """Raised when an assertion needs a concept, test id or interaction the model does not know."""
 
@@ -486,7 +491,10 @@ class Ctx:
 
     @property
     def anchor(self) -> str | None:
-        return self.sh.anchor if self.sh.anchor is not None else self.world.anchor
+        """The open sheet's own anchor (cp25: each sheet has the anchor date set for it). A named sheet
+        does not borrow the top-level fixture's anchor: no request says it would, so a test that
+        needs one on a named sheet seeds it there."""
+        return self.sh.anchor
 
     @property
     def ref_date(self) -> str | None:
@@ -848,6 +856,8 @@ class View:
             return self.text(path) is not ABSENT
         except Unmodelled:
             return False
+        except Ambiguous:      # on screen, whatever it shows; only a test reading it is at fault
+            return True
 
     def text(self, path: tuple):
         if len(path) == 1:
@@ -912,7 +922,7 @@ def evaluate(fixture: dict, k: int, sheet: str | None = None, as_of: str | None 
     for tid in view.children(()):
         try:
             t = view.text((tid,))
-        except Unmodelled:
+        except (Unmodelled, Ambiguous):
             continue
         if t is not ABSENT:
             out[(tid,)] = t
@@ -920,7 +930,7 @@ def evaluate(fixture: dict, k: int, sheet: str | None = None, as_of: str | None 
             for cell in view.cells:
                 try:
                     t = view.text((tid, cell))
-                except Unmodelled:
+                except (Unmodelled, Ambiguous):
                     continue
                 if t is not ABSENT:
                     out[(tid, cell)] = t

@@ -30,7 +30,7 @@ test.describe('vector as average', () => {
     { personId: 1, region: 'N1' }, { personId: 2, region: 'S2' }, { personId: 3, region: 'E5' },
     { personId: 9, region: 'E9' },
   ],
-  sheets: [{ id: 'S9', people: [{ id: 1, name: 'Sol', alpha: 2, beta: 5, gamma: 2, delta: 1, epsilon: 6, zeta: 1, kind: 'B', region: 'E7', active: true }] }],
+  sheets: [{ id: 'S9', people: [{ id: 1, name: 'Sol', alpha: 2, beta: 5, gamma: 2, delta: 1, epsilon: 6, zeta: 1, kind: 'B', active: true }], regions: [{ personId: 1, region: 'E7' }] }],
   shares: [{ personId: 8, fromSheetId: 'S9', fromPersonId: 1 }],
   history: [{ personId: 3, field: 'beta', value: 21, from: '2026-04-01' }],
 });

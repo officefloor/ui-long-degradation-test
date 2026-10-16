@@ -16,11 +16,11 @@ test.describe('shared people', () => {
     await resetAndSeed({
       anchor: '2026-03-01',
       sheets: [
-        { id: 'S1', people: [
+        { id: 'S1', anchor: '2026-03-01', people: [
           { id: 1, name: 'Dana', alpha: 3, beta: 4, gamma: 10 }, // momentum 12 + 3*7 = 33
           { id: 2, name: 'Ravi', alpha: 7, beta: 2, gamma: 5 },  // momentum 14 + 3*(-2) = 8
         ] },
-        { id: 'S2', people: [
+        { id: 'S2', anchor: '2026-03-01', people: [
           { id: 1, name: 'Uma',  alpha: 5,  beta: 20, gamma: 5 },              // momentum 100
           { id: 9, name: 'Hela', alpha: 10, beta: 30, gamma: 10, hold: true }, // momentum 300, held
         ] },
@@ -35,8 +35,8 @@ test.describe('shared people', () => {
     await page.getByTestId('person-share-add').click();
 
     // Uma, Hela and now Ravi
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(3);
-    const ravi = page.getByTestId(/^person-row-/)
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(3);
+    const ravi = page.getByTestId(/^person-row-\d+$/)
       .filter({ has: page.getByTestId('person-name').getByText('Ravi', { exact: true }) });
     await expect(ravi.getByTestId('person-alpha')).toHaveText('7');
     await expect(ravi.getByTestId('concept-momentum')).toHaveText('8');
@@ -47,20 +47,23 @@ test.describe('shared people', () => {
     // editing Ravi here edits the one Ravi: alpha 4 -> thrust 8, drift 5-4 = 1, momentum 8 + 3 = 11
     const rowId = (await ravi.getAttribute('data-testid'))!.replace('person-row-', '');
     await page.getByTestId(`person-edit-${rowId}`).click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Ravi');
     await page.getByTestId('person-form-alpha').fill('4');
     await page.getByTestId('person-form-submit').click();
     await expect(ravi.getByTestId('concept-momentum')).toHaveText('11');
 
     // a change dated after the anchor does not count yet: gamma 15 from 2026-04-01 leaves momentum 11
     await page.getByTestId(`person-edit-${rowId}`).click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Ravi');
     await page.getByTestId('person-form-gamma').fill('15');
     await page.getByTestId('person-form-effective-date').fill('2026-04-01');
     await page.getByTestId('person-form-submit').click();
+    await expect(ravi.getByTestId('person-history')).toContainText('2026-04-01 gamma 15');
     await expect(ravi.getByTestId('concept-momentum')).toHaveText('11');
 
     await page.getByTestId('sheet-id-input').fill('S1');
     await page.getByTestId('sheet-load').click();
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(2);
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(2);
     await expect(page.getByTestId('person-row-2').getByTestId('person-name')).toHaveText('Ravi');
     await expect(page.getByTestId('person-row-2').getByTestId('person-alpha')).toHaveText('4');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-momentum')).toHaveText('11');
@@ -75,12 +78,12 @@ test.describe('shared people', () => {
     await resetAndSeed({
       anchor: '2026-03-01',
       sheets: [
-        { id: 'S1', people: [
+        { id: 'S1', anchor: '2026-03-01', people: [
           { id: 1, name: 'Dana', alpha: 3,  beta: 4,  gamma: 10 },             // momentum 33
           { id: 2, name: 'Ravi', alpha: 7,  beta: 2,  gamma: 5 },              // momentum 8
           { id: 9, name: 'Hela', alpha: 10, beta: 30, gamma: 10, hold: true }, // momentum 300, held
         ] },
-        { id: 'S2', people: [
+        { id: 'S2', anchor: '2026-03-01', people: [
           { id: 1, name: 'Uma', alpha: 5, beta: 20, gamma: 5 },                // momentum 100
         ] },
       ],
@@ -90,13 +93,14 @@ test.describe('shared people', () => {
     await page.getByTestId('sheet-id-input').fill('S2');
     await page.getByTestId('sheet-load').click();
 
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(2);
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(2);
     await expect(page.getByTestId('person-row-7').getByTestId('person-name')).toHaveText('Dana');
     await expect(page.getByTestId('person-row-7').getByTestId('person-alpha')).toHaveText('3');
     await expect(page.getByTestId('person-row-7').getByTestId('concept-momentum')).toHaveText('33');
 
     // alpha 8 -> thrust 32, drift 10-8 = 2, momentum 32 + 3*2 = 38
     await page.getByTestId('person-edit-7').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-alpha').fill('8');
     await page.getByTestId('person-form-submit').click();
     await expect(page.getByTestId('person-row-7').getByTestId('person-alpha')).toHaveText('8');
@@ -104,9 +108,11 @@ test.describe('shared people', () => {
 
     // a change dated after the anchor does not count yet: gamma 20 from 2026-04-01 leaves momentum 38
     await page.getByTestId('person-edit-7').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Dana');
     await page.getByTestId('person-form-gamma').fill('20');
     await page.getByTestId('person-form-effective-date').fill('2026-04-01');
     await page.getByTestId('person-form-submit').click();
+    await expect(page.getByTestId('person-row-7').getByTestId('person-history')).toContainText('2026-04-01 gamma 20');
     await expect(page.getByTestId('person-row-7').getByTestId('concept-momentum')).toHaveText('38');
 
     await page.getByTestId('sheet-id-input').fill('S1');
@@ -129,11 +135,11 @@ test.describe('shared people', () => {
     await resetAndSeed({
       anchor: '2026-03-01',
       sheets: [
-        { id: 'S1', settings: { bandMultipliers: { A: 4, B: 3, C: 2, D: 2, E: 0 } }, people: [
+        { id: 'S1', anchor: '2026-03-01', settings: { bandMultipliers: { A: 4, B: 3, C: 2, D: 2, E: 0 } }, people: [
           { id: 1, name: 'Dana', alpha: 5,  beta: 20, gamma: 5,  active: true, state: 'REVIEW' },            // momentum 100, band C, scaled 200
           { id: 9, name: 'Hela', alpha: 5, beta: 15, gamma: 5, active: true, state: 'FINAL', hold: true }, // momentum 75, band D, scaled 150, held
         ] },
-        { id: 'S2', people: [
+        { id: 'S2', anchor: '2026-03-01', people: [
           { id: 1, name: 'Uma', alpha: 2, beta: 3, gamma: 5, active: true, state: 'FINAL' },                 // momentum 6 + 9 = 15, band D, scaled 15
         ] },
       ],
@@ -165,9 +171,11 @@ test.describe('shared people', () => {
     await expect(page.getByTestId('rollup-final-total')).toHaveText('75');
     // a change dated after the anchor does not count yet: Hela's beta 30 from 2026-04-01 leaves 75
     await page.getByTestId('person-edit-9').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Hela');
     await page.getByTestId('person-form-beta').fill('30');
     await page.getByTestId('person-form-effective-date').fill('2026-04-01');
     await page.getByTestId('person-form-submit').click();
+    await expect(page.getByTestId('person-row-9').getByTestId('person-history')).toContainText('2026-04-01 beta 30');
     await expect(page.getByTestId('rollup-final-total')).toHaveText('75');
     // as of 2026-05-01 Hela's beta 30 counts: momentum 150, band C, scaled 300, half 150;
     // Dana 200 + 150 = 350, Dana's 200 left out -> 150
@@ -175,6 +183,7 @@ test.describe('shared people', () => {
     await page.getByTestId('sheet-as-of-apply').click();
     await expect(page.getByTestId('rollup-final-total')).toHaveText('150');
     await page.getByTestId('sheet-as-of-clear').click();
+    await expect(page.getByTestId('rollup-final-total')).toHaveText('75');
 
     await page.getByTestId('sheet-id-input').fill('S2');
     await page.getByTestId('sheet-load').click();

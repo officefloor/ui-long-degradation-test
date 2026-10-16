@@ -3,6 +3,8 @@ import { resetAndSeed } from '../support/seed';
 
 // home group
 test.describe('home group', () => {
+  // Ann is in North (group 1) and East (group 3): her home group is the one whose name comes first
+  // alphabetically, East, even though North was made first and has the lower id.
   test('names the person\'s home group', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
       groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }, { id: 3, name: 'East' }],
@@ -14,11 +16,11 @@ test.describe('home group', () => {
         { id: 5, name: 'Eli', alpha: 10, beta: 30, gamma: 10, active: true },
         { id: 6, name: 'Fia', alpha: 5, beta: 6, gamma: 5, active: true },
       ],
-      memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 2 }, { personId: 4, groupId: 2 }, { personId: 5, groupId: 3 }, { personId: 6, groupId: 3 }],
+      memberships: [{ personId: 1, groupId: 1 }, { personId: 1, groupId: 3 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 2 }, { personId: 4, groupId: 2 }, { personId: 5, groupId: 3 }, { personId: 6, groupId: 3 }],
     });
     await page.goto('/');
 
-    await expect(page.getByTestId('person-row-1').getByTestId('concept-home-group')).toHaveText('North');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-home-group')).toHaveText('East');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-home-group')).toHaveText('North');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-home-group')).toHaveText('South');
     await expect(page.getByTestId('person-row-4').getByTestId('concept-home-group')).toHaveText('South');

@@ -6,7 +6,7 @@ import { resetAndSeed } from '../support/seed';
 test.describe('apex', () => {
   test('apex names top member', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
-      groups: [{ id: 1, name: 'North', state: 'REVIEW' }, { id: 2, name: 'South', state: 'REVIEW' }, { id: 3, name: 'East', state: 'REVIEW' }],
+      groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }, { id: 3, name: 'East' }],
       people: [
         { id: 1, name: 'Ann', alpha: 5, beta: 20, gamma: 5, active: true, state: 'REVIEW' },
         { id: 2, name: 'Bea', alpha: 4, beta: 30, gamma: 4, active: true, state: 'REVIEW' },
@@ -30,7 +30,7 @@ test.describe('apex', () => {
   // earlier name => Ann (even though Bea is seeded first / lower id).
   test('apex breaks ties by earlier name', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
-      groups: [{ id: 1, name: 'North', state: 'REVIEW' }],
+      groups: [{ id: 1, name: 'North' }],
       people: [
         { id: 1, name: 'Bea', alpha: 5, beta: 12, gamma: 5, active: true, state: 'REVIEW' },
         { id: 2, name: 'Ann', alpha: 5, beta: 12, gamma: 5, active: true, state: 'REVIEW' },

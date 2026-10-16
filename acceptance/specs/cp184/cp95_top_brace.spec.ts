@@ -2,13 +2,13 @@ import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
 // top brace rollup: name of the highest-brace person.
-// Everyone tied at the top is named, by name. Dot 200.
+// Everyone tied at the top is named, by name. Dot 300 (influence 100 + 2 x force 100).
 // Hela is on hold: left out of sheet-wide figures, so she is never the top name even with the
-// highest brace (influence 1 + force 300).
+// highest brace (influence 1 + 2 x force 300 = 601).
 
 test.describe('top brace', () => {
   test('names the highest-brace person', { tag: '@functionality' }, async ({ page }) => {
-    // Sol is shared from sheet S9: counted here like anyone; his inputs match Dot's, so he ties at brace 200
+    // Sol is shared from sheet S9: counted here like anyone; his inputs match Dot's, so he ties at brace 300
     await resetAndSeed({
   sheets: [
     { id: 'S9', people: [{ id: 1, name: 'Sol', alpha: 5, beta: 20, gamma: 5, delta: 5, epsilon: 20, zeta: 5, active: true }] },

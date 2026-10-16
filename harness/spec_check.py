@@ -17,7 +17,8 @@ test of every spec through the model instead:
 
 Each assertion ends up as one of
 - verified     the model shows the expected text;
-- MISMATCH     the model shows something else: `cpK <basename>::<title> <test id path> expected X model Y`;
+- MISMATCH     the model shows something else: `cpK <basename>::<title> <test id path> expected X model Y`,
+               or the value rests on a choice no request states (`model <ambiguous: ...>`);
 - unmodelled   it needs a concept or test id the model does not know yet (grouped by concept, so act
                authors see what to add);
 - unverified   it cannot be checked: a step before it is not modelled (a control nobody registered,
@@ -39,7 +40,7 @@ from dataclasses import dataclass, field
 
 from . import fixtures
 from .checkpoint_lint import _load_yaml
-from .oracle import ABSENT, Session, Unmodelled
+from .oracle import ABSENT, Ambiguous, Session, Unmodelled
 from .oracle.core import REGISTRY, _load_acts
 
 HARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -231,6 +232,8 @@ def replay(events: list, k: int, trace_error: str | None = None) -> list[Outcome
                                 "; ".join(s.audit) or "<no audit lines>")
             except Unmodelled as u:
                 o = Outcome(i, UNMODELLED, where, _show_expected(e.get("value")), reason=u.what)
+            except Ambiguous as a:  # the expected value rests on a choice no request states
+                o = Outcome(i, MISMATCH, where, _show_expected(e.get("value")), f"<ambiguous: {a}>")
             except Exception as x:  # a bug in the model, not in the spec: never a silent pass
                 o = Outcome(i, UNVERIFIED, where, _show_expected(e.get("value")),
                             reason=f"model error {type(x).__name__}: {x}")

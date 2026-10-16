@@ -43,7 +43,7 @@ from __future__ import annotations
 import math
 from fractions import Fraction
 
-from .core import RULE_BREAKS, cell, fdiv, need, person, rows, sheet
+from .core import RULE_BREAKS, Ambiguous, cell, fdiv, need, person, rows, sheet
 
 COVERAGE = (121, 180)    # every request of cp121-cp180 is modelled (see core._load_acts)
 
@@ -352,11 +352,24 @@ def _by_strength(c) -> list:
     return sorted(cand, key=lambda x: (-g(c, "strength", x), gname(c, x) or ""))
 
 
+def _strongest(c, value=None):
+    """The group with the highest strength. No request states a tie-break for it, so a tie at the
+    top is Ambiguous unless `value` (what the test reads from the group) is the same for the tied."""
+    order = _by_strength(c)
+    if not order:
+        return None
+    top = [x for x in order if g(c, "strength", x) == g(c, "strength", order[0])]
+    if len(top) > 1 and len({(value or (lambda x: gname(c, x)))(x) for x in top}) > 1:
+        raise Ambiguous(f"strongest group tied at {g(c, 'strength', order[0])}: "
+                        + ", ".join(str(gname(c, x)) for x in top))
+    return order[0]
+
+
 @sheet("biggest-group", since=135, show="rollup-biggest-group")
 def biggest_group(c):
     """cp135: the name of the group with the highest strength."""
-    order = _by_strength(c)
-    return gname(c, order[0]) if order else None
+    top = _strongest(c)
+    return gname(c, top) if top is not None else None
 
 
 # ---- anchorage, weave, mesh (cp137-cp139) ------------------------------------------------------
@@ -544,8 +557,8 @@ def uplift_v2(c, p):
 @sheet("top-group-size", since=162, show="rollup-top-group-size")
 def top_group_size(c):
     """cp162: the size of the group with the highest strength (cp164: a group-of-one may be it)."""
-    order = _by_strength(c)
-    return g(c, "size", order[0]) if order else None
+    top = _strongest(c, lambda x: g(c, "size", x))
+    return g(c, "size", top) if top is not None else None
 
 
 @cell(G, "group-concept-apex-scaled", since=163)
@@ -625,8 +638,8 @@ def contribution(c, p):
 @sheet("prime-group", since=175, show="rollup-prime-group")
 def prime_group(c):
     """cp175: the name of the single strongest group."""
-    order = _by_strength(c)
-    return gname(c, order[0]) if order else None
+    top = _strongest(c)
+    return gname(c, top) if top is not None else None
 
 
 # ---- reach span, balance, overall rank (cp177-cp180) -------------------------------------------

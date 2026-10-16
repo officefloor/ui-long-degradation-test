@@ -35,13 +35,14 @@ test.describe('standing', () => {
   test('standing breaks ties by higher alpha', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
       anchor: '2026-03-01',
-      // Bea's beta change to 5 is dated after the anchor: it does not count yet
+      // Ann's beta was 20 until 2026-02-01; Bea's change to 5 is dated after the anchor and does not count yet
       history: [
+        { personId: 1, field: 'beta', value: 15, from: '2026-02-01' },
         { personId: 2, field: 'beta', value: 5, from: '2026-04-01' },
       ],
       groups: [{ id: 1, name: 'North' }],
       people: [
-        { id: 1, name: 'Ann', alpha: 4, beta: 15, gamma: 4, active: true, groupId: 1, state: 'REVIEW' },
+        { id: 1, name: 'Ann', alpha: 4, beta: 20, gamma: 4, active: true, groupId: 1, state: 'REVIEW' },
         { id: 2, name: 'Bea', alpha: 6, beta: 10, gamma: 6, active: true, groupId: 1, state: 'REVIEW' },
       ],
     });
@@ -49,5 +50,10 @@ test.describe('standing', () => {
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-standing')).toHaveText('2');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-standing')).toHaveText('1');
+
+    // as of 2026-01-15, before Ann's beta change: momentum 80 (scaled 80) beats Bea's 60
+    await page.getByTestId('sheet-as-of').fill('2026-01-15');
+    await page.getByTestId('sheet-as-of-apply').click();
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-standing')).toHaveText('1');
   });
 });

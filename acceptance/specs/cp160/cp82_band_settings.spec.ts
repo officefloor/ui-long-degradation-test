@@ -78,6 +78,7 @@ test.describe('band settings per sheet', () => {
       sheets: [
         {
           id: 'S1',
+          anchor: '2026-03-01',
           // D from 0, C from 50, B from 150, A from 300; multipliers A 5, B 4, C 3, D 2, E 1
           settings: {
             bandFrom: { D: 0, C: 50, B: 150, A: 300 },
@@ -96,6 +97,7 @@ test.describe('band settings per sheet', () => {
         },
         {
           id: 'S2',
+          anchor: '2026-03-01',
           people: [
             { id: 1, name: 'Ann',  alpha: 5,  beta: 8,  gamma: 5,  active: true }, // adjusted 40  -> D, 40*1=40
             { id: 2, name: 'Bo',   alpha: 6,  beta: 20, gamma: 6,  active: true }, // adjusted 120 -> C, 120*2=240
@@ -125,9 +127,11 @@ test.describe('band settings per sheet', () => {
 
     // Cy's beta becomes 30 from 2026-04-01, after the anchor: the change is kept but does not count yet
     await page.getByTestId('person-edit-3').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Cy');
     await page.getByTestId('person-form-beta').fill('30');
     await page.getByTestId('person-form-effective-date').fill('2026-04-01');
     await page.getByTestId('person-form-submit').click();
+    await expect(page.getByTestId('person-row-3').getByTestId('person-history')).toContainText('2026-04-01 beta 30');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-band')).toHaveText('B');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-scaled')).toHaveText('880');
 
@@ -137,6 +141,8 @@ test.describe('band settings per sheet', () => {
     await expect(page.getByTestId('person-row-3').getByTestId('concept-band')).toHaveText('A');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-scaled')).toHaveText('1650');
     await page.getByTestId('sheet-as-of-clear').click();
+    // back on the anchor view: Cy's change does not count again
+    await expect(page.getByTestId('person-row-3').getByTestId('concept-scaled')).toHaveText('880');
 
     await page.getByTestId('sheet-id-input').fill('S2');
     await page.getByTestId('sheet-load').click();

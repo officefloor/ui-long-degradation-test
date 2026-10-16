@@ -86,12 +86,13 @@ test.describe('state per sheet', () => {
     await page.goto('/');
     await page.getByTestId('sheet-id-input').fill('S2');
     await page.getByTestId('sheet-load').click();
+    await expect(page.getByTestId('sheet-current-id')).toHaveText('S2');
 
     await page.getByTestId('person-share-select').selectOption({ label: 'S1: Dana' });
     await page.getByTestId('person-share-add').click();
 
-    await expect(page.getByTestId(/^person-row-/)).toHaveCount(1);
-    const dana = page.getByTestId(/^person-row-/).first();
+    await expect(page.getByTestId(/^person-row-\d+$/)).toHaveCount(1);
+    const dana = page.getByTestId(/^person-row-\d+$/).first();
     await expect(dana.getByTestId('person-name')).toHaveText('Dana');
     await expect(dana.getByTestId('person-state')).toHaveText('DRAFT');
 

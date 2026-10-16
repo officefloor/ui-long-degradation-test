@@ -39,7 +39,7 @@ test.describe('a group of their own', () => {
     });
     await page.goto('/');
 
-    await expect(page.getByTestId(/^group-row-/)).toHaveCount(3); // no rows for the groups of one
+    await expect(page.getByTestId(/^group-row-\d+$/)).toHaveCount(3); // no rows for the groups of one
     await expect(page.getByTestId('rollup-biggest-group')).toHaveText('Zed');
     await expect(page.getByTestId('rollup-top-group-size')).toHaveText('1');
     await expect(page.getByTestId('rollup-total-strength')).toHaveText('505');

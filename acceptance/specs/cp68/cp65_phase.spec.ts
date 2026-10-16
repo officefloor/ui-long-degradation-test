@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// person is now RUN.
+// phase from torque: below 0 EBB, 0..199 RUN, 200 or more PEAK. torque = force + 3*sway.
+//   Ada force 3*4=12, sway 10-3=7  -> torque 12+21=33   -> RUN
+//   Ben force 5*2=10, sway 1-5=-4  -> torque 10-12=-2   -> EBB
+//   Dot force 5*20=100, sway 5-5=0 -> torque 100        -> RUN (100 is inside 0..199)
 test.describe('phase', () => {
   test('phase classifies torque', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({

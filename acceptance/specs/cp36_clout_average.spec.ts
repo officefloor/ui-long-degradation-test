@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// rounded down); no patrons is still 0. That lowers Kai's clout and flips the leader.
+// Clout is the average of a person's patrons' effective: their total divided by the number of
+// patrons, rounded down. A person with no patrons has clout 0. Influence adds clout to effective,
+// so with two patrons Kai's influence falls below Dana's and Dana leads.
 //   clout: Uma 0, Ivo 0, Dana 100/1=100, Kai (133+60)/2=96 (193/2=96.5 -> 96)
 //   influence: Uma 100, Ivo 60, Dana 233, Kai 82+96=178
 //   top influence: Dana (233) now beats Kai (178)

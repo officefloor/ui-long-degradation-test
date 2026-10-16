@@ -13,7 +13,7 @@ test.describe('total strength', () => {
         { personId: 1, field: 'beta', value: 20, from: '2026-02-01' },
         { personId: 6, field: 'beta', value: 70, from: '2026-04-01' },
       ],
-      groups: [{ id: 1, name: 'North', state: 'REVIEW' }, { id: 2, name: 'South', state: 'REVIEW' }, { id: 3, name: 'East', state: 'REVIEW' }],
+      groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }, { id: 3, name: 'East' }],
       people: [
         { id: 1, name: 'Ann', alpha: 5, beta: 10, gamma: 5, active: true, state: 'REVIEW' },
         { id: 2, name: 'Bea', alpha: 4, beta: 30, gamma: 4, active: true, state: 'REVIEW' },

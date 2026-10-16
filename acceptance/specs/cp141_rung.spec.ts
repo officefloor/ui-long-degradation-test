@@ -8,7 +8,7 @@ test.describe('rung', () => {
   test('rung is a within-group percentile', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
       // rung = (size - within-group rank) / (size - 1) * 100, rank 1 = top. A group of one is 100.
-      groups: [{ id: 1, name: 'North', state: 'REVIEW' }, { id: 2, name: 'South', state: 'REVIEW' }, { id: 3, name: 'East', state: 'REVIEW' }, { id: 4, name: 'West', state: 'REVIEW' }],
+      groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }, { id: 3, name: 'East' }, { id: 4, name: 'West' }],
       people: [
         { id: 1, name: 'Ann', alpha: 5, beta: 20, gamma: 5, active: true, state: 'REVIEW' },
         { id: 2, name: 'Bea', alpha: 4, beta: 30, gamma: 4, active: true, state: 'REVIEW' },

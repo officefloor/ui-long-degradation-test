@@ -627,6 +627,16 @@ def edit(s, suffix):
     s.editing = s.row_id(suffix)
 
 
+@family("person-form-", since=7)
+def person_form(c):
+    """cp07: the editor opens with the person's current values, so the name box shows their name
+    (what a test waits on before it changes a field); a typed value shows as typed."""
+    form = c.flags.get("form") or {}
+    pid = c.flags.get("editing")
+    name = form.get("person-form-name", c.name(pid) if pid is not None else "")
+    return {"name": name or ""}
+
+
 @control("sheet-load", since=13)
 def load_sheet_v1(s, _):
     """cp13 open the typed sheet; cp14 an unknown id shows the missing state."""

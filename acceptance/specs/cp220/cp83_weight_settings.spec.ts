@@ -71,6 +71,7 @@ test.describe('grade weights per sheet', () => {
       sheets: [
         {
           id: 'S1',
+          anchor: '2026-03-01',
           // LOW 2 and HIGH 9 are the sheet's own; MID is not set, so it stays at 3
           settings: { gradeWeights: { LOW: 2, HIGH: 9 } },
           people: [
@@ -83,6 +84,7 @@ test.describe('grade weights per sheet', () => {
         },
         {
           id: 'S2',
+          anchor: '2026-03-01',
           people: [
             { id: 1, name: 'Dana', alpha: 3, beta: 4,  gamma: 10, grade: 'HIGH', active: true }, // 33*5 = 165
             { id: 2, name: 'Ravi', alpha: 7, beta: 2,  gamma: 5,  grade: 'MID',  active: true }, // 8*3 = 24
@@ -119,9 +121,11 @@ test.describe('grade weights per sheet', () => {
 
     // a change dated after the anchor does not count yet: Uma's beta 30 from 2026-04-01 leaves load 100
     await page.getByTestId('person-edit-3').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Uma');
     await page.getByTestId('person-form-beta').fill('30');
     await page.getByTestId('person-form-effective-date').fill('2026-04-01');
     await page.getByTestId('person-form-submit').click();
+    await expect(page.getByTestId('person-row-3').getByTestId('person-history')).toContainText('2026-04-01 beta 30');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-load')).toHaveText('100');
     // as of 2026-05-01 Uma's beta 30 counts on S2: momentum 150, load 150*1 = 150
     await page.getByTestId('sheet-as-of').fill('2026-05-01');

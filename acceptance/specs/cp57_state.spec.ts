@@ -23,8 +23,7 @@ test.describe('state workflow', () => {
     await expect(page.getByTestId('person-advance-1')).toBeHidden();
     await expect(page.getByTestId('person-rework-1')).toHaveCount(0);
 
-    const lines = auditLines();
-    expect(lines).toContain('STATE_CHANGED id=1 from=DRAFT to=REVIEW');
-    expect(lines).toContain('STATE_CHANGED id=1 from=REVIEW to=FINAL');
+    await expect.poll(() => auditLines()).toContain('STATE_CHANGED id=1 from=DRAFT to=REVIEW');
+    await expect.poll(() => auditLines()).toContain('STATE_CHANGED id=1 from=REVIEW to=FINAL');
   });
 });

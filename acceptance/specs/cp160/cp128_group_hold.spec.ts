@@ -19,12 +19,13 @@ test.describe('hold in groups', () => {
       anchor: '2026-03-01',
       groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }],
       people: [
-        { id: 1, name: 'Ann',  alpha: 5, beta: 20, gamma: 5, active: true, groupId: 1, state: 'REVIEW' },
-        { id: 2, name: 'Bea',  alpha: 4, beta: 10, gamma: 4, active: true, groupId: 1, state: 'REVIEW' },
-        { id: 3, name: 'Cal',  alpha: 6, beta: 10, gamma: 6, active: true, groupId: 2, state: 'REVIEW' },
-        { id: 4, name: 'Dot',  alpha: 5, beta: 8,  gamma: 5, active: true, groupId: 2, state: 'REVIEW' },
-        { id: 9, name: 'Hela', alpha: 9, beta: 17, gamma: 9, active: true, groupId: 1, hold: true, state: 'REVIEW' },
+        { id: 1, name: 'Ann',  alpha: 5, beta: 20, gamma: 5, active: true, state: 'REVIEW' },
+        { id: 2, name: 'Bea',  alpha: 4, beta: 10, gamma: 4, active: true, state: 'REVIEW' },
+        { id: 3, name: 'Cal',  alpha: 6, beta: 10, gamma: 6, active: true, state: 'REVIEW' },
+        { id: 4, name: 'Dot',  alpha: 5, beta: 8,  gamma: 5, active: true, state: 'REVIEW' },
+        { id: 9, name: 'Hela', alpha: 9, beta: 17, gamma: 9, active: true, hold: true, state: 'REVIEW' },
       ],
+      memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 2 }, { personId: 4, groupId: 2 }, { personId: 9, groupId: 1 }],
       history: [{ personId: 1, field: 'beta', value: 30, from: '2026-04-01' }],
     });
     await page.goto('/');

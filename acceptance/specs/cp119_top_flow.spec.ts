@@ -1,11 +1,17 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// top flow rollup: name of the highest-flow person (ties by name asc). Dot 3416.
-// Sol is shared from sheet S9 as row 8: counted here like anyone, and her flow 6612 (same numbers as
-// Hela, not on hold) beats Dot's, so she is the top name.
-// Hela is on hold: left out of sheet-wide figures, so she is never the top name even with the
-// highest flow (yield 3306, no patrons or follows -> charge 3306, flow 6612).
+// top flow rollup: name of the highest-flow person (ties by name asc).
+// flow = yield + charge + tide; charge = vector + yield; vector = average of the patrons' blend,
+// rounded down; tide = total brace of the people a person follows and who follow them, counting
+// only positive brace.
+//   Dot: yield 400+600=1000; vector Ben -3 -> charge -3+1000=997;
+//        tide: follows Ben (brace 19), followed by Ada (brace 200) -> 219; flow 1000+997+219=2216
+// Sol is shared from sheet S9 as row 8: counted here like anyone. Same numbers as Hela, not on hold:
+//   torque 300, verge C=4 -> pivot 1200; blend 301 -> L3 -> lift 903; yield 2103;
+//   no patrons or follows -> charge 2103, tide 0; flow 2103+2103+0=4206, beating Dot's 2216.
+// Hela is on hold: left out of sheet-wide figures, so she is never the top name even with
+// Sol's flow of 4206.
 
 test.describe('top flow', () => {
   test('names the highest-flow person', { tag: '@functionality' }, async ({ page }) => {
@@ -36,19 +42,20 @@ test.describe('top flow', () => {
 
   // Tie-break: identical inputs give equal flow, so the alphabetical tie-break decides. Bob is
   // seeded first / lower id to prove it is name order, not seed order.
-  //   each: torque 1; verge A=2 -> pivot 2; blend 2 -> drag L1 x1 -> lift 2; yield 2 + 2*2 = 6
-  //   no patrons -> vector 0 -> charge 6; flow = yield + charge = 6 + 6 = 12
-  // Hela is on hold with a higher flow (yield 10, flow 20), but is left out of the top name.
-  // Abe is shared from sheet S9 as row 8: counted here like anyone, ties at 12 and comes first by name.
+  //   each: torque 1; verge A=1 -> pivot 1; blend 2 -> drag L1 x1 -> lift 2; yield 1+2=3
+  //   no patrons -> vector 0 -> charge 3; no follows -> tide 0; flow = 3+3+0 = 6
+  // Hela is on hold with a higher flow (pivot 2 + lift 3 = yield 5, charge 5, flow 10), but is
+  // left out of the top name.
+  // Abe is shared from sheet S9 as row 8: counted here like anyone, ties at 6 and comes first by name.
   test('breaks a flow tie alphabetically', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
       people: [
-        { id: 1, name: 'Bob', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, kind: 'A', active: true }, // flow 12
-        { id: 2, name: 'Ana', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, kind: 'A', active: true }, // flow 12
+        { id: 1, name: 'Bob', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, kind: 'A', active: true }, // flow 6
+        { id: 2, name: 'Ana', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, kind: 'A', active: true }, // flow 6
         { id: 9, name: 'Hela', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 2, zeta: 1, kind: 'A', active: true, hold: true }, // on hold
       ],
       sheets: [{ id: 'S9', people: [
-        { id: 1, name: 'Abe', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, kind: 'A', active: true }, // flow 12
+        { id: 1, name: 'Abe', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, kind: 'A', active: true }, // flow 6
       ] }],
       shares: [{ personId: 8, fromSheetId: 'S9', fromPersonId: 1 }],
     });

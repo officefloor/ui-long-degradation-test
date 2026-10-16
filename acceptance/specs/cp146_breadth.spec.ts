@@ -5,9 +5,11 @@ import { resetAndSeed } from '../support/seed';
 
 // breadth
 test.describe('breadth', () => {
+  // Sizes: North Ann, Bea = 2 ; South Cal, Dot = 2 ; East Eli, Fia, Ann = 3.
+  // Ann is in North and East: breadth 2 + 3 = 5. Bea 2 ; Cal, Dot 2 ; Eli, Fia 3.
   test('breadth sums the sizes of the person\'s groups', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
-      groups: [{ id: 1, name: 'North', state: 'REVIEW' }, { id: 2, name: 'South', state: 'REVIEW' }, { id: 3, name: 'East', state: 'REVIEW' }],
+      groups: [{ id: 1, name: 'North' }, { id: 2, name: 'South' }, { id: 3, name: 'East' }],
       people: [
         { id: 1, name: 'Ann', alpha: 5, beta: 20, gamma: 5, active: true, state: 'REVIEW' },
         { id: 2, name: 'Bea', alpha: 4, beta: 30, gamma: 4, active: true, state: 'REVIEW' },
@@ -16,15 +18,15 @@ test.describe('breadth', () => {
         { id: 5, name: 'Eli', alpha: 10, beta: 30, gamma: 10, active: true, state: 'REVIEW' },
         { id: 6, name: 'Fia', alpha: 5, beta: 6, gamma: 5, active: true, state: 'REVIEW' },
       ],
-      memberships: [{ personId: 1, groupId: 1 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 2 }, { personId: 4, groupId: 2 }, { personId: 5, groupId: 3 }, { personId: 6, groupId: 3 }],
+      memberships: [{ personId: 1, groupId: 1 }, { personId: 1, groupId: 3 }, { personId: 2, groupId: 1 }, { personId: 3, groupId: 2 }, { personId: 4, groupId: 2 }, { personId: 5, groupId: 3 }, { personId: 6, groupId: 3 }],
     });
     await page.goto('/');
 
-    await expect(page.getByTestId('person-row-1').getByTestId('concept-breadth')).toHaveText('2');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-breadth')).toHaveText('5');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-breadth')).toHaveText('2');
     await expect(page.getByTestId('person-row-3').getByTestId('concept-breadth')).toHaveText('2');
     await expect(page.getByTestId('person-row-4').getByTestId('concept-breadth')).toHaveText('2');
-    await expect(page.getByTestId('person-row-5').getByTestId('concept-breadth')).toHaveText('2');
-    await expect(page.getByTestId('person-row-6').getByTestId('concept-breadth')).toHaveText('2');
+    await expect(page.getByTestId('person-row-5').getByTestId('concept-breadth')).toHaveText('3');
+    await expect(page.getByTestId('person-row-6').getByTestId('concept-breadth')).toHaveText('3');
   });
 });

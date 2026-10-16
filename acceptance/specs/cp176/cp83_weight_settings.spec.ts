@@ -107,6 +107,8 @@ test.describe('grade weights per sheet', () => {
     await page.getByTestId('sheet-as-of-apply').click();
     await expect(page.getByTestId('rollup-total-load')).toHaveText('499');
     await page.getByTestId('sheet-as-of-clear').click();
+    // back on the anchor view: Dana's change counts again
+    await expect(page.getByTestId('rollup-total-load')).toHaveText('553');
 
     await page.getByTestId('sheet-id-input').fill('S2');
     await page.getByTestId('sheet-load').click();

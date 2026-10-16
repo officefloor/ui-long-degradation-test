@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// top brace rollup: name of the highest-brace person (ties by name asc). Dot 200.
+// top brace rollup: name of the highest-brace person (ties by name asc).
+// brace = influence + force; with no patrons influence is the person's own effective (= momentum).
+//   Ada 15+12=27, Ben -1+10=9, Dot 100+100=200 -> Dot.
 // Hela is on hold: left out of sheet-wide figures, so she is never the top name even with the
 // highest brace (influence 1 + force 300).
 
@@ -20,15 +22,15 @@ test.describe('top brace', () => {
     await expect(page.getByTestId('rollup-top-brace')).toHaveText('Dot');
   });
 
-  // Tie-break: identical inputs give equal brace (influence + 2*force), so the alphabetical
+  // Tie-break: identical inputs give equal brace (influence + force), so the alphabetical
   // tie-break decides. Bob is seeded first / lower id to prove it is name order, not seed order.
-  //   each: momentum 1 -> influence 1; force 1; brace 1 + 2*1 = 3
-  // Hela is on hold and has a higher brace (force 2), but is left out of the top name.
+  //   each: momentum 1 -> influence 1; force 1; brace 1 + 1 = 2
+  // Hela is on hold and has a higher brace (force 1*2=2, brace 1+2=3), but is left out of the top name.
   test('breaks a brace tie alphabetically', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
       people: [
-        { id: 1, name: 'Bob', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, active: true }, // brace 3
-        { id: 2, name: 'Ana', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, active: true }, // brace 3
+        { id: 1, name: 'Bob', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, active: true }, // brace 2
+        { id: 2, name: 'Ana', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 1, zeta: 1, active: true }, // brace 2
         { id: 9, name: 'Hela', alpha: 1, beta: 1, gamma: 1, delta: 1, epsilon: 2, zeta: 1, active: true, hold: true }, // on hold
       ],
     });

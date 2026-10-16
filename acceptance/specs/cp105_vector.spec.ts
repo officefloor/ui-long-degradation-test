@@ -11,10 +11,10 @@ test.describe('vector', () => {
   test('vector sums the patrons blend', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({
   people: [
-    { id: 1, name: 'Ada', alpha: 2, beta: 3,  gamma: 5, delta: 3, epsilon: 4,  zeta: 10, kind: 'A', region: 'N1', active: true },
-    { id: 2, name: 'Ben', alpha: 4, beta: 2,  gamma: 1, delta: 5, epsilon: 2,  zeta: 1,  kind: 'B', region: 'S2', active: true },
-    { id: 3, name: 'Dot', alpha: 5, beta: 20, gamma: 5, delta: 5, epsilon: 20, zeta: 5,  kind: 'C', region: 'E5', active: true },
-    { id: 9, name: 'Hela', alpha: 1, beta: 1,  gamma: 1, delta: 1, epsilon: 9,  zeta: 1,  kind: 'A', region: 'E9', active: true, hold: true },
+    { id: 1, name: 'Ada', alpha: 2, beta: 3,  gamma: 5, delta: 3, epsilon: 4,  zeta: 10, kind: 'A', active: true },
+    { id: 2, name: 'Ben', alpha: 4, beta: 2,  gamma: 1, delta: 5, epsilon: 2,  zeta: 1,  kind: 'B', active: true },
+    { id: 3, name: 'Dot', alpha: 5, beta: 20, gamma: 5, delta: 5, epsilon: 20, zeta: 5,  kind: 'C', active: true },
+    { id: 9, name: 'Hela', alpha: 1, beta: 1,  gamma: 1, delta: 1, epsilon: 9,  zeta: 1,  kind: 'A', active: true, hold: true },
   ],
   patrons: [
     { personId: 1, patronId: 2 }, { personId: 1, patronId: 3 },
@@ -28,8 +28,8 @@ test.describe('vector', () => {
   ],
   // Sol is shared from sheet S9 as row 8: counted here like anyone (blend 10 + 10 = 20)
   sheets: [{ id: 'S9', people: [
-    { id: 1, name: 'Sol', alpha: 2, beta: 5, gamma: 2, delta: 2, epsilon: 5, zeta: 2, kind: 'A', region: 'E1', active: true },
-  ] }],
+    { id: 1, name: 'Sol', alpha: 2, beta: 5, gamma: 2, delta: 2, epsilon: 5, zeta: 2, kind: 'A', active: true },
+  ], regions: [{ personId: 1, region: 'E1' }] }],
   shares: [{ personId: 8, fromSheetId: 'S9', fromPersonId: 1 }],
 });
     await page.goto('/');

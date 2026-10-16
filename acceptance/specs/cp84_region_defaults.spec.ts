@@ -45,6 +45,7 @@ test.describe('new default region multipliers', () => {
     // a sheet opened for the first time starts with the same values
     await page.getByTestId('sheet-id-input').fill('FRESH');
     await page.getByTestId('sheet-load').click();
+    await expect(page.getByTestId('sheet-current-id')).toHaveText('FRESH');
     await expect(page.getByTestId('sheet-setting-region-N')).toHaveValue('3');
     await expect(page.getByTestId('sheet-setting-region-S')).toHaveValue('2');
     await expect(page.getByTestId('sheet-setting-region-other')).toHaveValue('1');

@@ -28,17 +28,21 @@ test.describe('counts leave out people with momentum 0', () => {
       anchor: '2026-03-01',
       settings: { bandMultipliers: { A: 4, B: 3, C: 3, D: 1, E: 0 } },
       people: [
-        { id: 1, name: 'Ann',  alpha: 10, beta: 30, gamma: 10, grade: 'LOW', region: 'N', active: true },
-        { id: 2, name: 'Ben',  alpha: 10, beta: 20, gamma: 10, grade: 'LOW', region: 'S', active: true },
-        { id: 3, name: 'Cal',  alpha: 5,  beta: 20, gamma: 5,  grade: 'LOW', region: 'N', active: true },
-        { id: 4, name: 'Zed',  alpha: 4,  beta: 3,  gamma: 0,  grade: 'LOW', region: 'N', active: true },
-        { id: 5, name: 'Nil',  grade: 'LOW', region: 'S', active: true },
-        { id: 9, name: 'Hela', alpha: 10, beta: 10, gamma: 10, grade: 'LOW', region: 'N', active: true, hold: true },
+        { id: 1, name: 'Ann',  alpha: 10, beta: 30, gamma: 10, grade: 'LOW', active: true },
+        { id: 2, name: 'Ben',  alpha: 10, beta: 20, gamma: 10, grade: 'LOW', active: true },
+        { id: 3, name: 'Cal',  alpha: 5,  beta: 20, gamma: 5,  grade: 'LOW', active: true },
+        { id: 4, name: 'Zed',  alpha: 4,  beta: 3,  gamma: 0,  grade: 'LOW', active: true },
+        { id: 5, name: 'Nil',  grade: 'LOW', active: true },
+        { id: 9, name: 'Hela', alpha: 10, beta: 10, gamma: 10, grade: 'LOW', active: true, hold: true },
+      ],
+      regions: [
+        { personId: 1, region: 'N' }, { personId: 2, region: 'S' }, { personId: 3, region: 'N' },
+        { personId: 4, region: 'N' }, { personId: 5, region: 'S' }, { personId: 9, region: 'N' },
       ],
       sheets: [
         { id: 'S9', people: [
-          { id: 1, name: 'Sol', alpha: 2, beta: 3, gamma: 0, grade: 'LOW', region: 'S', active: true },
-        ] },
+          { id: 1, name: 'Sol', alpha: 2, beta: 3, gamma: 0, grade: 'LOW', active: true },
+        ], regions: [{ personId: 1, region: 'S' }] },
       ],
       shares: [{ personId: 8, fromSheetId: 'S9', fromPersonId: 1 }],
       history: [{ personId: 3, field: 'beta', value: 40, from: '2026-04-01' }],
@@ -79,15 +83,19 @@ test.describe('counts leave out people with momentum 0', () => {
     await resetAndSeed({
       anchor: '2026-03-01',
       people: [
-        { id: 1, name: 'Ann',  alpha: 10, beta: 30, gamma: 10, grade: 'LOW', region: 'N', active: true },
-        { id: 2, name: 'Ben',  alpha: 10, beta: 20, gamma: 10, grade: 'LOW', region: 'S', active: true },
-        { id: 3, name: 'Cal',  alpha: 5,  beta: 20, gamma: 5,  grade: 'LOW', region: 'N', active: true },
-        { id: 9, name: 'Hela', alpha: 10, beta: 10, gamma: 10, grade: 'LOW', region: 'N', active: true, hold: true },
+        { id: 1, name: 'Ann',  alpha: 10, beta: 30, gamma: 10, grade: 'LOW', active: true },
+        { id: 2, name: 'Ben',  alpha: 10, beta: 20, gamma: 10, grade: 'LOW', active: true },
+        { id: 3, name: 'Cal',  alpha: 5,  beta: 20, gamma: 5,  grade: 'LOW', active: true },
+        { id: 9, name: 'Hela', alpha: 10, beta: 10, gamma: 10, grade: 'LOW', active: true, hold: true },
+      ],
+      regions: [
+        { personId: 1, region: 'N' }, { personId: 2, region: 'S' }, { personId: 3, region: 'N' },
+        { personId: 9, region: 'N' },
       ],
       sheets: [
         { id: 'S9', people: [
-          { id: 1, name: 'Sol', alpha: 5, beta: 20, gamma: 5, grade: 'LOW', region: 'S', active: true },
-        ] },
+          { id: 1, name: 'Sol', alpha: 5, beta: 20, gamma: 5, grade: 'LOW', active: true },
+        ], regions: [{ personId: 1, region: 'S' }] },
       ],
       shares: [{ personId: 8, fromSheetId: 'S9', fromPersonId: 1 }],
       history: [{ personId: 2, field: 'beta', value: 0, from: '2026-04-01' }],
@@ -97,9 +105,10 @@ test.describe('counts leave out people with momentum 0', () => {
     await expect(page.getByTestId('region-count-N')).toHaveText('2');   // Ann, Cal
 
     await page.getByTestId('person-edit-3').click();
+    await expect(page.getByTestId('person-form-name')).toHaveValue('Cal');
     await page.getByTestId('person-form-beta').fill('0');
     await page.getByTestId('person-form-submit').click();
-    expect(auditLines()).toContain('CHANGED id=3 field=beta from=20 to=0');
+    await expect.poll(() => auditLines()).toContain('CHANGED id=3 field=beta from=20 to=0');
 
     await expect(page.getByTestId('person-row-3').getByTestId('concept-momentum')).toHaveText('0');
     await expect(page.getByTestId('rollup-headcount')).toHaveText('3');     // Ann, Ben, Sol

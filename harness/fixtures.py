@@ -422,7 +422,7 @@ _SHEET_WIDE = re.compile(
     r"median-strength|prime-group|strength-range|top-group-size|total-strength)$)"
     r"[a-z]"
     r"|^concept-(?:rank|percentile|rank-global|norm|outlier|quota|cume|stratum|portion|"
-    r"backing|clout|flux|synergy|vector|tide)$")
+    r"backing|clout|flux|synergy|vector|tide|charge|churn|flow|brace|crest|influence|combined)$")
 _HELD = re.compile(r"\bhold\s*:\s*true\b|person-hold-")   # seeded, or put on hold through the UI
 
 
