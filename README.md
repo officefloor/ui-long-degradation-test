@@ -1,5 +1,8 @@
 # ui-long-degradation-test
 
+> **Branch `early-overload-250`:** this branch restructures the stream to be **overloaded early** — a compressed spine, the hub `keel` at cp9, and the cross-cutting rules front-loaded to cp4–20 — and removes Act VI, leaving **250 checkpoints**. The back-loaded canonical 300-stream is unchanged on `main`. See [docs/EARLY_OVERLOAD_DESIGN.md](./docs/EARLY_OVERLOAD_DESIGN.md). The text below describes the canonical method, most of which still applies.
+
+
 A **full-stack erosion experiment that replicates the OfficeHQ change loop**. Its sibling,
 `~/spring-petclinic-rest-long-degradation-test`, measures how *server* code erodes when an
 existing app is extended; this repo asks whether the **OfficeHQ approach can grow a whole

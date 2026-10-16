@@ -952,18 +952,12 @@ _LOADED = False
 
 
 def _load_acts() -> None:
-    """Import every act module once, so their registrations are in REGISTRY, and work out how far
-    the model vouches for its figures: through the last checkpoint of the longest run of acts, from
-    Act I on, whose module declares `COVERAGE = (first, last)` (complete). Beyond that a later act
-    may have changed any concept, so a disagreement there is not evidence of a spec defect."""
+    """Import the stream's reference-model module once, so its registrations are in REGISTRY, and
+    record how far the model vouches for its figures (`COVERAGE[1]`). This branch loads the
+    restructured early-overload stream (`overload`, cp1-250); the canonical 300-stream on `main`
+    loads act1..act6."""
     global _LOADED
     if not _LOADED:
-        from . import act1, act2, act3, act4, act5, act6  # registration side effects
-        covered = 0
-        for mod in (act1, act2, act3, act4, act5, act6):
-            cov = getattr(mod, "COVERAGE", None)
-            if not cov or cov[0] != covered + 1:
-                break
-            covered = cov[1]
-        REGISTRY.covered_through = covered
+        from . import overload  # registration side effects (restructured early-overload stream)
+        REGISTRY.covered_through = overload.COVERAGE[1]
         _LOADED = True
