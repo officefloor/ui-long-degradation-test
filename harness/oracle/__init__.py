@@ -16,6 +16,14 @@ Layout
 - act3.py     Act III, cp121-cp180, with its group rules (effective members cp124, hold cp128, DRAFT
               cp136, ties cp144, all their groups cp148, nested groups cp152, groups of one cp164).
 - act4.py, act5.py   Acts IV and V.
+- act6.py     Act VI, cp251-300: the finale. cp251-260 is the DEEP layer — stacks fathom -> cascade
+              -> ripple -> ballast -> keystone on norm/scaled (chain depth ~16-17), adds the rivals
+              relationship (directed cp255 -> mutual cp256 -> one cp260), and two cross-cutting rules on
+              Ctx: trim the lowest off every total (cp252) and drop SINK people from every count
+              (cp258). cp261-280 is the HUB layer — a central `keel` value read by 53 concepts,
+              redefined at cp262 and cp280 so one change moves the whole battery. cp281-300 is the
+              POST-PEAK tail — keel redefined again (cp282), every gauge globally rounded (cp288), and
+              the lowest-contribution trim reversed (cp300, TRIM_BOTTOM_END). Cadence is 1:1 throughout.
 
 Cross-cutting rules of Phase 2 on Ctx (core.py): inactive patrons (cp80), negatives as zero in
 sheet-wide totals (cp92), followers in follow figures (cp100), nearest rounding (cp160, `div`/`half`),
@@ -23,7 +31,8 @@ missing raw numbers as zero (cp176, `raw`), tied top names listed (cp184, `top`)
 momentum 0 (cp188, `headcounted`), held in full in breakdown totals (cp212) or per the sheet's choice
 (cp232, `held_mode`), totals trimmed of their highest contribution (cp220, `total`), dated grade and
 active (cp224), hold start dates (cp228, `held`), dated settings (cp236, `setting`), per-sheet hold for
-shared people (cp240). Act IV's conversions (cp196 top-N ties, cp204 middle values, cp208 percentages,
+shared people (cp240), every total also trimmed of its lowest contribution (cp252, `total`), and a SINK
+person left out of every count (cp258, `headcounted`). Act IV's conversions (cp196 top-N ties, cp204 middle values, cp208 percentages,
 cp216 dense ranks) live in act4.py.
 
 Extension pattern (for an act author)

@@ -17,7 +17,8 @@
 #             concept-on-concept -> rollup); it carries the erosion pressure. `entity` / `relation` /
 #             `persist` / `status` are the off-spine regions.
 #
-# CADENCE: a repeating cycle of THREE additive checkpoints then ONE mutative (3:1). Each cycle
+# CADENCE: a repeating cycle of THREE additive checkpoints then ONE mutative (3:1) through Act V;
+# Act VI (cp251-260) tightens to 1:1 (alternating additive/mutative, mutative when n is even). Each cycle
 # introduces one densely interwoven algorithm, and its mutative reworks a concept DEFINITION or
 # migrates a RELATIONSHIP / ATTRIBUTE cardinality underneath a higher concept whose contract is held
 # stable. The relationship migrations (1-1 <-> 1-many <-> many-many, attribute promotion to a child
@@ -2272,3 +2273,449 @@ checkpoints:
     test: acceptance/specs/cp250_grand_total.spec.ts
     request: |
       Show me the "grand sum" for the sheet, which is the grand scaled plus the grand influence.
+
+  # ===================================================================================================
+  # ACT VI (cp251-300): "the finale", three layers, CADENCE TIGHTENS TO 1:1 (n mutative when n is
+  # even). DEEP (251-260): a second-order layer (fathom -> cascade -> ripple -> ballast -> keystone)
+  # stacked on norm/scaled pushes the chain past depth 13 to ~17; a rivals relationship migrates twice
+  # (directed -> mutual -> one); two cross-cutting rules (trim the lowest off every total, drop SINK
+  # people from every count). HUB (261-280): a central "keel" read by 53 concepts, redefined at cp262
+  # and cp280 so one change moves the whole gauge battery. POST-PEAK (281-300): more changes on the
+  # concentrated hub (keel redefined again cp282, every gauge rounded cp288, the low trim reversed cp300).
+  # ===================================================================================================
+
+  - id: cp251_fathom
+    type: additive
+    area: calc
+    test: acceptance/specs/cp251_fathom.spec.ts
+    request: |
+      Alongside each person's norm, show its size regardless of sign — how far it is from zero. Call
+      it "fathom". Also show the largest fathom among the people who count, as the "fathom peak".
+
+  - id: cp252_trim_bottom
+    type: mutative
+    area: calc
+    mutates: [23, 24, 28, 31, 32, 58, 73, 76, 80, 82, 83, 94, 96, 101, 104, 111, 112, 114, 160, 176,
+              210, 212, 217, 220, 221, 224, 225, 228, 229, 232, 236, 240, 241, 242, 250]
+    test: acceptance/specs/cp252_trim_bottom.spec.ts
+    request: |
+      When you add up a value across the whole sheet, as well as leaving out the single biggest
+      contributor, also leave out the single smallest one. Every sheet-wide total should drop both its
+      highest and its lowest contribution.
+
+  - id: cp253_cascade
+    type: additive
+    area: calc
+    algorithm: cascade-round
+    test: acceptance/specs/cp253_cascade.spec.ts
+    request: |
+      Add a value called "cascade": a person's fathom plus their scaled, then rounded down to a whole
+      multiple of ten. Also show the largest cascade among the people who count, as the "cascade peak".
+
+  - id: cp254_fathom_cap
+    type: mutative
+    area: calc
+    mutates: [251, 253]
+    test: acceptance/specs/cp254_fathom_cap.spec.ts
+    request: |
+      A person's fathom should never be more than 500. If it works out higher than that, show 500
+      instead.
+
+  - id: cp255_rivals
+    type: additive
+    area: relation
+    test: acceptance/specs/cp255_rivals.spec.ts
+    request: |
+      Let a person name other people as their "rivals". Add a value "ripple": a person's cascade plus
+      the influence of all their rivals added together (a person with no rivals just has their cascade).
+
+  - id: cp256_rivals_mutual
+    type: mutative
+    area: relation
+    mutates: [255]
+    test: acceptance/specs/cp256_rivals_mutual.spec.ts
+    request: |
+      Treat rivalry as mutual. If one person has named another as a rival, each should count as the
+      other's rival, both ways.
+
+  - id: cp257_ballast
+    type: additive
+    area: calc
+    algorithm: trim-both
+    test: acceptance/specs/cp257_ballast.spec.ts
+    request: |
+      Add a value "ballast": a person's ripple minus their combined. Also show the sheet's "ballast
+      total", everyone's ballast added up.
+
+  - id: cp258_count_drop_sink
+    type: mutative
+    area: calc
+    mutates: [51, 87, 92, 185, 190, 197, 198, 199, 200, 209, 214, 215, 219, 222, 225, 226, 231, 233]
+    test: acceptance/specs/cp258_count_drop_sink.spec.ts
+    request: |
+      When counting how many people meet some condition, also leave out anyone whose momentum is below
+      zero. They should not be included in any count of people.
+
+  - id: cp259_keystone
+    type: additive
+    area: calc
+    algorithm: keystone-apex
+    test: acceptance/specs/cp259_keystone.spec.ts
+    request: |
+      Add a value "keystone": a person's ballast plus their adjusted. Also show the name of the person
+      with the highest keystone, as the "keystone apex" (if two tie, the name first alphabetically).
+
+  - id: cp260_rival_fold
+    type: mutative
+    area: relation
+    mutates: [255, 256, 257, 259]
+    test: acceptance/specs/cp260_rival_fold.spec.ts
+    request: |
+      A person should keep just one rival: if they have several, keep only the one whose name comes
+      first alphabetically.
+
+  # ---------------------------------------------------------------------------------------------------
+  # ACT VI hub layer (cp261-280): a central "keel" value feeds a battery of 32 gauges, each reading it
+  # directly, so keel becomes a high fan-in hub (read by 36 concepts). keel is redefined twice (cp262
+  # adds momentum, cp280 subtracts norm); the cp280 change moves every gauge at once. Eight gauges take
+  # a bounded tweak of their own. Cadence stays 1:1 (mutative when the number is even).
+  # ---------------------------------------------------------------------------------------------------
+
+  - id: cp261_keel
+    type: additive
+    area: calc
+    test: acceptance/specs/cp261_keel.spec.ts
+    request: |
+      Add a central value called "keel": a person's scaled plus their influence. Then show four values
+      built from it: "draft" (keel plus scaled), "trim" (keel minus scaled), "heading" (keel plus norm)
+      and "bearing" (keel minus norm).
+
+  - id: cp262_keel_momentum
+    type: mutative
+    area: calc
+    mutates: [261]
+    test: acceptance/specs/cp262_keel_momentum.spec.ts
+    request: |
+      Change keel to also add a person's momentum: keel is now scaled plus influence plus momentum.
+      Everything built on keel should move with it.
+
+  - id: cp263_gauges_axis
+    type: additive
+    area: calc
+    test: acceptance/specs/cp263_gauges_axis.spec.ts
+    request: |
+      Add four more values off the keel: "pitch" (keel plus influence), "tackle" (keel minus
+      influence), "yaw" (keel plus combined) and "heave" (keel minus combined).
+
+  - id: cp264_draft_cap
+    type: mutative
+    area: calc
+    algorithm: draft-cap
+    mutates: [261]
+    test: acceptance/specs/cp264_draft_cap.spec.ts
+    request: |
+      Draft should never be more than 2000. If keel plus scaled works out higher, show 2000 instead.
+
+  - id: cp265_gauges_spine
+    type: additive
+    area: calc
+    test: acceptance/specs/cp265_gauges_spine.spec.ts
+    request: |
+      Add "camber" (keel plus adjusted), "sheer" (keel plus momentum), "beam" (keel minus momentum)
+      and "freeboard" (keel plus effective).
+
+  - id: cp266_heading_round
+    type: mutative
+    area: calc
+    algorithm: heading-round
+    mutates: [261]
+    test: acceptance/specs/cp266_heading_round.spec.ts
+    request: |
+      Round heading down to a whole multiple of ten.
+
+  - id: cp267_gauges_flow
+    type: additive
+    area: calc
+    test: acceptance/specs/cp267_gauges_flow.spec.ts
+    request: |
+      Add "buoyancy" (keel minus effective), "waterline" (keel plus net), "knot" (keel minus net) and
+      "cable" (keel plus clout).
+
+  - id: cp268_yaw_double
+    type: mutative
+    area: calc
+    mutates: [263]
+    test: acceptance/specs/cp268_yaw_double.spec.ts
+    request: |
+      Change yaw to add twice the combined value: keel plus two times combined.
+
+  - id: cp269_gauges_reach
+    type: additive
+    area: calc
+    test: acceptance/specs/cp269_gauges_reach.spec.ts
+    request: |
+      Add "hull" (keel minus clout), "bow" (keel plus fathom), "stern" (keel minus fathom) and "helm"
+      (keel plus cascade).
+
+  - id: cp270_sheer_hundred
+    type: mutative
+    area: calc
+    algorithm: sheer-round
+    mutates: [265]
+    test: acceptance/specs/cp270_sheer_hundred.spec.ts
+    request: |
+      Round sheer down to a whole multiple of a hundred.
+
+  - id: cp271_gauges_rig
+    type: additive
+    area: calc
+    test: acceptance/specs/cp271_gauges_rig.spec.ts
+    request: |
+      Add "rudder" (keel minus cascade), "mast" (keel times two), "rigging" (keel divided by two,
+      rounded down) and "moor" (keel plus 100).
+
+  - id: cp272_knot_twice
+    type: mutative
+    area: calc
+    mutates: [267]
+    test: acceptance/specs/cp272_knot_twice.spec.ts
+    request: |
+      Change knot to subtract twice the net value: keel minus two times net.
+
+  - id: cp273_gauges_moorings
+    type: additive
+    area: calc
+    test: acceptance/specs/cp273_gauges_moorings.spec.ts
+    request: |
+      Add "berth" (keel minus 100), "wharf" (keel times three), "jetty" (keel divided by three, rounded
+      down) and "pier" (keel rounded down to a whole multiple of five).
+
+  - id: cp274_mast_triple
+    type: mutative
+    area: calc
+    mutates: [271]
+    test: acceptance/specs/cp274_mast_triple.spec.ts
+    request: |
+      Change mast to three times the keel instead of twice.
+
+  - id: cp275_gauges_tide
+    type: additive
+    area: calc
+    test: acceptance/specs/cp275_gauges_tide.spec.ts
+    request: |
+      Add "ebb" (keel minus 10), "flood" (keel plus 1000), "swell" (keel plus 1) and "draught" (the
+      size of keel ignoring its sign).
+
+  - id: cp276_moor_plus
+    type: mutative
+    area: calc
+    mutates: [271]
+    test: acceptance/specs/cp276_moor_plus.spec.ts
+    request: |
+      Change moor to add 200 instead of 100.
+
+  - id: cp277_keel_peak
+    type: additive
+    area: calc
+    test: acceptance/specs/cp277_keel_peak.spec.ts
+    request: |
+      Show the largest keel among the people who count, as the "keel peak". Also add "wake": keel plus
+      momentum plus scaled.
+
+  - id: cp278_pier_fifty
+    type: mutative
+    area: calc
+    algorithm: pier-round
+    mutates: [273]
+    test: acceptance/specs/cp278_pier_fifty.spec.ts
+    request: |
+      Round pier down to a whole multiple of fifty instead of five.
+
+  - id: cp279_keel_spread
+    type: additive
+    area: calc
+    test: acceptance/specs/cp279_keel_spread.spec.ts
+    request: |
+      Show the largest keel minus the smallest, among the people who count, as the "keel spread". Also
+      add "bilge": keel rounded down to a whole multiple of a hundred.
+
+  - id: cp280_keel_norm
+    type: mutative
+    area: calc
+    mutates: [261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277,
+              278, 279]
+    test: acceptance/specs/cp280_keel_norm.spec.ts
+    request: |
+      Change keel to also subtract a person's norm: keel is now scaled plus influence plus momentum,
+      minus norm. Every value built on keel should move with it.
+
+  # ---------------------------------------------------------------------------------------------------
+  # ACT VI post-peak (cp281-300): further changes keep landing on the now-concentrated hub. keel is
+  # redefined again (cp282), every gauge is globally rounded down to a five (cp288), and the
+  # lowest-contribution trim is finally reversed (cp300). `summit` deepens the chain once more; new
+  # gauges push keel's fan-in to 53; seven gauges take a bounded tweak. The "what happens next" tail.
+  # Cadence stays 1:1 (mutative when the number is even).
+  # ---------------------------------------------------------------------------------------------------
+
+  - id: cp281_summit_gauges
+    type: additive
+    area: calc
+    test: acceptance/specs/cp281_summit_gauges.spec.ts
+    request: |
+      Add "summit": a person's keystone plus their keel. Then add four more values off the keel:
+      "fender" (keel plus keystone), "cleat" (keel minus keystone), "winch" (keel plus ballast) and
+      "capstan" (keel minus ballast).
+
+  - id: cp282_keel_twice_momentum
+    type: mutative
+    area: calc
+    mutates: [261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277,
+              278, 279, 280, 281]
+    test: acceptance/specs/cp282_keel_twice_momentum.spec.ts
+    request: |
+      Change keel to add twice a person's momentum: keel is now scaled plus influence plus two times
+      momentum, minus norm. Everything built on keel should move with it.
+
+  - id: cp283_keel_total
+    type: additive
+    area: calc
+    test: acceptance/specs/cp283_keel_total.spec.ts
+    request: |
+      Show the sheet's "keel total", everyone's keel added up. Also add "hawser" (keel plus 2) and
+      "bollard" (keel minus 2).
+
+  - id: cp284_fender_cap
+    type: mutative
+    area: calc
+    mutates: [281, 282]
+    test: acceptance/specs/cp284_fender_cap.spec.ts
+    request: |
+      Fender should never be more than 2000. If keel plus keystone works out higher, show 2000 instead.
+
+  - id: cp285_gauges_deep
+    type: additive
+    area: calc
+    test: acceptance/specs/cp285_gauges_deep.spec.ts
+    request: |
+      Add "davit" (keel plus ripple) and "gangway" (keel times four).
+
+  - id: cp286_winch_double
+    type: mutative
+    area: calc
+    mutates: [281, 282]
+    test: acceptance/specs/cp286_winch_double.spec.ts
+    request: |
+      Change winch to add twice the ballast: keel plus two times ballast.
+
+  - id: cp287_gauges_more
+    type: additive
+    area: calc
+    test: acceptance/specs/cp287_gauges_more.spec.ts
+    request: |
+      Add "dock" (keel divided by four, rounded down) and "tiller" (keel plus 10).
+
+  - id: cp288_gauge_round
+    type: mutative
+    area: calc
+    algorithm: gauge-round
+    mutates: [261, 263, 264, 265, 267, 268, 269, 271, 272, 273, 274, 275, 276, 280, 281, 282, 283,
+              284, 285, 286, 287]
+    test: acceptance/specs/cp288_gauge_round.spec.ts
+    request: |
+      Round every gauge down to a whole multiple of five. This applies to all of them, now and in
+      future.
+
+  - id: cp289_gauges_tide2
+    type: additive
+    area: calc
+    test: acceptance/specs/cp289_gauges_tide2.spec.ts
+    request: |
+      Add "boom" (keel plus 20) and "galley" (keel plus 30).
+
+  - id: cp290_davit_minus
+    type: mutative
+    area: calc
+    mutates: [285]
+    test: acceptance/specs/cp290_davit_minus.spec.ts
+    request: |
+      Change davit to subtract ripple instead of adding it: keel minus ripple.
+
+  - id: cp291_gauge_hatch
+    type: additive
+    area: calc
+    test: acceptance/specs/cp291_gauge_hatch.spec.ts
+    request: |
+      Add "hatch" (keel plus 40).
+
+  - id: cp292_gangway_five
+    type: mutative
+    area: calc
+    mutates: [285, 288]
+    test: acceptance/specs/cp292_gangway_five.spec.ts
+    request: |
+      Change gangway to five times the keel instead of four.
+
+  - id: cp293_gauge_transom
+    type: additive
+    area: calc
+    test: acceptance/specs/cp293_gauge_transom.spec.ts
+    request: |
+      Add "transom" (keel plus 50).
+
+  - id: cp294_dock_fifth
+    type: mutative
+    area: calc
+    algorithm: dock-divide
+    mutates: [287]
+    test: acceptance/specs/cp294_dock_fifth.spec.ts
+    request: |
+      Change dock to the keel divided by five, rounded down, instead of by four.
+
+  - id: cp295_draft_total
+    type: additive
+    area: calc
+    test: acceptance/specs/cp295_draft_total.spec.ts
+    request: |
+      Show the sheet's "draft total", everyone's draft added up.
+
+  - id: cp296_tiller_plus
+    type: mutative
+    area: calc
+    mutates: [287]
+    test: acceptance/specs/cp296_tiller_plus.spec.ts
+    request: |
+      Change tiller to add twenty instead of ten.
+
+  - id: cp297_mast_total
+    type: additive
+    area: calc
+    test: acceptance/specs/cp297_mast_total.spec.ts
+    request: |
+      Show the sheet's "mast total", everyone's mast added up.
+
+  - id: cp298_boom_plus
+    type: mutative
+    area: calc
+    mutates: [289]
+    test: acceptance/specs/cp298_boom_plus.spec.ts
+    request: |
+      Change boom to add twenty-five instead of twenty.
+
+  - id: cp299_keel_even
+    type: additive
+    area: calc
+    test: acceptance/specs/cp299_keel_even.spec.ts
+    request: |
+      Show how many people on the sheet have an even keel.
+
+  - id: cp300_trim_restore
+    type: mutative
+    area: calc
+    algorithm: trim-restore
+    mutates: [23, 24, 28, 31, 32, 58, 73, 76, 80, 82, 83, 94, 96, 101, 104, 111, 112, 114, 160, 176,
+              210, 212, 217, 220, 221, 224, 225, 228, 229, 232, 236, 240, 241, 242, 250, 252, 257,
+              283, 295, 297]
+    test: acceptance/specs/cp300_trim_restore.spec.ts
+    request: |
+      Stop leaving out the lowest contributor from sheet-wide totals. Go back to leaving out only the
+      single highest contributor, as it was before.

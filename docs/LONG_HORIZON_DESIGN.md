@@ -80,7 +80,9 @@ Carried by construction, not by a percentage: one screen and one concept spine. 
 refuses any spec that navigates anywhere but `/` or clicks a `nav-*` control.
 
 ### 4.2 Cadence: 3 additive : 1 mutative
-Checkpoint `n` is mutative exactly when `n % 4 == 0`. Every addition adds a rule that interacts with
+Checkpoint `n` is mutative exactly when `n % 4 == 0` through Act V; from Act VI (cp251+) the cadence
+tightens to 1:1, so `n` is mutative when `n` is even (checkpoint_lint `--tighten-after`/`--tighten-period`).
+Every addition adds a rule that interacts with
 what is there; every mutation changes the result of a rule or algorithm already in place, and ships
 updated copies of the specs it changes. The finale (Act V) carries two **reversals** — mutations that
 put an earlier algorithm back to a simpler form (age to days, norm to the mean) — each on a leaf
@@ -119,6 +121,7 @@ oracles are hand-derived from each request and verified against those comments (
 | **III — groups** | 121–180 | a groups entity, many-to-many membership, and per-group and per-member concepts (strength, cohesion, spread, share, standing, within-group rank) |
 | **IV — reporting over the spine** | 181–240 | rollups, rankings and reports over the whole spine: totals, quartile brackets, cross-tabs by region/tier/grade/state, leaderboards |
 | **V — consistency finale** | 241–250 | whole-stack sweeps that compose the spine, plus two reversals that undo earlier decisions (age back to days, norm back to the mean) |
+| **VI — the finale** | 251–300 | 1:1 cadence throughout. **deep layer (251–260):** a second-order chain on norm/scaled (fathom → cascade → ripple → ballast → keystone, depth ~17); a rivals relationship migrating directed → mutual → one; two cross-cutting rules (trim the lowest off every total, drop SINK people from every count). **hub layer (261–280):** a central `keel` read directly by 53 concepts (a god-sized hub), redefined at cp262 and cp280 so one change ripples the whole gauge battery. **post-peak (281–300):** further changes keep landing on the concentrated hub — keel redefined again (cp282, ripple 21), every gauge globally rounded (cp288, ripple 21), and the lowest-contribution trim reversed (cp300, ripple 40) — the "what happens next" tail |
 
 The amount of complexity added per request is meant to hold level or climb for all 250 requests, so
 its placement keeps being negotiated. The full act design and the exact concept chain are in
@@ -166,7 +169,8 @@ slop would enter).
 Mirrored from the REST arm's "cold-reader comprehension probe" and wired into this harness
 (`config.yaml → probe:`, the run-loop call in `run_experiment.py`, the read in `analyze.py`; the
 `agent.probe()` function already existed here, dormant). At each **Act boundary**
-(`at_checkpoints: [50, 100, 150, 200, 250]`) a **fresh, read-only, history-less** agent — the
+(`at_checkpoints: [50, 100, 150, 200, 250, 260, 280, 290, 300]`, the Act boundaries plus Act VI's
+deep/hub/post-peak layers) a **fresh, read-only, history-less** agent — the
 acceptance specs excluded from its view — reads the evolved code and (1) enumerates every concept
 and rule applied to a person on the worksheet and (2) judges how hard the logic was to find and follow.
 

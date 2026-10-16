@@ -12,8 +12,9 @@ real-world domain meaning anywhere. One worksheet screen (`nav-worksheet`); each
 worksheet (seed data via `resetAndSeed`); state persists per sheet id.
 
 ## Hard rules (follow every one)
-1. CADENCE: every checkpoint whose number is divisible by 4 is `mutative`; all others `additive`.
-   (This continues Act I's A-A-A-M rhythm: cp64, cp68, ... are mutative.)
+1. CADENCE: through Act V, every checkpoint whose number is divisible by 4 is `mutative`; all others
+   `additive` (Act I's A-A-A-M rhythm: cp64, cp68, ... are mutative). Act VI (cp251+) tightens to 1:1:
+   every even checkpoint is mutative. The lint enforces this via `--tighten-after`/`--tighten-period`.
 2. `mutates` is a RIPPLE CLOSURE: list every prior checkpoint whose asserted values change, not just
    the direct target. If you change a formula that feeds three downstream concepts, list all whose
    specs assert affected values. Only mutate checkpoints WITHIN YOUR OWN ACT (never Act I or another

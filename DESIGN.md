@@ -99,13 +99,22 @@ the `checkpoints.yaml` header, in `acceptance/support/README.md` (the `data-test
 in `acceptance/support/ACT_AUTHORING_BRIEF.md` (the concept chain and the authoring rules). Those
 files are the living reference, so this document does not restate the formulas, which would rot.
 
-The stream is 250 checkpoints in five acts, boundaries at 60, 120, 180, 240 and 250. Acts I to IV
+The stream is 300 checkpoints in six acts, boundaries at 60, 120, 180, 240, 250 and 300. Acts I to IV
 run a repeating cycle of three additive checkpoints then one mutative, so every checkpoint whose
 number is divisible by four is mutative. Act I lays the concept spine. Act II adds a second raw axis
 and fuses it with the spine. Act III adds a groups entity with a many-to-many membership migration.
 Act IV adds reporting and rankings over the spine. Act V is a short finale of consistency sweeps and
-two reversals that undo earlier decisions. Roughly 91% of the stream is on the concept-pipeline
-spine, which is where the erosion pressure concentrates.
+two reversals that undo earlier decisions. Act VI (cp251–280) is the finale, on a 1:1 cadence. Its
+deep layer (cp251–260) stacks a second-order chain (fathom → cascade → ripple → ballast → keystone)
+on norm and scaled, pushing the concept chain to depth ~17; migrates a new rivals relationship twice
+(directed → mutual → one); and adds two more cross-cutting rules (trim the lowest off every total,
+drop SINK people from every count). Its hub layer (cp261–280) introduces a central `keel` value read
+directly by 53 downstream concepts — a god-sized hub — and redefines it at cp262 and cp280 so a single
+change ripples through the whole battery of gauges. Its post-peak tail (cp281–300) keeps landing
+changes on that concentrated structure — keel redefined again (cp282), every gauge globally rounded
+(cp288), and the lowest-contribution trim reversed (cp300) — to show what happens to maintainability
+once the hub has formed. Roughly 91% of the stream is on the
+concept-pipeline spine, which is where the erosion pressure concentrates.
 
 ---
 
