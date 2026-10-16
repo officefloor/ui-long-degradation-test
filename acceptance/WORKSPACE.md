@@ -40,8 +40,10 @@ the test asserts the combined figure.
 | III | 121–180 | a groups entity, many-to-many membership, and per-group and per-member concepts |
 | IV | 181–240 | reporting, rollups and rankings over the whole spine |
 | V | 241–250 | consistency sweeps that compose the spine, and two reversals that undo earlier decisions |
+| VI | 251–300 | the finale, 1:1 cadence. **Deep layer (251–260):** a second-order chain (fathom → cascade → ripple → ballast → keystone) on norm/scaled (depth ~17), a rivals relationship migrating twice (directed → mutual → one), two cross-cutting rules (trim the lowest off every total, drop SINK people from every count). **Hub layer (261–280):** a central `keel` read by 53 concepts, redefined at cp262/cp280 so one change moves the whole battery (a god-sized hub). **Post-peak (281–300):** changes keep landing on the concentrated hub — `keel` redefined again (cp282), every gauge globally rounded (cp288), the lowest-contribution trim reversed (cp300) |
 
-- Cadence. Checkpoint `n` is mutative when `n % 4 == 0`, three additions then one mutation. A
+- Cadence. Checkpoint `n` is mutative when `n % 4 == 0` through Act V (three additions then one
+  mutation); from Act VI (cp251+) it tightens to 1:1, so `n` is mutative when `n` is even. A
   mutative checkpoint lists `mutates:`, the earlier checkpoints whose result it changes, and ships
   updated copies of their specs in `acceptance/specs/cpNN/`.
 - Ripple closure. `mutates:` names every prior checkpoint whose asserted values change, not just the

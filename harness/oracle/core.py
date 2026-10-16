@@ -99,6 +99,10 @@ HELD_TOTALS_CHOICE = 232   # each sheet chooses how held people count in totals
 DATED_SETTINGS = 236       # settings changes are dated; the as-of view follows them
 HOLD_PER_SHEET = 240       # a shared person's hold belongs to each sheet
 AS_OF_PER_SHEET = 244      # an as-of date belongs to its sheet; each sheet reads history on its own date
+# Act VI (cp251-300): the finale. Cross-cutting rules switch on (and one switches back off) here.
+TRIM_BOTTOM = 252          # every sheet-wide total also leaves out its single lowest contribution
+COUNT_DROP_SINK = 258      # every count of people also leaves out a SINK person (momentum < 0)
+TRIM_BOTTOM_END = 300      # the lowest-contribution trim is reversed from here (back to cp220 only)
 RAW_NUMBERS = ("alpha", "beta", "gamma", "delta", "epsilon", "zeta", "score")
 RULE_BREAKS: set[int] = set()   # checkpoints where an act module's own cross-cutting rule switches on
 SETTINGS_FROM = {"regionMultipliers": 81, "bandFrom": 82, "bandMultipliers": 82, "gradeWeights": 83,
@@ -318,7 +322,7 @@ class Registry:
                 FOLLOWERS_TOO, ROUND_NEAREST, MISSING_AS_ZERO, SHARES_FROM, STATE_PER_SHEET,
                 TIES_LISTED, COUNT_NONZERO, PERCENT_COUNTED, BREAKDOWN_FULL, DENSE_RANKS, TRIM_TOP,
                 HISTORY_GRADE_ACTIVE, HOLD_FROM, HELD_TOTALS_CHOICE, DATED_SETTINGS, HOLD_PER_SHEET,
-                AS_OF_PER_SHEET,
+                AS_OF_PER_SHEET, TRIM_BOTTOM, COUNT_DROP_SINK, TRIM_BOTTOM_END,
                 HISTORY_FROM, LINK_SINCE, *SETTINGS_FROM.values(), *RULE_BREAKS}
         return out
 
@@ -614,10 +618,13 @@ class Ctx:
 
     def headcounted(self) -> list:
         """The people every count of people takes (cp188): the counted people, leaving out from cp188
-        anyone whose momentum is 0. Ranks, averages, middle values and totals still use counted()."""
+        anyone whose momentum is 0, and from cp258 anyone whose momentum is negative (a SINK person).
+        Ranks, averages, middle values and totals still use counted()."""
         out = self.counted()
         if self.k >= COUNT_NONZERO:
             out = [p for p in out if self.v("momentum", p) != 0]
+        if self.k >= COUNT_DROP_SINK:
+            out = [p for p in out if (self.v("momentum", p) or 0) >= 0]
         return out
 
     def held_mode(self, breakdown: bool = False) -> str:
@@ -637,7 +644,9 @@ class Ctx:
         order: (1) a held person per held_mode (left out, half rounded as the held half, or full);
         (2) a negative value counts as zero (cp92+); (3) from cp220 the single highest of the
         resulting contributions is left out (one of them when several are level; the sum is the same
-        either way). `breakdown` marks a total for one region, tier, grade, state or quartile.
+        either way); (4) from cp252 the single lowest of what then remains is left out too (one when
+        several are level), until cp300 reverses that and only the highest is left out again.
+        `breakdown` marks a total for one region, tier, grade, state or quartile.
         Totals of group figures, percentages' wholes and averages' sums are not sheet-wide totals."""
         parts = []
         for p in self.ids:
@@ -657,6 +666,8 @@ class Ctx:
             parts.append(val)
         if self.k >= TRIM_TOP and parts:
             parts.remove(max(parts))
+        if TRIM_BOTTOM <= self.k < TRIM_BOTTOM_END and parts:
+            parts.remove(min(parts))
         return sum(parts)
 
     def half(self, val: int) -> int:
@@ -947,9 +958,9 @@ def _load_acts() -> None:
     may have changed any concept, so a disagreement there is not evidence of a spec defect."""
     global _LOADED
     if not _LOADED:
-        from . import act1, act2, act3, act4, act5  # registration side effects
+        from . import act1, act2, act3, act4, act5, act6  # registration side effects
         covered = 0
-        for mod in (act1, act2, act3, act4, act5):
+        for mod in (act1, act2, act3, act4, act5, act6):
             cov = getattr(mod, "COVERAGE", None)
             if not cov or cov[0] != covered + 1:
                 break

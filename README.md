@@ -7,7 +7,8 @@ application from scratch** under a long sequence of plain-English change request
 
 - **One application evolves.** It starts from a near-empty base — a base front-end shell, Spring
   with the OfficeFloor plugin, and an empty in-memory H2 database (no tables) — and is grown by
-  250 English change requests, all on one screen (the worksheet at `/`) over arbitrary people
+  300 English change requests (250 across Acts I–V plus a deeper Act VI finale of 50), all on one
+  screen (the worksheet at `/`) over arbitrary people
   carrying raw attribute values, with named concepts computed from them and from each other and
   relationships between people, designed to overstress the architecture early and keep loading it
   (see [acceptance/WORKSPACE.md](./acceptance/WORKSPACE.md)). Each request is a **full-stack change**: schema migration +
@@ -107,10 +108,15 @@ needs real network + loopback (no sandbox).
 
 ## Status
 
-Working: the stack repos (`~/officehq-*`, branch `base-empty`), all 250 checkpoints
-(`checkpoints.yaml` + `acceptance/specs`, every fourth mutative with its updated copies, at least
-three algorithms per 50-checkpoint block; every expected figure carries its arithmetic in a comment,
-checkable by hand, with no separate reference implementation), the driver (`run_experiment` — blind
+Working: the stack repos (`~/officehq-*`, branch `base-empty`), all 300 checkpoints
+(`checkpoints.yaml` + `acceptance/specs`: Acts I–V every fourth mutative, then a deeper Act VI finale
+(cp251–300) on a 1:1 cadence — a deep layer (251–260) that pushes the concept chain to depth ~17 plus
+two cross-cutting rules, a hub layer (261–280) whose central `keel` value is read by 53 concepts so one
+redefinition ripples through them all, and a post-peak tail (281–300) that keeps changing the
+concentrated hub (another keel shift, a global gauge rounding, and the trim reversal); each mutative
+ships its updated copies, at least three algorithms per 50-checkpoint block; every
+expected figure carries its arithmetic in a comment, checkable by hand, and is additionally verified
+against the executable reference model `harness/oracle` by `harness.spec_check`), the driver (`run_experiment` — blind
 two-commit loop, `just-solve` and `gated` conditions, fail-closed token guard), the UI gate
 (`correctness` — build/serve/Playwright + scoring), `analyze` (Zero-Regression Rate, EvoScore,
 slopes), `metrics` (per-layer structural erosion), and the `gated`/ImpactGate refactor loop.

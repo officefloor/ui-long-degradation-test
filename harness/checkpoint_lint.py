@@ -3,8 +3,9 @@
 The stream is designed to concentrate complexity on one screen and three entities
 (acceptance/WORKSPACE.md). This lint refuses a stream that does not hold to that design:
 
-  1. CADENCE — checkpoint n is mutative exactly when n % 4 == 0 (three additions, one mutation),
-     and every mutation names the earlier checkpoints whose behaviour it changes (`mutates:`).
+  1. CADENCE — checkpoint n is mutative exactly when n % 4 == 0 (three additions, one mutation)
+     through --tighten-after, then on the tighter 1:1 rhythm (n % --tighten-period == 0) beyond it
+     (Act VI runs 1:1), and every mutation names the earlier checkpoints it changes (`mutates:`).
   2. ONE SCREEN — every checkpoint's own (agent-visible) spec opens only `/` and clicks no
      navigation (`nav-*`): no request may add a page.
   3. ALGORITHMS — each act of --act-size checkpoints carries at least --min-algorithms
@@ -68,15 +69,12 @@ def _load_yaml(path: str):
         return yaml.load(fh, Loader=_UniqueKeyLoader)
 
 
-def _cadence_pattern_violations(items: list[tuple[int, str]]) -> list[int]:
-    """Positions (1-based within the window) that break the A-A-A-M rhythm: every 4th
-    checkpoint mutative, the other three additive. Returns the offending checkpoint ids."""
-    bad = []
-    for pos, (cid_num, ctype) in enumerate(items, start=1):
-        expected = "mutative" if pos % 4 == 0 else "additive"
-        if ctype != expected:
-            bad.append(cid_num)
-    return bad
+def _expected_type(n: int, tighten_after: int, tighten_period: int) -> str:
+    """The cadence a checkpoint must follow: the 3:1 A-A-A-M rhythm (mutative when n % 4 == 0)
+    through `tighten_after`, then the tighter `tighten_period` rhythm beyond it (Act VI is 1:1, so
+    every even checkpoint is mutative)."""
+    period = 4 if n <= tighten_after else tighten_period
+    return "mutative" if n % period == 0 else "additive"
 
 
 def main() -> int:
@@ -86,6 +84,10 @@ def main() -> int:
     ap.add_argument("--act-size", type=int, default=50, help="checkpoints per act")
     ap.add_argument("--min-algorithms", type=int, default=3,
                     help="minimum checkpoints with an `algorithm:` field per act")
+    ap.add_argument("--tighten-after", type=int, default=250,
+                    help="checkpoints past this follow the tighter cadence (Act VI onward)")
+    ap.add_argument("--tighten-period", type=int, default=2,
+                    help="the tighter cadence period beyond --tighten-after (2 = 1:1)")
     args = ap.parse_args()
 
     cfg = _load_yaml(args.config) or {}
@@ -111,8 +113,10 @@ def main() -> int:
     # ---- 1. cadence, and every mutation names what it mutates --------------------------------
     off_rhythm = [f"cp{cp['n']:02d} is {cp.get('type', 'additive')}"
                   for cp in numbered
-                  if cp.get("type", "additive") != ("mutative" if cp["n"] % 4 == 0 else "additive")]
-    report("cadence", off_rhythm, "checkpoint n must be mutative exactly when n % 4 == 0")
+                  if cp.get("type", "additive")
+                  != _expected_type(cp["n"], args.tighten_after, args.tighten_period)]
+    report("cadence", off_rhythm,
+           f"n mutative when n%4==0 through cp{args.tighten_after}, then n%{args.tighten_period}==0")
     bad_mutates = []
     for cp in numbered:
         if cp.get("type") == "mutative":
