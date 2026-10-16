@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// that one score (empty when none) and note-sum equals the score.
+// person-score shows the single score (empty when none) and note-sum equals the score.
 
 test.describe('notes', () => {
   test('shows the single score and its total', { tag: '@functionality' }, async ({ page }) => {
@@ -14,9 +14,9 @@ test.describe('notes', () => {
 });
     await page.goto('/');
 
-    await expect(page.getByTestId('person-row-1').getByTestId('person-notes')).toHaveText('42');
-    await expect(page.getByTestId('person-row-2').getByTestId('person-notes')).toHaveText('5');
-    await expect(page.getByTestId('person-row-3').getByTestId('person-notes')).toHaveText('');
+    await expect(page.getByTestId('person-row-1').getByTestId('person-score')).toHaveText('42');
+    await expect(page.getByTestId('person-row-2').getByTestId('person-score')).toHaveText('5');
+    await expect(page.getByTestId('person-row-3').getByTestId('person-score')).toHaveText('');
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-note-sum')).toHaveText('42');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-note-sum')).toHaveText('5');

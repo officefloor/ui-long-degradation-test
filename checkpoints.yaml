@@ -97,8 +97,8 @@ checkpoints:
     test: acceptance/specs/cp06_concept_nullability.spec.ts
     request: |
       Sometimes I add a person before I know all their numbers. If alpha, beta or gamma is missing
-      for a person, then thrust, drift, momentum and tier should all show "n/a" for that person until
-      I fill the missing numbers in.
+      for a person, then any of thrust, drift, momentum and tier that needs the missing number should
+      show "n/a" for that person until I fill it in.
 
   - id: cp07_alpha_change_audit
     type: additive
@@ -590,7 +590,8 @@ checkpoints:
     test: acceptance/specs/cp61_axis_raw.spec.ts
     request: |
       As well as the numbers I already keep, let me give each person two more whole numbers, one I
-      will call "delta" and one I will call "epsilon". Show both for each person.
+      will call "delta" and one I will call "epsilon". Show both for each person. I can leave either
+      blank when I add a person and fill it in later.
 
   - id: cp62_force
     type: additive
@@ -605,7 +606,8 @@ checkpoints:
     test: acceptance/specs/cp63_torque.spec.ts
     request: |
       Give each person a whole number called "zeta". For each person show "sway", which is zeta minus
-      delta, and "torque", which is force plus two times sway.
+      delta, and "torque", which is force plus two times sway. I can leave zeta blank when I add a
+      person and fill it in later.
 
   - id: cp64_torque_coefficient
     type: mutative
@@ -637,8 +639,8 @@ checkpoints:
     area: calc
     test: acceptance/specs/cp67_axis_nullability.spec.ts
     request: |
-      If delta, epsilon or zeta is missing for a person, then force, sway, torque, phase and blend
-      should all show "n/a" for that person until the missing number is filled in.
+      If delta, epsilon or zeta is missing for a person, then any of force, sway, torque, phase and
+      blend that needs the missing number should show "n/a" for that person until it is filled in.
 
   - id: cp68_phase_recalibrate
     type: mutative
@@ -1218,6 +1220,8 @@ checkpoints:
     type: mutative
     area: relation
     mutates: [121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139]
+    keeps_anchors: [group-name, group-concept-cohesion, concept-share, concept-belonging, concept-tether,
+                    rollup-biggest-group, concept-weave, concept-mesh]
     retires: ['cp121_groups.spec.ts::people belong to one named group', 'cp121_groups.spec.ts::each person shows their group', 'cp122_group_strength.spec.ts::strength sums members\'' effective', 'cp124_strength_effective.spec.ts::strength sums members\'' effective', 'cp125_group_cohesion.spec.ts::cohesion is strength over size', 'cp127_group_apex.spec.ts::apex names the top-scaled member', 'cp129_share.spec.ts::share rounds to nearest', 'cp130_standing.spec.ts::standing ranks within the group', 'cp131_belonging.spec.ts::belonging is strength minus scaled', 'cp132_share_nearest.spec.ts::share rounds to nearest', 'cp134_tether.spec.ts::tether is scaled minus cohesion', 'cp135_biggest_group.spec.ts::names the strongest group', 'cp137_anchorage.spec.ts::anchorage counts the person\''s groups', 'cp138_weave.spec.ts::weave is scaled plus cohesion', 'cp139_mesh.spec.ts::mesh is scaled times size']
     test: acceptance/specs/cp140_membership_many.spec.ts
     request: |
@@ -1893,6 +1897,7 @@ checkpoints:
     type: mutative
     area: calc
     mutates: [183, 206, 233]
+    keeps_anchors: [report-headcount]
     retires: ['cp183_ledger.spec.ts::ledger sums all scaled', 'cp206_digest.spec.ts::mean value per person', 'cp233_report_screen.spec.ts::report screen re-reads figures']
     test: acceptance/specs/cp240_ledger_trim.spec.ts
     request: |

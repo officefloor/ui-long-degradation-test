@@ -363,6 +363,57 @@ def undeclared_retirements(checkpoints: list[dict], harness_root: str) -> list[s
     return out
 
 
+_LITERAL_TESTID = re.compile(r"""getByTestId\((['"])([^'"`$]+)\1\)""")
+_FAMILY_TAIL = re.compile(r"-[A-Za-z0-9]{1,3}$")
+
+
+def _anchors(text: str) -> set[str]:
+    """Literal test ids in `text`, a numbered family (`person-row-5`, `band-count-E`) as one
+    anchor: the agent extends a pattern it already renders. Template and regex ids are skipped."""
+    out = set()
+    for m in _LITERAL_TESTID.finditer(text):
+        tid = m.group(2)
+        out.add(_FAMILY_TAIL.sub("-#", tid) if tid.count("-") >= 2 else tid)
+    return out
+
+
+def hidden_anchor_violations(checkpoints: list[dict], harness_root: str) -> list[str]:
+    """Test ids a hidden copy asserts that the agent has no way to know.
+
+    The agent sees only its own spec. An anchor is knowable when that spec names it, or when a test
+    still in force asserts it, so the app already renders it. One asserted only by tests the
+    checkpoint retires is not: cp48's copy expected the single score in `person-notes`, an id only
+    the retired notes test used, and the agent sensibly named the new cell `person-score` (run
+    202610160010). Retiring a test does not always remove its anchor from the app (cp140 retires
+    every group test, yet each group figure keeps its id), so a checkpoint names the anchors that
+    survive under `keeps_anchors:`."""
+    out = []
+    for cp in checkpoints:
+        entries = spec_entries(cp, harness_root)
+        own = own_spec(cp)
+        copies = entries[1:] if own else entries
+        if not copies:
+            continue
+        allowed = _anchors(open(os.path.join(harness_root, own)).read()) if own else set()
+        allowed |= _anchors("".join(f"getByTestId('{a}')" for a in cp.get("keeps_anchors") or []))
+        retired = {_unescape_title(r) for r in cp.get("retires") or []}
+        before = _in_force(checkpoints, cp["n"] - 1, harness_root)
+        for base, path in before.items():
+            for title, body in test_bodies(path).items():
+                if f"{base}::{title}" not in retired:
+                    allowed |= _anchors(body)
+        for e in copies:
+            base = os.path.basename(e)
+            old = test_bodies(before[base]) if base in before else {}
+            for title, body in test_bodies(os.path.join(harness_root, e)).items():
+                if old.get(title) == body:
+                    continue
+                for tid in sorted(_anchors(body) - allowed):
+                    out.append(f"cp{cp['n']:02d} {base}::{title} asserts {tid!r}, which the agent "
+                               "cannot see")
+    return out
+
+
 def hidden_field_violations(checkpoints: list[dict], harness_root: str) -> list[str]:
     """Replacement copies that seed a field no VISIBLE spec has seeded up to their checkpoint.
 

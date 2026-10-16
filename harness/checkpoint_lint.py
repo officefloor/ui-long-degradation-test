@@ -16,6 +16,8 @@ The stream is designed to concentrate complexity on one screen and three entitie
   7. YAML — no mapping repeats a key (safe_load would silently keep the last).
   8. IMPORTS — every relative import in a spec resolves from the folder it is installed into
      (copies go in by basename beside the own specs, so `../../` from a copy breaks the gate).
+  9. ANCHORS — a hidden copy asserts only test ids the agent can know: named in its own spec,
+     asserted by a test still in force, or declared under `keeps_anchors:` as surviving a retirement.
 
     .venv/bin/python -m harness.checkpoint_lint --config config.yaml
 
@@ -146,6 +148,10 @@ def main() -> int:
     unresolved = fixtures.unresolved_imports(numbered, harness_root)
     report("imports", unresolved, "a copy is installed beside the own specs: use '../support/...'")
 
+    # ---- 9. hidden copies assert only anchors the agent can know -----------------------------
+    unseen = fixtures.hidden_anchor_violations(numbered, harness_root)
+    report("anchors", unseen, "name it in the own spec, or list it under keeps_anchors: if it survives")
+
     # ---- report -----------------------------------------------------------------------------
     n_mut = sum(1 for cp in numbered if cp.get("type") == "mutative")
     n_alg = sum(1 for cp in numbered if cp.get("algorithm"))
@@ -158,6 +164,7 @@ def main() -> int:
     print(f"  visible-spec leak: {len(leaks)} own spec(s) describe the hidden suite")
     print(f"  dropped coverage : {len(dropped)} test(s) dropped without a retires: entry")
     print(f"  broken imports   : {len(unresolved)} spec import(s) absent once installed")
+    print(f"  unseen anchors   : {len(unseen)} test id(s) a hidden copy asserts that the agent cannot know")
     print()
     if problems:
         print("FAIL — fix before paying for a run:")

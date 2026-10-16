@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// person (the notes[] join list is gone). note-sum is now the score; quality is the score; no score
+// Each person has a single whole-number score, shown in `person-score` (empty when none). note-sum
+// is now the score; quality is the score; no score
 // is still 'n/a' quality. adjusted = combined + quality follows.
 //   Dana score 42 -> note-sum 42, quality 42, adjusted 33+42=75
 //   Ravi score 5  -> note-sum 5,  quality 5,  adjusted 8+5=13
@@ -17,6 +18,10 @@ test.describe('notes folded to a single score', () => {
   ],
 });
     await page.goto('/');
+
+    await expect(page.getByTestId('person-row-1').getByTestId('person-score')).toHaveText('42');
+    await expect(page.getByTestId('person-row-2').getByTestId('person-score')).toHaveText('5');
+    await expect(page.getByTestId('person-row-3').getByTestId('person-score')).toHaveText('');
 
     await expect(page.getByTestId('person-row-1').getByTestId('concept-note-sum')).toHaveText('42');
     await expect(page.getByTestId('person-row-2').getByTestId('concept-note-sum')).toHaveText('5');

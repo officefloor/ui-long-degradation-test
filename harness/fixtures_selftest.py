@@ -170,6 +170,24 @@ def test_screen_violations_flag_other_urls_and_nav_clicks():
         assert len(v) == 2 and v[0].startswith("cp02") and "/invoices" in v[0] and "nav-" in v[1], v
 
 
+def test_a_copy_may_assert_only_anchors_the_agent_can_know():
+    with tempfile.TemporaryDirectory() as root:
+        S = "acceptance/specs"
+        def spec(title, *ids):
+            return _spec(title, "{}", " ".join(f"getByTestId('{i}');" for i in ids))
+        specs = {f"{S}/cp01_a.spec.ts": spec("notes", "person-notes", "person-row-1"),
+                 f"{S}/cp02_b.spec.ts": spec("score", "concept-sum", "person-row-2"),
+                 f"{S}/cp02/cp01_a.spec.ts": spec("single score", "person-notes", "person-row-5")}
+        cps = _stream(root, specs, [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
+                                    {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts", "mutates": [1],
+                                     "retires": ["cp01_a.spec.ts::notes"]}])
+        # person-notes lives on only in the retired test; person-row-5 extends a family the own spec uses
+        assert f.hidden_anchor_violations(cps, root) == [
+            "cp02 cp01_a.spec.ts::single score asserts 'person-notes', which the agent cannot see"]
+        cps[1]["keeps_anchors"] = ["person-notes"]
+        assert f.hidden_anchor_violations(cps, root) == []
+
+
 def test_an_own_spec_naming_a_checkpoint_is_a_leak():
     with tempfile.TemporaryDirectory() as root:
         S = "acceptance/specs"
