@@ -521,7 +521,7 @@ def _pins_touched(wt: str, cfg: dict) -> list[str]:
 PROMPT_TEMPLATE = """You are implementing ONE change to this application.
 
 FIRST read AGENTS.md — it states the working rules and how the app is tested, and sends you to
-DESIGN.md for this implementation's stack and conventions. Follow both.
+DESIGN.md for the app's stack and conventions. Follow both.
 
 THE CHANGE REQUEST:
 {request}

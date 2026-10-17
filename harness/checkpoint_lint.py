@@ -158,6 +158,20 @@ def main() -> int:
         hits = fixtures.framing_leaks(open(os.path.join(harness_root, src)).read())
         if hits:
             framing.append(f"{dst} ({src}): mentions {', '.join(hits)}")
+    from . import run_experiment
+    prompts = {n: getattr(run_experiment, n)
+               for n in ("PROMPT_TEMPLATE", "REFACTOR_TEMPLATE", "REVIEW_TEMPLATE")}
+    for name, strat in ((cfg.get("prompt_strategies") or {}).items()):
+        if (strat or {}).get("template"):
+            prompts[f"prompt_strategies.{name}"] = strat["template"]
+    igc = cfg.get("impact_gate") or {}
+    for key in ("refactor_prompt", "review_prompt"):
+        if igc.get(key):
+            prompts[f"impact_gate.{key}"] = igc[key]
+    for name, text in sorted(prompts.items()):
+        hits = fixtures.framing_leaks(text)
+        if hits:
+            framing.append(f"prompt {name}: mentions {', '.join(hits)}")
     for cp in numbered:
         hits = fixtures.framing_leaks(cp.get("request") or "")
         if hits:
