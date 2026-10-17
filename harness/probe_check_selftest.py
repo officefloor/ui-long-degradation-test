@@ -1,57 +1,55 @@
-"""Deterministic tests for the probe-bite checks (harness.probe_check).
+"""Deterministic tests for the rule-exercise checks (harness.probe_check).
 Run: .venv/bin/python -m harness.probe_check_selftest
 """
 from __future__ import annotations
 
 from . import probe_check as p
+from .oracle.core import _load_acts
 
-FX = {"anchor": "2026-03-01",
-      "people": [{"id": 1, "alpha": 3, "hold": True}, {"id": 2, "alpha": 5}],
-      "settings": {"regionMultipliers": {"N": 4}},
-      "sheets": [{"id": "S2", "people": [{"id": 1, "alpha": 1, "hold": True}],
-                  "settings": {"gradeWeights": {"MID": 2}}}],
-      "shares": [{"personId": 7, "fromSheetId": "S2", "fromPersonId": 1}],
-      "history": [{"personId": 1, "field": "alpha", "value": 9, "from": "2026-04-01"}]}
-
-
-def test_every_rule_sees_its_probe_and_ablation_removes_it():
-    for rule in p.SINCE:
-        assert p.has_probe(rule, FX), rule
-    assert not p.has_probe("hold", p.ablate("hold", FX))
-    assert not p.has_probe("settings", p.ablate("settings", FX))
-    assert not p.has_probe("identity", p.ablate("identity", FX))
-    assert p.ablate("history", FX)["history"][0]["from"] == "0001-01-01"   # dates ignored, not removed
+PEOPLE = [{"id": 1, "name": "Ada", "alpha": 3, "beta": 5, "gamma": 4},
+          {"id": 2, "name": "Ben", "alpha": 2, "beta": 6, "gamma": 3},
+          {"id": 3, "name": "Cam", "alpha": 5, "beta": 4, "gamma": 9},
+          {"id": 9, "name": "Hz", "alpha": 9, "beta": 9, "gamma": 9, "hold": True},
+          {"id": 6, "name": "Moe", "alpha": 2, "beta": 4, "gamma": None}]
 
 
-def test_ablation_and_perturbation_never_touch_the_original():
-    before = repr(FX)
-    for rule in p.SINCE:
-        p.ablate(rule, FX)
-        p.perturb(rule, FX)
-    assert repr(FX) == before
+def _events(ids, people=PEOPLE):
+    ev = [{"op": "seed", "fixture": {"people": people}}, {"op": "goto", "url": "/"}]
+    for t in ids:
+        loc = [{"tid": x} for x in (t if isinstance(t, tuple) else (t,))]
+        ev.append({"op": "expect", "loc": loc, "matcher": "toHaveText", "value": "0"})
+    return ev
 
 
-def test_perturbation_keeps_seeded_settings_and_moves_raw_numbers():
-    got = p.perturb("settings", FX)
-    assert got["settings"] == FX["settings"]                     # a sheet's own settings stay
-    assert p.perturb("settings", {"people": []})["settings"] == p._PERTURB_SETTINGS
-    assert [x["alpha"] for x in p.perturb("history", FX)["people"]] == [4, 6]
-    assert p.perturb("hold", FX) is None and p.perturb("identity", FX) is None
+def test_rules_start_at_the_streams_checkpoints():
+    assert p.SINCE == {"trim": 4, "round": 8, "hold": 12, "sink": 16, "missing": 20}
 
 
-def test_driving_a_rule_through_the_ui_is_a_probe():
-    click = [{"op": "click", "loc": [{"tid": "person-hold-3"}]}]
-    assert p._drives_in_ui("hold", click)
-    assert not p._drives_in_ui("settings", click)
-    assert p._drives_in_ui("history", [{"op": "fill", "loc": [{"tid": "sheet-as-of"}]}])
+def test_which_ids_need_which_rule():
+    total = _events(["rollup-thrust-total"])
+    assert p.needs("trim", total, 30) and p.needs("hold", total, 30)
+    assert not p.needs("trim", total, 3)                      # before the rule exists
+    assert not p.needs("sink", total, 30)
+    assert p.needs("sink", _events(["rollup-fathom-even"]), 30)
+    assert p.needs("round", _events([("person-row-1", "concept-third")]), 30)
+    assert not p.needs("round", _events([("person-row-1", "concept-thrust")]), 30)
 
 
-def test_hold_and_identity_are_needed_by_sheet_wide_and_link_figures():
-    total = [{"op": "expect", "loc": [{"tid": "rollup-total-load"}]}]
-    own = [{"op": "expect", "loc": [{"tid": "person-row-1"}, {"tid": "concept-thrust"}]}]
-    link = [{"op": "expect", "loc": [{"tid": "person-row-1"}, {"tid": "concept-backing"}]}]
-    assert p._needs_by_ids("hold", total) and p._needs_by_ids("identity", link)
-    assert not p._needs_by_ids("hold", own)
+def test_blank_raw_is_needed_only_when_it_moves_an_asserted_value():
+    moe = _events([("person-row-6", "concept-momentum")])
+    assert p.needs("missing", moe, 30)
+    assert not p.needs("missing", _events([("person-row-6", "concept-thrust")]), 30)  # no gamma
+    assert p.fill_blanks({"people": PEOPLE})["people"][-1]["gamma"] == 7
+    assert PEOPLE[-1]["gamma"] is None                          # never touches the original
+
+
+def test_ablation_bites_where_the_rule_moves_a_value():
+    _load_acts()
+    assert p.bites("trim", _events(["rollup-thrust-total"]), 30)
+    held_top = _events(["rollup-fathom-top"])
+    assert p.bites("hold", held_top, 70)                       # Hz (held) has the highest fathom
+    assert p.bites("missing", _events([("person-row-6", "concept-momentum")]), 30)
+    assert not p.bites("missing", _events([("person-row-1", "concept-momentum")]), 30)
 
 
 def main() -> int:

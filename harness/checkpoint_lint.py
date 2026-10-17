@@ -159,7 +159,7 @@ def main() -> int:
     report("anchors", unseen, "name it in the own spec, or list it under keeps_anchors: if it survives")
 
     # ---- 10. the hold rule stays exercised ---------------------------------------------------
-    unheld = fixtures.standing_hold_violations(numbered, harness_root)
+    unheld = fixtures.standing_hold_violations(numbered, harness_root, since=12)
     report("standing hold", unheld, "seed one held person that would change the figure if counted")
 
     # ---- report -----------------------------------------------------------------------------

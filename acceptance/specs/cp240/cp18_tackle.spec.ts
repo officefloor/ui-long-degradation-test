@@ -1,16 +1,17 @@
 import { test, expect } from '@playwright/test';
 import { resetAndSeed } from '../support/seed';
 
-// keel: Ada 64, Ben 49, Cam 134, Dot 4
-
 test.describe('tackle', () => {
   test('tackle', { tag: '@functionality' }, async ({ page }) => {
     await resetAndSeed({people: [{id: 1, name: "Ada", alpha: 3, beta: 5, gamma: 4}, {id: 2, name: "Ben", alpha: 2, beta: 6, gamma: 3}, {id: 3, name: "Cam", alpha: 5, beta: 4, gamma: 9}, {id: 4, name: "Dot", alpha: 4, beta: 3, gamma: 2}, {id: 5, name: "Sid", alpha: 4, beta: 2, gamma: 0}, {id: 9, name: "Hz", alpha: 2, beta: 5, gamma: 3, hold: true}, {id: 6, name: "Moe", alpha: 2, beta: 4, gamma: null}], patrons: [{personId: 1, patronId: 2}, {personId: 1, patronId: 3}]});
     await page.goto('/');
 
-    await expect(page.getByTestId('person-row-1').getByTestId('concept-tackle')).toHaveText('307');
-    await expect(page.getByTestId('person-row-2').getByTestId('concept-tackle')).toHaveText('262');
-    await expect(page.getByTestId('person-row-3').getByTestId('concept-tackle')).toHaveText('499');
-    await expect(page.getByTestId('person-row-4').getByTestId('concept-tackle')).toHaveText('145');
+    await expect(page.getByTestId('person-row-1').getByTestId('concept-tackle')).toHaveText('289');
+    await expect(page.getByTestId('person-row-2').getByTestId('concept-tackle')).toHaveText('247');
+    await expect(page.getByTestId('person-row-3').getByTestId('concept-tackle')).toHaveText('467');
+    await expect(page.getByTestId('person-row-4').getByTestId('concept-tackle')).toHaveText('139');
+    await expect(page.getByTestId('person-row-5').getByTestId('concept-tackle')).toHaveText('11');
+    await expect(page.getByTestId('person-row-6').getByTestId('concept-tackle')).toHaveText('83');
+    await expect(page.getByTestId('person-row-9').getByTestId('concept-tackle')).toHaveText('219');
   });
 });
