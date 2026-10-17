@@ -1,8 +1,11 @@
 # The refactor-hell stream — design and the 250 requests
 
-_Draft 2026-10-17, literature folded in the same day (Section 4.1). A proposal for the next stream. Nothing here is built: no reference model, no
-specs, no copies. The requests are written in checkpoint-ready form so they can be lifted into
-`stream_build` once the model exists (Section 7)._
+_Draft 2026-10-17, literature folded in the same day (Section 4.1). **Act I is built** (2026-10-18):
+`harness/oracle/hell.py` is the reference model, `hell_scripts.py` the scripts, and
+`harness.stream_build` renders the 40 specs and copies; see `acceptance/WORKSPACE.md` for the
+built Act I, which is tighter than the Act I proposed below (no tags, clone, mentors or plans: every
+checkpoint loads the one `due` figure, so the erosion compounds instead of spreading). Acts II–VI
+below remain a proposal._
 
 ## 1. Why the current stream does not erode
 

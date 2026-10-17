@@ -1,28 +1,16 @@
-"""Test-data (fixture) contract, derived from the specs themselves (AGENTS.md §4).
+"""What the harness reads out of the specs (never shown to the agent): which spec a checkpoint
+owns and installs, which tests a copy replaces or retires, and the lints that keep a spec from
+telling the agent about the sequence it is part of (framing and process leaks, cpNN tokens,
+unseen anchors, broken imports, vacuous tests, other screens).
 
-Every spec arranges its own data with `resetAndSeed({...})`. The app's seed endpoint is agent
-code, so nothing stops a later change from silently dropping a field an earlier spec seeds —
-and the agent never sees those earlier specs. This module turns the specs into data the
-harness can act on, without showing the agent any assertion or anything from the future:
-
-- `spec_fixtures(path)`  every `resetAndSeed` literal in a spec, as JSON, with its test title.
-- `fixture_contract(checkpoints, k)`  the data sets the app must still store before checkpoint
-  k runs: those of the specs in force at k-1, minus the specs k replaces (`mutates`). A field
-  leaves the contract only when every spec that seeded it has been replaced.
-- `hidden_field_violations(checkpoints)`  the stream lint: a replacement copy that seeds a field
-  no visible spec has seeded so far, which the agent had no way to know it must store.
-
-The fixture literals are plain data, optionally built from local `const` declarations in the same
-test; node evaluates them exactly, and anything else is an authoring error and raises.
+Specs arrange their data through the screens (acceptance/support/ui.ts), so there is no seed
+contract to derive from them any more.
 """
 from __future__ import annotations
 
-import json
 import os
 import re
-import subprocess
 
-_SEED_CALL = re.compile(r"resetAndSeed\(\s*\{")
 _TEST_TITLE = re.compile(r"""(?m)^\s*test\(\s*(['"`])((?:(?!\1)[^\\]|\\.)*)\1""")
 
 
@@ -50,103 +38,7 @@ def _balanced(src: str, open_at: int) -> str:
     raise ValueError(f"unbalanced fixture literal at offset {open_at}")
 
 
-_CONST_DECL = re.compile(r"\bconst\s+(\w+)\s*=\s*")
-
-
-def _statement_end(src: str, i: int) -> int:
-    """Index just past the `;` that ends the expression starting at src[i] (depth 0)."""
-    depth, n = 0, len(src)
-    while i < n:
-        ch = src[i]
-        if ch in "'\"`":
-            j = i + 1
-            while j < n and src[j] != ch:
-                j += 2 if src[j] == "\\" else 1
-            i = j
-        elif ch in "{[(":
-            depth += 1
-        elif ch in "}])":
-            depth -= 1
-        elif ch == ";" and depth == 0:
-            return i + 1
-        i += 1
-    raise ValueError("unterminated const declaration")
-
-
-def _local_consts(src: str, start: int, end: int) -> str:
-    """`const x = ...;` declarations between a test's start and a seed call — fixtures may
-    build rows in a local (cp39 makes 15 invoices with Array.from)."""
-    out, i = [], start
-    while True:
-        m = _CONST_DECL.search(src, i, end)
-        if not m:
-            return "".join(out)
-        stop = _statement_end(src, m.end())
-        out.append(src[m.start():stop])
-        i = stop
-
-
-def _eval_literals(items: list[tuple[str, str]]) -> list:
-    """Evaluate [(local const declarations, literal)] in node; each in its own scope."""
-    if not items:
-        return []
-    script = ("const out = [" + ",".join(f"(() => {{ {decls} return ({lit}); }})()"
-                                         for decls, lit in items) + "];"
-              "process.stdout.write(JSON.stringify(out));")
-    # Fed on stdin: the whole suite's fixtures exceed the argv limit.
-    p = subprocess.run(["node", "-"], input=script, capture_output=True, text=True, timeout=120)
-    if p.returncode != 0:
-        raise ValueError(f"fixture literal is not plain data: {p.stderr.strip()[:500]}")
-    return json.loads(p.stdout)
-
-
 _CACHE: dict[tuple[str, float], list[tuple[str, dict]]] = {}
-
-
-def _parse(src: str) -> tuple[list[str], list[tuple[str, str]]]:
-    titles = [(m.start(), m.group(2)) for m in _TEST_TITLE.finditer(src)]
-    owners, items = [], []
-    for m in _SEED_CALL.finditer(src):
-        owner = [(pos, t) for pos, t in titles if pos < m.start()]
-        test_start = owner[-1][0] if owner else 0
-        items.append((_local_consts(src, test_start, m.start()), _balanced(src, m.end() - 1)))
-        owners.append(owner[-1][1] if owner else "")
-    return owners, items
-
-
-def prime(paths) -> None:
-    """Evaluate every uncached spec's fixtures in ONE node process (a process per spec made the
-    full 250-checkpoint lint take ~40s)."""
-    todo = []
-    for p in dict.fromkeys(paths):
-        key = (p, os.path.getmtime(p))
-        if key not in _CACHE:
-            todo.append((key, *_parse(open(p).read())))
-    flat = [it for _, _, items in todo for it in items]
-    values = iter(_eval_literals(flat))
-    for key, owners, items in todo:
-        _CACHE[key] = [(t, next(values)) for t in owners]
-
-
-def spec_fixtures(path: str) -> list[tuple[str, dict]]:
-    """[(test title, fixture dict)] for every resetAndSeed call in the spec, in source order."""
-    prime([path])
-    return [(t, json.loads(json.dumps(v))) for t, v in _CACHE[(path, os.path.getmtime(path))]]
-
-
-def field_paths(fixture, prefix: str = "") -> set[str]:
-    """Field paths a fixture seeds: `asOf`, `clients[].archived`, `invoices[].lineItems[].qty`.
-    Array elements share one path, so the set names fields, not rows."""
-    out: set[str] = set()
-    if isinstance(fixture, dict):
-        for k, v in fixture.items():
-            p = f"{prefix}.{k}" if prefix else k
-            out.add(p)
-            out |= field_paths(v, p)
-    elif isinstance(fixture, list):
-        for v in fixture:
-            out |= field_paths(v, prefix + "[]")
-    return out
 
 
 # Words that describe the harness's own process (hidden replacement copies, mutates lists) rather
@@ -299,35 +191,6 @@ def _in_force(checkpoints: list[dict], k: int, harness_root: str) -> dict[str, s
     return authored
 
 
-def fixture_contract(checkpoints: list[dict], k: int, harness_root: str) -> dict:
-    """The data sets the app must still store when checkpoint k starts.
-
-    Specs in force at k-1, minus every spec whose checkpoint k mutates: a checkpoint that
-    deliberately reverses a rule (cp248 collapsing stacked discounts) must not be held to the
-    data of the specs it replaces. Only past data is included — never k's own spec or copies."""
-    cp_k = next((c for c in checkpoints if c["n"] == k), None)
-    mutated = {int(m) for m in ((cp_k or {}).get("mutates") or [])}
-    sets = []
-    in_force = _in_force(checkpoints, k - 1, harness_root)
-    prime(in_force.values())
-    for base, path in sorted(in_force.items()):
-        m = re.match(r"cp(\d+)_", base)
-        if m and int(m.group(1)) in mutated:
-            continue
-        for title, fx in spec_fixtures(path):
-            sets.append({"spec": base, "test": title, "fixture": fx})
-    return {"checkpoint": k, "excluded_mutated": sorted(mutated), "data_sets": sets}
-
-
-def app_contract(contract: dict) -> dict:
-    """The contract as the app sees it (.run/fixture-contract.json): its data sets only, each named
-    by its feature. The checkpoint, the replaced specs and the cpNN basenames are the harness's own
-    bookkeeping and would tell the agent it is one step of a sequence."""
-    return {"data_sets": [{"name": re.sub(r"^cp\d+_|\.spec\.ts$", "", d["spec"]).replace("_", " "),
-                           "test": d["test"], "fixture": d["fixture"]}
-                          for d in contract.get("data_sets") or []]}
-
-
 def test_titles(path: str) -> list[str]:
     """Test titles in a spec, in order (the part of a test id after `<basename>::`)."""
     return [m.group(2) for m in _TEST_TITLE.finditer(open(path).read())]
@@ -458,56 +321,3 @@ def hidden_anchor_violations(checkpoints: list[dict], harness_root: str) -> list
 # Figures that combine people across the whole sheet, or over a person's patrons and follows: the
 # figures the standing hold rule reaches. Group figures are not sheet-wide (a held person is never
 # put in a group), so the group rollups are left out.
-_SHEET_WIDE = re.compile(
-    r"^(?!group-|person-|concept-|sheet-|nav-|people-|rollup-(?:biggest-group|group-count|groups-above|mean-size|"
-    r"median-strength|prime-group|strength-range|top-group-size|total-strength)$)"
-    r"[a-z]"
-    r"|^concept-(?:rank|percentile|rank-global|norm|outlier|quota|cume|stratum|portion|"
-    r"backing|clout|flux|synergy|vector|tide|charge|churn|flow|brace|crest|influence|combined)$")
-_HELD = re.compile(r"\bhold\s*:\s*true\b|person-hold-")   # seeded, or put on hold through the UI
-
-
-def standing_hold_violations(checkpoints: list[dict], harness_root: str, since: int = 77) -> list[str]:
-    """Tests from checkpoint `since` on that assert a sheet-wide or patron/follow figure without
-    seeding a held person. The hold rule (cp73-76) is standing: a held person is left out of those
-    figures (totals count them at half) for the rest of the run, so every such test carries one, and
-    a structure that forgot the rule on a newer figure fails it. Matching is by test id, a heuristic:
-    seeding a held person where it was not needed is harmless."""
-    out = []
-    for cp in checkpoints:
-        if cp["n"] < since:
-            continue
-        for e in spec_entries(cp, harness_root):
-            path = os.path.join(harness_root, e)
-            if not os.path.isfile(path):
-                continue
-            for title, body in test_bodies(path).items():
-                if any(_SHEET_WIDE.search(m.group(2)) for m in _LITERAL_TESTID.finditer(body)) \
-                        and not _HELD.search(body):
-                    out.append(f"cp{cp['n']:02d} {os.path.basename(e)}::{title} seeds no held person")
-    return out
-
-
-def hidden_field_violations(checkpoints: list[dict], harness_root: str) -> list[str]:
-    """Replacement copies that seed a field no VISIBLE spec has seeded up to their checkpoint.
-
-    The agent extends the seed endpoint only for fields its own spec uses, so such a field is
-    one it had no reason to store; the hidden copy then fails on data, not behaviour (cp25/cp29
-    `archived`). Each hit is a stream defect: seed the field in the checkpoint's own spec."""
-    seen: set[str] = set()
-    out: list[str] = []
-    prime(os.path.join(harness_root, e) for cp in checkpoints for e in spec_entries(cp, harness_root))
-    for cp in checkpoints:
-        entries = spec_entries(cp, harness_root)
-        if not entries:
-            continue
-        for _, fx in spec_fixtures(os.path.join(harness_root, entries[0])):
-            seen |= field_paths(fx)
-        for e in entries[1:]:
-            used = set()
-            for _, fx in spec_fixtures(os.path.join(harness_root, e)):
-                used |= field_paths(fx)
-            for f in sorted(used - seen):
-                out.append(f"cp{cp['n']:02d} {os.path.basename(e)}: seeds `{f}`, which no visible "
-                           f"spec up to cp{cp['n']:02d} seeds")
-    return out

@@ -1,6 +1,6 @@
 # ui-long-degradation-test Design Notes
 
-> **Early-overload stream:** the stream on `main` is **overloaded early** — a compressed spine, the hub `keel` at cp9, and the cross-cutting rules front-loaded to cp4–20 — and Act VI is removed, leaving **250 checkpoints**. Requests, specs and ripple copies are generated from the reference model by `harness/stream_build.py`. The earlier back-loaded 300-checkpoint stream is in git history (856889f). See [docs/EARLY_OVERLOAD_DESIGN.md](./docs/EARLY_OVERLOAD_DESIGN.md). The text below describes the canonical method, most of which still applies.
+> **Act I of the refactor-hell stream (2026-10-18):** the stream on `main` is **40 checkpoints** that pile production gotchas onto one figure — workflow, freezing, numbering, dated rates and grades, imports, periods, holds, roles, a floor, late charges, corrections, rounding by policy date, approvals — with **no seed endpoint**: every spec arranges its data through the screens. Requests, specs and ripple copies are generated from the reference model `harness/oracle/hell.py` and its scripts by `harness.stream_build`. The design and the proposal for the later acts are in [docs/REFACTOR_HELL_STREAM.md](./docs/REFACTOR_HELL_STREAM.md); the earlier 250-checkpoint overload stream and its oracle are in git history (0bf27c8). The text below describes the canonical method; where it says data is seeded through `/__test__`, read "arranged through the screens".
 
 
 _Originally captured 2026-09-19 as a full-stack erosion experiment with a business domain

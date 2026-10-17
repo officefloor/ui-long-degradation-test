@@ -20,86 +20,41 @@ The rest of this file is how the app is tested.
 - **A `data-testid` is a permanent public API.** Once it exists, never rename or remove it —
   unless the change request removes the feature it belongs to. Match exactly the `data-testid`
   values, and the values shown in them, that your test expects.
+- Everything is on the one screen at `/`. A test never navigates anywhere else.
 
-## 3. Side effects are tested through the audit file
+## 3. Tests arrange their data through the screens
 
-Behaviour that is not visible on screen (for example "record that this happened") is written to the
-audit file, one record per line, through the app's audit service. `bin/start` and `bin/e2e` set its
-path in `AUDIT_FILE`; tests read it with `e2e/support/audit.ts`. Write records exactly in the form
-your test expects.
+There is no test endpoint and no shared data set. Every test signs in, loads a sheet of its own
+(a fresh id), and creates everything it needs through the same screens a person would use, with
+the helpers in `e2e/support/ui.ts`. Read that file: it is the exact way the test presses the
+screens, and it relies on the behaviour below.
 
-## 4. Test data
+- **A sheet is loaded by id.** Loading an id that was never used starts an empty sheet. Loading an
+  id again shows what the store holds for it now, re-read from the store (the test re-loads a sheet
+  to see what another signed-in user changed). Everything is kept per sheet.
+- **Rows carry their id in the `data-testid`.** A person's row is `person-row-<id>`, a claim's row
+  `claim-row-<id>`, with ids the app assigns. The test finds a new person's row by the name it
+  shows (`person-name`), and a new claim as the first `claim-row-*` under its person: claims are
+  listed **newest first**.
+- **A refused action shows an error element, and changes nothing.** Each form and each action has
+  its own error `data-testid` (listed in the test). The test decides "went through" or "refused"
+  by whether the row or value it expects appears or that error element becomes visible — so a
+  refusal must show the error, and an action that succeeds must not leave an old error showing:
+  an error is removed as soon as the form it belongs to is changed or submitted again, or the next
+  action on that row is taken. A refused change writes nothing to the store and nothing to the
+  audit file.
+- **A screen that does neither fails the test.** If after an action neither the expected result nor
+  the error element appears within a few seconds, the test fails on that step.
+- **Two users at once.** A test may open a second browser context, sign in as another name, and act
+  on the same sheet. What one user changes, the other sees after re-loading the sheet.
 
-Every test arranges its own data. Before each test, `e2e/support/seed.ts`:
+## 4. Side effects are tested through the audit file
 
-1. calls `POST /__test__/reset`, which must empty every table and the audit file, then
-2. calls `POST /__test__/seed` with a JSON fixture holding exactly the rows that test needs.
-
-There is no shared dataset: two tests never see each other's data. The endpoints are part of the app
-and you extend them as the app grows. They exist only under the test profile that `bin/start` uses,
-and the app itself must never call them.
-
-### 4.1 The fixture
-
-A fixture is a JSON object. Each top-level key is a collection of rows (`people`, `patrons`, ...),
-a settings object, or a single value:
-
-```json
-{
-  "anchor": "2026-02-05",
-  "people":  [{ "id": 1, "name": "Dana", "alpha": 3, "beta": 4, "gamma": 10 }],
-  "patrons": [{ "personId": 1, "patronId": 2 }]
-}
-```
-
-- Rows carry the ids the test then uses in its `data-testid`s (`person-row-1`). Store them as given.
-- A field means the same thing everywhere it appears. Store the value you are given; do not
-  reinterpret it. A relationship collection links rows by their ids (`patrons` links a person to
-  the people who are their patrons).
-- **A field a fixture leaves out takes its default.** The default must be the ordinary value a newly
-  created record would get (a missing attribute is absent, not zero).
-- **`anchor` is the sheet's reference date.** When a fixture gives `anchor`, the app must treat that
-  date as the fixed point for everything date-dependent (for example a person's age from their onset
-  date). Without it the app uses the real date.
-
-### 4.2 `POST /__test__/seed` stores every field, or refuses
-
-- Store **every** field the fixture gives. A field the app cannot store must be refused with
-  **HTTP 400** and a message naming it — never silently ignored. A dropped field makes a test fail
-  later on data it never received, which looks like a behaviour bug.
-- When a later change makes a field mean something new, keep accepting it and give it its new
-  meaning.
-
-### 4.3 `GET /__test__/fixture` reads the data back
-
-Returns what is stored, in the same shape and with the same field names the fixture used, so that
-seeding a fixture and reading it back returns every field that was seeded, with the same value.
-
-- Return each collection under the same key. A relationship collection comes back under its own key
-  (`patrons` as `patrons`), and any nested rows nested the same way they were seeded.
-- Return a field in the terms it was seeded in, even if the app stores it differently (a seeded
-  attribute comes back under the same name, even if it is stored in another shape).
-- Extra fields and extra rows (defaults, derived values) are fine. After `POST /__test__/reset` the
-  read-back is empty: `{}` or empty collections.
-
-### 4.4 The stored test data is checked before your test
-
-The app's test data sets are listed in `.run/fixture-contract.json`. Before the first test runs,
-`bin/e2e` checks them: for each data set it resets, seeds it, reads it back with
-`GET /__test__/fixture`, and checks that every seeded field came back with the same value. It also
-checks that a reset really empties the data. It uses only the data, never any test.
-
-If any of that fails, your test fails with a message that names the data set and the field, for
-example:
-
-```
-test-data contract: the seed did not keep people[id=3].alpha (sent 5, read back <missing>)
-  in the data set of "momentum updates when a person's alpha changes"
-```
-
-Fix the seed or read-back so that field is stored again. Data for a feature that a change request
-removes is taken out of the list.
-
-How values are compared: numbers by value (`100`, `100.0` and `"100.00"` are equal); dates as
-`yyyy-mm-dd`; rows that have an `id` are matched by `id`, and rows without one are matched by their
-contents in any order.
+Behaviour that is not visible on screen is written to the audit file, one record per line, through
+the app's audit service, appended in the order the changes happen. `bin/start` and `bin/e2e` set
+its path in `AUDIT_FILE`; tests read it with `e2e/support/ui.ts` and look only at the lines carrying
+their own sheet id (`sheet=<id>`), so the file is never cleared. Write records exactly in the form
+your test expects: the event name, then `sheet=<id>` and `by=<user>`, then the fields in the order
+the request gives, separated by single spaces. A test matches a line by its start, so a field a
+later change adds goes at the **end** of the line; never change or reorder the fields already
+there.

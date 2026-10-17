@@ -43,7 +43,8 @@ class RegressionReason(str, Enum):
     # regressions of run 202610100208 were missing features reported this way.)
     ANCHOR_DRIFT = "anchor_drift"
     BEHAVIOUR_LOSS = "behaviour_loss"  # the element is there but the value/action/audit is wrong
-    SEED_PATH = "seed_path"            # reset/seed via /__test__ returned an error
+    SEED_PATH = "seed_path"            # retired (specs arrange through the screens); kept so old
+                                       #   captures still read
     INFRASTRUCTURE = "infrastructure"  # the runner or the connection failed, not the app's logic
     INTENDED = "intended"              # a prior rule this mutative checkpoint deliberately changed
 
@@ -69,8 +70,7 @@ class TestOutcome:
     # out of the regression counts, and the baseline stays with the last working checkpoint.
     app_broken: bool = False
     gate_attempts: int = 0
-    # AGENTS.md §4.4 replay of earlier checkpoints' fixtures: {ok, checked, failures} or None when
-    # the checkpoint had no contract (cp01, or a run from before the contract existed).
+    # Retired with the seed endpoint; always None now, kept so old captures still read.
     seed_contract: dict | None = None
     core_pass: int = 0
     core_total: int = 0
@@ -237,9 +237,8 @@ def _flatten_pw_json(report: dict) -> tuple[dict[str, bool], list[dict]]:
     return results, detail
 
 
-# A failure of the runner or the connection rather than of the app's behaviour. Checked before
-# seed_path: a dead app makes /__test__/reset refuse the connection, which is not a seed bug (run
-# 202610100208's cp68: one JVM death, 58 tests labelled seed_path).
+# A failure of the runner or the connection rather than of the app's behaviour (a dead app
+# refuses every connection: run 202610100208's cp68, one JVM death, 58 tests failed on it).
 _INFRASTRUCTURE = re.compile(
     r"ECONNREFUSED|ECONNRESET|socket hang up|net::ERR_CONNECTION|"
     r"(?:page|context|browser|target)[^|]{0,40}(?:has been closed|crashed)|"
@@ -256,8 +255,6 @@ def _classify(detail_row: dict, mutated_cps: set[int]) -> str:
     if _INFRASTRUCTURE.search(raw):
         return RegressionReason.INFRASTRUCTURE.value
     f = raw.lower()
-    if "__test__" in f or "beforeeach" in f or "/reset" in f or "/seed" in f:
-        return RegressionReason.SEED_PATH.value
     # A locator that resolved to nothing / count 0 hints the anchor moved; otherwise the
     # feature's behaviour (value/action/audit record) is wrong.
     if ("tohavecount" in f) or ("expected: visible" in f) or ("element(s) not found" in f) \
@@ -326,17 +323,6 @@ def _app_alive(base_url: str) -> bool:
         return False
 
 
-def read_seed_contract(worktree: str) -> dict | None:
-    """The seed helper's replay result for this run, or None if no contract was installed."""
-    try:
-        with open(os.path.join(worktree, ".run", "seed-contract-result.json")) as fh:
-            r = json.load(fh)
-        return {"ok": bool(r.get("ok")), "checked": int(r.get("checked") or 0),
-                "failures": list(r.get("failures") or [])}
-    except (FileNotFoundError, json.JSONDecodeError, ValueError):
-        return None
-
-
 def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
                   attempt: int) -> tuple[dict | None, str, str]:
     """Serve the app, run the installed suite once, and judge whether the run is scoreable.
@@ -345,10 +331,8 @@ def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
     os.makedirs(os.path.dirname(json_out), exist_ok=True)
     # A report left by an earlier run must never be read as this run's: when Playwright crashed
     # before writing (cp58 of run 202610100208) the previous checkpoint's report was scored.
-    seed_result = os.path.join(worktree, ".run", "seed-contract-result.json")
-    for stale in (json_out, seed_result):
-        with contextlib.suppress(FileNotFoundError):
-            os.remove(stale)
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(json_out)
     expected = _installed_spec_files(e2e_dir)
     try:
         with serve(worktree, cfg) as app:
@@ -356,16 +340,10 @@ def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
             env.update({"PORT": str(app.port), "BASE_URL": app.base_url,
                         "AUDIT_FILE": os.path.join(worktree, ".run", "audit.log"),
                         "PLAYWRIGHT_JSON_OUTPUT_NAME": json_out,
-                        # Record the test-data contract replay; never fail a spec on it here —
-                        # the gate scores it as its own column, not as regressions.
-                        "SEED_CONTRACT": "report",
                         "RUN_DIR": os.path.join(worktree, ".run")})
-            # --workers=1 is REQUIRED, not an optimisation: the full accumulated suite spans many
-            # spec files that all drive ONE shared app + in-memory H2 via /__test__/reset+seed
-            # (Arrange per test). Playwright's default is multi-worker and `fullyParallel:false`
-            # only serialises WITHIN a file, so different files would run concurrently and their
-            # reset/seed calls would stomp on each other — producing false cross-file regressions
-            # that grow with the suite. One worker = fully serial = the reset/seed isolation holds.
+            # --workers=1: every spec drives ONE shared app. Each test uses its own sheet id and
+            # filters the audit file by it, so parallel workers are possible in principle; the
+            # serial run keeps a failure attributable to one test and the app's load constant.
             cmd = ["npx", "playwright", "test", "--reporter=json", "--workers=1",
                    f"--output={os.path.join(worktree, '.run', 'pw-artifacts')}"]
             try:
@@ -456,7 +434,6 @@ def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
     outcome.detail = detail
     outcome.console = console
     outcome.gate_attempts = attempt
-    outcome.seed_contract = read_seed_contract(worktree)
     # reason breakdown for failed PRIOR tests (regressions); mutated set filled by caller-side
     # true_regressions math — reasons here are advisory.
     mutated: set[int] = set()

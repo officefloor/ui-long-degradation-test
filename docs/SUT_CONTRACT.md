@@ -18,7 +18,7 @@ test contract (§4).
 
 - The folder is a git repository with a `base_ref` (e.g. `base-empty`) that contains: the base
   front-end shell, Spring with the OfficeFloor plugin, Flyway wired against an **empty in-memory
-  H2 (no tables)**, the scaffolding scripts (§3), and the `/__test__` seed endpoint (§4).
+  H2 (no tables)**, and the scaffolding scripts (§3).
 - The harness branches every run off `base_ref` and never writes to it. cp01 creates the first
   tables/entities/UI.
 
@@ -116,18 +116,19 @@ polls HTTP, so any language satisfies these the same way:
 Both `$PORT` and the harness's `AUDIT_FILE` arrive as environment variables; nothing else is
 passed in, and nothing but exit status and HTTP comes back out.
 
-## 4. Behaviour is exposed through `data-testid`; data is arranged through `/__test__`
+## 4. Behaviour is exposed through `data-testid`; data is arranged through the screens
 
-The working rules and the testing contract — `data-testid` rules, the audit file, and the
-`/__test__` endpoints (reset, seed that stores every field or refuses, and the read-back the harness
-uses to replay earlier checkpoints' test data) — are stated once, in the harness's
-**[acceptance/AGENTS.md](../acceptance/AGENTS.md)**. The harness installs it as `AGENTS.md` in the
-app at every checkpoint, identical for every stack, together with the shared `e2e/support/seed.ts`
-and whatever the AI service needs to find it (for Claude Code, a `CLAUDE.md` that imports
-`AGENTS.md`), and records their sha256s in `provenance.json`.
+The working rules and the testing contract — `data-testid` rules, the audit file, and how a test
+arranges its data through the screens (a fresh sheet id per test, rows found by the id in their
+`data-testid`, a refused action showing its error element and changing nothing) — are stated once,
+in the harness's **[acceptance/AGENTS.md](../acceptance/AGENTS.md)**. The harness installs it as
+`AGENTS.md` in the app at every checkpoint, identical for every stack, together with the shared
+`e2e/support/ui.ts` (the screen-driving helpers every spec uses) and whatever the AI service needs
+to find it (for Claude Code, a `CLAUDE.md` that imports `AGENTS.md`), and records their sha256s in
+`provenance.json`. A stack needs no test-support endpoint.
 
 **A stack carries no `AGENTS.md` or `CLAUDE.md` of its own.** Its stack-specific guidance —
-framework, layout, conventions, how to seed or audit in that stack — goes in its own **`DESIGN.md`**,
+framework, layout, conventions, how to audit in that stack — goes in its own **`DESIGN.md`**,
 which `AGENTS.md` tells the agent to read and which the harness pins like the scripts. A new stack
 implements `AGENTS.md` and writes a `DESIGN.md`; nothing in this section adds to them.
 

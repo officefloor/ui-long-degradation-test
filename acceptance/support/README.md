@@ -1,84 +1,71 @@
-# acceptance/ — the Playwright specs (the living spec; DESIGN.md §3, §7)
+# acceptance/support — the screen helpers and the `data-testid` contract
 
-The suite evolves an app built from arbitrary PEOPLE carrying arbitrary raw attribute
-values, with named CONCEPTS computed on top of those values and on top of each other.
-Nothing in the suite has real-world domain meaning (no clients, invoices or products).
-This keeps the test blind to domain knowledge, so what it measures is purely whether the
-stack absorbs interwoven definitions and changing relationships without eroding.
+`ui.ts` is installed into every app as `e2e/support/ui.ts` (harness-owned, `config.yaml`
+`acceptance.harness_files`). Every generated spec arranges and reads through it. It binds only to
+`data-testid`, and the agent reads it (AGENTS.md §3) as the exact way a test presses the screens.
 
-## Rules
+## The stable `data-testid` contract (Act I world)
 
-- One spec per checkpoint under `specs/`, named `cpNN_<slug>.spec.ts`, selectable so the
-  gate runs only cp01..cpK at checkpoint K.
-- Specs bind ONLY to `data-testid` attributes — never CSS classes, DOM structure, tag
-  nesting, or visible copy — so one suite validates any candidate front-end.
-- `data-testid` values are immutable public API once introduced (DESIGN.md §3).
-- A mutative checkpoint ships updated copies of the prior specs it changes under a
-  `specs/cpNN/` subdir (the `mutates` discipline; DESIGN.md §6). Each updated copy
-  carries forward ALL earlier mutations to that basename.
-- The agent, while working, sees ONLY the current checkpoint's spec (blind; DESIGN.md §4).
-  The full cp01..cpK suite runs afterwards as the regression gate.
+Everything is on the one screen at `/`. Introduced by the checkpoint in brackets.
 
-## Two assertion channels
-
-1. The UI, read through `data-testid`, for user-visible behaviour.
-2. The known AUDIT FILE, read through `auditLines()` from `../support/audit`, for
-   side-effects. Data is arranged per-spec via `resetAndSeed` from `../support/seed`
-   (reset clears the DB and the audit file, then seeds the given rows).
-
-## The stable data-testid contract (the arbitrary-people world)
-
-The worksheet is the single screen. Everything is scoped to one worksheet at a time.
-
-### Worksheet / persistence
-- `nav-worksheet`                 — navigate to the worksheet screen
-- `sheet-id-input`                — text input for the worksheet id
-- `sheet-load`                    — load / switch to the id in `sheet-id-input`
-- `sheet-current-id`              — shows the active worksheet id
-- persistence is automatic per id; a test "refresh" is `await page.reload()`
+### Session and sheet
+- `signin-name`, `signin-submit`, `current-user` (cp1)
+- `sheet-id-input`, `sheet-load`, `sheet-current-id` (cp1); loading re-reads the sheet
+- `sheet-today-input`, `sheet-today-save`, `sheet-today` (cp2)
 
 ### People
-- `people-table`, `people-empty`
-- `person-row-<id>`               — a person's row (id = seeded/created id)
-- raw cells in a row               `person-<attr>`   e.g. `person-alpha`, `person-grade`
-- concept cells in a row           `concept-<name>`  e.g. `concept-momentum`, `concept-tier`
-- a not-yet-computable concept shows the literal text `n/a`
-- form fields                      `person-form-<attr>`  e.g. `person-form-name`, `person-form-alpha`
-- form submit                      `person-form-submit`
-- field error                      `person-form-<attr>-error`
-- open a person's editor           `person-edit-<id>`  (fills `person-form-*` with that person's current
-                                   values; then change fields + submit)
+- form `person-form-name`, `person-form-grade` (select A/B/C), `person-form-grade-from` (cp28),
+  `person-form-submit`, `person-form-error`; editor `person-edit-<id>` fills the form (cp3)
+- row `person-row-<id>` with `person-name`, `person-grade`; `person-claimed` (cp5),
+  `person-due-total` (cp7), `person-retired`, `person-retired-from`, `person-retire-date`,
+  `person-retire` (cp21), `person-hold`, `person-hold-toggle` (cp22), `person-hold-from`,
+  `person-hold-to`, `person-hold-line` (one per hold, cp40), `person-overdue-count`,
+  `person-overdue-total` (cp25), `person-patron-select`, `person-patron-add`,
+  `person-patron-error`, `person-patrons`, `person-backing` (cp27), `person-error`
+- `show-retired` checkbox (cp21); `quick-name`, `quick-amount`, `quick-submit`, `quick-error` (cp19)
+- import: `import-text`, `import-submit`, `import-added`, `import-updated` (cp16),
+  `import-error-<line>` (cp15); export: `export-people` downloads the CSV (cp33)
 
-### Worksheet rollups (concepts over all people)
-- `rollup-<name>`                  e.g. `rollup-total-thrust`, `rollup-leader`
+### Claims (inside the person's row, newest first)
+- form `claim-form-amount`, `claim-form-date`, `claim-form-note`, `claim-form-corrects` (cp30),
+  `claim-form-submit`, `claim-form-error` (cp5)
+- row `claim-row-<id>` with `claim-amount`, `claim-date`, `claim-note`, `claim-edit` (cp5);
+  `claim-due` (cp7); `claim-status`, `claim-open`, `claim-settle`, `claim-void`, `claim-error`
+  (cp8); `claim-number` (cp9); `claim-opened-by` (cp13); `claim-period` (cp17); `claim-due-by`,
+  `claim-overdue` (cp25); `claim-corrects` (cp30); `claim-select` (cp34); `claim-approve`,
+  `claim-reject`, `claim-reject-reason` (cp36); `claim-reassign-to`, `claim-reassign` (cp37);
+  `claim-log-line` (one per status, cp39)
+- `bulk-open`, `bulk-opened`, `bulk-refused` (cp34)
 
-### Relationships
-- `patron-form-person`, `patron-form-patron`, `patron-form-submit`
-- a person's patrons               within `person-row-<id>`: `person-patrons` (names, comma+space joined, sorted asc)
-- allies / follows                 `ally-form-person`, `ally-form-other`, `ally-form-submit`; `person-allies`
+### Rates, periods, settings, roles, rollups, summary
+- `rate-form-grade`, `rate-form-pct`, `rate-form-from` (cp11), `rate-form-submit`,
+  `rate-form-error`; `rate-row-<grade>-<from|start>` with `rate-pct`; `rate-current-<grade>` (cp7)
+- `period-form-name`, `period-form-from`, `period-form-to`, `period-form-submit`,
+  `period-form-error`; `period-row-<name>` with `period-due-total` (cp17), `period-closed`,
+  `period-close`, `period-error` (cp18), `period-reopen` (cp29)
+- `setting-<key>` input, `settings-save`, `setting-<key>-current` (cp23: clerk-limit; cp24: floor;
+  cp25: terms; cp26: late-pct; cp32: policy-date; cp35: period-numbering-from; cp38: terms-<grade>)
+- `role-form-user`, `role-form-role`, `role-form-submit`, `role-form-error`, `role-row-<user>`
+  with `role-value` (cp23)
+- `rollup-claimed-total` (cp5), `rollup-due-total` (cp7), `rollup-overdue-count`,
+  `rollup-overdue-total` (cp25)
+- `summary-grade-<g>-count`, `summary-grade-<g>-due-total`, `summary-period-<name>-due-total`,
+  `summary-status-<S>-count` (cp31)
 
-### Hold, settings, shared people, history (the depth cycles)
-- hold                             `person-hold-<id>` toggles it; `person-hold` in the row shows `yes`/`no`
-                                   (on the date shown); `person-hold-from` shows the hold's start date (cp228)
-- sheet settings                   `sheet-setting-region-N|S|other`, `sheet-setting-band-from-D|C|B|A`,
-                                   `sheet-setting-band-mult-A..E`, `sheet-setting-weight-LOW|MID|HIGH`,
-                                   `sheet-setting-held-totals` (`out`/`half`/`full`, cp232),
-                                   `sheet-settings-effective-date` (dated save, cp236), `sheet-settings-save`
-- shared people                    `person-share-select` (options `<sheet id>: <name>`), `person-share-add`
-- history and as-of                `person-form-effective-date`, `person-history`, `sheet-as-of`,
-                                   `sheet-as-of-apply`, `sheet-as-of-clear`; `person-form-active`
-                                   (`yes`/`no`, dated like grade, cp224)
+### Values
+Amounts, rates and totals show two decimals with a dot and no grouping; `n/a` when undefined.
+Dates are `yyyy-mm-dd`. Yes/no flags show `yes` or `no`. A claim with no number shows nothing in
+`claim-number`.
 
-### Audit file format
-Lines are `EVENT key=value key=value ...`. Numeric concept values in audit lines use the
-same plain integer rendering as the UI. Introduced by the checkpoint that needs them.
+### Audit lines
+`EVENT sheet=<id> by=<user> key=value ...` in the order the request states; later fields are
+appended at the end (a spec matches a line by its start). Events: PERSON_ADDED, PERSON_EDITED,
+CLAIM_ADDED, CLAIM_EDITED (cp6); RATE_SET (cp7); CLAIM_OPENED, CLAIM_SETTLED, CLAIM_VOIDED (cp8);
+PERIOD_ADDED (cp17); PERIOD_CLOSED (cp18); PERSON_RETIRED (cp21); PERSON_HELD, PERSON_RELEASED
+(cp22); ROLE_SET, SETTING_CHANGED (cp23); PATRON_ADDED (cp27); PERIOD_REOPENED (cp29);
+CLAIM_PENDING, CLAIM_APPROVED, CLAIM_REJECTED (cp36); CLAIM_REASSIGNED (cp37).
 
-## Concept reference (grows over the run; definition is whatever the LATEST checkpoint set)
-- `thrust   = alpha * beta`
-- `drift    = gamma - alpha`
-- `momentum = thrust + k*drift`            (k set by cp03, changed by cp04)
-- `tier`    SINK/STEADY/SURGE by momentum thresholds (cp05, recalibrated cp08)
-- `backing` aggregate of patrons' thrust   (cp10; many-to-many from cp12)
-- `net      = momentum + backing`
-Later concepts (rank, load, age, effective, clout, influence, reach, synergy, quality,
-scaled, norm) are defined by their introducing checkpoint's spec.
+## How a spec reads
+Generated by `harness.stream_build` from `harness/oracle/hell_scripts.py`: a script of screen
+actions, each rendered as a helper call whose outcome (an id, or true/false for went through or
+refused) the reference model decided, then assertions on the figures the model computed.

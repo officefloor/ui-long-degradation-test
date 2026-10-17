@@ -407,15 +407,11 @@ def _neutralize_spec(text: str) -> str:
     return text
 
 
-# --- harness-owned files (AGENTS.md, the agent service's shim, the shared seed helper) ----------
+# --- harness-owned files (AGENTS.md, the agent service's shim, the shared screen helpers) ------
 # One copy, maintained here and installed into every stack at every checkpoint, so all stacks get
 # the same working rules and testing contract and a stack repo never carries its own (drifting)
 # version, nor anything specific to the AI service.
 # The agent may not change them: edits are flagged like pinned files and never copied back.
-
-FIXTURE_CONTRACT = os.path.join(".run", "fixture-contract.json")
-SEED_CONTRACT_RESULT = os.path.join(".run", "seed-contract-result.json")
-
 
 def harness_files(cfg: dict) -> dict[str, str]:
     """{path in the app -> absolute source in the harness}: acceptance.harness_files plus the agent
@@ -432,18 +428,11 @@ def harness_files_provenance(cfg: dict) -> dict:
 
 
 def install_harness_files(dst_root: str, cfg: dict, cp: dict | None = None) -> None:
-    """Copy the harness-owned files into an app tree; with a checkpoint, also write the
-    test-data contract its seed helper replays (AGENTS.md §4.4) and drop any stale result."""
+    """Copy the harness-owned files into an app tree."""
     for dst, src in harness_files(cfg).items():
         out = os.path.join(dst_root, dst)
         os.makedirs(os.path.dirname(out) or dst_root, exist_ok=True)
         shutil.copyfile(src, out)
-    for stale in (FIXTURE_CONTRACT, SEED_CONTRACT_RESULT):
-        with contextlib.suppress(FileNotFoundError):
-            os.remove(os.path.join(dst_root, stale))
-    if cp is not None and cp.get("_fixture_contract") is not None:
-        capture.write_json(os.path.join(dst_root, FIXTURE_CONTRACT),
-                           fixtures.app_contract(cp["_fixture_contract"]))
 
 
 def harness_files_touched(tree: str, cfg: dict) -> list[str]:
@@ -464,7 +453,7 @@ def copy_back_excludes(cfg: dict) -> tuple:
 
 
 def verify_resume_harness_files(wt: str, cfg: dict) -> None:
-    """Refuse to resume under a different AGENTS.md / shim / seed helper than the chain started with:
+    """Refuse to resume under a different AGENTS.md / shim / screen helper than the chain started with:
     later checkpoints would be held to a different contract than earlier ones."""
     with open(os.path.join(wt, "evolve-results", "provenance.json")) as fh:
         was = json.load(fh).get("harness_files")
@@ -483,7 +472,7 @@ def verify_resume_harness_files(wt: str, cfg: dict) -> None:
 def install_agent_view(sandbox: str, cfg: dict, cp: dict) -> None:
     """Sandbox e2e/specs holds EXACTLY the current checkpoint's own spec, neutralised to
     acceptance.spec.ts (no prior specs, no cpNN hint) — the blind view — plus the harness-owned
-    files and the test-data contract (earlier fixtures: data only, never their tests)."""
+    files."""
     install_harness_files(sandbox, cfg, cp)
     dest = _specs_dest(sandbox, cfg)
     os.makedirs(dest, exist_ok=True)
@@ -928,7 +917,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         # The stack's own origin, so a chain branch can be tied to the remote it lives on.
         "app_origin": app_cfg.get("origin"), "stack": os.path.basename(app_cfg["repo"]),
         "resumed_at": lo if resume else None,
-        # The instruction files (AGENTS.md, agent shim) and seed helper this chain had, by hash.
+        # The instruction files (AGENTS.md, agent shim) and screen helpers this chain had, by hash.
         "harness_files": harness_files_provenance(cfg),
         # Blindness audit trail, committed with the run manifest: whether confinement was requested
         # and the Landlock ABI actually available on the host, so a run's blindness is provable
@@ -969,9 +958,6 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
             print(f"    type   : MUTATIVE (revises {cp.get('mutates', [])})", flush=True)
         print(f"    stack  : {label}", flush=True)
         print(f"    request: {cp['request'].strip().splitlines()[0]}", flush=True)
-
-        # The data earlier checkpoints seeded, which the app must still store (AGENTS.md §4.4).
-        cp["_fixture_contract"] = fixtures.fixture_contract(checkpoints, k, HARNESS_ROOT)
 
         base_for_cp = git(["-C", wt, "rev-parse", "HEAD"])
         stream_file = f"cp{k:02d}.agent.jsonl"

@@ -93,15 +93,6 @@ done
 [ "$ready" = 1 ] || fail "no 2xx from $BASE/$HEALTH within 90s (app.health_url)"
 echo "ok"
 
-step "seed endpoint (/__test__)"
-code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
-       -d '{}' "$BASE/__test__/reset" 2>/dev/null)
-case "$code" in
-  2*) echo "ok ($code)" ;;
-  404) fail "/__test__/reset returned 404 — the acceptance suite arranges data through it (§4)" ;;
-  *)   echo "ok (returned $code; a non-404 means the route exists)" ;;
-esac
-
 step "shell data-testid anchors"
 html=$(curl -fsSL "$BASE/" 2>/dev/null || true)
 miss=""

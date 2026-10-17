@@ -1,9 +1,8 @@
-"""Deterministic tests for the test-data contract (harness.fixtures) and the harness-owned files.
+"""Deterministic tests for the spec bookkeeping and lints (harness.fixtures) and the harness-owned files.
 Run: .venv/bin/python -m harness.fixtures_selftest
 """
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 
@@ -14,7 +13,7 @@ SPEC = """import {{ test }} from '@playwright/test';
 test.describe('x', () => {{
   test("{title}", async ({{ page }}) => {{
     {pre}
-    await resetAndSeed({fixture});
+    await page.goto('/'); // {fixture}
   }});
 }});
 """
@@ -32,84 +31,26 @@ def _spec(title: str, fixture: str, pre: str = "") -> str:
     return SPEC.format(title=title, fixture=fixture, pre=pre)
 
 
-def test_fixtures_are_evaluated_with_local_consts_and_any_quote_style():
-    with tempfile.TemporaryDirectory() as root:
-        p = os.path.join(root, "cp01_a.spec.ts")
-        open(p, "w").write(_spec("it's a title", "{ clients: rows, asOf: '2026-02-01' }",
-                                 pre="const rows = Array.from({ length: 3 }, (_, i) => ({ id: i + 1 }));"))
-        [(title, fx)] = f.spec_fixtures(p)
-        assert title == "it's a title", title
-        assert fx == {"clients": [{"id": 1}, {"id": 2}, {"id": 3}], "asOf": "2026-02-01"}, fx
-
-
-def test_field_paths_name_fields_not_rows():
-    fx = {"asOf": "x", "invoices": [{"id": 1, "lineItems": [{"qty": 1}]}, {"id": 2}]}
-    assert f.field_paths(fx) == {"asOf", "invoices", "invoices[].id", "invoices[].lineItems",
-                                 "invoices[].lineItems[].qty"}
-
-
-def test_contract_is_past_data_minus_what_the_checkpoint_replaces():
-    with tempfile.TemporaryDirectory() as root:
-        S = "acceptance/specs"
-        cps = _stream(root, {
-            f"{S}/cp01_a.spec.ts": _spec("a", "{ clients: [{ id: 1 }] }"),
-            f"{S}/cp02_b.spec.ts": _spec("b", "{ projects: [{ id: 1 }] }"),
-            f"{S}/cp03_c.spec.ts": _spec("c", "{ invoices: [{ id: 1 }] }"),
-            f"{S}/cp03/cp01_a.spec.ts": _spec("a2", "{ clients: [{ id: 1, archived: true }] }"),
-        }, [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
-            {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts"},
-            {"id": "cp03_c", "test": f"{S}/cp03_c.spec.ts", "mutates": [1]}])
-        assert f.fixture_contract(cps, 1, root)["data_sets"] == []          # nothing earlier
-        c2 = [d["test"] for d in f.fixture_contract(cps, 2, root)["data_sets"]]
-        assert c2 == ["a"], c2
-        # cp03 replaces cp01: its old data is excluded, and cp03's own data (present) is never in.
-        c3 = f.fixture_contract(cps, 3, root)
-        assert [d["test"] for d in c3["data_sets"]] == ["b"], c3
-        assert c3["excluded_mutated"] == [1], c3
-
-
-def test_hidden_copy_seeding_an_unseen_field_is_flagged():
-    with tempfile.TemporaryDirectory() as root:
-        S = "acceptance/specs"
-        specs = {f"{S}/cp01_a.spec.ts": _spec("a", "{ clients: [{ id: 1 }] }"),
-                 f"{S}/cp02_b.spec.ts": _spec("b", "{ clients: [{ id: 1 }] }"),
-                 f"{S}/cp02/cp01_a.spec.ts": _spec("a2", "{ clients: [{ id: 1, archived: true }] }")}
-        cps = _stream(root, specs, [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
-                                    {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts", "mutates": [1]}])
-        v = f.hidden_field_violations(cps, root)
-        assert len(v) == 1 and "clients[].archived" in v[0] and v[0].startswith("cp02"), v
-        # Seeding it in the checkpoint's own (visible) spec clears it.
-        open(os.path.join(root, f"{S}/cp02_b.spec.ts"), "w").write(
-            _spec("b", "{ clients: [{ id: 1, archived: true }] }"))
-        assert f.hidden_field_violations(cps, root) == []
-
-
 def test_harness_files_install_flag_edits_and_never_copy_back():
     from . import run_experiment as r
     with tempfile.TemporaryDirectory() as app:
         cfg = {"acceptance": {"dest_subpath": "e2e/specs",
                               "harness_files": {"AGENTS.md": "acceptance/AGENTS.md",
-                                                "e2e/support/seed.ts": "acceptance/support/seed.ts"}},
+                                                "e2e/support/ui.ts": "acceptance/support/ui.ts"}},
                "agent": {"instruction_files": {"CLAUDE.md": "acceptance/agents/claude-code/CLAUDE.md"}}}
-        cp = {"_fixture_contract": {"checkpoint": 2, "excluded_mutated": [1],
-                                    "data_sets": [{"spec": "cp01_people.spec.ts", "test": "t", "fixture": {}}]}}
-        r.install_harness_files(app, cfg, cp)
+        r.install_harness_files(app, cfg, {})
         assert r.harness_files_touched(app, cfg) == []
-        # The app sees its data sets only, named by feature — no checkpoint, no cpNN, no replaced specs.
-        assert json.load(open(os.path.join(app, r.FIXTURE_CONTRACT))) == \
-            {"data_sets": [{"name": "people", "test": "t", "fixture": {}}]}
         assert open(os.path.join(app, "CLAUDE.md")).read().strip() == "@AGENTS.md"
         open(os.path.join(app, "AGENTS.md"), "a").write("\nagent edit\n")
         assert r.harness_files_touched(app, cfg) == ["AGENTS.md"]
         assert set(r.copy_back_excludes(cfg)) == {"e2e/specs/", "/AGENTS.md", "/CLAUDE.md",
-                                                  "/e2e/support/seed.ts"}
+                                                  "/e2e/support/ui.ts"}
         prov = r.harness_files_provenance(cfg)
         assert prov["AGENTS.md"]["source"] == "acceptance/AGENTS.md" and len(prov["AGENTS.md"]["sha256"]) == 64
         assert prov["CLAUDE.md"]["source"] == "acceptance/agents/claude-code/CLAUDE.md"
-        # Re-installing without a checkpoint restores the file and removes the stale contract.
+        # Re-installing restores the file.
         r.install_harness_files(app, cfg)
         assert r.harness_files_touched(app, cfg) == []
-        assert not os.path.exists(os.path.join(app, r.FIXTURE_CONTRACT))
 
 
 def test_a_copy_may_drop_a_test_only_if_retired():
@@ -191,22 +132,6 @@ def test_a_copy_may_assert_only_anchors_the_agent_can_know():
         assert f.hidden_anchor_violations(cps, root) == []
 
 
-def test_sheet_wide_tests_after_the_hold_cycle_seed_a_held_person():
-    with tempfile.TemporaryDirectory() as root:
-        S = "acceptance/specs"
-        total = "getByTestId('rollup-total-load');"
-        specs = {f"{S}/cp01_a.spec.ts": _spec("early total", "{ people: [] }", total),
-                 f"{S}/cp02_b.spec.ts": _spec("late total", "{ people: [] }", total)
-                 + _spec("held total", "{ people: [{ id: 9, hold: true }] }", total)
-                 + _spec("own figure", "{ people: [] }", "getByTestId('concept-thrust');")
-                 + _spec("group total", "{ people: [] }", "getByTestId('rollup-total-strength');")
-                 + _spec("sheet control", "{ people: [] }", "getByTestId('sheet-id-input');")}
-        cps = _stream(root, specs, [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
-                                    {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts"}])
-        assert f.standing_hold_violations(cps, root, since=2) == [
-            "cp02 cp02_b.spec.ts::late total seeds no held person"]
-
-
 def test_an_own_spec_naming_a_checkpoint_is_a_leak():
     with tempfile.TemporaryDirectory() as root:
         S = "acceptance/specs"
@@ -231,15 +156,6 @@ def test_process_leaks_flag_harness_wording_not_behaviour():
     assert f.process_leaks("// MUTATIVE change: shipped updated (mutates: [4, 8])") \
         == ["mutates", "mutative", "shipped updated"]
     assert f.process_leaks("Stacked discounts collapse to a single discount.") == []
-
-
-def test_seed_contract_column_is_blank_when_nothing_was_checked():
-    o = c.score_results({"cp01_a.spec.ts::x": True}, 1)
-    assert c.outcome_row(o, set())["seed_contract_failures"] == ""
-    o.seed_contract = {"ok": False, "checked": 3, "failures": ["a", "b"]}
-    assert c.outcome_row(o, set())["seed_contract_failures"] == 2
-    o.seed_contract = {"ok": True, "checked": 3, "failures": []}
-    assert c.outcome_row(o, set())["seed_contract_failures"] == 0
 
 
 def main() -> int:

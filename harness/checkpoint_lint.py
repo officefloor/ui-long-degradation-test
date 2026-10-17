@@ -142,9 +142,7 @@ def main() -> int:
                         f"algorithm checkpoint(s) {algos}")
     report("algorithms", thin, f"each act needs at least {args.min_algorithms}")
 
-    # ---- 4-6. test data, visible specs, coverage --------------------------------------------
-    hidden = fixtures.hidden_field_violations(numbered, harness_root)
-    report("test data", hidden, "seed the field in that checkpoint's own spec first")
+    # ---- 4-6. visible specs, coverage --------------------------------------------------------
     leaks = fixtures.own_spec_leaks(numbered, harness_root)
     report("visible specs", leaks, "describe the behaviour only")
     dropped = fixtures.undeclared_retirements(numbered, harness_root)
@@ -189,10 +187,6 @@ def main() -> int:
     unseen = fixtures.hidden_anchor_violations(numbered, harness_root)
     report("anchors", unseen, "name it in the own spec, or list it under keeps_anchors: if it survives")
 
-    # ---- 10. the hold rule stays exercised ---------------------------------------------------
-    unheld = fixtures.standing_hold_violations(numbered, harness_root, since=12)
-    report("standing hold", unheld, "seed one held person that would change the figure if counted")
-
     # ---- report -----------------------------------------------------------------------------
     n_mut = sum(1 for cp in numbered if cp.get("type") == "mutative")
     n_alg = sum(1 for cp in numbered if cp.get("algorithm"))
@@ -201,20 +195,17 @@ def main() -> int:
     print(f"  mutations        : {n_mut} ({n_mut / len(numbered):.0%})")
     print(f"  algorithms       : {n_alg}")
     print(f"  one screen       : {len(fixtures.screen_violations(numbered, harness_root))} violation(s)")
-    print(f"  hidden test data : {len(hidden)} replacement field(s) unseen by a visible spec")
     print(f"  visible-spec leak: {len(leaks)} own spec(s) describe the hidden suite")
     print(f"  dropped coverage : {len(dropped)} test(s) dropped without a retires: entry")
     print(f"  broken imports   : {len(unresolved)} spec import(s) absent once installed")
     print(f"  unseen anchors   : {len(unseen)} test id(s) a hidden copy asserts that the agent cannot know")
-    print(f"  standing hold    : {len(unheld)} sheet-wide test(s) without a held person")
     print()
     if problems:
         print("FAIL — fix before paying for a run:")
         for p in problems:
             print(f"  - {p}")
         return 1
-    print("OK — one screen, the 3:1 cadence, algorithms in every act, and every seeded field "
-          "visible first.")
+    print("OK — one screen, the 3:1 cadence, algorithms in every act, no leaks.")
     return 0
 
 
