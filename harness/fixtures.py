@@ -161,6 +161,24 @@ _PROCESS_LEAK = re.compile(r"sibling|override folder|updated cop(?:y|ies)|shippe
 CP_TOKEN = re.compile(r"\bcp\d{2,}\b", re.IGNORECASE)
 
 
+# What the agent must never read in its sandbox (AGENTS.md, CLAUDE.md, the seed helper, the
+# contract file) or in a request: anything framing the work as a test run or as one step of a
+# sequence — the harness, checkpoints, the gate, replay of earlier steps, git, other
+# implementations. The agent should take the work for an ordinary project. "AGENTS.md" is the file's
+# own name and is allowed.
+_FRAMING_LEAK = re.compile(
+    r"\bharness\b|\bcheckpoints?\b|\bcp\d{2,}\b|\bexperiment|\bbenchmark|\bevaluat|"
+    r"\bagents?\b(?!\.md)|\bgit\b|\bgitignored\b|\bcommit(?:s|ted|ting)?\b|\bprovenance\b|"
+    r"\bevolve|\bsandbox|\blandlock\b|\bconfine|\bgate\b|\breplay|\bearlier\b|\bprior\b|"
+    r"\bhistory\b|\bhidden\b|\bwithheld\b|\bimplementations?\b|\bmutat|\bsibling\b|\bstream\b",
+    re.I)
+
+
+def framing_leaks(text: str) -> list[str]:
+    """Words in agent-visible text that frame the work as a test run or a sequence (empty when clean)."""
+    return sorted({m.group(0).lower() for m in _FRAMING_LEAK.finditer(text)})
+
+
 def process_leaks(text: str) -> list[str]:
     """Harness-process phrases in a spec the agent will see (empty when clean)."""
     return sorted({m.group(0).lower() for m in _PROCESS_LEAK.finditer(text)})
@@ -285,6 +303,15 @@ def fixture_contract(checkpoints: list[dict], k: int, harness_root: str) -> dict
         for title, fx in spec_fixtures(path):
             sets.append({"spec": base, "test": title, "fixture": fx})
     return {"checkpoint": k, "excluded_mutated": sorted(mutated), "data_sets": sets}
+
+
+def app_contract(contract: dict) -> dict:
+    """The contract as the app sees it (.run/fixture-contract.json): its data sets only, each named
+    by its feature. The checkpoint, the replaced specs and the cpNN basenames are the harness's own
+    bookkeeping and would tell the agent it is one step of a sequence."""
+    return {"data_sets": [{"name": re.sub(r"^cp\d+_|\.spec\.ts$", "", d["spec"]).replace("_", " "),
+                           "test": d["test"], "fixture": d["fixture"]}
+                          for d in contract.get("data_sets") or []]}
 
 
 def test_titles(path: str) -> list[str]:

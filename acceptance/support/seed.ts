@@ -1,19 +1,17 @@
-// Shared per-spec data setup (AGENTS.md §4). Maintained by the harness and installed into every app;
-// do not edit the copy in the app. Each spec RESETS then SEEDS via the app's /__test__ endpoints —
-// this is Arrange, not Assert. Specs still ASSERT only through the UI (data-testid).
+// Per-test data setup (AGENTS.md §4). Each test RESETS then SEEDS via the app's /__test__
+// endpoints — this is Arrange, not Assert. Tests still ASSERT only through the UI (data-testid).
 //
-// FAIL LOUD: reset and seed are the Arrange for EVERY spec, so they are a hard precondition — if
+// FAIL LOUD: reset and seed are the Arrange for EVERY test, so they are a hard precondition — if
 // either does not return 2xx the data is not in the state the test assumes, and a silent failure
 // would surface later as confusing, misattributed assertion failures. We throw here so the break is
-// attributed to the seed contract.
+// attributed to the seed.
 //
-// TEST-DATA CONTRACT (AGENTS.md §4.4): before the first spec seeds anything, the fixtures of earlier
-// checkpoints (the harness writes them to .run/fixture-contract.json — data only, never their
-// assertions) are replayed: reset, seed, read back with GET /__test__/fixture, and every seeded
-// field must come back with the same value. That catches a seed endpoint that stopped storing a
-// field an earlier spec relies on — which the agent cannot otherwise see.
-//   SEED_CONTRACT=enforce (default)  a failure fails the spec that triggered the replay
-//   SEED_CONTRACT=report             the gate: record the result, never fail a spec
+// TEST-DATA CONTRACT (AGENTS.md §4.4): before the first test seeds anything, the app's test data
+// sets (.run/fixture-contract.json — data only) are checked: reset, seed, read back with
+// GET /__test__/fixture, and every seeded field must come back with the same value. That catches a
+// seed endpoint that stopped storing a field some data set relies on.
+//   SEED_CONTRACT=enforce (default)  a failure fails the test that triggered the check
+//   SEED_CONTRACT=report             record the result, never fail a test
 //   SEED_CONTRACT=off                skip
 import { request, type APIRequestContext, type APIResponse } from '@playwright/test';
 import { createHash } from 'node:crypto';
@@ -47,18 +45,18 @@ export async function resetAndSeed(fixture: unknown): Promise<void> {
   }
 }
 
-// ---- test-data contract replay -------------------------------------------------------------
+// ---- test-data contract check --------------------------------------------------------------
 
-type DataSet = { spec: string; test: string; fixture: Record<string, unknown> };
+type DataSet = { name: string; test: string; fixture: Record<string, unknown> };
 type Result = { contract_sha256: string; run: number; ok: boolean; checked: number; failures: string[] };
 
 let checked: Promise<Result | null> | null = null;
 
 async function checkContractOnce(api: APIRequestContext): Promise<void> {
   if (MODE === 'off' || !existsSync(CONTRACT_FILE)) return;
-  // Once per Playwright run. A worker restarts after a failed spec, so the result file is the
+  // Once per Playwright run. A worker restarts after a failed test, so the result file is the
   // marker, not just this module's state — keyed by the contract AND the run (the worker's parent
-  // is the Playwright runner). A later `bin/e2e` is a new run and replays again, so a fix to the
+  // is the Playwright runner). A later `bin/e2e` is a new run and checks again, so a fix to the
   // seed endpoint is seen at once instead of the previous run's failure being re-reported.
   checked ??= (async () => {
     const raw = readFileSync(CONTRACT_FILE, 'utf8');
@@ -69,7 +67,7 @@ async function checkContractOnce(api: APIRequestContext): Promise<void> {
     }
     const sets = (JSON.parse(raw).data_sets ?? []) as DataSet[];
     const res: Result = { contract_sha256: sha, run: process.ppid, ok: true, checked: sets.length, failures: [] };
-    if (sets.length) res.failures = await replay(api, sets);
+    if (sets.length) res.failures = await checkSets(api, sets);
     res.ok = res.failures.length === 0;
     mkdirSync(dirname(RESULT_FILE), { recursive: true });
     writeFileSync(RESULT_FILE, JSON.stringify(res, null, 2));
@@ -89,15 +87,15 @@ async function readBack(api: APIRequestContext): Promise<unknown> {
   // An unimplemented route typically falls through to the SPA's index.html with a 200.
   if (!(r.headers()['content-type'] ?? '').includes('json')) {
     throw new ReadBackMissing('GET /__test__/fixture does not return JSON — implement the read-back '
-      + '(AGENTS.md §4.3) so earlier test data can be checked');
+      + '(AGENTS.md §4.3) so the test data sets can be checked');
   }
   return r.json();
 }
 
-async function replay(api: APIRequestContext, sets: DataSet[]): Promise<string[]> {
+async function checkSets(api: APIRequestContext, sets: DataSet[]): Promise<string[]> {
   const out: string[] = [];
   for (const set of sets) {
-    const where = `  in the fixture of "${set.test}" (${set.spec.replace(/^cp\d+_/, '').replace(/\.spec\.ts$/, '')})`;
+    const where = `  in the data set of "${set.test}" (${set.name})`;
     try {
       await must(api.post('/__test__/reset'), 'POST /__test__/reset');
       await must(api.post('/__test__/seed', { data: set.fixture }), 'POST /__test__/seed');
@@ -170,5 +168,5 @@ function isEmpty(v: unknown): boolean {
   return false;
 }
 
-// Usage in a spec:
-//   test.beforeEach(async () => { await resetAndSeed({ /* rows this spec needs */ }); });
+// Usage in a test:
+//   test.beforeEach(async () => { await resetAndSeed({ /* rows this test needs */ }); });

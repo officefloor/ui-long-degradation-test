@@ -1,23 +1,17 @@
 # Working in this app
 
-<!-- AGENTS.md version 1. Maintained by the ui-long-degradation-test harness and copied into every
-     app by it, identical for every stack. Do not edit the copy in the app: it is replaced at every
-     checkpoint, and the copy that was used is recorded (path + sha256) in
-     evolve-results/provenance.json. Stack-specific guidance lives in the app's own DESIGN.md. -->
-
 ## 1. How you work
 
 - Implement the ONE change request you have been given. A single change may span the stored data
   and its schema, the server, and the front end.
-- **Read `DESIGN.md` first.** It describes this implementation — its stack, layout and conventions
+- **Read `DESIGN.md` first.** It describes how this app is built — its stack, layout and conventions
   — and how to do things in it. Follow it.
 - Your change is checked by an automated Playwright test that drives the running app through its
   UI. The test is in `e2e/specs/`. **Run `bin/e2e`** to build the app, start it, run the test and
   stop it — run it as you work and iterate until it passes.
 - **Do not edit** the test, `bin/*`, `e2e/support/*`, `AGENTS.md`, `CLAUDE.md` or `DESIGN.md`.
 
-The rest of this file is how the app is tested. It is the same for every implementation of this
-app.
+The rest of this file is how the app is tested.
 
 ## 2. The UI is tested only through `data-testid`
 
@@ -88,23 +82,23 @@ seeding a fixture and reading it back returns every field that was seeded, with 
 - Extra fields and extra rows (defaults, derived values) are fine. After `POST /__test__/reset` the
   read-back is empty: `{}` or empty collections.
 
-### 4.4 Earlier test data is replayed before your test
+### 4.4 The stored test data is checked before your test
 
-Before the first test runs, `bin/e2e` replays the test data that earlier checkpoints used — the data
-only, never their tests. For each earlier fixture it resets, seeds the fixture, reads it back with
+The app's test data sets are listed in `.run/fixture-contract.json`. Before the first test runs,
+`bin/e2e` checks them: for each data set it resets, seeds it, reads it back with
 `GET /__test__/fixture`, and checks that every seeded field came back with the same value. It also
-checks that a reset really empties the data.
+checks that a reset really empties the data. It uses only the data, never any test.
 
-If any of that fails, your test fails with a message that names the fixture and the field, for
+If any of that fails, your test fails with a message that names the data set and the field, for
 example:
 
 ```
 test-data contract: the seed did not keep people[id=3].alpha (sent 5, read back <missing>)
-  in the fixture of "momentum updates when a person's alpha changes"
+  in the data set of "momentum updates when a person's alpha changes"
 ```
 
-Fix the seed or read-back so that field is stored again. Data from features that a change request
-deliberately removes is left out of the replay.
+Fix the seed or read-back so that field is stored again. Data for a feature that a change request
+removes is taken out of the list.
 
 How values are compared: numbers by value (`100`, `100.0` and `"100.00"` are equal); dates as
 `yyyy-mm-dd`; rows that have an `id` are matched by `id`, and rows without one are matched by their

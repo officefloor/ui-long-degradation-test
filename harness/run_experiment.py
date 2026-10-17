@@ -335,7 +335,11 @@ def mirror_source(src: str, dst: str, extra_excludes: tuple = ()) -> None:
           # stack.yaml is harness-only metric configuration, read from base_ref — never exposed to
           # the agent sandbox (and the exclude protects the worktree copy from --delete on copy-back).
           "--exclude=/stack.yaml",
-          "--exclude=/results/"] + [f"--exclude={e}" for e in extra_excludes]
+          "--exclude=/results/",
+          # git bookkeeping files: the sandbox is an ordinary project folder, with no sign of git
+          # (excluded both ways, so copy-back's --delete keeps the worktree's own).
+          "--exclude=.gitignore", "--exclude=.gitkeep", "--exclude=.gitattributes"] \
+        + [f"--exclude={e}" for e in extra_excludes]
     subprocess.run(["rsync", "-a", "--delete", *ex, src.rstrip("/") + "/", dst.rstrip("/") + "/"],
                    check=True, capture_output=True, text=True)
 
@@ -438,7 +442,8 @@ def install_harness_files(dst_root: str, cfg: dict, cp: dict | None = None) -> N
         with contextlib.suppress(FileNotFoundError):
             os.remove(os.path.join(dst_root, stale))
     if cp is not None and cp.get("_fixture_contract") is not None:
-        capture.write_json(os.path.join(dst_root, FIXTURE_CONTRACT), cp["_fixture_contract"])
+        capture.write_json(os.path.join(dst_root, FIXTURE_CONTRACT),
+                           fixtures.app_contract(cp["_fixture_contract"]))
 
 
 def harness_files_touched(tree: str, cfg: dict) -> list[str]:

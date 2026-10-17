@@ -320,6 +320,12 @@ def _js(v) -> str:
     return str(v)
 
 
+def _title(name: str) -> str:
+    """A test's title from its spec name: the feature words, without the cpNN prefix. A copy keeps
+    its original's title, since that is how the gate pairs them."""
+    return re.sub(r"^cp\d+_|\.spec\.ts$", "", name).replace("_", " ")
+
+
 def render(title: str, fx: dict, paths: list[tuple], vals: tuple, visible_only: bool = False) -> str:
     lines = []
     for p, v in zip(paths, vals):
@@ -399,11 +405,11 @@ def build(config: str, dry_run: bool = False) -> int:
                         changed.append((b, t, now))
         for b, t, now in changed:
             t[3] = now
-            files[f"cp{k:02d}/{b}"] = render(b[5:-8].replace("_", " "), t[1], t[2], now)
+            files[f"cp{k:02d}/{b}"] = render(_title(b), t[1], t[2], now)
         cp["mutates"] = sorted({t[0] for _b, t, _n in changed})
         if k in MUTATIVE and not cp["mutates"]:
             raise SystemExit(f"cp{k} is mutative but changes no earlier test")
-        title = cid[5:].replace("_", " ")
+        title = _title(cid)
         if k == 1:
             paths = [(f"person-row-{r}",) for r in ROWS]
             fx = fixture(SID[0], HZ[0])

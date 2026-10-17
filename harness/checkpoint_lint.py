@@ -150,6 +150,20 @@ def main() -> int:
     dropped = fixtures.undeclared_retirements(numbered, harness_root)
     report("coverage", dropped, "restore the test in the copy, or list it under retires:")
 
+    # ---- 7. nothing the agent reads frames the work as a test run ----------------------------
+    framing = []
+    owned = {**((cfg.get("acceptance") or {}).get("harness_files") or {}),
+             **((cfg.get("agent") or {}).get("instruction_files") or {})}
+    for dst, src in sorted(owned.items()):
+        hits = fixtures.framing_leaks(open(os.path.join(harness_root, src)).read())
+        if hits:
+            framing.append(f"{dst} ({src}): mentions {', '.join(hits)}")
+    for cp in numbered:
+        hits = fixtures.framing_leaks(cp.get("request") or "")
+        if hits:
+            framing.append(f"cp{cp['n']:02d} request: mentions {', '.join(hits)}")
+    report("framing", framing, "word it as ordinary project work: no harness, sequence or history")
+
     # ---- 8. imports resolve where the spec is installed -------------------------------------
     unresolved = fixtures.unresolved_imports(numbered, harness_root)
     report("imports", unresolved, "a copy is installed beside the own specs: use '../support/...'")

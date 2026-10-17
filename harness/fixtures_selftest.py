@@ -91,10 +91,13 @@ def test_harness_files_install_flag_edits_and_never_copy_back():
                               "harness_files": {"AGENTS.md": "acceptance/AGENTS.md",
                                                 "e2e/support/seed.ts": "acceptance/support/seed.ts"}},
                "agent": {"instruction_files": {"CLAUDE.md": "acceptance/agents/claude-code/CLAUDE.md"}}}
-        cp = {"_fixture_contract": {"checkpoint": 2, "data_sets": [{"spec": "s", "test": "t", "fixture": {}}]}}
+        cp = {"_fixture_contract": {"checkpoint": 2, "excluded_mutated": [1],
+                                    "data_sets": [{"spec": "cp01_people.spec.ts", "test": "t", "fixture": {}}]}}
         r.install_harness_files(app, cfg, cp)
         assert r.harness_files_touched(app, cfg) == []
-        assert json.load(open(os.path.join(app, r.FIXTURE_CONTRACT)))["checkpoint"] == 2
+        # The app sees its data sets only, named by feature — no checkpoint, no cpNN, no replaced specs.
+        assert json.load(open(os.path.join(app, r.FIXTURE_CONTRACT))) == \
+            {"data_sets": [{"name": "people", "test": "t", "fixture": {}}]}
         assert open(os.path.join(app, "CLAUDE.md")).read().strip() == "@AGENTS.md"
         open(os.path.join(app, "AGENTS.md"), "a").write("\nagent edit\n")
         assert r.harness_files_touched(app, cfg) == ["AGENTS.md"]
@@ -212,6 +215,14 @@ def test_an_own_spec_naming_a_checkpoint_is_a_leak():
                       [{"id": "cp01_a", "test": f"{S}/cp01_a.spec.ts"},
                        {"id": "cp02_b", "test": f"{S}/cp02_b.spec.ts"}])
         assert f.own_spec_leaks(cps, root) == ["cp01 cp01_a.spec.ts: mentions cp04"]
+
+
+def test_framing_leaks_flag_test_run_and_history_wording():
+    assert f.framing_leaks("Maintained by the harness; replaced at every checkpoint.") == ["checkpoint", "harness"]
+    assert f.framing_leaks("the fixtures of earlier checkpoints are replayed") == ["checkpoints", "earlier", "replay"]
+    assert f.framing_leaks("never committed (gitignored)") == ["committed", "gitignored"]
+    assert f.framing_leaks("FIRST read AGENTS.md; the test is in e2e/specs.") == []
+    assert f.framing_leaks("Add 68 to fathom: fathom is now keel plus momentum, plus 68.") == []
 
 
 def test_process_leaks_flag_harness_wording_not_behaviour():
