@@ -1,8 +1,9 @@
 # Early-overload restructure — design notes
 
-**Branch `early-overload-250`.** This branch restructures the canonical stream so the architecture is
+**The stream on `main`.** The canonical stream is restructured so the architecture is
 **overloaded early** and then copes for the rest of the run, in the canonical vocabulary. Act VI is
-removed, leaving **250 checkpoints**. The back-loaded canonical 300-stream is unchanged on `main`.
+removed, leaving **250 checkpoints**. The earlier back-loaded 300-checkpoint stream is in git history
+(856889f).
 
 ## Why
 

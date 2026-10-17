@@ -1,6 +1,6 @@
 # Long-Horizon Extension — Design Notes
 
-> **Branch `early-overload-250`:** this branch restructures the stream to be **overloaded early** — a compressed spine, the hub `keel` at cp9, and the cross-cutting rules front-loaded to cp4–20 — and removes Act VI, leaving **250 checkpoints**. The back-loaded canonical 300-stream is unchanged on `main`. See [docs/EARLY_OVERLOAD_DESIGN.md](./EARLY_OVERLOAD_DESIGN.md). The text below describes the canonical method, most of which still applies.
+> **Early-overload stream:** the stream on `main` is **overloaded early** — a compressed spine, the hub `keel` at cp9, and the cross-cutting rules front-loaded to cp4–20 — and Act VI is removed, leaving **250 checkpoints**. Requests, specs and ripple copies are generated from the reference model by `harness/stream_build.py`. The earlier back-loaded 300-checkpoint stream is in git history (856889f). See [docs/EARLY_OVERLOAD_DESIGN.md](./EARLY_OVERLOAD_DESIGN.md). The text below describes the canonical method, most of which still applies.
 
 
 How `ui-long-degradation-test` extends from 60 to ~250 checkpoints to test whether the
