@@ -655,8 +655,10 @@ class Model:
             if rate is None:
                 return None if cs else Decimal("0")
             return self._round(sum((c.amount for c in cs), Decimal("0")) * rate / 100, self.today)
-        vals = [self.due(c) for c in cs]
-        return sum((v for v in vals if v is not None), Decimal("0"))
+        vals = [v for v in (self.due(c) for c in cs) if v is not None]
+        if not vals and self.rate_at(self.grade_now(p), self.today) is None:
+            return None               # cp7's rule stands: no rate today and no figure to add
+        return sum(vals, Decimal("0"))
 
     def sheet_claimed(self) -> Decimal:
         return sum((self.claimed(p) for p in self.people.values()), Decimal("0"))
@@ -874,8 +876,9 @@ due n/a. Setting a rate for a grade and from-date that already exist replaces th
 grade, the rate in force on the sheet's today. RATE_SET gains from=<date> when one was given.""",
     12: """Live due now rounds half to even (1.025 becomes 1.02, 1.035 becomes 1.04). A settled claim keeps
 its frozen figure. Every due-total is now the sum of the already-rounded claim figures, not the
-rounded total amount times the rate. The sheet's due-total is still everyone's due-total added
-up.""",
+rounded total amount times the rate; a person with nothing that counts shows 0.00. A person whose
+grade has no rate today still shows n/a, unless a settled claim keeps a figure: then the total is
+the sum of the figures there are. The sheet's due-total is still everyone's due-total added up.""",
     13: """A claim records who opened it; show opened-by on the claim. The user who opened a claim cannot
 settle it: the settle action is refused with an error on the claim, and the status is unchanged.""",
     14: """When a person is edited, the form remembers which version of the person it loaded. If someone

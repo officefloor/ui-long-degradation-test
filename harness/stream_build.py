@@ -66,6 +66,7 @@ class Renderer:
         self.m = Model(k, sheet=SHEET_TOKEN, off=off)
         self.lines: list[str] = []
         self.pages: dict[str, str] = {}
+        self.raced: dict[str, list[str]] = {}   # claim var -> the numbers a concurrent open may give it
         self.pg = ""
         self.vars: set[str] = set()
 
@@ -227,6 +228,9 @@ class Renderer:
         self.m.user = saved
         nums = sorted([self.m.claim(n1, i1).number or "", self.m.claim(n2, i2).number or ""])
         self.emit(f"expect((await ui.numbersOf({self.pg}, [{c1}, {c2}])).sort()).toEqual({ts(nums)});")
+        # Which of the two numbers each claim got is the server's race to decide: the set above is
+        # the assertion, and each claim's own number cell accepts either.
+        self.raced[c1] = self.raced[c2] = nums
 
     def s_rate(self, grade, pct, start=None) -> None:
         f = {"grade": grade, "pct": pct}
@@ -359,6 +363,8 @@ class Renderer:
                     val = cells[tid]
                     if isinstance(val, list):
                         self.emit(f"await expect({cv}.getByTestId({ts(tid + '-line')})).toHaveText({ts(val)});")
+                    elif tid == "claim-number" and c.var in self.raced and val in self.raced[c.var]:
+                        self.emit(f"await expect({cv}.getByTestId({ts(tid)})).toHaveText(/^({'|'.join(self.raced[c.var])})$/);")
                     else:
                         self.emit(f"await expect({cv}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("rollups"):

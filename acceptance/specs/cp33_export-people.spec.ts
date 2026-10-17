@@ -16,6 +16,6 @@ test.describe("export people", () => {
     expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(true);
     expect(await ui.claimAction(pg_uma, c_lee_jo_0, "open")).toBe(true);
     expect(await ui.retire(pg_uma, p_ann_q, "2026-03-01")).toBe(true);
-    expect(await ui.exportCsv(pg_uma)).toBe("name,grade,retired-from,due-total\nAda,A,,1.00\n\"Lee, Jo\",B,,1.25\n\"Ann \"\"Q\"\"\",C,2026-03-01,0.00\n");
+    expect(await ui.exportCsv(pg_uma)).toBe("name,grade,retired-from,due-total\nAda,A,,1.00\n\"Lee, Jo\",B,,1.25\n\"Ann \"\"Q\"\"\",C,2026-03-01,n/a\n");
   });
 });

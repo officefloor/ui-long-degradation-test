@@ -138,8 +138,9 @@ checkpoints:
     request: |
       Live due now rounds half to even (1.025 becomes 1.02, 1.035 becomes 1.04). A settled claim keeps
       its frozen figure. Every due-total is now the sum of the already-rounded claim figures, not the
-      rounded total amount times the rate. The sheet's due-total is still everyone's due-total added
-      up.
+      rounded total amount times the rate; a person with nothing that counts shows 0.00. A person whose
+      grade has no rate today still shows n/a, unless a settled claim keeps a figure: then the total is
+      the sum of the figures there are. The sheet's due-total is still everyone's due-total added up.
 
   - id: cp13_four-eyes
     type: additive
