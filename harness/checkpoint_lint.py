@@ -178,6 +178,9 @@ def main() -> int:
             framing.append(f"cp{cp['n']:02d} request: mentions {', '.join(hits)}")
     report("framing", framing, "word it as ordinary project work: no harness, sequence or history")
 
+    vacuous = fixtures.vacuous_tests(numbered, harness_root)
+    report("assertions", vacuous, "every test must assert at least one value or element")
+
     # ---- 8. imports resolve where the spec is installed -------------------------------------
     unresolved = fixtures.unresolved_imports(numbered, harness_root)
     report("imports", unresolved, "a copy is installed beside the own specs: use '../support/...'")

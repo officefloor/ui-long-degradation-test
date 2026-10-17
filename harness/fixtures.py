@@ -247,6 +247,20 @@ def own_spec_leaks(checkpoints: list[dict], harness_root: str) -> list[str]:
     return out
 
 
+def vacuous_tests(checkpoints: list[dict], harness_root: str) -> list[str]:
+    """Tests (own specs and copies) that assert nothing: any app passes them."""
+    out = []
+    for cp in checkpoints:
+        for e in spec_entries(cp, harness_root):
+            path = os.path.join(harness_root, e)
+            if not os.path.isfile(path):
+                continue
+            for title, body in test_bodies(path).items():
+                if "expect(" not in body:
+                    out.append(f"cp{cp['n']:02d} {os.path.basename(e)}::{title}: asserts nothing")
+    return out
+
+
 def own_spec(cp: dict) -> str:
     """The checkpoint's OWN spec (the only one the agent may see) — its `test`, or the
     first entry of an explicit `tests` list."""

@@ -328,7 +328,9 @@ def _title(name: str) -> str:
 
 def render(title: str, fx: dict, paths: list[tuple], vals: tuple, visible_only: bool = False) -> str:
     lines = []
-    for p, v in zip(paths, vals):
+    # zip() would silently drop every path of a visibility-only test (it has no values), leaving
+    # cp01 with no assertion at all.
+    for p, v in zip(paths, [None] * len(paths) if visible_only else vals, strict=True):
         loc = "page" + "".join(f".getByTestId('{t}')" for t in p)
         lines.append(f"    await expect({loc}).toBeVisible();" if visible_only
                      else f"    await expect({loc}).toHaveText('{v}');")
