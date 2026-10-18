@@ -678,6 +678,7 @@ test.describe("hold interval", () => {
     await expect(pg_uma.getByTestId("rollup-due-total")).toHaveText("10.00");
     await expect(pg_uma.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("0.00");
+    await ui.showRetired(pg_uma, true);
     expect(await ui.claimAction(pg_uma, c_cam_1, "open")).toBe(true);
     await ui.setToday(pg_uma, "2026-05-09");
     expect(await ui.claimAction(pg_uma, c_ada_2, "open")).toBe(true);

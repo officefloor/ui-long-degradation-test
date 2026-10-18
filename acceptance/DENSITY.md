@@ -28,22 +28,22 @@ pairs; `degree` is how many earlier rules each rule introduced here interacts wi
 | 19 | A | 12 | 7 | 8 | 16 | 66 | 0.12 |  |
 | 20 | M | 13 | 9 | 7 | 11 | 78 | 0.09 | immutable: 3 (number, rollup, status) |
 | 21 | A | 14 | 8 | 10 | 9 | 91 | 0.11 | retire: 4 (conflict, number, rollup, status) |
-| 22 | A | 15 | 10 | 15 | 19 | 105 | 0.14 | hold: 5 (closed, period, rate_dated, rollup, status) |
+| 22 | A | 15 | 11 | 17 | 19 | 105 | 0.16 | hold: 5 (closed, period, rate_dated, rollup, status) |
 | 23 | A | 16 | 12 | 11 | 18 | 120 | 0.09 | clerk_limit: 4 (four_eyes, half_even, number, rate_dated) |
-| 24 | M | 17 | 9 | 18 | 17 | 136 | 0.13 | floor: 8 (closed, half_even, number, period, retire, rollup, statement, status) |
-| 25 | A | 18 | 9 | 25 | 19 | 153 | 0.16 | overdue: 4 (closed, floor, period, retire) |
-| 26 | A | 19 | 15 | 40 | 40 | 171 | 0.23 | late: 9 (clerk_limit, freeze, half_even, number, overdue, period, rollup, statement, status) |
+| 24 | M | 17 | 9 | 17 | 17 | 136 | 0.12 | floor: 8 (closed, half_even, number, period, retire, rollup, statement, status) |
+| 25 | A | 18 | 9 | 18 | 19 | 153 | 0.12 | overdue: 3 (closed, floor, period) |
+| 26 | A | 19 | 15 | 41 | 40 | 171 | 0.24 | late: 9 (clerk_limit, freeze, half_even, number, overdue, period, rollup, statement, status) |
 | 27 | A | 20 | 15 | 36 | 38 | 190 | 0.19 | backing: 4 (closed, hold, period, status) |
 | 28 | M | 21 | 14 | 24 | 18 | 210 | 0.11 | grade_dated: 7 (half_even, overdue, period, rate_dated, retire, rollup, status) |
-| 29 | A | 22 | 16 | 26 | 16 | 231 | 0.11 | steward_reopen: 4 (closed, period, statement, status) |
-| 30 | A | 23 | 15 | 45 | 40 | 253 | 0.18 | correction: 3 (number, rollup, status) |
+| 29 | A | 22 | 16 | 25 | 16 | 231 | 0.11 | steward_reopen: 4 (closed, period, statement, status) |
+| 30 | A | 23 | 15 | 39 | 40 | 253 | 0.15 | correction: 3 (number, rollup, status) |
 | 31 | A | 23 | 14 | 23 | 18 | 253 | 0.09 |  |
-| 32 | M | 24 | 18 | 70 | 69 | 276 | 0.25 | policy_date: 13 (backing, clerk_limit, correction, floor, grade_dated, half_even, late, number, overdue, rate_dated, rollup, statement, status) |
-| 33 | A | 24 | 14 | 20 | 19 | 276 | 0.07 |  |
-| 34 | A | 24 | 18 | 52 | 51 | 276 | 0.19 |  |
+| 32 | M | 24 | 18 | 68 | 69 | 276 | 0.25 | policy_date: 13 (backing, clerk_limit, correction, floor, grade_dated, half_even, late, number, overdue, rate_dated, rollup, statement, status) |
+| 33 | A | 24 | 14 | 19 | 18 | 276 | 0.07 |  |
+| 34 | A | 24 | 18 | 52 | 50 | 276 | 0.19 |  |
 | 35 | A | 25 | 16 | 38 | 29 | 300 | 0.13 | period_number: 8 (conflict, correction, floor, immutable, number, overdue, period, status) |
-| 36 | M | 27 | 21 | 78 | 83 | 351 | 0.22 | pending: 7 (clerk_limit, four_eyes, freeze, half_even, number, rollup, statement); pending_live: 7 (clerk_limit, four_eyes, freeze, half_even, number, rollup, statement) |
-| 37 | A | 28 | 16 | 36 | 32 | 378 | 0.10 | reassign_unstates: 4 (half_even, rollup, statement, status) |
+| 36 | M | 27 | 21 | 74 | 83 | 351 | 0.21 | pending: 7 (clerk_limit, four_eyes, freeze, half_even, number, rollup, statement); pending_live: 7 (clerk_limit, four_eyes, freeze, half_even, number, rollup, statement) |
+| 37 | A | 28 | 16 | 32 | 32 | 378 | 0.08 | reassign_unstates: 4 (half_even, rollup, statement, status) |
 | 38 | A | 29 | 14 | 26 | 16 | 406 | 0.06 | terms_fixed: 2 (overdue, retire) |
-| 39 | A | 29 | 17 | 60 | 67 | 406 | 0.15 |  |
+| 39 | A | 29 | 16 | 52 | 67 | 406 | 0.13 |  |
 | 40 | M | 31 | 20 | 56 | 50 | 465 | 0.12 | hold_interval: 3 (hold, rollup, statement); hold_stated: 3 (hold, rollup, statement) |

@@ -682,6 +682,7 @@ test.describe("numbering per period", () => {
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("0.00");
     expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-04-02"})).toBe(true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
+    await ui.showRetired(pg_vic, true);
     const c_cam_0 = ui.must(await ui.addClaim(pg_vic, p_cam, {"amount": "25.00"}));
     const c_cam_1 = ui.must(await ui.addClaim(pg_vic, p_cam, {"amount": "99.95"}));
     await ui.setSetting(pg_vic, "floor", "0.50");

@@ -80,9 +80,11 @@ test.describe("terms per grade", () => {
     await ui.setSetting(pg_uma, "late-pct", "0.00");
     expect(await ui.claimAction(pg_uma, c_dot_0, "open")).toBe(true);
     expect(await ui.retire(pg_uma, p_ada, "2026-03-09")).toBe(true);
+    await ui.showRetired(pg_uma, true);
     expect(await ui.editPerson(pg_uma, p_ada, {"grade": "A"})).toBe(true);
     await ui.refresh(pg_uma);
-    await expect(pg_uma.getByTestId("person-row-" + p_ada)).toHaveCount(0);
+    await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-due")).toHaveText("1.00");
@@ -128,6 +130,7 @@ test.describe("terms per grade", () => {
     expect(await ui.periodAction(pg_uma, "P2", "close")).toBe(true);
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.claimAction(pg_wes, c_dot_0, "settle")).toBe(true);
+    await ui.showRetired(pg_wes, true);
     expect(await ui.editClaim(pg_wes, c_ben_1, {"date": "2026-04-02"})).toBe(false);
     expect(await ui.claimAction(pg_wes, c_ben_0, "void")).toBe(true);
     await ui.refresh(pg_wes);
@@ -547,6 +550,7 @@ test.describe("terms per grade", () => {
     expect(await ui.retire(pg_uma, p_ada, "2026-02-10")).toBe(true);
     await ui.showRetired(pg_uma, true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
+    await ui.showRetired(pg_vic, true);
     expect(await ui.addClaim(pg_vic, p_cam, {"amount": "25.00"})).toBeNull();
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");

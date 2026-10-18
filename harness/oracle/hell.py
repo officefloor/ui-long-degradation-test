@@ -203,7 +203,7 @@ class Model:
         self.counter = 0
         self.period_counters: dict[str, int] = {}
         self.audit: list[str] = []
-        self.show_retired = False
+        self.show_retired: set[str] = set()      # users whose screen has "show retired" on
         self.editing: dict[str, tuple[str, int]] = {}    # user -> (person key, version seen)
         self.claim_editing: dict[str, tuple[int, bool]] = {}
 
@@ -774,7 +774,7 @@ class Model:
             # cp7: the total amount times the rate, rounded once
             rate = self.rate_at(self.grade_now(p), self.today)
             if rate is None:
-                return None if cs else Decimal("0")
+                return None       # cp7: no rate today, n/a, whether or not anything counts
             return self._round(sum((c.amount for c in cs), Decimal("0")) * rate / 100, self.today)
         vals = [v for v in (self.due(c) for c in cs) if v is not None]
         if not vals and self.rate_at(self.grade_now(p), self.today) is None:
@@ -811,8 +811,12 @@ class Model:
                      if self.counts(c) and per.start <= c.date <= per.end), Decimal("0"))
         return money(total)
 
+    def set_show_retired(self, on: bool) -> None:
+        """The toggle belongs to the current user's screen; loading a sheet leaves it alone."""
+        (self.show_retired.add if on else self.show_retired.discard)(self.user)
+
     def visible(self, p: Person) -> bool:
-        return not (self.on("retire") and p.retired_from and not self.show_retired)
+        return not (self.on("retire") and p.retired_from and self.user not in self.show_retired)
 
     def claim_cells(self, c: Claim) -> dict:
         cells = {"claim-amount": money(c.amount), "claim-date": c.date.isoformat(),
@@ -1006,8 +1010,9 @@ grade, the rate in force on the sheet's today. RATE_SET gains from=<date> when o
     12: """Live due now rounds half to even (1.025 becomes 1.02, 1.035 becomes 1.04). A settled claim keeps
 its frozen figure. Every due-total is now the sum of the already-rounded claim figures, not the
 rounded total amount times the rate; a person with nothing that counts shows 0.00. A person whose
-grade has no rate today still shows n/a, unless a settled claim keeps a figure: then the total is
-the sum of the figures there are. The sheet's due-total is still everyone's due-total added up.""",
+grade has no rate today still shows n/a even with nothing that counts (n/a wins over 0.00), unless
+a settled claim keeps a figure: then the total is the sum of the figures there are. The sheet's
+due-total is still everyone's due-total added up.""",
     13: """A claim records who opened it; show opened-by on the claim. The user who opened a claim cannot
 settle it: the settle action is refused with an error on the claim, and the status is unchanged.""",
     14: """When a person is edited, the form remembers which version of the person it loaded. If someone
@@ -1051,9 +1056,10 @@ with an error on the claim. To change an open claim, void it and add a new one. 
 keeps its number (it is still never reused), and CLAIM_VOIDED carries it.""",
     21: """A person can be retired from a date (defaults to the sheet's today). A claim dated after a
 person's retirement date is refused with an error; claims dated on or before it are allowed even
-if added later. Retired people are left out of the list unless "show retired" is on, and their
-claims keep counting in every total. Show retired yes/no and retired-from. Retiring writes
-PERSON_RETIRED name=<name> from=<date>.""",
+if added later. Retired people are left out of the list (no row for them on the screen at all)
+unless "show retired" is on: a toggle on the screen, off when the screen is first opened and left
+as it is by loading a sheet. Their claims keep counting in every total. Show retired yes/no and
+retired-from. Retiring writes PERSON_RETIRED name=<name> from=<date>.""",
     22: """A person can be put on hold, and taken off hold again. While held, their OPEN claims count in no
 live total: not their own claimed or due-total, not the sheet's totals, not a period's total. Their
 SETTLED claims still count. Show hold yes/no. Holding writes PERSON_HELD name=<name>; releasing

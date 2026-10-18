@@ -233,10 +233,11 @@ def cp20(k):
 def cp21(k):
     return _base(k) + [
         ("claim", "Ada", "10.00", "2026-03-05"),
-        ("retire", "Ada", "2026-03-08"),
+        ("retire", "Ada", "2026-03-08"), ("hidden", "Ada"),
+        ("show_retired", True),
         ("claim", "Ada", "20.00", "2026-03-09"), ("claim", "Ada", "30.00", "2026-03-08"),
         ("open", "Ada", 0), ("open", "Ada", 1),
-        ("hidden", "Ada"),
+        ("show_retired", False), ("hidden", "Ada"),
         ("check", {"people": ["retired", "retired-from", "due-total"], "rollups": True}),
         ("show_retired", True),
         ("check", {"people": ["retired", "retired-from", "due-total"], "claims": ["status", "due"],

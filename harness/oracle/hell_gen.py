@@ -79,7 +79,7 @@ def apply(m: hell.Model, st: tuple) -> None:
         elif op == "hold":
             m.hold(*a)
         elif op == "show_retired":
-            m.show_retired = a[0]
+            m.set_show_retired(a[0])
         elif op == "role":
             m.set_role(*a)
         elif op == "setting":
@@ -98,6 +98,19 @@ def apply(m: hell.Model, st: tuple) -> None:
             raise ValueError(op)
     except Refused:
         pass
+
+
+ROW_OPS = {"claim": (0,), "claim2": (0,), "claim_edit": (0,), "open": (0,), "settle": (0,), "void": (0,),
+           "approve": (0,), "reject": (0,), "edit": (0,), "hold": (0,), "patron": (0,), "statement": (0,),
+           "retire": (0,), "reassign": (0, 2)}
+
+
+def row_targets(st: tuple) -> list[str]:
+    """The people whose row on the screen a step works through (a retired one must be shown first)."""
+    op, a = st[0], st[1:]
+    if op == "bulk_open":
+        return [name for name, _ in a[0]]
+    return [a[i] for i in ROW_OPS.get(op, ())]
 
 
 def _cells(prefix: str, n: int) -> list[str]:
@@ -132,6 +145,11 @@ class _Gen:
         self.settled = False
 
     def do(self, st: tuple) -> None:
+        # a retired person's row is only on the screen while this user's "show retired" is on
+        if st[0] != "show_retired" and any(
+                (p := self.m.people.get(hell.norm_name(nm))) is not None and not self.m.visible(p)
+                for nm in row_targets(st)):
+            self.do(("show_retired", True))
         self.steps.append(st)
         apply(self.m, st)
         if st[0] == "settle":

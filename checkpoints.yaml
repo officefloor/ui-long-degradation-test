@@ -140,8 +140,9 @@ checkpoints:
       Live due now rounds half to even (1.025 becomes 1.02, 1.035 becomes 1.04). A settled claim keeps
       its frozen figure. Every due-total is now the sum of the already-rounded claim figures, not the
       rounded total amount times the rate; a person with nothing that counts shows 0.00. A person whose
-      grade has no rate today still shows n/a, unless a settled claim keeps a figure: then the total is
-      the sum of the figures there are. The sheet's due-total is still everyone's due-total added up.
+      grade has no rate today still shows n/a even with nothing that counts (n/a wins over 0.00), unless
+      a settled claim keeps a figure: then the total is the sum of the figures there are. The sheet's
+      due-total is still everyone's due-total added up.
 
   - id: cp13_four-eyes
     type: additive
@@ -243,9 +244,10 @@ checkpoints:
     request: |
       A person can be retired from a date (defaults to the sheet's today). A claim dated after a
       person's retirement date is refused with an error; claims dated on or before it are allowed even
-      if added later. Retired people are left out of the list unless "show retired" is on, and their
-      claims keep counting in every total. Show retired yes/no and retired-from. Retiring writes
-      PERSON_RETIRED name=<name> from=<date>.
+      if added later. Retired people are left out of the list (no row for them on the screen at all)
+      unless "show retired" is on: a toggle on the screen, off when the screen is first opened and left
+      as it is by loading a sheet. Their claims keep counting in every total. Show retired yes/no and
+      retired-from. Retiring writes PERSON_RETIRED name=<name> from=<date>.
 
   - id: cp22_hold
     type: additive

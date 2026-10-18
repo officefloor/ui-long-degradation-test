@@ -118,6 +118,7 @@ test.describe("grade dated", () => {
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("0.00");
     expect(await ui.setRate(pg_uma, {"grade": "B", "pct": "33.33"})).toBe(true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
+    await ui.showRetired(pg_vic, true);
     expect(await ui.statement(pg_vic, p_cam)).toBe(true);
     const c_ada_0 = ui.must(await ui.addClaim(pg_vic, p_ada, {"amount": "4.00", "date": "2026-02-25"}));
     expect(await ui.addClaim(pg_vic, p_ada, {"amount": "3.33", "date": "2026-03-15"})).toBeNull();

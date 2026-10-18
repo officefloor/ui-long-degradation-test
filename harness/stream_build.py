@@ -117,6 +117,11 @@ class Renderer:
     # -- steps
     def step(self, st: tuple) -> None:
         op, args = st[0], st[1:]
+        for name in hell_gen.row_targets(st):
+            p = self.m.people.get(hell.norm_name(name))
+            if p is not None and not self.m.visible(p):
+                raise RuntimeError(f"step {st!r} acts on {name}'s row while retired people are hidden "
+                                   f"from {self.m.user}; show them first")
         getattr(self, "s_" + op)(*args)
 
     def s_as(self, user: str) -> None:
@@ -305,7 +310,7 @@ class Renderer:
         self.expect_ok(f"ui.hold({self.pg}, {self.pvar(name)}, {ts(f)})", True)
 
     def s_show_retired(self, on: bool) -> None:
-        self.m.show_retired = on
+        self.m.set_show_retired(on)
         self.emit(f"await ui.showRetired({self.pg}, {'true' if on else 'false'});")
 
     def s_role(self, user, role) -> None:
