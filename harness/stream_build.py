@@ -1,13 +1,23 @@
-"""Build the stream from its reference model (harness/oracle/hell.py + hell_scripts.py).
+"""Build the stream from its reference model (harness/oracle/hell.py + hell_scripts.py + hell_gen.py).
 
     .venv/bin/python -m harness.stream_build --config config.yaml          # write everything
     .venv/bin/python -m harness.stream_build --config config.yaml --check  # verify, write nothing
+    ... --no-density                                                        # skip the pairwise metric
 
 Writes checkpoints.yaml (the requests, types, `mutates:`), one own spec per checkpoint under
-acceptance/specs/, and for each mutative checkpoint N the ripple copies acceptance/specs/cpNN/ of
-every prior whose rendered spec changes at N. Nothing is hand-edited: a spec is the script
-(hell_scripts) run through the model (hell) at a checkpoint, rendered as Playwright steps whose
-every expected value the model computed.
+acceptance/specs/ (its story test plus the generated scenarios), for each mutative checkpoint N
+the ripple copies acceptance/specs/cpNN/ of every prior whose rendered spec changes at N, and
+acceptance/DENSITY.md, the interaction density of the rules per checkpoint. Nothing is
+hand-edited: a spec is a script run through the model at a checkpoint, rendered as Playwright
+steps whose every expected value the model computed.
+
+DENSITY (the pressure metric, independent of any app): two rules interact at a checkpoint when
+some asserted value of that checkpoint's own spec depends on both, that is, switching both off
+is not predicted by switching each off alone (both move it; or one moves it and the other
+changes how). The report gives, per checkpoint, the rules in force, the interacting pairs over
+the possible pairs (on screen cells and on audit lines), and for each rule the checkpoint
+introduces how many earlier rules it interacts with; from MIN_DEGREE_FROM on, a new rule that
+interacts with fewer than MIN_DEGREE earlier rules fails the build.
 
 Checks (both modes; --check also refuses to write):
   - an ADDITIVE checkpoint changes no prior spec (else it is a mutation in disguise);
@@ -17,7 +27,8 @@ Checks (both modes; --check also refuses to write):
     copy it ships — rendering with the rule switched off (hell.Model(off=...)) must change the
     spec. A test that an app ignoring the rule would still pass is a defect;
   - STALE FILES: acceptance/specs may hold only what this build writes; anything else is listed
-    with the command that removes it, and the build stops.
+    with the command that removes it, and the build stops;
+  - DEGREE: see DENSITY above.
 """
 from __future__ import annotations
 
@@ -29,9 +40,14 @@ import sys
 
 import yaml
 
-from .oracle import hell
+from functools import lru_cache
+from itertools import combinations
+
+from .oracle import hell, hell_gen
 from .oracle.hell import COVERAGE, REQUESTS, RULES, SLUG, TYPE, Model, Refused
 from .oracle.hell_scripts import SCRIPTS
+
+MIN_DEGREE, MIN_DEGREE_FROM = 2, 17     # a new rule must cross >= 2 earlier ones from cp17 on
 
 ROLLUP_SINCE = {"rollup-claimed-total": 5, "rollup-due-total": 7,
                 "rollup-overdue-count": 25, "rollup-overdue-total": 25}
@@ -115,12 +131,17 @@ class Renderer:
         self.pg = self.pages[user]
 
     def s_today(self, d: str) -> None:
-        self.m.today = hell.day(d)
+        self.m.set_today(d)
         self.emit(f"await ui.setToday({self.pg}, {ts(d)});")
+
+    def s_statement(self, name: str) -> None:
+        assert self.k >= hell.SINCE["statement"], "statement is only rendered from cp15"
+        self.m.statement(name)
+        self.expect_ok(f"ui.statement({self.pg}, {self.pvar(name)})", True)
 
     def s_person(self, name: str, grade: str, grade_from: str | None = None) -> None:
         fields = {"name": name, "grade": grade}
-        if grade_from and self.k >= 28:
+        if grade_from and self.m.has("grade_dated"):
             fields["gradeFrom"] = grade_from
         call = f"ui.addPerson({self.pg}, {ts(fields)})"
         try:
@@ -139,7 +160,7 @@ class Renderer:
         out = {}
         for key, val in fields.items():
             if key == "grade_from":
-                if self.k >= 28:
+                if self.m.has("grade_dated"):
                     out["gradeFrom"] = val
             else:
                 out[key] = val
@@ -161,7 +182,7 @@ class Renderer:
             f["date"] = when
         if note:
             f["note"] = note
-        if corrects and self.k >= 30:
+        if corrects and self.m.has("correction"):
             f["corrects"] = corrects
         return f
 
@@ -179,11 +200,15 @@ class Renderer:
     def s_claim2(self, name, amount, when, note) -> None:
         assert self.k >= 14, "claim2 is only rendered from cp14"
         pv = self.pvar(name)
-        c = self.m.add_claim(name, amount, when, note, twice=True)
+        call = f"ui.addClaimTwice({self.pg}, {pv}, {ts(self._claim_fields(amount, when, note, None))})"
+        try:
+            c = self.m.add_claim(name, amount, when, note, twice=True)
+        except Refused:
+            self.emit(f"expect(await {call}).toBeNull();")
+            return
         c.var = self.var(f"c_{slugify(name)}_{c.idx}")
         n = len(self.m.person_claims(self.m.person(name)))
-        self.emit(f"const {c.var} = ui.must(await ui.addClaimTwice({self.pg}, {pv}, "
-                  f"{ts(self._claim_fields(amount, when, note, None))}));")
+        self.emit(f"const {c.var} = ui.must(await {call});")
         self.emit(f"expect(await ui.claimCount({self.pg}, {pv})).toBe({n});")
 
     def s_claim_edit(self, name, idx, fields) -> None:
@@ -234,7 +259,7 @@ class Renderer:
 
     def s_rate(self, grade, pct, start=None) -> None:
         f = {"grade": grade, "pct": pct}
-        if start and self.k >= 11:
+        if start and self.m.has("rate_dated"):
             f["from"] = start
         ok = self.attempt(self.m.set_rate, grade, pct, start)
         self.expect_ok(f"ui.setRate({self.pg}, {ts(f)})", ok)
@@ -250,23 +275,6 @@ class Renderer:
     def s_reopen(self, name) -> None:
         ok = self.attempt(self.m.reopen_period, name)
         self.expect_ok(f"ui.periodAction({self.pg}, {ts(name)}, \"reopen\")", ok)
-
-    def s_import(self, text) -> None:
-        r = self.m.import_people(text)
-        v = self.var("imp")
-        self.emit(f"const {v} = await ui.importPeople({self.pg}, {ts(text)});")
-        exp = {"added": r["added"], "errors": r["errors"]}
-        if self.k >= 16:
-            exp["updated"] = r["updated"]
-        self.emit(f"expect({v}).toEqual({ts(exp)});")
-        if not r["errors"]:
-            for line in text.splitlines():
-                name = line.split(",")[0].strip()
-                if name:
-                    p = self.m.person(name)
-                    if not p.var:
-                        p.var = self.var("p_" + slugify(name))
-                        self.emit(f"const {p.var} = await ui.personId({self.pg}, {ts(p.name)});")
 
     def s_quick(self, name, amount) -> None:
         call = f"ui.quickAdd({self.pg}, {ts({'name': name, 'amount': amount})})"
@@ -289,7 +297,7 @@ class Renderer:
     def s_hold(self, name, start=None, end=None) -> None:
         self.m.hold(name, start, end)
         f = {}
-        if self.k >= 40:
+        if self.m.has("hold_interval"):
             if start:
                 f["from"] = start
             if end:
@@ -333,7 +341,8 @@ class Renderer:
     def s_check(self, spec: dict) -> None:
         pg = self.pg
         v = self.m.view()
-        self.emit(f"await ui.refresh({pg});")
+        if not (self.lines and self.lines[-1].strip() == f"await ui.refresh({pg});"):
+            self.emit(f"await ui.refresh({pg});")
         if spec.get("header"):
             self.emit(f"await expect({pg}.getByTestId(\"current-user\")).toHaveText({ts(v['user'])});")
             self.emit(f"await expect({pg}.getByTestId(\"sheet-current-id\")).toHaveText(sheet);")
@@ -390,26 +399,158 @@ class Renderer:
             self.emit(f"ui.expectAudit(sheet, [\n      {body}\n    ]);")
 
 
-def render(n: int, k: int, off=()) -> str:
-    """The spec of checkpoint n's script, rendered at checkpoint k. Under ablation a script may
-    refer to a row the ablated app never created; that render is simply "different"."""
+def render_test(n: int, k: int, script: list, off=(), lenient: bool = False) -> list[str] | None:
+    """The body lines of one test: a script run through the model at k. A story script that
+    refers to a row the app never created is a defect (None under ablation, an error otherwise);
+    a generated scenario drops that step instead, since a later rule may refuse an earlier
+    creation and the scenario must still be valid at every later checkpoint."""
     r = Renderer(n, k, off)
-    for st in SCRIPTS[n](k):
+    for st in script:
         try:
             r.step(st)
         except (KeyError, StopIteration) as e:
+            if lenient:
+                continue
             if off:
-                return f"ABLATED {sorted(off)} breaks the script at {st!r}"
+                return None
             raise RuntimeError(f"cp{n:02d} script at k={k}: step {st!r} refers to a missing row ({e!r})")
+    return r.lines
+
+
+@lru_cache(maxsize=None)
+def render_tests(n: int, k: int, off: frozenset = frozenset()) -> tuple:
+    """(title, lines) per test of checkpoint n's spec at k: the story, then the generated ones."""
     title = SLUG[n].replace("-", " ")
-    head = ["import { test, expect } from '@playwright/test';",
-            "import * as ui from '../support/ui';",
-            "",
-            f"test.describe({ts(title)}, () => {{",
-            f"  test({ts(title)}, {{ tag: '@functionality' }}, async ({{ browser }}) => {{",
-            "    const sheet = ui.sheetId();"]
-    tail = ["  });", "});", ""]
-    return "\n".join(head + r.lines + tail)
+    out = [(title, render_test(n, k, SCRIPTS[n](k), off))]
+    for i, script in enumerate(hell_gen.scenarios(n), 1):
+        out.append((f"{title} scenario {i}", render_test(n, k, script, off, lenient=True)))
+    return tuple((t, None if body is None else tuple(body)) for t, body in out)
+
+
+def render(n: int, k: int, off=()) -> str:
+    """The spec file of checkpoint n rendered at checkpoint k."""
+    tests = render_tests(n, k, frozenset(off))
+    title = SLUG[n].replace("-", " ")
+    lines = ["import { test, expect } from '@playwright/test';",
+             "import * as ui from '../support/ui';",
+             "",
+             "test.setTimeout(240_000);",
+             f"test.describe({ts(title)}, () => {{"]
+    for t, body in tests:
+        if body is None:
+            return f"ABLATED {sorted(off)} breaks the story of cp{n:02d}"
+        lines.append(f"  test({ts(t)}, {{ tag: '@functionality' }}, async ({{ browser }}) => {{")
+        lines.append("    const sheet = ui.sheetId();")
+        lines.extend(body)
+        lines.append("  });")
+    lines += ["});", ""]
+    return "\n".join(lines)
+
+
+# ---- density: which rules a checkpoint's own spec makes depend on each other ------------------
+
+_VALUE = re.compile(r"^(?P<key>.*?)\.(?:toHaveText|toBe|toEqual|toHaveCount)\((?P<val>.*)\);$")
+
+
+def cells(tests: tuple) -> dict:
+    """{cell key: value} over a spec's tests: every asserted locator or call and its expected
+    value (an occurrence counter keeps repeated reads apart), plus each audit line by its text."""
+    out: dict = {}
+    seen: dict = {}
+    for ti, (title, body) in enumerate(tests):
+        if body is None:
+            continue
+        in_audit = False
+        for line in (ln for chunk in body for ln in chunk.split("\n")):
+            line = line.strip()
+            if in_audit:
+                if line.startswith("]);"):
+                    in_audit = False
+                    continue
+                key = f"{ti}:audit:{line.rstrip(',')}"
+                seen[key] = seen.get(key, 0) + 1
+                out[f"{key}#{seen[key]}"] = "present"
+                continue
+            if line.startswith("ui.expectAudit("):
+                in_audit = True
+                continue
+            m = _VALUE.match(line)
+            if m:
+                key, val = f"{ti}:{m.group('key')}", m.group("val")
+            elif line.startswith("const ") and "ui.must(" in line:
+                key, val = f"{ti}:{line.split('= ui.must(', 1)[1].rstrip(');')}", "created"
+            else:
+                continue
+            seen[key] = seen.get(key, 0) + 1
+            out[f"{key}#{seen[key]}"] = val
+    return out
+
+
+def _cells_off(n: int, off: frozenset) -> dict:
+    return cells(render_tests(n, n, off))
+
+
+def interacts(n: int, a: str, b: str, base: dict, only_a: dict, only_b: dict) -> tuple[bool, bool]:
+    """Whether a and b interact in cp n's own spec, on screen cells and on audit lines: a value
+    both move alone, or one moves alone and the other changes how, or neither moves alone but
+    both together do."""
+    both = _cells_off(n, frozenset((a, b)))
+    screen = audit = False
+    for key in set(base) | set(only_a) | set(only_b) | set(both):
+        v0, va, vb, vab = base.get(key), only_a.get(key), only_b.get(key), both.get(key)
+        a_moves, b_moves = va != v0, vb != v0
+        hit = (a_moves and b_moves) or (a_moves and vab != va) or (b_moves and vab != vb) \
+            or (not a_moves and not b_moves and vab != v0)
+        if hit:
+            if ":audit:" in key:
+                audit = True
+            else:
+                screen = True
+            if screen and audit:
+                break
+    return screen, audit
+
+
+def density(n: int) -> dict:
+    """The interaction report of checkpoint n's own spec."""
+    rules = [r for r, since in RULES.items() if since <= n]
+    base = _cells_off(n, frozenset())
+    singles = {r: _cells_off(n, frozenset((r,))) for r in rules}
+    biting = [r for r in rules if singles[r] != base]
+    pairs_screen, pairs_audit = [], []
+    for a, b in combinations(rules, 2):
+        sc, au = interacts(n, a, b, base, singles[a], singles[b])
+        if sc:
+            pairs_screen.append((a, b))
+        if au:
+            pairs_audit.append((a, b))
+    new = [r for r in rules if RULES[r] == n]
+    partners = {}
+    for r in new:
+        partners[r] = sorted({x for pair in pairs_screen + pairs_audit for x in pair
+                              if r in pair and x != r and RULES[x] < n})
+    possible = len(rules) * (len(rules) - 1) // 2
+    return {"n": n, "rules": rules, "biting": biting, "screen": pairs_screen, "audit": pairs_audit,
+            "possible": possible, "new": new, "partners": partners}
+
+
+def density_md(reports: list[dict]) -> str:
+    out = ["# Interaction density of the stream (GENERATED by harness.stream_build; do not edit)",
+           "",
+           "Two rules interact at a checkpoint when a value asserted by that checkpoint's own spec",
+           "depends on both (see harness/stream_build.py). `pairs` counts interacting pairs among the",
+           "rules in force, on screen cells and on audit lines; `density` is screen pairs over possible",
+           "pairs; `degree` is how many earlier rules each rule introduced here interacts with.",
+           "",
+           "| cp | type | in force | biting | screen pairs | audit pairs | possible | density | new rule: degree (partners) |",
+           "|---|---|---|---|---|---|---|---|---|"]
+    for r in reports:
+        n = r["n"]
+        newcol = "; ".join(f"{k}: {len(v)} ({', '.join(v)})" for k, v in r["partners"].items()) or ""
+        dens = f"{len(r['screen']) / r['possible']:.2f}" if r["possible"] else ""
+        out.append(f"| {n} | {TYPE[n][0].upper()} | {len(r['rules'])} | {len(r['biting'])} | {len(r['screen'])} | "
+                   f"{len(r['audit'])} | {r['possible']} | {dens} | {newcol} |")
+    return "\n".join(out) + "\n"
 
 
 def own_path(n: int) -> str:
@@ -420,7 +561,7 @@ def copy_path(n: int, prior: int) -> str:
     return f"acceptance/specs/cp{n:02d}/cp{prior:02d}_{SLUG[prior]}.spec.ts"
 
 
-def build(check_only: bool) -> int:
+def build(check_only: bool, with_density: bool = True) -> int:
     lo, hi = COVERAGE
     problems: list[str] = []
     files: dict[str, str] = {}
@@ -443,21 +584,38 @@ def build(check_only: bool) -> int:
             if not changed:
                 problems.append(f"cp{n:02d} is mutative but changes no prior spec")
 
-    # ablation: the rules a checkpoint introduces must bite in its own spec and its copies
+    # ablation: every rule a checkpoint introduces must bite in its own spec, and every copy it
+    # ships must exercise at least one of them (a checkpoint with two rules may change a prior
+    # through either)
     for n in range(lo, hi + 1):
         rules = [r for r, since in RULES.items() if since == n]
         for r in rules:
             if render(n, n, off={r}) == files[own_path(n)]:
                 problems.append(f"cp{n:02d} own spec does not exercise its rule {r!r}")
-            for prior in derived.get(n, []):
-                if render(prior, n, off={r}) == files[copy_path(n, prior)]:
-                    problems.append(f"cp{n:02d} copy of cp{prior:02d} does not exercise {r!r}")
+        for prior in derived.get(n, []):
+            if rules and all(render(prior, n, off={r}) == files[copy_path(n, prior)] for r in rules):
+                problems.append(f"cp{n:02d} copy of cp{prior:02d} exercises none of {rules}")
     # informative: which in-force rules each own spec leaves unexercised
     quiet = {}
     for n in range(lo, hi + 1):
         idle = [r for r, since in RULES.items() if since <= n and render(n, n, off={r}) == files[own_path(n)]]
         if idle:
             quiet[n] = idle
+
+    # density: the pressure each checkpoint puts on the rules already in force
+    reports = []
+    if with_density:
+        for n in range(lo, hi + 1):
+            rep = density(n)
+            reports.append(rep)
+            if n >= MIN_DEGREE_FROM:
+                for r, partners in rep["partners"].items():
+                    if len(partners) < MIN_DEGREE:
+                        problems.append(f"cp{n:02d} rule {r!r} interacts with only {len(partners)} earlier "
+                                        f"rule(s) ({', '.join(partners) or 'none'}); {MIN_DEGREE} needed")
+            print(f"  cp{n:02d} density: {len(rep['screen'])}/{rep['possible']} screen pairs, "
+                  f"{len(rep['audit'])} audit pairs, biting {len(rep['biting'])}/{len(rep['rules'])}"
+                  + "".join(f"; {r} crosses {len(ps)}" for r, ps in rep["partners"].items()), flush=True)
 
     # stale files
     stale = []
@@ -492,7 +650,10 @@ def build(check_only: bool) -> int:
             fh.write(text)
     with open(os.path.join(HARNESS_ROOT, "checkpoints.yaml"), "w") as fh:
         fh.write(checkpoints_yaml(derived))
-    print(f"wrote {len(files)} specs and checkpoints.yaml")
+    if reports:
+        with open(os.path.join(HARNESS_ROOT, "acceptance", "DENSITY.md"), "w") as fh:
+            fh.write(density_md(reports))
+    print(f"wrote {len(files)} specs, checkpoints.yaml" + (" and acceptance/DENSITY.md" if reports else ""))
     return 0
 
 
@@ -500,7 +661,8 @@ def checkpoints_yaml(derived: dict[int, list[int]]) -> str:
     lo, hi = COVERAGE
     out = ["# GENERATED by harness.stream_build from the reference model harness/oracle/hell.py and the",
            "# scripts in harness/oracle/hell_scripts.py: edit those, then rebuild. Never hand-edit.",
-           f"# Act I, cp{lo:02d}-cp{hi:02d}, cadence 3:1 (mutative when n % 4 == 0).",
+           f"# cp{lo:02d}-cp{hi:02d}, cadence 3:1 (mutative when n % 4 == 0); each spec: a story test plus",
+           "# the generated scenarios of harness/oracle/hell_gen.py.",
            "checkpoints:"]
     for n in range(lo, hi + 1):
         out.append(f"  - id: cp{n:02d}_{SLUG[n]}")
@@ -521,12 +683,13 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--config", default="config.yaml")
     ap.add_argument("--check", action="store_true", help="verify only; write nothing")
+    ap.add_argument("--no-density", action="store_true", help="skip the pairwise interaction metric")
     args = ap.parse_args(argv)
     cfg = yaml.safe_load(open(os.path.join(HARNESS_ROOT, args.config))) or {}
     if cfg.get("checkpoints_file", "checkpoints.yaml") != "checkpoints.yaml":
         print("error: this builder writes checkpoints.yaml", file=sys.stderr)
         return 2
-    return build(args.check)
+    return build(args.check, with_density=not args.no_density)
 
 
 if __name__ == "__main__":

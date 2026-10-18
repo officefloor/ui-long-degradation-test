@@ -1,11 +1,14 @@
 # The refactor-hell stream — design and the 250 requests
 
-_Draft 2026-10-17, literature folded in the same day (Section 4.1). **Act I is built** (2026-10-18):
-`harness/oracle/hell.py` is the reference model, `hell_scripts.py` the scripts, and
-`harness.stream_build` renders the 40 specs and copies; see `acceptance/WORKSPACE.md` for the
-built Act I, which is tighter than the Act I proposed below (no tags, clone, mentors or plans: every
-checkpoint loads the one `due` figure, so the erosion compounds instead of spreading). Acts II–VI
-below remain a proposal._
+_Draft 2026-10-17, literature folded in the same day (Section 4.1). **Status 2026-10-18:** the Act I
+built from this document ran clean on angular-spring and tanstack-officefloor (one to four minutes a
+checkpoint, zero genuine regressions, both agents recomputing every figure in the browser), so the
+stream was **restarted** with three engines that close that escape hatch (statements that bind shown
+figures, write-time ROLLUP/TOTALS audit, precedence exceptions), generated multi-user scenarios in
+every spec and an interaction-density metric per checkpoint. The built stream is described in
+`acceptance/WORKSPACE.md`; `harness/oracle/hell.py`, `hell_scripts.py`, `hell_gen.py` and
+`harness.stream_build` produce it. The catalogue below (Sections 2, 4, 4.1) remains the source of
+gotchas; the 250 requests of Section 6 are superseded as a sequence and kept as material._
 
 ## 1. Why the current stream does not erode
 

@@ -1,10 +1,12 @@
-"""The test scripts of the Act I stream, one per checkpoint, as functions of the checkpoint k they
+"""The story scripts of the stream, one per checkpoint, as functions of the checkpoint k they
 are rendered at (a ripple copy re-renders a prior's script at the mutative's k, so a script may
 branch on k where a later rule changes what the test must do to arrange its data).
 
 A script is a list of steps (see harness.stream_build.render for the vocabulary). Every value a
 step asserts is computed by the reference model (harness/oracle/hell.py); the script says only
-what the test does and which figures it reads.
+what the test does and which figures it reads. A checkpoint's spec also carries the scenarios
+harness.oracle.hell_gen generates for it; these stories state the feature, the generated ones
+cross it with everything already in force.
 """
 from __future__ import annotations
 
@@ -158,20 +160,32 @@ def cp14(k):
 
 
 def cp15(k):
-    return _base(k, people=(("Ada", "A"),)) + [
-        ("import", "Ben,B\nCam,C"),
-        ("import", "Dot,A\n,B"),
-        ("import", "Eve,A\nADA,B"),
-        ("import", "Fay,D"),
-        ("check", {"people": ["name", "grade"], "audit": True})]
+    return _base(k) + [
+        ("claim", "Ada", "10.25", "2026-03-01"), ("claim", "Ada", "20.00"), ("claim", "Ben", "4.00"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0),
+        ("statement", "Ada"),
+        ("rate", "A", "20.00"),
+        ("claim", "Ada", "30.00"), ("open", "Ada", 2),
+        ("check", {"claims": ["due", "stated"], "people": ["due-total", "statement-count", "stated-total",
+                                                            "statement-date"], "rollups": True}),
+        ("today", "2026-03-11"), ("statement", "Ada"), ("void", "Ada", 0), ("statement", "Ben"),
+        ("rate", "B", "20.00"),
+        ("check", {"claims": ["due", "stated", "status"], "people": ["due-total", "statement-count",
+                   "stated-total", "statement-date"], "rollups": True, "audit": True})]
 
 
 def cp16(k):
     return _base(k) + [
-        ("import", "ada,C\nCam,A\n cam ,B"),
-        ("import", " ada ,C\nDot,A"),
-        ("import", "Ben,A"),
-        ("check", {"people": ["name", "grade"], "audit": True})]
+        ("claim", "Ada", "10.00"), ("claim", "Ben", "20.00"),
+        ("open", "Ada", 0), ("open", "Ben", 0),
+        ("rate", "A", "20.00"), ("rate", "B", "12.50"),
+        ("edit", "Ben", {"grade": "A"}),
+        ("today", "2026-03-11"),
+        ("statement", "Ada"), ("rate", "A", "30.00"),
+        ("as", "vic"), ("settle", "Ben", 0), ("void", "Ada", 0),
+        ("statement", "Ada"), ("person", "Cam", "C"),
+        ("check", {"claims": ["due", "status", "stated"], "people": ["claimed", "due-total"],
+                   "rollups": True, "audit": True})]
 
 
 def cp17(k):
@@ -243,12 +257,14 @@ def cp22(k):
 
 def cp23(k):
     return _base(k, people=(("Ada", "A"),), rates=(("A", "10.00"),)) + [
+        ("rate", "A", "20.00", "2026-03-05"),
         ("role", "vic", "steward"), ("role", "wes", "boss"), ("setting", "clerk-limit", "1.50"),
-        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"),
-        ("as", "vic"), ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
-        ("as", "uma"), ("settle", "Ada", 0), ("settle", "Ada", 1),
+        ("claim", "Ada", "10.25", "2026-03-01"), ("claim", "Ada", "10.25", "2026-03-06"),
+        ("claim", "Ada", "15.05", "2026-03-01"), ("claim", "Ada", "30.00"),
+        ("as", "vic"), ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2), ("open", "Ada", 3),
+        ("as", "uma"), ("settle", "Ada", 0), ("settle", "Ada", 1), ("settle", "Ada", 2),
         ("as", "vic"), ("settle", "Ada", 1),
-        ("as", "wes"), ("settle", "Ada", 2),
+        ("as", "wes"), ("settle", "Ada", 3),
         ("check", {"claims": ["status", "due"], "people": ["due-total"], "audit": True})]
 
 
@@ -259,10 +275,11 @@ def cp24(k):
         ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
         ("as", "vic"), ("settle", "Ada", 0),
         ("check", {"claims": ["due"], "people": ["due-total"], "periods": True, "rollups": True}),
+        ("statement", "Ada"), ("claim", "Ada", "4.00"), ("open", "Ada", 3),
         ("setting", "floor", "3.00"),
-        ("check", {"claims": ["due"], "people": ["due-total"], "periods": True, "rollups": True}),
-        ("close", "P1"), ("setting", "floor", "5.00"),
-        ("check", {"claims": ["due"], "people": ["due-total"], "periods": True, "rollups": True,
+        ("check", {"claims": ["due", "stated"], "people": ["due-total"], "periods": True, "rollups": True}),
+        ("close", "P1"), ("setting", "floor", "5.00"), ("statement", "Ada"),
+        ("check", {"claims": ["due", "stated"], "people": ["due-total"], "periods": True, "rollups": True,
                    "audit": True})]
 
 
@@ -281,15 +298,18 @@ def cp25(k):
 
 def cp26(k):
     return _base(k, today="2026-05-01", people=(("Ada", "A"),), rates=(("A", "10.00"),)) + [
-        ("setting", "terms", "10"), ("setting", "late-pct", "10.00"),
+        ("setting", "terms", "10"),
         ("claim", "Ada", "20.00", "2026-03-01"), ("claim", "Ada", "20.00", "2026-02-01"),
         ("claim", "Ada", "10.25", "2026-04-25"),
         ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
-        ("check", {"claims": ["due", "overdue"], "people": ["due-total", "overdue-total"], "rollups": True}),
+        ("statement", "Ada"), ("setting", "late-pct", "10.00"),
+        ("check", {"claims": ["due", "overdue", "stated"], "people": ["due-total", "overdue-total"],
+                   "rollups": True}),
+        ("rate", "A", "20.00"),
         ("as", "vic"), ("settle", "Ada", 1),
-        ("setting", "late-pct", "20.00"),
-        ("check", {"claims": ["due", "status"], "people": ["due-total", "overdue-total"], "rollups": True,
-                   "audit": True})]
+        ("setting", "late-pct", "20.00"), ("today", "2026-06-01"),
+        ("check", {"claims": ["due", "status", "stated"], "people": ["due-total", "overdue-total"],
+                   "rollups": True, "audit": True})]
 
 
 def cp27(k):
@@ -312,19 +332,20 @@ def cp28(k):
         ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
         ("edit", "Ada", {"grade": "B", "grade_from": "2026-03-05"}),
         ("check", {"claims": ["due"], "people": ["grade", "due-total"], "rollups": True}),
-        ("import", "ada,C"),
+        ("edit", "Ada", {"grade": "C"}),
         ("check", {"claims": ["due"], "people": ["grade", "due-total"], "rollups": True, "audit": True})]
 
 
 def cp29(k):
     return _base(k, people=(("Ada", "A"),), rates=(("A", "10.00"),)) + [
         ("period", "P1", "2026-03-01", "2026-03-31"),
-        ("claim", "Ada", "10.00"), ("open", "Ada", 0),
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "30.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("statement", "Ada"), ("void", "Ada", 1), ("claim", "Ada", "50.00"), ("open", "Ada", 2),
         ("close", "P1"), ("rate", "A", "20.00"),
         ("reopen", "P1"),
-        ("check", {"periods": True, "claims": ["due"]}),
+        ("check", {"periods": True, "claims": ["due", "stated"]}),
         ("role", "vic", "steward"), ("as", "vic"), ("reopen", "P1"), ("reopen", "P1"),
-        ("check", {"periods": True, "claims": ["due"], "audit": True})]
+        ("check", {"periods": True, "claims": ["due", "stated"], "people": ["due-total"], "audit": True})]
 
 
 def cp30(k):
@@ -354,14 +375,17 @@ def cp31(k):
 def cp32(k):
     return _base(k, people=(("Ada", "A"),), rates=(("A", "10.00"),)) + [
         ("claim", "Ada", "10.25", "2026-03-01"), ("claim", "Ada", "10.25"),
-        ("claim", "Ada", "10.35", "2026-03-09"),
-        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
-        ("check", {"claims": ["due"], "people": ["due-total"]}),
-        ("setting", "policy-date", "2026-03-15"),
-        ("check", {"claims": ["due"], "people": ["due-total"]}),
-        ("setting", "policy-date", "2026-03-01"),
+        ("claim", "Ada", "10.35", "2026-03-09"), ("claim", "Ada", "10.45", "2026-03-02"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2), ("open", "Ada", 3),
+        ("as", "vic"), ("settle", "Ada", 0), ("as", "uma"), ("statement", "Ada"),
+        ("check", {"claims": ["due", "stated"], "people": ["due-total"]}),
+        ("setting", "policy-date", "2026-03-05"),
+        ("claim", "Ada", "-10.25", None, "fix", "1"), ("open", "Ada", 4),
+        ("check", {"claims": ["due", "stated", "corrects"], "people": ["due-total"]}),
+        ("setting", "policy-date", "2026-03-15"), ("statement", "Ada"),
+        ("check", {"claims": ["due", "stated"], "people": ["due-total"]}),
         ("as", "vic"), ("settle", "Ada", 2), ("setting", "policy-date", ""),
-        ("check", {"claims": ["due", "status"], "people": ["due-total"], "audit": True})]
+        ("check", {"claims": ["due", "status", "stated"], "people": ["due-total"], "audit": True})]
 
 
 def cp33(k):
@@ -400,24 +424,26 @@ def cp36(k):
         ("role", "vic", "steward"), ("role", "wes", "steward"), ("setting", "clerk-limit", "1.50"),
         ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("claim", "Ada", "10.00"),
         ("as", "vic"), ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
-        ("as", "uma"), ("settle", "Ada", 0), ("settle", "Ada", 1), ("settle", "Ada", 2),
-        ("check", {"claims": ["status", "due"], "people": ["due-total"], "rollups": True}),
+        ("as", "uma"), ("statement", "Ada"), ("rate", "A", "20.00"),
+        ("settle", "Ada", 0), ("settle", "Ada", 1), ("settle", "Ada", 2),
+        ("check", {"claims": ["status", "due", "stated"], "people": ["due-total"], "rollups": True}),
         ("as", "vic"), ("approve", "Ada", 0),
         ("as", "wes"), ("approve", "Ada", 0), ("reject", "Ada", 1, "no"),
         ("as", "uma"), ("approve", "Ada", 1),
-        ("check", {"claims": ["status", "due"], "people": ["due-total"], "rollups": True, "audit": True})]
+        ("check", {"claims": ["status", "due", "stated"], "people": ["due-total"], "rollups": True,
+                   "audit": True})]
 
 
 def cp37(k):
     return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=(("A", "10.00"), ("B", "20.00"))) + [
         ("role", "vic", "steward"),
         ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"),
-        ("open", "Ada", 0), ("open", "Ada", 1),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("statement", "Ada"),
         ("as", "vic"), ("settle", "Ada", 1),
         ("as", "uma"), ("reassign", "Ada", 0, "Ben"),
         ("as", "vic"), ("reassign", "Ada", 0, "Ben"), ("reassign", "Ada", 1, "Ben"),
         ("reassign", "Ada", 2, "Ben"),
-        ("check", {"claims": ["number", "due", "status"], "people": ["claimed", "due-total"],
+        ("check", {"claims": ["number", "due", "status", "stated"], "people": ["claimed", "due-total"],
                    "rollups": True, "audit": True})]
 
 
@@ -446,9 +472,11 @@ def cp40(k):
         ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "20.00", "2026-03-06"),
         ("claim", "Ada", "40.00"), ("claim", "Ada", "80.00", "2026-03-08"),
         ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2), ("open", "Ada", 3),
-        ("as", "vic"), ("settle", "Ada", 3),
+        ("as", "vic"), ("settle", "Ada", 3), ("statement", "Ada"),
+        ("claim", "Ada", "16.00", "2026-03-07"), ("open", "Ada", 4),
         ("hold", "Ada", "2026-03-05", "2026-03-08"),
-        ("check", {"people": ["hold", "claimed", "due-total"], "claims": ["due", "status"], "rollups": True}),
+        ("check", {"people": ["hold", "claimed", "due-total"], "claims": ["due", "status", "stated"],
+                   "rollups": True}),
         ("hold", "Ada", "2026-03-10", None),
         ("check", {"people": ["hold", "claimed", "due-total"], "rollups": True, "audit": True})]
 

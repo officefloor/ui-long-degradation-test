@@ -1,4 +1,4 @@
-"""Reference model of the Act I stream (cp1-40): the sheet, its users, people, claims and figures.
+"""Reference model of the stream (cp1-40): the sheet, its users, people, claims and figures.
 
 Everything the agent and the gate see is generated from this module by `harness.stream_build`: the
 requests in checkpoints.yaml (REQUESTS below, beside the code that defines each rule), every spec
@@ -11,14 +11,19 @@ A rule is active when `k >= RULES[name]` and the name is not in `off` (ablation:
 ignored that rule; `harness.stream_build --check` requires every rule a spec needs to bite).
 
 Figures (two decimals, dot, no grouping; `n/a` when undefined):
-  claim due            amount x rate(grade in force on the claim date, rate in force on it) / 100,
-                       rounded half up (cp7), half even (cp12), by the policy date (cp32); frozen
-                       at settle (cp10); at least the floor (cp24); plus the late charge (cp26);
-                       corrections take only the rate step (cp30)
+  claim due            frozen at settle (cp10); else the STATED base (cp15: a statement binds the
+                       figure a claim had when it was stated) or the live base: amount x rate(grade
+                       in force on the claim date, rate in force on it) / 100, rounded half up (cp7),
+                       half even (cp12), by the policy date (cp32; a correction by the date of the
+                       claim it corrects), at least the floor (cp24, not for a correction); plus the
+                       late charge (cp26) on top of the base, stated or not
   claimed / due-total  over the claims that COUNT: every claim (cp5), OPEN+SETTLED (cp8, PENDING
                        counts as open cp36), minus a held person's open claims (cp22) or those dated
-                       inside the hold (cp40). Person due-total is the rounded total amount x rate
-                       (cp7) until cp12 makes it the sum of the rounded claim figures.
+                       inside the hold (cp40; a stated claim stays). Person due-total is the rounded
+                       total amount x rate (cp7) until cp12 makes it the sum of the claim figures.
+  ROLLUP / TOTALS      cp16: every write that changes a person's claimed or due-total (or brings a
+                       person into being) is followed in the audit by one ROLLUP line per person
+                       changed, in list order, then TOTALS when the sheet's totals changed.
 """
 from __future__ import annotations
 
@@ -32,7 +37,7 @@ COVERAGE = (1, 40)
 GRADES = ("A", "B", "C")
 STATUSES = ("DRAFT", "OPEN", "PENDING", "SETTLED", "VOID")
 
-# Rule name -> first checkpoint it is in force. Each is ablatable.
+# Rule name -> first checkpoint it is in force. Each is ablatable (an app that ignores it).
 RULES = {
     "names": 4,          # unique, trimmed, case-insensitive names
     "status": 8,         # only OPEN/SETTLED claims count
@@ -42,26 +47,51 @@ RULES = {
     "half_even": 12,     # live figures round half to even; totals sum rounded figures
     "four_eyes": 13,     # the opener cannot settle
     "conflict": 14,      # a stale edit is refused; a double submit stores once
-    "import_atomic": 15, # an import with any error imports nothing
-    "upsert": 16,        # an import line matching a name updates it
+    "statement": 15,     # a statement binds the figures it states (path dependence)
+    "rollup": 16,        # write-time ROLLUP/TOTALS audit lines after every write that moves a figure
     "period": 17,        # a claim belongs to the period containing its date
     "closed": 18,        # a closed period refuses changes and keeps its total
     "immutable": 20,     # an OPEN claim cannot be edited; a void keeps its number
     "retire": 21,        # no claims dated after retirement
     "hold": 22,          # a held person's open claims leave every live total
     "clerk_limit": 23,   # a clerk settles only up to the limit
-    "floor": 24,         # live due is at least the floor
+    "floor": 24,         # a live, unstated base is at least the floor
     "overdue": 25,       # due-by and overdue
-    "late": 26,          # late charge per full 30 days
+    "late": 26,          # late charge per full 30 days, on top of the base (stated or live)
     "backing": 27,       # patrons and backing
     "grade_dated": 28,   # a claim uses the grade in force on its date
     "steward_reopen": 29,
     "correction": 30,
-    "policy_date": 32,   # before the policy date round half up
+    "policy_date": 32,   # before the policy date round half up; a correction by its target's date
     "period_number": 35, # per-period numbering from a date
     "pending": 36,       # over the limit goes to PENDING
+    "pending_live": 36,  # a PENDING claim is not bound by a statement
+    "reassign_unstates": 37,   # a reassigned claim loses its stated figure
     "terms_fixed": 38,   # due-by fixed at creation from the grade's terms
     "hold_interval": 40, # hold has from/to; only claims dated inside leave totals
+    "hold_stated": 40,   # a stated claim stays in the totals through a hold
+}
+
+# Feature -> first checkpoint it exists (screens, cells, audit fields). Not ablatable: what the
+# agent built at that checkpoint is there whether or not a later rule is honoured.
+SINCE = {
+    "today": 2, "claims": 5, "audit": 6, "due": 7, "status": 8, "number": 9, "freeze": 10,
+    "rate_dated": 11, "opened_by": 13, "statement": 15, "period": 17, "closed": 18, "quick": 19,
+    "retire": 21, "hold": 22, "roles": 23, "floor": 24, "overdue": 25, "late": 26, "backing": 27,
+    "grade_dated": 28, "reopen": 29, "correction": 30, "summary": 31, "policy_date": 32,
+    "export": 33, "bulk": 34, "period_number": 35, "pending": 36, "reassign": 37, "terms_fixed": 38,
+    "log": 39, "hold_interval": 40,
+}
+
+# Cell -> first checkpoint a spec may assert it (the generator asserts every cell in force).
+CELL_SINCE = {
+    "person-name": 3, "person-grade": 3, "person-claimed": 5, "person-due-total": 7,
+    "person-statement-count": 15, "person-stated-total": 15, "person-statement-date": 15,
+    "person-retired": 21, "person-retired-from": 21, "person-hold": 22,
+    "person-overdue-count": 25, "person-overdue-total": 25, "person-patrons": 27, "person-backing": 27,
+    "claim-amount": 5, "claim-date": 5, "claim-note": 5, "claim-due": 7, "claim-status": 8,
+    "claim-number": 9, "claim-opened-by": 13, "claim-stated": 15, "claim-period": 17,
+    "claim-due-by": 25, "claim-overdue": 25, "claim-corrects": 30, "claim-log": 39,
 }
 
 DEFAULT_FLOOR = Decimal("1.00")
@@ -101,6 +131,9 @@ class Person:
     holds: list = field(default_factory=list)        # [(from, to|None)]; cp22 uses (None, None)
     patrons: list = field(default_factory=list)      # person keys
     order: int = 0
+    statements: int = 0                              # statements taken (cp15)
+    stated_total: str | None = None                  # the last statement's due-total text
+    stated_on: date | None = None
     var: str = ""                                    # TS variable the renderer gives the row id
 
 
@@ -116,6 +149,7 @@ class Claim:
     frozen: Decimal | None = None
     due_by: date | None = None                       # fixed at creation (cp38)
     corrects: str | None = None                      # target claim number (cp30)
+    stated: object = None                            # None (unstated) | Decimal | "n/a" (cp15)
     history: list = field(default_factory=list)      # [(status, user, date, due_text)]
     idx: int = 0                                     # index within the person's claims
     var: str = ""
@@ -128,6 +162,31 @@ class Period:
     end: date
     closed: bool = False
     frozen_total: str | None = None
+
+
+def write(fn):
+    """A write: when the rollup rule is in force, the action's own audit lines are followed by
+    ROLLUP person=<name> claimed=<x> due-total=<y> for every person whose figures differ from
+    before the write (a person who did not exist before counts as changed), in list order, then
+    TOTALS claimed-total=<x> due-total=<y> when the sheet's totals differ. A refused write (an
+    exception) writes nothing. Writes nest (quick-add, bulk open): the inner ones report."""
+    def inner(self, *a, **kw):
+        if not self.on("rollup"):
+            return fn(self, *a, **kw)
+        before, tot_before = self._figures()
+        result = fn(self, *a, **kw)
+        after, tot_after = self._figures()
+        for pid, (p, claimed, due) in sorted(after.items(), key=lambda kv: kv[1][0].order):
+            was = before.get(pid)
+            if was is None or (was[1], was[2]) != (claimed, due):
+                self.audit_line("ROLLUP", ("person", p.name, 16), ("claimed", claimed, 16),
+                                ("due-total", due, 16))
+        if tot_before != tot_after:
+            self.audit_line("TOTALS", ("claimed-total", tot_after[0], 16), ("due-total", tot_after[1], 16))
+        return result
+    inner.__name__ = fn.__name__
+    inner.__doc__ = fn.__doc__
+    return inner
 
 
 class Model:
@@ -152,19 +211,35 @@ class Model:
     def on(self, rule: str) -> bool:
         return self.k >= RULES[rule] and rule not in self.off
 
+    def has(self, feature: str) -> bool:
+        return self.k >= SINCE[feature]
+
     def audit_line(self, event: str, *fields) -> None:
         """Record an audit line: `fields` are (key, value, since) triples, `since` being the
         checkpoint that added that field. The renderer keeps the fields a spec's checkpoint knows,
         and the spec matches a line by prefix, so a later field extends a line without changing it."""
-        if self.k < 6:
+        if not self.has("audit"):
             return
         self.audit.append((event, self.user, [(a, str(b), s) for a, b, s in fields if s <= self.k]))
 
+    def _figures(self) -> tuple[dict, tuple]:
+        """Every person's (claimed, due-total) by identity, and the sheet's totals: what a write
+        is compared against to decide the ROLLUP/TOTALS lines (cp16)."""
+        out = {}
+        for p in self.people.values():
+            v = self.due_total(p)
+            out[id(p)] = (p, money(self.claimed(p)), "n/a" if v is None else money(v))
+        return out, (money(self.sheet_claimed()), money(self.sheet_due()))
+
     def role(self, user: str | None = None) -> str:
-        return self.roles.get(user or self.user, "clerk") if self.k >= 23 else "clerk"
+        return self.roles.get(user or self.user, "clerk") if self.has("roles") else "clerk"
 
     def setting(self, key: str, default=None):
         return self.settings.get(key, default)
+
+    @write
+    def set_today(self, d: str) -> None:
+        self.today = day(d)
 
     # ---- people ---------------------------------------------------------------------------
     def person(self, name: str) -> Person:
@@ -184,6 +259,7 @@ class Model:
                 raise Refused("person-form-error")
         return name
 
+    @write
     def add_person(self, name: str, grade: str, grade_from: str | None = None,
                    anchor: str = "person-form-error", audit: bool = True) -> Person:
         try:
@@ -209,6 +285,7 @@ class Model:
     def _key(self, p: Person) -> str:
         return next(k for k, v in self.people.items() if v is p)
 
+    @write
     def edit_save(self, fields: dict) -> Person:
         key, seen = self.editing.pop(self.user)
         p = self.people[key]
@@ -245,11 +322,13 @@ class Model:
     def grade_now(self, p: Person) -> str:
         return self.grade_at(p, self.today)
 
+    @write
     def retire(self, name: str, when: str) -> None:
         p = self.person(name)
         p.retired_from = day(when)
         self.audit_line("PERSON_RETIRED", ("name", p.name, 21), ("from", when, 21))
 
+    @write
     def hold(self, name: str, start: str | None = None, end: str | None = None) -> None:
         p = self.person(name)
         if self.on("hold_interval"):
@@ -269,10 +348,13 @@ class Model:
         p = self.people[c.person]
         if not p.holds or c.status not in ("OPEN", "PENDING"):
             return False
+        if self.on("hold_stated") and self.stated_applies(c):
+            return False
         if not self.on("hold_interval"):
             return True
         return any(s <= c.date and (e is None or c.date <= e) for s, e in p.holds)
 
+    @write
     def add_patron(self, name: str, patron: str) -> None:
         p, q = self.person(name), self.person(patron)
         if not self.on("backing") or p is q or self._key(q) in p.patrons:
@@ -281,6 +363,7 @@ class Model:
         self.audit_line("PATRON_ADDED", ("name", p.name, 27), ("patron", q.name, 27))
 
     # ---- rates, periods, settings, roles --------------------------------------------------
+    @write
     def set_rate(self, grade: str, pct: str, start: str | None = None) -> None:
         if grade not in GRADES:
             raise Refused("rate-form-error")
@@ -290,11 +373,11 @@ class Model:
             raise Refused("rate-form-error")
         if val < 0 or val != val.quantize(Decimal("0.01")):
             raise Refused("rate-form-error")
-        s = day(start) if (start and self.k >= 11) else None
+        s = day(start) if (start and self.has("rate_dated")) else None
         self.rates = [r for r in self.rates if not (r[0] == grade and r[1] == s)]
         self.rates.append((grade, s, val))
         self.audit_line("RATE_SET", ("grade", grade, 7), ("rate", money(val), 7),
-                        *([("from", start, 11)] if start and self.k >= 11 else []))
+                        *([("from", start, 11)] if s else []))
 
     def rate_at(self, grade: str, when: date) -> Decimal | None:
         rows = [r for r in self.rates if r[0] == grade]
@@ -307,6 +390,7 @@ class Model:
         rows.sort(key=lambda r: r[1] or date.min)
         return rows[-1][2]
 
+    @write
     def add_period(self, name: str, start: str, end: str) -> None:
         s, e = day(start), day(end)
         if not name.strip() or name in self.periods or e < s:
@@ -326,6 +410,7 @@ class Model:
         p = self.period_of(when)
         return bool(p and p.closed and self.on("closed"))
 
+    @write
     def close_period(self, name: str) -> None:
         p = self.periods[name]
         if p.closed:
@@ -334,6 +419,7 @@ class Model:
         p.frozen_total = self.period_total_text(p, live=True)
         self.audit_line("PERIOD_CLOSED", ("period", name, 18), ("total", p.frozen_total, 18))
 
+    @write
     def reopen_period(self, name: str) -> None:
         p = self.periods[name]
         if not p.closed or (self.on("steward_reopen") and self.role() != "steward"):
@@ -341,10 +427,12 @@ class Model:
         p.closed, p.frozen_total = False, None
         self.audit_line("PERIOD_REOPENED", ("period", name, 29))
 
+    @write
     def set_setting(self, key: str, value: str) -> None:
         self.settings[key] = value
         self.audit_line("SETTING_CHANGED", ("key", key, 23), ("value", value, 23))
 
+    @write
     def set_role(self, user: str, role: str) -> None:
         if role not in ("clerk", "steward"):
             raise Refused("role-form-error")
@@ -373,6 +461,7 @@ class Model:
         if self.in_closed(when):
             raise Refused(anchor)
 
+    @write
     def add_claim(self, name: str, amount: str, when: str | None = None, note: str = "",
                   corrects: str | None = None, anchor: str = "claim-form-error",
                   twice: bool = False) -> Claim:
@@ -404,6 +493,7 @@ class Model:
         key = self._key(self.person(name))
         return next(c for c in self.claims if c.person == key and c.idx == idx)
 
+    @write
     def edit_claim(self, name: str, idx: int, fields: dict) -> Claim:
         c = self.claim(name, idx)
         if self.on("immutable") and c.status != "DRAFT":
@@ -438,11 +528,12 @@ class Model:
         self.counter += 1
         return str(self.counter)
 
+    @write
     def open_claim(self, name: str, idx: int) -> Claim:
         c = self.claim(name, idx)
         if c.status != "DRAFT" or self.in_closed(c.date):
             raise Refused("claim-error")
-        if self.k < 8:
+        if not self.has("status"):
             raise Refused("claim-error")
         c.status = "OPEN"
         c.opened_by = self.user
@@ -452,6 +543,7 @@ class Model:
         self.audit_line("CLAIM_OPENED", *self._ident(c))
         return c
 
+    @write
     def settle_claim(self, name: str, idx: int) -> Claim:
         c = self.claim(name, idx)
         if c.status != "OPEN" or self.in_closed(c.date):
@@ -476,10 +568,11 @@ class Model:
         if self.on("freeze"):
             c.frozen = due
         c.history.append(("SETTLED", self.user, self.today, self.due_text(c)))
-        extra = [("due", self.due_text(c), 10)] if self.k >= 10 else []
+        extra = [("due", self.due_text(c), 10)] if self.has("freeze") else []
         self.audit_line(event, *self._ident(c), *extra)
         return c
 
+    @write
     def approve_claim(self, name: str, idx: int) -> Claim:
         c = self.claim(name, idx)
         if c.status != "PENDING" or self.role() != "steward" or self.in_closed(c.date):
@@ -488,6 +581,7 @@ class Model:
             raise Refused("claim-error")
         return self._settle(c, "CLAIM_APPROVED")
 
+    @write
     def reject_claim(self, name: str, idx: int, reason: str) -> Claim:
         c = self.claim(name, idx)
         if c.status != "PENDING" or self.role() != "steward":
@@ -497,6 +591,7 @@ class Model:
         self.audit_line("CLAIM_REJECTED", *self._ident(c), ("reason", reason, 36))
         return c
 
+    @write
     def void_claim(self, name: str, idx: int) -> Claim:
         c = self.claim(name, idx)
         if c.status not in ("DRAFT", "OPEN", "PENDING") or self.in_closed(c.date):
@@ -508,6 +603,7 @@ class Model:
         self.audit_line("CLAIM_VOIDED", *self._ident(c))
         return c
 
+    @write
     def reassign_claim(self, name: str, idx: int, to: str) -> Claim:
         c = self.claim(name, idx)
         q = self.person(to)
@@ -518,10 +614,16 @@ class Model:
         old = self.people[c.person]
         c.person = self._key(q)
         c.idx = max([x.idx for x in self.claims if x.person == c.person and x is not c] + [-1]) + 1
+        if self.on("reassign_unstates"):
+            c.stated = None
         self.audit_line("CLAIM_REASSIGNED", *self._ident(c), ("from", old.name, 37), ("to", q.name, 37))
         return c
 
     def quick_add(self, name: str, amount: str) -> Claim:
+        # one transaction: a claim that would be refused leaves no new person behind
+        self._amount(amount, None)
+        if self.in_closed(self._claim_date(None)):
+            raise Refused("quick-error")
         if norm_name(name) not in self.people:
             self.add_person(name, "A", anchor="quick-error")
         return self.add_claim(name, amount, anchor="quick-error")
@@ -536,38 +638,37 @@ class Model:
                 out.append(False)
         return out
 
-    # ---- import ---------------------------------------------------------------------------
-    def import_people(self, text: str) -> dict:
-        lines = [ln for ln in text.splitlines()]
-        rows, errors, seen = [], [], set()
-        for n, ln in enumerate(lines, 1):
-            if not ln.strip():
-                continue
-            parts = [x.strip() for x in ln.split(",")]
-            name = parts[0] if parts else ""
-            grade = parts[1] if len(parts) > 1 else ""
-            key = norm_name(name)
-            bad = not name or grade not in GRADES or key in seen
-            exists = key in self.people
-            if bad or (exists and not self.on("upsert")):
-                errors.append(n)
-            seen.add(key)
-            rows.append((name, grade, exists))
-        if errors and self.on("import_atomic"):
-            return {"added": 0, "updated": 0, "errors": errors}
-        added = updated = 0
-        for n, (name, grade, exists) in enumerate(rows, 1):
-            if n in errors:
-                continue
-            if exists:
-                p = self.people[norm_name(name)]
-                self.editing[self.user] = (norm_name(name), p.version)
-                self.edit_save({"grade": grade})
-                updated += 1
-            else:
-                self.add_person(name, grade)
-                added += 1
-        return {"added": added, "updated": updated, "errors": errors}
+    # ---- statements (cp15) -----------------------------------------------------------------
+    @write
+    def statement(self, name: str) -> Person:
+        """State the person: every claim that counts now is bound to its base figure as of now
+        (the late charge is never stated), every other claim of theirs is unstated, and the
+        statement's due-total is kept on the row and in the audit."""
+        p = self.person(name)
+        if not self.has("statement"):
+            raise Refused("person-error")
+        counted = [c for c in self.person_claims(p) if self.counts(c)]
+        if self.on("statement"):
+            bases = {id(c): self.base(c) for c in counted}
+            for c in self.person_claims(p):
+                if id(c) in bases:
+                    c.stated = "n/a" if bases[id(c)] is None else bases[id(c)]
+                else:
+                    c.stated = None
+        v = self.due_total(p)
+        p.statements += 1
+        p.stated_total = "n/a" if v is None else money(v)
+        p.stated_on = self.today
+        self.audit_line("STATEMENT", ("name", p.name, 15), ("due-total", p.stated_total, 15),
+                        ("claims", len(counted), 15))
+        return p
+
+    def stated_applies(self, c: Claim) -> bool:
+        if not self.on("statement") or c.stated is None:
+            return False
+        if c.status == "PENDING" and self.on("pending_live"):
+            return False
+        return True
 
     # ---- figures --------------------------------------------------------------------------
     def rounding(self, when: date):
@@ -600,31 +701,51 @@ class Model:
         db = self.due_by(c)
         return bool(db and c.status in ("OPEN", "PENDING") and db < self.today)
 
+    def rounding_date(self, c: Claim) -> date:
+        """The date whose policy decides a claim's rounding: its own, or for a correction under
+        the policy-date rule the date of the claim it corrects."""
+        if c.corrects and self.on("policy_date"):
+            target = next((x for x in self.claims if x.number == c.corrects), None)
+            if target is not None:
+                return target.date
+        return c.date
+
     def rate_due(self, c: Claim) -> Decimal | None:
         p = self.people[c.person]
         rate = self.rate_at(self.grade_at(p, c.date), c.date)
         if rate is None:
             return None
-        return self._round(c.amount * rate / 100, c.date)
+        return self._round(c.amount * rate / 100, self.rounding_date(c))
 
-    def due(self, c: Claim) -> Decimal | None:
-        if self.k < 7:
-            return None
+    def base(self, c: Claim) -> Decimal | None:
+        """The figure before any late charge: frozen (settled), else stated (bound by the last
+        statement), else live: the rate step, floored unless a correction."""
         if c.status == "SETTLED" and self.on("freeze") and c.frozen is not None:
             return c.frozen
+        if self.stated_applies(c):
+            return None if c.stated == "n/a" else c.stated
         base = self.rate_due(c)
-        if base is None:
-            return None
-        if c.corrects:
+        if base is None or c.corrects:
             return base
         if self.on("floor"):
-            floor = D(self.setting("floor", DEFAULT_FLOOR))
-            base = max(base, floor)
+            base = max(base, D(self.setting("floor", DEFAULT_FLOOR)))
+        return base
+
+    def due(self, c: Claim) -> Decimal | None:
+        if not self.has("due"):
+            return None
+        base = self.base(c)
+        if base is None:
+            return None
+        if c.status == "SETTLED" and self.on("freeze") and c.frozen is not None:
+            return base
+        if c.corrects:
+            return base
         if self.on("late") and self.overdue(c):
             pct = D(self.setting("late-pct", "0"))
             n30 = (self.today - self.due_by(c)).days // 30
             if pct and n30:
-                base = base + self._round(base * pct / 100 * n30, c.date)
+                base = base + self._round(base * pct / 100 * n30, self.rounding_date(c))
         return base
 
     def due_text(self, c: Claim) -> str:
@@ -634,7 +755,7 @@ class Model:
     def counts(self, c: Claim) -> bool:
         if self.on("status") and c.status not in ("OPEN", "SETTLED", "PENDING"):
             return False
-        if self.k >= 8 and c.status == "PENDING" and not self.on("pending"):
+        if self.has("status") and c.status == "PENDING" and not self.on("pending"):
             return False
         return not self.held_claim(c)
 
@@ -647,7 +768,7 @@ class Model:
 
     def due_total(self, p: Person) -> Decimal | None:
         cs = [c for c in self.person_claims(p) if self.counts(c)]
-        if self.k < 7:
+        if not self.has("due"):
             return None
         if not self.on("half_even"):
             # cp7: the total amount times the rate, rounded once
@@ -684,6 +805,8 @@ class Model:
     def period_total_text(self, per: Period, live: bool = False) -> str:
         if per.closed and per.frozen_total is not None and not live and self.on("closed"):
             return per.frozen_total
+        if not self.on("period"):
+            return money(Decimal("0"))       # an app that never assigns claims to periods
         total = sum((self.due(c) or Decimal("0") for c in self.claims
                      if self.counts(c) and per.start <= c.date <= per.end), Decimal("0"))
         return money(total)
@@ -694,39 +817,45 @@ class Model:
     def claim_cells(self, c: Claim) -> dict:
         cells = {"claim-amount": money(c.amount), "claim-date": c.date.isoformat(),
                  "claim-note": c.note}
-        if self.k >= 7:
+        if self.has("due"):
             cells["claim-due"] = self.due_text(c)
-        if self.k >= 8:
+        if self.has("status"):
             cells["claim-status"] = c.status
-        if self.k >= 9:
+        if self.has("number"):
             cells["claim-number"] = c.number or ""
-        if self.k >= 13:
+        if self.has("opened_by"):
             cells["claim-opened-by"] = c.opened_by or ""
-        if self.k >= 17:
+        if self.has("statement"):
+            cells["claim-stated"] = "yes" if (c.stated is not None and self.on("statement")) else "no"
+        if self.has("period"):
             per = self.period_of(c.date)
             cells["claim-period"] = per.name if per else ""
-        if self.k >= 25 and self.due_by(c) is not None:
+        if self.has("overdue") and self.due_by(c) is not None:
             cells["claim-due-by"] = self.due_by(c).isoformat()
             cells["claim-overdue"] = "yes" if self.overdue(c) else "no"
-        if self.k >= 30:
+        if self.has("correction"):
             cells["claim-corrects"] = c.corrects or ""
-        if self.k >= 39:
+        if self.has("log"):
             cells["claim-log"] = [f"{s} by {u} on {d.isoformat()} due={v}" for s, u, d, v in c.history]
         return cells
 
     def person_cells(self, p: Person) -> dict:
         cells = {"person-name": p.name, "person-grade": self.grade_now(p)}
-        if self.k >= 5:
+        if self.has("claims"):
             cells["person-claimed"] = money(self.claimed(p))
-        if self.k >= 7:
+        if self.has("due"):
             v = self.due_total(p)
             cells["person-due-total"] = "n/a" if v is None else money(v)
-        if self.k >= 21:
+        if self.has("statement"):
+            cells["person-statement-count"] = str(p.statements)
+            cells["person-stated-total"] = p.stated_total or ""
+            cells["person-statement-date"] = p.stated_on.isoformat() if p.stated_on else ""
+        if self.has("retire"):
             cells["person-retired"] = "yes" if p.retired_from else "no"
             cells["person-retired-from"] = p.retired_from.isoformat() if p.retired_from else ""
-        if self.k >= 22:
+        if self.has("hold"):
             cells["person-hold"] = "yes" if p.holds else "no"
-        if self.k >= 25:
+        if self.has("overdue"):
             cells["person-overdue-count"] = str(len(self.overdue_claims(p)))
             cells["person-overdue-total"] = money(self.overdue_total(p))
         if self.on("backing"):
@@ -736,18 +865,18 @@ class Model:
 
     def rollups(self) -> dict:
         out = {}
-        if self.k >= 5:
+        if self.has("claims"):
             out["rollup-claimed-total"] = money(self.sheet_claimed())
-        if self.k >= 7:
+        if self.has("due"):
             out["rollup-due-total"] = money(self.sheet_due())
-        if self.k >= 25:
+        if self.has("overdue"):
             out["rollup-overdue-count"] = str(len(self.overdue_claims()))
             out["rollup-overdue-total"] = money(self.overdue_total())
         return out
 
     def summary(self) -> dict:
         out = {}
-        if self.k < 31:
+        if not self.has("summary"):
             return out
         for g in GRADES:
             ps = [p for p in self.people.values() if self.grade_now(p) == g and not p.retired_from]
@@ -804,7 +933,7 @@ SLUG = {
     1: "signin-and-sheet", 2: "sheet-today", 3: "people", 4: "name-uniqueness",
     5: "claims", 6: "audit", 7: "rates-and-due", 8: "workflow",
     9: "numbering", 10: "settle-freezes-due", 11: "rates-effective-dated", 12: "half-even",
-    13: "four-eyes", 14: "edit-conflict", 15: "import-people", 16: "import-upserts",
+    13: "four-eyes", 14: "edit-conflict", 15: "statements", 16: "rollup-audit",
     17: "periods", 18: "close-period", 19: "quick-add", 20: "open-claims-immutable",
     21: "retire", 22: "hold", 23: "roles-and-clerk-limit", 24: "floor",
     25: "due-by-and-overdue", 26: "late-charge", 27: "patrons-and-backing", 28: "grade-dated",
@@ -813,7 +942,7 @@ SLUG = {
     37: "reassign-claim", 38: "terms-per-grade", 39: "claim-log", 40: "hold-interval",
 }
 AREA = {n: "calc" for n in range(1, 41)}
-AREA.update({1: "entity", 2: "entity", 3: "entity", 5: "entity", 6: "audit", 15: "entity",
+AREA.update({1: "entity", 2: "entity", 3: "entity", 5: "entity", 6: "audit", 16: "audit",
              17: "entity", 23: "entity", 27: "relation", 31: "view", 33: "view", 39: "view"})
 
 REQUESTS = {
@@ -885,16 +1014,24 @@ settle it: the settle action is refused with an error on the claim, and the stat
 else has saved that person in the meantime, saving is refused with an error on the form, nothing
 is stored, and the form shows the current values; opening the editor again and saving works.
 Submitting any form twice before the first submit has answered stores one record, not two.""",
-    15: """People can be pasted in as lines of name,grade into an import box. All the lines are checked
-first, with the same rules as the form: an empty name, a grade other than A, B or C, a name
-already on the sheet, or a name repeated in the paste (compared like uniqueness) is an error. If
-any line has an error, nothing is imported and each bad line is marked with its line number;
-otherwise every person is added, in order, each with a PERSON_ADDED line in the audit, and the
-count added is shown.""",
-    16: """Pasting a line whose name matches an existing person (compared like uniqueness) now updates that
-person's grade and writes PERSON_EDITED, instead of being an error. New names are still added. A
-name repeated in the paste is still an error, and any error still means nothing is imported. The
-import shows how many were added and how many updated.""",
+    15: """Each person's row gains a statement button. Taking a statement records the person's due-total at
+that moment (STATEMENT name=<name> due-total=<due-total> claims=<count of their claims that
+count>), and binds every claim of theirs that counts at that moment to the figure it has then:
+from now on that claim shows and totals that bound figure, whatever later changes to rates or
+grades would have made it, until the person's next statement rebinds all their counting claims
+to their figures as of that moment. A claim of theirs that does not count at a statement is left
+unbound (live again). A settled claim's frozen figure is unaffected. Show on each claim stated
+yes/no, and on the person their statement count, the last statement's due-total and its date
+(the sheet's today when it was taken).""",
+    16: """Every change that alters any person's claimed or due-total is followed in the audit, after the
+change's own lines, by one line per person whose figures changed: ROLLUP name=<name>
+claimed=<claimed> due-total=<due-total>, people in the order they were added, a person who did
+not exist before the change counting as changed; then, when the sheet's claimed-total or
+due-total changed, one line TOTALS claimed-total=<total> due-total=<total>. A change that moves
+no figure adds no such line (setting a rate to the value it already has, settling a claim whose
+frozen figure equals its live one, re-stating a person whose figures did not move). Changing the
+sheet's today is a change like any other and is followed by these lines when figures move, with
+no line of its own.""",
     17: """The sheet has periods, added on the screen: a name (unique on the sheet) and a from and to date,
 inclusive, no two periods overlapping; a bad period is refused with an error on the period form.
 A claim belongs to the period whose dates contain its date, or to none. Show each claim's period,
@@ -907,7 +1044,8 @@ period=<name> total=<due-total>.""",
     19: """A quick-add bar on the people list takes a name and an amount and creates a DRAFT claim with that
 amount, dated the sheet's today, with an empty note, for the named person. If the name is not on
 the sheet the person is created first with grade A. Every rule that applies to the person and
-claim forms applies here, and a refusal shows an error on the bar.""",
+claim forms applies here, and a refusal shows an error on the bar. The whole quick-add is one
+change: a refused claim leaves no new person behind and writes nothing.""",
     20: """An OPEN claim can no longer be edited; only a DRAFT can, and the edit of an open claim is refused
 with an error on the claim. To change an open claim, void it and add a new one. A voided claim now
 keeps its number (it is still never reused), and CLAIM_VOIDED carries it.""",
@@ -926,18 +1064,21 @@ limit; SETTING_CHANGED key=clerk-limit value=<limit>). A clerk can settle a clai
 due is at or below the limit; above it, settling is refused with an error on the claim. Stewards
 settle anything. The opener still cannot settle their own claim.""",
     24: """The sheet has a floor (two decimals, settings; SETTING_CHANGED key=floor value=<floor>). It starts
-at 1.00. A claim's live due is at least the floor. A settled claim's frozen figure and a closed
-period's fixed total are unchanged by the floor. The floored figure shows wherever due appears, and
-every total adds up the floored figures.""",
+at 1.00. A claim's live due is at least the floor. A settled claim's frozen figure, a claim's
+figure bound by a statement, and a closed period's fixed total are unchanged by the floor; a
+statement taken while a floor applies binds the floored figure. The floored figure shows wherever
+due appears, and every total adds up the floored figures.""",
     25: """The sheet has terms: a number of days (settings, SETTING_CHANGED key=terms value=<days>), 14
 unless changed. A claim's due-by is its date plus the terms in force. A claim is overdue when it
 is OPEN and its due-by is before the sheet's today. Show due-by and overdue yes/no on each claim,
 and per person and for the sheet an overdue count and overdue-total (the due of the overdue
 claims that count).""",
     26: """The sheet has a late percent (two decimals, settings, 0.00 unless changed; SETTING_CHANGED
-key=late-pct value=<percent>). An overdue claim's live due gains the late percent of its floored
-due for every full 30 days it is overdue, rounded like due and added on. Settling freezes it in,
-and the overdue-total includes it.""",
+key=late-pct value=<percent>). An overdue claim's due gains the late percent of its figure (the
+bound figure if a statement binds it, else the floored live figure) for every full 30 days it is
+overdue, rounded like due and added on top. The late charge is never bound by a statement: a
+statement binds the figure under it, and the charge keeps following the sheet's today. Settling
+freezes the charge in, and the overdue-total includes it.""",
     27: """A person may name other people on the sheet as their patrons, one at a time from their row (not
 themselves, and not the same person twice; a refusal shows an error on the row; PATRON_ADDED
 name=<name> patron=<patron name>). Show each person's patrons (names, comma and space separated,
@@ -949,8 +1090,8 @@ grade a person was given applies from the beginning of time. A claim uses the gr
 the claim's date to find its rate; the list shows the grade in force on the sheet's today. An
 import line gives its grade from the sheet's today.""",
     29: """A closed period can be reopened, by a steward only (anyone else is refused with an error on the
-period). Reopening makes its due-total live again. Reopening writes PERIOD_REOPENED
-period=<name>.""",
+period). Reopening makes its due-total live again: the claims in it show and total their current
+figures, bound ones at their bound figure. Reopening writes PERIOD_REOPENED period=<name>.""",
     30: """A claim with a negative amount is a correction. It is allowed only when the claim form names, by
 number, a SETTLED claim of the same person that it corrects; otherwise it is refused. A
 correction's due is its amount times the rate, rounded like any claim, with no floor and no late
@@ -962,7 +1103,8 @@ of claims with that status. Every figure must agree with the list.""",
     32: """The sheet has a policy date (settings, SETTING_CHANGED key=policy-date value=<date>); when it is
 blank the policy date is the sheet's today. A claim dated before the policy date rounds half up;
 a claim dated on or after it rounds half to even. This decides every rounding of that claim's live
-figures (the rate step and the late charge). Settled figures stay frozen.""",
+figures (the rate step and the late charge). A correction rounds by the date of the claim it
+corrects, not its own. Settled figures stay frozen and figures bound by a statement stay bound.""",
     33: """A button downloads the people as a CSV file: a header line name,grade,retired-from,due-total,
 then one line per person in list order, retired people included, with the grade in force today,
 the retired-from date or nothing, and the due-total as shown. A value holding a comma, a quote or a
@@ -979,12 +1121,15 @@ in each period, and a claim in no period is numbered X-<n> in its own sequence. 
 before that keep their sheet-wide numbers, and the sheet-wide sequence continues if the setting
 is cleared.""",
     36: """When a clerk settles a claim whose due is above the clerk limit, the claim now goes to PENDING
-instead of being refused (CLAIM_PENDING, naming the claim like every claim line). A PENDING claim counts as open in
-every total. A steward approves it (it becomes SETTLED, frozen at that moment, CLAIM_APPROVED
-with due=<due> at the end like CLAIM_SETTLED) or rejects it with a reason (back to OPEN,
-CLAIM_REJECTED with reason=<reason> at the end). The opener cannot approve their own claim.""",
+instead of being refused (CLAIM_PENDING, naming the claim like every claim line). A PENDING claim
+counts as open in every total, but is not bound by a statement: while PENDING it shows and totals
+its live figure. A steward approves it (it becomes SETTLED, frozen at that moment, CLAIM_APPROVED
+with due=<due> at the end like CLAIM_SETTLED) or rejects it with a reason (back to OPEN, bound
+again by the last statement if that statement included it, CLAIM_REJECTED with reason=<reason> at
+the end). The opener cannot approve their own claim.""",
     37: """A steward can move a DRAFT, OPEN or PENDING claim to another person on the sheet (a refusal
-shows an error on the claim). The claim keeps its number and date, every total follows, and
+shows an error on the claim). The claim keeps its number and date, loses any figure a statement
+bound it to (it is live again until its new person's next statement), every total follows, and
 CLAIM_REASSIGNED is written, naming the claim like every claim line (with the new person) and
 ending from=<old name> to=<new name>. A settled or voided claim cannot move.""",
     38: """Terms can be set per grade (settings, SETTING_CHANGED key=terms-<grade> value=<days>); a grade
@@ -997,11 +1142,13 @@ made and the due is the claim's due as it was computed at that moment (including
 written when the claim was added).""",
     40: """A hold now has a from-date (default the sheet's today) and an optional to-date, and a person may
 have several holds over time. Only a person's OPEN claims dated within a hold are left out of the
-live totals; their other open claims count. Show hold yes/no as whether the person has any hold.
-Holding writes PERSON_HELD name=<name> from=<date>; releasing is no longer a separate action
-(a hold ends on its to-date).""",
+live totals; their other open claims count, and a claim bound by a statement stays in the totals
+whatever its date. Show hold yes/no as whether the person has any hold. Holding writes
+PERSON_HELD name=<name> from=<date>; releasing is no longer a separate action (a hold ends on
+its to-date).""",
 }
 
 ALGORITHM = {4: "normalised-uniqueness", 8: "workflow-counting", 12: "half-even-sum-of-rounded",
-             16: "import-upsert", 20: "void-keeps-number", 24: "floor", 28: "grade-in-force",
-             32: "rounding-by-policy-date", 36: "pending-approval", 40: "hold-interval"}
+             16: "write-time-rollups", 20: "void-keeps-number", 24: "floor-under-statements",
+             28: "grade-in-force", 32: "rounding-by-policy-date", 36: "pending-outside-statements",
+             40: "hold-interval"}

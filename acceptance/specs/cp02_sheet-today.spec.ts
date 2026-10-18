@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as ui from '../support/ui';
 
+test.setTimeout(240_000);
 test.describe("sheet today", () => {
   test("sheet today", { tag: '@functionality' }, async ({ browser }) => {
     const sheet = ui.sheetId();

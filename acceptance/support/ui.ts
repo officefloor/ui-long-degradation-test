@@ -162,6 +162,15 @@ export async function retire(page: Page, personId: string, date: string): Promis
     r.getByTestId('person-error'), 'retire');
 }
 
+/** Take a statement for the person: true once the row's statement count has moved on. */
+export async function statement(page: Page, personId: string): Promise<boolean> {
+  const r = row(page, personId);
+  const was = await shown(r.getByTestId('person-statement-count'));
+  await r.getByTestId('person-statement').click();
+  return until(page, async () => await shown(r.getByTestId('person-statement-count')) !== was,
+    r.getByTestId('person-error'), 'statement');
+}
+
 /** Toggle the hold (no dates), or add a hold with dates: true once the row shows it. */
 export async function hold(page: Page, personId: string, f: { from?: string; to?: string }): Promise<boolean> {
   const r = row(page, personId);
@@ -364,25 +373,6 @@ export async function setRole(page: Page, user: string, role: string): Promise<b
   const r = page.getByTestId(`role-row-${user}`);
   return until(page, async () => await shown(r.getByTestId('role-value')) === role,
     page.getByTestId('role-form-error'), 'set role');
-}
-
-/** Paste lines into the import box. Counts shown and the line numbers marked as errors. */
-export async function importPeople(page: Page, text: string): Promise<{ added: number; updated?: number; errors: number[] }> {
-  await page.getByTestId('import-text').fill(text);
-  await page.getByTestId('import-submit').click();
-  await expect(page.getByTestId('import-added')).toBeVisible();
-  const out: { added: number; updated?: number; errors: number[] } = {
-    added: Number(await shown(page.getByTestId('import-added'))), errors: [],
-  };
-  if ((await page.getByTestId('import-updated').count()) > 0) {
-    out.updated = Number(await shown(page.getByTestId('import-updated')));
-  }
-  const marks = page.locator('[data-testid^="import-error-"]');
-  for (let i = 0; i < await marks.count(); i++) {
-    out.errors.push(Number(idOf(await marks.nth(i).getAttribute('data-testid'), 'import-error-')));
-  }
-  out.errors.sort((a, b) => a - b);
-  return out;
 }
 
 export async function exportCsv(page: Page): Promise<string> {

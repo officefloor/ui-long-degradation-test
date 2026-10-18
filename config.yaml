@@ -225,7 +225,7 @@ paths:
 # Advisory only: a probe error never aborts the run. See docs/LONG_HORIZON_DESIGN.md.
 probe:
   enabled: true
-  at_checkpoints: [8, 16, 24, 32, 40]   # after every second mutative of Act I
+  at_checkpoints: [8, 16, 24, 32, 40]   # after every second mutative
   question: |
     Read the application code as it currently stands and answer WITHOUT changing anything.
     1. List every figure the sheet shows for a person or a claim (claimed, due, totals, numbers,
@@ -239,7 +239,7 @@ probe:
   # onto the one figure, and the gap between stacks.
   expected:
     8: ["claimed", "claimed-total", "due", "due-total", "names", "rate", "status"]
-    16: ["claimed", "claimed-total", "conflict", "due", "due-total", "four eyes", "freeze", "half even", "import atomic", "names", "number", "opened-by", "rate", "rate dated", "status", "upsert"]
-    24: ["claimed", "claimed-total", "clerk limit", "closed", "conflict", "due", "due-total", "floor", "four eyes", "freeze", "half even", "hold", "immutable", "import atomic", "names", "number", "opened-by", "period", "period due-total", "rate", "rate dated", "retire", "retired", "status", "upsert"]
-    32: ["backing", "claimed", "claimed-total", "clerk limit", "closed", "conflict", "correction", "due", "due-by", "due-total", "floor", "four eyes", "freeze", "grade dated", "half even", "hold", "immutable", "import atomic", "late", "names", "number", "opened-by", "overdue", "overdue-count", "overdue-total", "patrons", "period", "period due-total", "policy date", "rate", "rate dated", "retire", "retired", "status", "steward reopen", "summary", "upsert"]
-    40: ["backing", "claimed", "claimed-total", "clerk limit", "closed", "conflict", "correction", "due", "due-by", "due-total", "floor", "four eyes", "freeze", "grade dated", "half even", "hold", "hold interval", "immutable", "import atomic", "late", "names", "number", "opened-by", "overdue", "overdue-count", "overdue-total", "patrons", "pending", "period", "period due-total", "period number", "policy date", "rate", "rate dated", "retire", "retired", "status", "status log", "steward reopen", "summary", "terms fixed", "upsert"]
+    16: ["claimed", "claimed-total", "conflict", "due", "due-total", "four eyes", "freeze", "half even", "names", "number", "opened-by", "rate", "rate dated", "rollup", "stated", "statement", "status"]
+    24: ["claimed", "claimed-total", "clerk limit", "closed", "conflict", "due", "due-total", "floor", "four eyes", "freeze", "half even", "hold", "immutable", "names", "number", "opened-by", "period", "period due-total", "rate", "rate dated", "retire", "retired", "rollup", "stated", "statement", "status"]
+    32: ["backing", "claimed", "claimed-total", "clerk limit", "closed", "conflict", "correction", "due", "due-by", "due-total", "floor", "four eyes", "freeze", "grade dated", "half even", "hold", "immutable", "late", "names", "number", "opened-by", "overdue", "overdue-count", "overdue-total", "patrons", "period", "period due-total", "policy date", "rate", "rate dated", "retire", "retired", "rollup", "stated", "statement", "status", "steward reopen", "summary"]
+    40: ["backing", "claimed", "claimed-total", "clerk limit", "closed", "conflict", "correction", "due", "due-by", "due-total", "floor", "four eyes", "freeze", "grade dated", "half even", "hold", "hold interval", "hold stated", "immutable", "late", "names", "number", "opened-by", "overdue", "overdue-count", "overdue-total", "patrons", "pending", "pending live", "period", "period due-total", "period number", "policy date", "rate", "rate dated", "reassign unstates", "retire", "retired", "rollup", "stated", "statement", "status", "status log", "steward reopen", "summary", "terms fixed"]
