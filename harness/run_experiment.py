@@ -946,6 +946,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
     baseline = baseline_from_capture(wt, done) if resume else correctness.Baseline()
     captures: list[dict] = []
     strict_count = regr_count = 0
+    chain_started, spent_usd, model_seen = time.time(), 0.0, ""
 
     for cp in checkpoints:
         k = cp["n"]
@@ -953,7 +954,9 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
             continue
         phase = phase_for(k, n)
         cid = cp["id"]
-        print(f"\n--- run {run_id} | {condition}/chain{chain} | cp{k:02d} [{phase}] {cid} ---", flush=True)
+        print(f"\n--- run {run_id} | {condition}/chain{chain} | cp{k:02d} of {hi:02d} [{phase}] {cid} | "
+              f"elapsed {_hms(time.time() - chain_started)} | agent spend so far ${spent_usd:.2f} ---",
+              flush=True)
         if cp.get("type") == "mutative":
             print(f"    type   : MUTATIVE (revises {cp.get('mutates', [])})", flush=True)
         print(f"    stack  : {label}", flush=True)
@@ -971,6 +974,14 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
                 cfg, wt, sandbox, cp, model, template, cap_dir, stream_file, base_for_cp, checkpoints)
         else:
             ar, attempt_log = _run_agent_turn(cfg, wt, sandbox, cp, model, prompt, cap_dir, stream_file)
+        spent_usd += float(ar.cost_usd or 0)
+        print(f"    agent  : model={ar.model or '?'} ok={ar.ok} turns={ar.num_turns} "
+              f"cost=${float(ar.cost_usd or 0):.2f} time={_hms((ar.duration_ms or 0) / 1000)}", flush=True)
+        if ar.model and ar.model != model and ar.model != model_seen:
+            print(f"    WARNING: the agent resolved to model {ar.model!r}, not the requested {model!r}; "
+                  "cost and comparability depend on this", flush=True)
+        model_seen = ar.model or model_seen
+        if not (condition == "gated" and cfg.get("impact_gate")):
             # copy the agent's PRODUCTION result back (sandbox e2e/specs excluded: specs are the
             # harness's, not the agent's delta).
             mirror_source(sandbox, wt, extra_excludes=copy_back_excludes(cfg))
@@ -1079,10 +1090,24 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         shutil.rmtree(sandbox, ignore_errors=True)
 
     headline = (f"checkpoints={len(captures)} strict_pass={strict_count}/{len(captures)} "
-                f"regressions={regr_count} (derived numbers recomputed by analyze)")
+                f"regressions={regr_count} agent_spend=${spent_usd:.2f} model={model_seen or model} "
+                f"elapsed={_hms(time.time() - chain_started)} (derived numbers recomputed by analyze)")
     commit_chain_results(wt, branch, run_id, condition, chain, cap_dir, headline)
     shutil.rmtree(sandbox, ignore_errors=True)
     print(f"\n=== done: {headline} ===", flush=True)
+
+
+def _agent_cli_version() -> str:
+    try:
+        out = subprocess.run(["claude", "--version"], capture_output=True, text=True, timeout=20)
+        return (out.stdout or out.stderr).strip().splitlines()[0] if (out.stdout or out.stderr).strip() else "?"
+    except Exception as e:  # noqa: BLE001 - a missing CLI is reported, not fatal here (doctor checks it)
+        return f"? ({e.__class__.__name__})"
+
+
+def _hms(seconds: float) -> str:
+    seconds = int(seconds)
+    return f"{seconds // 3600}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
 
 
 def main() -> int:
@@ -1216,6 +1241,10 @@ def main() -> int:
           f"chains={','.join(str(c) for c in chains)} "
           f"checkpoints={args.lo}..{min(args.hi, len(checkpoints))}"
           + (" (resume)" if args.resume else ""), flush=True)
+    service = (cfg.get("agent") or {}).get("service", "claude-code")
+    print(f"agent  : {service} via `claude` {_agent_cli_version()}; model requested: {cfg['model']} "
+          f"({'--model' if args.model else 'config.yaml model'}); the model each turn resolves to is "
+          "printed per checkpoint and recorded in cpNN.json", flush=True)
 
     failed: list[tuple[int, str]] = []
     for c in chains:
