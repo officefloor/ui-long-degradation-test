@@ -40,7 +40,7 @@ test.describe("retire", () => {
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-retired")).toHaveText("no");
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-retired-from")).toHaveText("");
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("0.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=12.50`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
@@ -143,7 +143,7 @@ test.describe("retire", () => {
     await expect(pg_uma.getByTestId("rate-current-A")).toHaveText("12.50");
     await expect(pg_uma.getByTestId("rate-current-B")).toHaveText("20.00");
     await expect(pg_uma.getByTestId("rate-current-C")).toHaveText("20.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=7.50`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=20.00 from=2026-03-10`,
@@ -340,7 +340,7 @@ test.describe("retire", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("7.50");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("10.00");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("12.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=12.50`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=12.50 from=2026-03-10`,
@@ -506,7 +506,7 @@ test.describe("retire", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("5.00");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("20.00");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("12.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=20.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=33.33`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=12.50`,

@@ -46,7 +46,7 @@ test.describe("corrections", () => {
     await expect(pg_uma.getByTestId("rollup-due-total")).toHaveText("2.50");
     await expect(pg_uma.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("0.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=0.00`,
@@ -242,7 +242,7 @@ test.describe("corrections", () => {
     await expect(pg_wes.getByTestId("rate-current-A")).toHaveText("5.00");
     await expect(pg_wes.getByTestId("rate-current-B")).toHaveText("12.50");
     await expect(pg_wes.getByTestId("rate-current-C")).toHaveText("20.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=vic role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=7`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=late-pct value=5.00`,
@@ -450,7 +450,7 @@ test.describe("corrections", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("33.33");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("5.00");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("n/a");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=33.33`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=12.50`,
       `PERIOD_ADDED sheet=${sheet} by=uma period=P1 from=2026-03-01 to=2026-03-15`,
@@ -685,7 +685,7 @@ test.describe("corrections", () => {
     await expect(pg_wes.getByTestId("rate-current-A")).toHaveText("7.50");
     await expect(pg_wes.getByTestId("rate-current-B")).toHaveText("7.50");
     await expect(pg_wes.getByTestId("rate-current-C")).toHaveText("20.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=vic role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=late-pct value=5.00`,
       `RATE_SET sheet=${sheet} by=uma grade=A rate=7.50`,

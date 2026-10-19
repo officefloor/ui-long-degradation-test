@@ -37,7 +37,7 @@ test.describe("hold", () => {
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("7.00");
     await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("70.00");
     await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("7.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=0.00`,
@@ -227,7 +227,7 @@ test.describe("hold", () => {
     await expect(pg_wes.getByTestId("rate-current-A")).toHaveText("12.50");
     await expect(pg_wes.getByTestId("rate-current-B")).toHaveText("33.33");
     await expect(pg_wes.getByTestId("rate-current-C")).toHaveText("5.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=12.50`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=7.50`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=5.00`,
@@ -369,7 +369,7 @@ test.describe("hold", () => {
     await expect(pg_uma.getByTestId("rate-current-A")).toHaveText("5.00");
     await expect(pg_uma.getByTestId("rate-current-B")).toHaveText("12.50");
     await expect(pg_uma.getByTestId("rate-current-C")).toHaveText("5.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=12.50`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=33.33`,
@@ -528,7 +528,7 @@ test.describe("hold", () => {
     await expect(pg_uma.getByTestId("rate-current-A")).toHaveText("20.00");
     await expect(pg_uma.getByTestId("rate-current-B")).toHaveText("12.50");
     await expect(pg_uma.getByTestId("rate-current-C")).toHaveText("20.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=12.50`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=20.00`,

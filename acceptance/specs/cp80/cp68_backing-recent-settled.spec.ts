@@ -51,7 +51,7 @@ test.describe("backing recent settled", () => {
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-backing")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("10.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=20.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
@@ -376,7 +376,7 @@ test.describe("backing recent settled", () => {
     await expect(pg_vic.getByTestId("summary-status-PENDING-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("summary-status-SETTLED-count")).toHaveText("1");
     await expect(pg_vic.getByTestId("summary-status-VOID-count")).toHaveText("1");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=wes role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=0.50`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=10`,
@@ -677,7 +677,7 @@ test.describe("backing recent settled", () => {
     await expect(pg_vic.getByTestId("summary-status-PENDING-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("summary-status-SETTLED-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("summary-status-VOID-count")).toHaveText("0");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=wes role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=7`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=late-pct value=10.00`,
@@ -933,7 +933,7 @@ test.describe("backing recent settled", () => {
     await expect(pg_vic.getByTestId("summary-status-PENDING-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("summary-status-SETTLED-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("summary-status-VOID-count")).toHaveText("0");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=3.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=cap value=2.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=proof-threshold value=1.00`,

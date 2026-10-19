@@ -44,7 +44,7 @@ test.describe("reopen period", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-stated")).toHaveText("yes");
     await expect(pg_vic.getByTestId("period-row-P1").getByTestId("period-due-total")).toHaveText("11.00");
     await expect(pg_vic.getByTestId("period-row-P1").getByTestId("period-closed")).toHaveText("no");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=0.00`,
@@ -202,7 +202,7 @@ test.describe("reopen period", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("10.00");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("20.00");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("20.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=wes role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=3.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=10`,
@@ -354,7 +354,7 @@ test.describe("reopen period", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("33.33");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("33.33");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("n/a");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=2.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=late-pct value=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=A rate=33.33`,
@@ -488,7 +488,7 @@ test.describe("reopen period", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("20.00");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("33.33");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("12.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=1.50`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=0.50`,
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,

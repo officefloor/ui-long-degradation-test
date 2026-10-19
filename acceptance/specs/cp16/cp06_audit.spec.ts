@@ -18,7 +18,7 @@ test.describe("audit", () => {
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-grade")).toHaveText("B");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-amount")).toHaveText("6.00");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-note")).toHaveText("m");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
       `ROLLUP sheet=${sheet} by=uma`,
       `PERSON_EDITED sheet=${sheet} by=uma name=Ada grade=B`,
@@ -102,7 +102,7 @@ test.describe("audit", () => {
     await expect(pg_uma.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-date")).toHaveText("2026-03-28");
     await expect(pg_uma.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-note")).toHaveText("");
     await expect(pg_uma.getByTestId("rollup-claimed-total")).toHaveText("0.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=B`,
       `ROLLUP sheet=${sheet} by=uma`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Cam grade=B`,
@@ -197,7 +197,7 @@ test.describe("audit", () => {
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-date")).toHaveText("2026-03-20");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-note")).toHaveText("");
     await expect(pg_wes.getByTestId("rollup-claimed-total")).toHaveText("0.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
       `ROLLUP sheet=${sheet} by=uma`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ben grade=C`,
@@ -290,7 +290,7 @@ test.describe("audit", () => {
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-date")).toHaveText("2026-04-25");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-note")).toHaveText("");
     await expect(pg_wes.getByTestId("rollup-claimed-total")).toHaveText("0.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=B`,
       `ROLLUP sheet=${sheet} by=uma`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ben grade=B`,

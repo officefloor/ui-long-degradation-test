@@ -9,6 +9,8 @@ import { existsSync, readFileSync } from 'node:fs';
 
 const AUDIT_FILE = process.env.AUDIT_FILE ?? '../.run/audit.log';
 const WAIT = 8000;
+const ERROR_GRACE = 500;      // how long an error left over from the action before may linger
+const AUDIT_WAIT = 3000;      // how long an audit line may lag the screen
 
 const editing = new WeakMap<Page, string>();
 
@@ -46,16 +48,34 @@ function idOf(testid: string | null, prefix: string): string {
   return testid.slice(prefix.length);
 }
 
-/** Poll until `done` holds (true) or `error` is visible (false); throw when neither happens. */
+/** Poll until `done` holds (true) or `error` is visible (false); throw when neither happens.
+ *  Each check returns as soon as it can. An error already visible at the first look after the
+ *  click may be left over from the action before (the screen clears it when a new action is
+ *  submitted, see README): it counts as this action's refusal once it has gone away and been
+ *  shown again, once its text changes, or once ERROR_GRACE has passed with no result. */
 async function until(page: Page, done: () => Promise<boolean>, error: Locator, what: string): Promise<boolean> {
   const deadline = Date.now() + WAIT;
+  let stale: string | null | undefined;   // text of an error visible at the first look; null if none
+  let seenGone = false;
+  const grace = Date.now() + ERROR_GRACE;
   while (Date.now() < deadline) {
     if (await done()) return true;
-    if (await error.isVisible().catch(() => false)) return false;
+    const visible = await error.isVisible().catch(() => false);
+    if (stale === undefined) stale = visible ? await shown(error) : null;
+    if (visible) {
+      if (stale === null || seenGone || (await shown(error)) !== stale || Date.now() >= grace) return false;
+    } else {
+      seenGone = true;
+    }
     await page.waitForTimeout(50);
   }
   if (await done()) return true;
+  if (await error.isVisible().catch(() => false)) return false;
   throw new Error(`${what}: neither a result nor an error appeared within ${WAIT}ms`);
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((r) => setTimeout(r, ms));
 }
 
 /** A counter the screen shows after a bulk action: the number in the cell once it is visible. */
@@ -82,10 +102,29 @@ export async function loadSheet(page: Page, sheet: string): Promise<void> {
   await expect(page.getByTestId('sheet-current-id')).toHaveText(sheet);
 }
 
-/** Re-load the active sheet so the screen shows what the store holds now. */
+/** Re-load the active sheet so the screen shows what the store holds now. Loading the same id
+ *  again is not observable (the current id already reads that), so the screen first loads a
+ *  throwaway id, which must change the current id, then the sheet again; it is back once every
+ *  person row from before is on screen with at least as many claims as before. The show-retired
+ *  box and the as-of date, which belong to the screen, are put back if the loads reset them. */
 export async function refresh(page: Page): Promise<void> {
   const sheet = (await page.getByTestId('sheet-current-id').textContent() ?? '').trim();
+  const before = new Map<string, number>();
+  for (const id of await ids(rows(page), 'person-row-')) before.set(id, await claimRows(row(page, id)).count());
+  const retired = page.getByTestId('show-retired');
+  const showRetiredWas = (await retired.count()) > 0 ? await retired.isChecked() : null;
+  const asofWas = await shown(page.getByTestId('sheet-asof'));
+  await loadSheet(page, sheet + '-reload');
   await loadSheet(page, sheet);
+  if (showRetiredWas !== null && (await retired.isChecked()) !== showRetiredWas) await retired.setChecked(showRetiredWas);
+  if (asofWas !== '' && (await shown(page.getByTestId('sheet-asof'))) !== asofWas) await setAsOf(page, asofWas);
+  await expect.poll(async () => {
+    for (const [id, n] of before) {
+      const r = row(page, id);
+      if ((await r.count()) === 0 || (await claimRows(r).count()) < n) return false;
+    }
+    return true;
+  }, { message: 'the sheet is back on screen after a reload', timeout: WAIT }).toBe(true);
 }
 
 export async function setToday(page: Page, date: string): Promise<void> {
@@ -631,9 +670,16 @@ export function auditFor(sheet: string): string[] {
 }
 
 /** The sheet's audit lines are exactly these, in order; a line may carry further fields after
- *  the expected ones (a later feature may extend a line, never change or reorder its fields). */
-export function expectAudit(sheet: string, expected: string[]): void {
-  const lines = auditFor(sheet);
+ *  the expected ones (a later feature may extend a line, never change or reorder its fields).
+ *  A line may land a moment after the screen shows its result, so the file is re-read until
+ *  it has as many lines as expected (lines are only ever appended), for AUDIT_WAIT at most. */
+export async function expectAudit(sheet: string, expected: string[]): Promise<void> {
+  let lines = auditFor(sheet);
+  const deadline = Date.now() + AUDIT_WAIT;
+  while (lines.length < expected.length && Date.now() < deadline) {
+    await sleep(50);
+    lines = auditFor(sheet);
+  }
   expect(lines.length, `audit lines for ${sheet}:\n${lines.join('\n')}`).toBe(expected.length);
   lines.forEach((line, i) => {
     const e = expected[i];

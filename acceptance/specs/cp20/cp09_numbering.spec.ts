@@ -147,7 +147,7 @@ test.describe("numbering", () => {
     await expect(pg_wes.getByTestId("rate-current-A")).toHaveText("5.00");
     await expect(pg_wes.getByTestId("rate-current-B")).toHaveText("20.00");
     await expect(pg_wes.getByTestId("rate-current-C")).toHaveText("12.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=5.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=20.00`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=12.50`,
@@ -289,7 +289,7 @@ test.describe("numbering", () => {
     await expect(pg_uma.getByTestId("rate-current-A")).toHaveText("10.00");
     await expect(pg_uma.getByTestId("rate-current-B")).toHaveText("10.00");
     await expect(pg_uma.getByTestId("rate-current-C")).toHaveText("n/a");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=10.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ben grade=B`,
@@ -458,7 +458,7 @@ test.describe("numbering", () => {
     await expect(pg_uma.getByTestId("rate-current-A")).toHaveText("20.00");
     await expect(pg_uma.getByTestId("rate-current-B")).toHaveText("10.00");
     await expect(pg_uma.getByTestId("rate-current-C")).toHaveText("7.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=20.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=5.00`,

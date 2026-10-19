@@ -44,7 +44,7 @@ test.describe("patrons and backing", () => {
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-patrons")).toHaveText("");
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-backing")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-due-total")).toHaveText("n/a");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=20.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
@@ -207,7 +207,7 @@ test.describe("patrons and backing", () => {
     await expect(pg_uma.getByTestId("rate-current-A")).toHaveText("33.33");
     await expect(pg_uma.getByTestId("rate-current-B")).toHaveText("33.33");
     await expect(pg_uma.getByTestId("rate-current-C")).toHaveText("20.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=vic role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=1.50`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=2.00`,
@@ -381,7 +381,7 @@ test.describe("patrons and backing", () => {
     await expect(pg_uma.getByTestId("rate-current-A")).toHaveText("7.50");
     await expect(pg_uma.getByTestId("rate-current-B")).toHaveText("33.33");
     await expect(pg_uma.getByTestId("rate-current-C")).toHaveText("10.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=1.50`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=0.50`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=late-pct value=10.00`,
@@ -531,7 +531,7 @@ test.describe("patrons and backing", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("10.00");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("20.00");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("20.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=vic role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=3.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=0.50`,

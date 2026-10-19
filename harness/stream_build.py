@@ -578,7 +578,7 @@ class Renderer:
                 self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("audit") and self.n >= 6:
             body = ",\n      ".join(tpl(line) for line in self.m.audit_text(self.n))
-            self.emit(f"ui.expectAudit(sheet, [\n      {body}\n    ]);")
+            self.emit(f"await ui.expectAudit(sheet, [\n      {body}\n    ]);")
 
 
 def render_test(n: int, k: int, script: list, off=(), lenient: bool = False) -> list[str] | None:
@@ -655,7 +655,7 @@ def cells(tests: tuple) -> dict:
                 seen[key] = seen.get(key, 0) + 1
                 out[f"{key}#{seen[key]}"] = "present"
                 continue
-            if line.startswith("ui.expectAudit("):
+            if line.startswith("await ui.expectAudit("):
                 in_audit = True
                 continue
             m = _VALUE.match(line)

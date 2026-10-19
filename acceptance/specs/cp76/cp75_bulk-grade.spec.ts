@@ -62,7 +62,7 @@ test.describe("bulk grade", () => {
     await expect(pg_uma.getByTestId("rollup-due-total")).toHaveText("2.00");
     await expect(pg_uma.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("0.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=20.00`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=30.00`,
@@ -325,7 +325,7 @@ test.describe("bulk grade", () => {
     await expect(pg_wes.getByTestId("summary-status-PENDING-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("summary-status-SETTLED-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("summary-status-VOID-count")).toHaveText("1");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=wes role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=0.50`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=perm-settle value=clerk`,
@@ -642,7 +642,7 @@ test.describe("bulk grade", () => {
     await expect(pg_wes.getByTestId("summary-status-PENDING-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("summary-status-SETTLED-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("summary-status-VOID-count")).toHaveText("0");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=wes role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=30`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=late-pct value=5.00`,
@@ -807,7 +807,7 @@ test.describe("bulk grade", () => {
     await expect(pg_wes.getByTestId("summary-status-PENDING-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("summary-status-SETTLED-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("summary-status-VOID-count")).toHaveText("0");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=wes role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=3.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=7`,
@@ -972,7 +972,7 @@ test.describe("bulk grade", () => {
     await expect(pg_wes.getByTestId("summary-status-PENDING-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("summary-status-SETTLED-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("summary-status-VOID-count")).toHaveText("0");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=wes role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=3.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=7`,

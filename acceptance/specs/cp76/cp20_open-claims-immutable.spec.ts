@@ -24,7 +24,7 @@ test.describe("open claims immutable", () => {
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-amount")).toHaveText("10.00");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-number")).toHaveText("1");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-status")).toHaveText("VOID");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=0.00`,
@@ -267,7 +267,7 @@ test.describe("open claims immutable", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("12.50");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("12.50");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("12.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=12.50`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=20.00`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=12.50`,
@@ -426,7 +426,7 @@ test.describe("open claims immutable", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("5.00");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("10.00");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("12.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=33.33`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=33.33`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=12.50`,
@@ -613,7 +613,7 @@ test.describe("open claims immutable", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("20.00");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("12.50");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("33.33");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=20.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=5.00`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=33.33`,

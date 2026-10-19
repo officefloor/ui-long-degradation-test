@@ -55,7 +55,7 @@ test.describe("late charge", () => {
     await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("5.03");
     await expect(pg_vic.getByTestId("rollup-overdue-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("rollup-overdue-total")).toHaveText("3.03");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=0.00`,
@@ -239,7 +239,7 @@ test.describe("late charge", () => {
     await expect(pg_wes.getByTestId("rate-current-A")).toHaveText("5.00");
     await expect(pg_wes.getByTestId("rate-current-B")).toHaveText("33.33");
     await expect(pg_wes.getByTestId("rate-current-C")).toHaveText("5.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=2.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=late-pct value=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=A rate=5.00`,
@@ -410,7 +410,7 @@ test.describe("late charge", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("12.50");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("33.33");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("10.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=vic role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=0.50`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=10`,
@@ -586,7 +586,7 @@ test.describe("late charge", () => {
     await expect(pg_wes.getByTestId("rate-current-A")).toHaveText("33.33");
     await expect(pg_wes.getByTestId("rate-current-B")).toHaveText("20.00");
     await expect(pg_wes.getByTestId("rate-current-C")).toHaveText("n/a");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=vic role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=3.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=10`,

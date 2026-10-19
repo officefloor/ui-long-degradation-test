@@ -34,7 +34,7 @@ test.describe("quick add", () => {
     await expect(pg_uma.getByTestId("claim-row-" + c_dot_0).getByTestId("claim-date")).toHaveText("2026-03-10");
     await expect(pg_uma.getByTestId("claim-row-" + c_dot_0).getByTestId("claim-note")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_dot_0).getByTestId("claim-status")).toHaveText("DRAFT");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=0.00`,
@@ -201,7 +201,7 @@ test.describe("quick add", () => {
     await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("20.00");
     await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("33.33");
     await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("7.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=20.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=7.50`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=33.33 from=2026-03-10`,
@@ -354,7 +354,7 @@ test.describe("quick add", () => {
     await expect(pg_wes.getByTestId("rate-current-A")).toHaveText("33.33");
     await expect(pg_wes.getByTestId("rate-current-B")).toHaveText("33.33");
     await expect(pg_wes.getByTestId("rate-current-C")).toHaveText("7.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=33.33`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=7.50`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=10.00`,
@@ -510,7 +510,7 @@ test.describe("quick add", () => {
     await expect(pg_uma.getByTestId("rate-current-A")).toHaveText("5.00");
     await expect(pg_uma.getByTestId("rate-current-B")).toHaveText("7.50");
     await expect(pg_uma.getByTestId("rate-current-C")).toHaveText("10.00");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=33.33`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=33.33`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=10.00`,

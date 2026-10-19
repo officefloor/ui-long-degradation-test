@@ -58,7 +58,7 @@ test.describe("due by and overdue", () => {
     await expect(pg_uma.getByTestId("rollup-due-total")).toHaveText("6.75");
     await expect(pg_uma.getByTestId("rollup-overdue-count")).toHaveText("2");
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("4.75");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=12.50`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=A`,
@@ -260,7 +260,7 @@ test.describe("due by and overdue", () => {
     await expect(pg_wes.getByTestId("rate-current-A")).toHaveText("12.50");
     await expect(pg_wes.getByTestId("rate-current-B")).toHaveText("10.00");
     await expect(pg_wes.getByTestId("rate-current-C")).toHaveText("7.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=3.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=2.00`,
       `RATE_SET sheet=${sheet} by=uma grade=A rate=33.33`,
@@ -419,7 +419,7 @@ test.describe("due by and overdue", () => {
     await expect(pg_uma.getByTestId("rate-current-A")).toHaveText("10.00");
     await expect(pg_uma.getByTestId("rate-current-B")).toHaveText("10.00");
     await expect(pg_uma.getByTestId("rate-current-C")).toHaveText("33.33");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=wes role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=2.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=10`,
@@ -589,7 +589,7 @@ test.describe("due by and overdue", () => {
     await expect(pg_wes.getByTestId("rate-current-A")).toHaveText("5.00");
     await expect(pg_wes.getByTestId("rate-current-B")).toHaveText("5.00");
     await expect(pg_wes.getByTestId("rate-current-C")).toHaveText("12.50");
-    ui.expectAudit(sheet, [
+    await ui.expectAudit(sheet, [
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=3.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=2.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=7`,
