@@ -20,9 +20,9 @@ test.describe("bulk open", () => {
     expect(await ui.periodAction(pg_uma, "P1", "close")).toBe(true);
     expect(await ui.bulkOpen(pg_uma, [c_ada_0, c_ada_1, c_ben_0, c_ben_1])).toEqual({ opened: 2, refused: 2 });
     await ui.refresh(pg_uma);
-    await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-number")).toHaveText("3");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-number")).toHaveText("2");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-status")).toHaveText("OPEN");
-    await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-number")).toHaveText("2");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-number")).toHaveText("3");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-status")).toHaveText("OPEN");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_1).getByTestId("claim-number")).toHaveText("1");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_1).getByTestId("claim-status")).toHaveText("OPEN");
@@ -44,10 +44,10 @@ test.describe("bulk open", () => {
       `ROLLUP sheet=${sheet} by=uma person=Ben claimed=40.00 due-total=5.00`,
       `TOTALS sheet=${sheet} by=uma claimed-total=40.00 due-total=5.00`,
       `PERIOD_CLOSED sheet=${sheet} by=uma period=P1 total=0.00`,
-      `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=10.00 date=2026-03-10 number=2`,
-      `ROLLUP sheet=${sheet} by=uma person=Ada claimed=10.00 due-total=1.00`,
-      `TOTALS sheet=${sheet} by=uma claimed-total=50.00 due-total=6.00`,
-      `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=20.00 date=2026-03-10 number=3`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=20.00 date=2026-03-10 number=2`,
+      `ROLLUP sheet=${sheet} by=uma person=Ada claimed=20.00 due-total=2.00`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=60.00 due-total=7.00`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=10.00 date=2026-03-10 number=3`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=30.00 due-total=3.00`,
       `TOTALS sheet=${sheet} by=uma claimed-total=70.00 due-total=8.00`
     ]);
@@ -353,7 +353,7 @@ test.describe("bulk open", () => {
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("1.05");
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
     expect(await ui.periodAction(pg_uma, "P1", "close")).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-02-10"})).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-02-10"}, "B")).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "C", "pct": "5.00"})).toBe(true);
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
     expect(await ui.addClaim(pg_uma, p_cam, {"amount": "20.00", "date": "2026-03-05"})).toBeNull();

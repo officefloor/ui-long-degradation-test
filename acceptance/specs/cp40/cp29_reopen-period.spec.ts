@@ -87,7 +87,7 @@ test.describe("reopen period", () => {
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "C"}));
     expect(await ui.hold(pg_uma, p_ada, {})).toBe(true);
     await ui.setSetting(pg_uma, "clerk-limit", "");
-    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "B", "gradeFrom": "2026-03-28"})).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "B", "gradeFrom": "2026-03-28"}, "C")).toBe(true);
     await ui.setToday(pg_uma, "2026-03-25");
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "A", "pct": "10.00"})).toBe(true);

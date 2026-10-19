@@ -171,15 +171,27 @@ class Renderer:
                 out[key] = val
         return out
 
+    def _save(self, fields: dict) -> tuple[bool, str]:
+        """Save the open editor in the model: went through?, and the extra helper argument naming the
+        grade the row then shows when that is not the grade entered (a grade dated from another day)."""
+        try:
+            p = self.m.edit_save(fields)
+        except Refused:
+            return False, ""
+        shows = ""
+        if fields.get("grade") is not None and self.m.grade_now(p) != fields["grade"]:
+            shows = f", {ts(self.m.grade_now(p))}"
+        return True, shows
+
     def s_edit_save(self, fields: dict) -> None:
-        ok = self.attempt(self.m.edit_save, fields)
-        self.expect_ok(f"ui.editSave({self.pg}, {ts(self._fields(fields))})", ok)
+        ok, shows = self._save(fields)
+        self.expect_ok(f"ui.editSave({self.pg}, {ts(self._fields(fields))}{shows})", ok)
 
     def s_edit(self, name: str, fields: dict) -> None:
         pv = self.pvar(name)
         self.m.edit_open(name)
-        ok = self.attempt(self.m.edit_save, fields)
-        self.expect_ok(f"ui.editPerson({self.pg}, {pv}, {ts(self._fields(fields))})", ok)
+        ok, shows = self._save(fields)
+        self.expect_ok(f"ui.editPerson({self.pg}, {pv}, {ts(self._fields(fields))}{shows})", ok)
 
     def _claim_fields(self, amount, when, note, corrects) -> dict:
         f = {"amount": amount}

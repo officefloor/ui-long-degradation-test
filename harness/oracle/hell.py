@@ -629,8 +629,13 @@ class Model:
         return self.add_claim(name, amount, anchor="quick-error")
 
     def bulk_open(self, items: list) -> list:
+        """Open the selected claims in LIST order (people as added, newest claim first within a
+        person), whatever order they were ticked in; one result per item, in the order given."""
+        def place(item):
+            c = self.claim(*item)
+            return (self.people[c.person].order, -c.idx)
         out = []
-        for name, idx in items:
+        for name, idx in sorted(items, key=place):
             try:
                 self.open_claim(name, idx)
                 out.append(True)
@@ -1067,8 +1072,9 @@ writes PERSON_RELEASED name=<name>.""",
     23: """The sheet's settings assign a role to a user name: clerk (the default for any name) or steward
 (ROLE_SET user=<name> role=<role>). The sheet also has a clerk limit (two decimals; blank means no
 limit; SETTING_CHANGED key=clerk-limit value=<limit>). A clerk can settle a claim only when its
-due is at or below the limit; above it, settling is refused with an error on the claim. Stewards
-settle anything. The opener still cannot settle their own claim.""",
+due is at or below the limit; above it, settling is refused with an error on the claim. A claim
+whose due is n/a is within any limit. Stewards settle anything. The opener still cannot settle
+their own claim.""",
     24: """The sheet has a floor (two decimals, settings; SETTING_CHANGED key=floor value=<floor>). It starts
 at 1.00. A claim's live due is at least the floor. A settled claim's frozen figure, a claim's
 figure bound by a statement, and a closed period's fixed total are unchanged by the floor; a
@@ -1093,8 +1099,10 @@ patrons.""",
     28: """A person's grade is now dated. The person form gains a from-date (default the sheet's today), and
 each save with a grade records that grade from that date, keeping the ones already recorded; the first
 grade a person was given applies from the beginning of time. A claim uses the grade in force on
-the claim's date to find its rate; the list shows the grade in force on the sheet's today. An
-import line gives its grade from the sheet's today.""",
+the claim's date to find its rate; the list shows the grade in force on the sheet's today, and
+PERSON_EDITED carries that same grade, the one in force on the sheet's today after the save (so a
+grade dated from another day may leave both unchanged). An import line gives its grade from the
+sheet's today.""",
     29: """A closed period can be reopened, by a steward only (anyone else is refused with an error on the
 period). Reopening makes its due-total live again: the claims in it show and total their current
 figures, bound ones at their bound figure. Reopening writes PERIOD_REOPENED period=<name>.""",
@@ -1132,7 +1140,9 @@ counts as open in every total, but is not bound by a statement: while PENDING it
 its live figure. A steward approves it (it becomes SETTLED, frozen at that moment, CLAIM_APPROVED
 with due=<due> at the end like CLAIM_SETTLED) or rejects it with a reason (back to OPEN, bound
 again by the last statement if that statement included it, CLAIM_REJECTED with reason=<reason> at
-the end). The opener cannot approve their own claim.""",
+the end). The opener cannot approve their own claim. In every other way a PENDING claim is handled
+like an OPEN one: it cannot be edited, it can be voided (CLAIM_VOIDED), it goes overdue and bears
+the late charge, and a hold takes it out of the totals.""",
     37: """A steward can move a DRAFT, OPEN or PENDING claim to another person on the sheet (a refusal
 shows an error on the claim). The claim keeps its number and date, loses any figure a statement
 bound it to (it is live again until its new person's next statement), every total follows, and

@@ -288,7 +288,7 @@ test.describe("corrections", () => {
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "A"}));
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "C"}));
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "A"}));
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "B", "gradeFrom": "2026-03-20"})).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "B", "gradeFrom": "2026-03-20"}, "C")).toBe(true);
     const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "7.77"}));
     expect(await ui.claimAction(pg_uma, c_ben_0, "void")).toBe(true);
     const c_ben_1 = ui.must(await ui.addClaimTwice(pg_uma, p_ben, {"amount": "7.77", "date": "2026-03-28"}));

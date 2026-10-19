@@ -134,8 +134,13 @@ export async function editOpen(page: Page, personId: string): Promise<void> {
   editing.set(page, personId);
 }
 
-/** Save the open editor with these changes; true when saved, false when the form refused. */
-export async function editSave(page: Page, f: { name?: string; grade?: string; gradeFrom?: string }): Promise<boolean> {
+/**
+ * Save the open editor with these changes; true when saved, false when the form refused. `shows` is
+ * the grade the row shows once saved: by default the grade entered, but a grade dated from another
+ * day may leave the grade in force on the sheet's today unchanged.
+ */
+export async function editSave(page: Page, f: { name?: string; grade?: string; gradeFrom?: string },
+                               shows: string | undefined = f.grade): Promise<boolean> {
   const id = editing.get(page);
   if (!id) throw new Error('editSave without editOpen');
   await fillPersonForm(page, f);
@@ -143,14 +148,15 @@ export async function editSave(page: Page, f: { name?: string; grade?: string; g
   const r = row(page, id);
   return until(page, async () => {
     if (f.name !== undefined && await shown(r.getByTestId('person-name')) !== f.name.trim()) return false;
-    if (f.grade !== undefined && await shown(r.getByTestId('person-grade')) !== f.grade) return false;
+    if (shows !== undefined && await shown(r.getByTestId('person-grade')) !== shows) return false;
     return !(await page.getByTestId('person-form-error').isVisible().catch(() => false));
   }, page.getByTestId('person-form-error'), 'save person');
 }
 
-export async function editPerson(page: Page, personId: string, f: { name?: string; grade?: string; gradeFrom?: string }): Promise<boolean> {
+export async function editPerson(page: Page, personId: string, f: { name?: string; grade?: string; gradeFrom?: string },
+                                 shows?: string): Promise<boolean> {
   await editOpen(page, personId);
-  return editSave(page, f);
+  return editSave(page, f, shows);
 }
 
 export async function retire(page: Page, personId: string, date: string): Promise<boolean> {

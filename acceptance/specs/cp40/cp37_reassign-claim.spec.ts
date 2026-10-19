@@ -520,7 +520,7 @@ test.describe("reassign claim", () => {
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "A"}));
     const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "4.00"}));
     expect(await ui.retire(pg_uma, p_ben, "2026-03-09")).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "B", "gradeFrom": "2026-03-20"})).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "B", "gradeFrom": "2026-03-20"}, "A")).toBe(true);
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "0.40", "date": "2026-04-02"}));
     await ui.showRetired(pg_uma, true);
     expect(await ui.claimAction(pg_uma, c_ben_0, "void")).toBe(true);

@@ -267,8 +267,9 @@ checkpoints:
       The sheet's settings assign a role to a user name: clerk (the default for any name) or steward
       (ROLE_SET user=<name> role=<role>). The sheet also has a clerk limit (two decimals; blank means no
       limit; SETTING_CHANGED key=clerk-limit value=<limit>). A clerk can settle a claim only when its
-      due is at or below the limit; above it, settling is refused with an error on the claim. Stewards
-      settle anything. The opener still cannot settle their own claim.
+      due is at or below the limit; above it, settling is refused with an error on the claim. A claim
+      whose due is n/a is within any limit. Stewards settle anything. The opener still cannot settle
+      their own claim.
 
   - id: cp24_floor
     type: mutative
@@ -327,8 +328,10 @@ checkpoints:
       A person's grade is now dated. The person form gains a from-date (default the sheet's today), and
       each save with a grade records that grade from that date, keeping the ones already recorded; the first
       grade a person was given applies from the beginning of time. A claim uses the grade in force on
-      the claim's date to find its rate; the list shows the grade in force on the sheet's today. An
-      import line gives its grade from the sheet's today.
+      the claim's date to find its rate; the list shows the grade in force on the sheet's today, and
+      PERSON_EDITED carries that same grade, the one in force on the sheet's today after the save (so a
+      grade dated from another day may leave both unchanged). An import line gives its grade from the
+      sheet's today.
 
   - id: cp29_reopen-period
     type: additive
@@ -418,7 +421,9 @@ checkpoints:
       its live figure. A steward approves it (it becomes SETTLED, frozen at that moment, CLAIM_APPROVED
       with due=<due> at the end like CLAIM_SETTLED) or rejects it with a reason (back to OPEN, bound
       again by the last statement if that statement included it, CLAIM_REJECTED with reason=<reason> at
-      the end). The opener cannot approve their own claim.
+      the end). The opener cannot approve their own claim. In every other way a PENDING claim is handled
+      like an OPEN one: it cannot be edited, it can be voided (CLAIM_VOIDED), it goes overdue and bears
+      the late charge, and a hold takes it out of the totals.
 
   - id: cp37_reassign-claim
     type: additive
