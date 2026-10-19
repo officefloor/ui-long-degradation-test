@@ -10,6 +10,13 @@ every spec and an interaction-density metric per checkpoint. The built stream is
 `harness.stream_build` produce it. The catalogue below (Sections 2, 4, 4.1) remains the source of
 gotchas; the 250 requests of Section 6 are superseded as a sequence and kept as material._
 
+_**Status 2026-10-19:** Act II (cp41–80) was built on the restarted world from the Act II–IV
+material below, re-cut to the three engines: dated settings in force on the claim's date, period
+figures by status as of the period's end, the late charge per boundary, the floor after the late
+charge, trimmed totals, snapshots on every today change, periods by due-by, and an as-of view that
+replays every change made on or before a date. The table in `acceptance/WORKSPACE.md` §2 is the
+built sequence._
+
 ## 1. Why the current stream does not erode
 
 Run `202610171149` (angular-spring, 250/250 clean, zero regressions) shows the shape of the

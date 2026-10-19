@@ -47,3 +47,43 @@ pairs; `degree` is how many earlier rules each rule introduced here interacts wi
 | 38 | A | 29 | 14 | 26 | 16 | 406 | 0.06 | terms_fixed: 2 (overdue, retire) |
 | 39 | A | 29 | 16 | 52 | 67 | 406 | 0.13 |  |
 | 40 | M | 31 | 20 | 56 | 50 | 465 | 0.12 | hold_interval: 3 (hold, rollup, statement); hold_stated: 3 (hold, rollup, statement) |
+| 41 | A | 31 | 16 | 21 | 18 | 465 | 0.05 |  |
+| 42 | A | 32 | 15 | 31 | 40 | 496 | 0.06 | rate_ended: 4 (half_even, rate_dated, rollup, statement) |
+| 43 | A | 33 | 20 | 57 | 43 | 528 | 0.11 | cap: 9 (backing, floor, half_even, hold_stated, late, overdue, rollup, statement, status) |
+| 44 | M | 34 | 17 | 16 | 30 | 561 | 0.03 | rollup_overdue: 7 (floor, half_even, hold, overdue, rollup, status, terms_fixed) |
+| 45 | A | 35 | 22 | 55 | 69 | 595 | 0.09 | bulk_settle: 6 (clerk_limit, closed, four_eyes, number, pending, period) |
+| 46 | A | 36 | 21 | 75 | 95 | 630 | 0.12 | resettle: 11 (closed, floor, freeze, half_even, late, number, overdue, period, rollup, rollup_overdue, statement) |
+| 47 | A | 36 | 18 | 48 | 58 | 630 | 0.08 |  |
+| 48 | M | 37 | 19 | 39 | 70 | 666 | 0.06 | settings_dated: 9 (cap, floor, four_eyes, half_even, late, overdue, rollup, rollup_overdue, status) |
+| 49 | A | 38 | 23 | 60 | 62 | 703 | 0.09 | paste_atomic: 4 (closed, floor, period, status) |
+| 50 | A | 39 | 19 | 61 | 80 | 741 | 0.08 | deferred: 11 (closed, floor, half_even, number, overdue, period, rollup, rollup_overdue, settings_dated, statement, status) |
+| 51 | A | 40 | 25 | 75 | 114 | 780 | 0.10 | proofs: 4 (correction, number, pending, settings_dated) |
+| 52 | M | 41 | 27 | 84 | 98 | 820 | 0.10 | period_asof: 10 (closed, conflict, floor, freeze, hold, period, rate_dated, rate_ended, settings_dated, status) |
+| 53 | A | 42 | 23 | 62 | 72 | 861 | 0.07 | perms: 5 (immutable, number, rollup, rollup_overdue, status) |
+| 54 | A | 43 | 23 | 56 | 57 | 903 | 0.06 | viewer: 9 (floor, grade_dated, half_even, hold_interval, hold_stated, rollup, rollup_overdue, statement, status) |
+| 55 | A | 44 | 22 | 60 | 86 | 946 | 0.06 | auto_close: 9 (closed, number, overdue, period, period_asof, rollup, rollup_overdue, settings_dated, status) |
+| 56 | M | 45 | 24 | 62 | 101 | 990 | 0.06 | late_boundary: 9 (freeze, half_even, late, number, overdue, policy_date, rollup, rollup_overdue, settings_dated) |
+| 57 | A | 46 | 25 | 61 | 93 | 1035 | 0.06 | split: 11 (closed, floor, half_even, number, overdue, pending, period, rollup, rollup_overdue, statement, status) |
+| 58 | A | 47 | 26 | 36 | 59 | 1081 | 0.03 | notify: 5 (bulk_settle, clerk_limit, number, pending, resettle) |
+| 59 | A | 48 | 22 | 58 | 72 | 1128 | 0.05 | templates: 12 (auto_close, closed, immutable, number, overdue, period, period_asof, period_number, retire, rollup, rollup_overdue, status) |
+| 60 | M | 49 | 26 | 70 | 75 | 1176 | 0.06 | trim: 6 (cap, hold, overdue, rollup, rollup_overdue, settings_dated) |
+| 61 | A | 50 | 26 | 59 | 65 | 1225 | 0.05 | delegation: 4 (clerk_limit, number, pending, steward_reopen) |
+| 62 | A | 51 | 30 | 110 | 133 | 1275 | 0.09 | archive: 10 (floor, half_even, hold_interval, hold_stated, number, retire, rollup, rollup_overdue, statement, status) |
+| 63 | A | 52 | 27 | 52 | 69 | 1326 | 0.04 | person_terms: 3 (overdue, settings_dated, terms_fixed) |
+| 64 | M | 53 | 35 | 116 | 141 | 1378 | 0.08 | floor_last: 11 (floor, freeze, half_even, late, late_boundary, number, overdue, rollup, rollup_overdue, settings_dated, statement) |
+| 65 | A | 54 | 28 | 98 | 148 | 1431 | 0.07 | void_settled: 17 (bulk_settle, cap, closed, floor, half_even, hold_interval, immutable, number, overdue, period, period_number, rate_dated, rollup, rollup_overdue, settings_dated, statement, status) |
+| 66 | A | 55 | 30 | 71 | 68 | 1485 | 0.05 | redate: 6 (closed, number, period, period_number, retire, terms_fixed) |
+| 67 | A | 55 | 31 | 159 | 164 | 1485 | 0.11 |  |
+| 68 | M | 56 | 29 | 99 | 141 | 1540 | 0.06 | backing_recent: 6 (backing, bulk_settle, freeze, half_even, status, void_settled) |
+| 69 | A | 57 | 29 | 68 | 56 | 1596 | 0.04 | lock: 3 (immutable, status, viewer) |
+| 70 | A | 58 | 26 | 41 | 45 | 1653 | 0.02 | soft_close: 3 (period, perms, steward_reopen) |
+| 71 | A | 59 | 30 | 87 | 101 | 1711 | 0.05 | unstate: 5 (half_even, rollup, rollup_overdue, statement, status) |
+| 72 | M | 60 | 27 | 51 | 77 | 1770 | 0.03 | retire_excludes: 4 (half_even, rollup, rollup_overdue, statement) |
+| 73 | A | 61 | 37 | 132 | 114 | 1830 | 0.07 | asof: 25 (backing, cap, conflict, correction, floor, half_even, hold, hold_interval, hold_stated, number, overdue, period, period_asof, person_terms, policy_date, proofs, rate_dated, rate_ended, resettle, retire, settings_dated, soft_close, statement, status, templates) |
+| 74 | A | 62 | 32 | 59 | 66 | 1891 | 0.03 | remind: 2 (archive, number) |
+| 75 | A | 63 | 28 | 123 | 127 | 1953 | 0.06 | bulk_grade: 18 (archive, auto_close, closed, conflict, floor, grade_dated, half_even, overdue, paste_atomic, period, rate_dated, rate_ended, rollup, rollup_overdue, settings_dated, status, terms_fixed, trim) |
+| 76 | M | 64 | 33 | 95 | 104 | 2016 | 0.05 | snapshot: 6 (bulk_grade, cap, conflict, grade_dated, settings_dated, status) |
+| 77 | A | 65 | 29 | 102 | 86 | 2080 | 0.05 | note_required: 8 (floor, half_even, immutable, number, rollup, rollup_overdue, settings_dated, status) |
+| 78 | A | 65 | 31 | 86 | 87 | 2080 | 0.04 |  |
+| 79 | A | 66 | 27 | 103 | 91 | 2145 | 0.05 | entry_date: 16 (asof, closed, correction, floor, half_even, number, overdue, period, period_number, rate_dated, retire, rollup, rollup_overdue, settings_dated, status, viewer) |
+| 80 | M | 67 | 30 | 144 | 115 | 2211 | 0.07 | period_due_by: 20 (asof, closed, entry_date, floor, hold, late, late_boundary, lock, number, overdue, period, period_asof, period_number, person_terms, proofs, rollup, rollup_overdue, settings_dated, status, terms_fixed) |

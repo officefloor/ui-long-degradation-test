@@ -35,7 +35,8 @@ Two things give the pressure volume and a number:
 - **Generated scenarios.** From cp5, each checkpoint's spec carries its story test and three
   generated ones: seeded multi-user action sequences over everything in force at that
   checkpoint (`hell_gen.py`), ending in a check of every cell and the whole audit. The agent sees
-  the same one spec file; the gate carries a hundred and sixty interaction scenarios by cp40.
+  the same one spec file; the gate carries a hundred and sixty interaction scenarios by cp40
+  and over three hundred by cp80.
 - **Interaction density (`acceptance/DENSITY.md`).** Two rules interact at a checkpoint when a
   value its own spec asserts depends on both: switching both off is not predicted by switching
   each off alone. The builder reports, per checkpoint, the interacting pairs over the possible
@@ -48,7 +49,7 @@ and arranges through `support/ui.ts`); cadence 3:1 (mutative when `n % 4 == 0`),
 derived by the builder, an additive checkpoint may change no prior spec; every rule a
 checkpoint introduces must bite in its own spec, and every ripple copy must exercise one of them.
 
-## 2. The forty checkpoints
+## 2. The eighty checkpoints
 
 | cp | type | what it loads onto the figure |
 |---|---|---|
@@ -72,6 +73,34 @@ checkpoint introduces must bite in its own spec, and every ripple copy must exer
 | 36 | M | over the clerk limit goes to PENDING; a PENDING claim is not bound by a statement |
 | 37–39 | A | reassign (loses its binding); terms per grade fixed at creation; the status log |
 | 40 | M | a hold is an interval; a bound claim stays in the totals through a hold |
+
+Act II (cp41–80, built 2026-10-19) keeps the same world and adds write paths, read surfaces,
+dated reference data and reconstruction. Every additive checkpoint is neutral by default (a new
+action, a new cell, a setting that is blank until set) so no prior spec moves; every fourth
+changes what every prior spec expects.
+
+| cp | type | what it loads onto the figure |
+|---|---|---|
+| 41–43 | A | header counters (a second surface for the totals); rates with a to-date; a cap on the due-total with the excess shown |
+| 44 | M | **rollups also when an overdue-total moves**; ROLLUP and TOTALS carry overdue-total |
+| 45–47 | A | bulk settle (list order, each by the single-claim rules); a steward re-settles under today's rules; per-person per-period figures, fixed at close |
+| 48 | M | **dated settings**: floor, late percent, terms, limits apply from a from-date (default today); a claim uses the value in force on its date |
+| 49–51 | A | a paste box for claims (all-or-nothing); deferred claims (count nowhere until a date); proofs with a dated threshold, checked before the clerk limit |
+| 52 | M | **a period counts a claim by the status it had on the period's last day** (from the status log) |
+| 53–55 | A | permission matrix with the standing rules as defaults; a viewer role that changes nothing; auto-close after grace days on a today change |
+| 56 | M | **late charge per 30-day boundary** at the percent in force on each boundary date |
+| 57–59 | A | split an open claim (next number, unstated); watch a person and NOTIFY on settle; monthly period templates |
+| 60 | M | **trimmed sheet totals**: the highest and lowest person's figure left out when three or more have one |
+| 61–63 | A | delegation of the steward role for a date range (for= on the delegate's lines); archive the sheet; a person's own terms |
+| 64 | M | **floor after the late charge**; a statement binds the rate figure |
+| 65–67 | A | a steward voids a settled claim within 7 days (reversed=); re-date an open claim (renumbered on a period change); active people |
+| 68 | M | **backing is the patrons' settled figures of the last 90 days** |
+| 69–71 | A | an open editor locks the claim for other users; soft close (figures fixed, late entries allowed); cancel the last statement |
+| 72 | M | **a retired person's open claims leave the live totals** from the retirement date |
+| 73–75 | A | **the as-of view**: every cell as of a date, by replaying every change made while the sheet's today was on or before it; reminders once a day; bulk grade |
+| 76 | M | **SNAPSHOT lines** for every person on every change of the sheet's today, before the change takes effect |
+| 77–79 | A | a dated note threshold (no open with an empty note above it); age buckets; an entry date as the default claim date |
+| 80 | M | **a claim belongs to the period containing its due-by date**: totals, numbering and closed-period refusals follow |
 
 ## 3. Writing a checkpoint
 

@@ -58,6 +58,12 @@ async function until(page: Page, done: () => Promise<boolean>, error: Locator, w
   throw new Error(`${what}: neither a result nor an error appeared within ${WAIT}ms`);
 }
 
+/** A counter the screen shows after a bulk action: the number in the cell once it is visible. */
+async function counter(page: Page, cell: Locator, error: Locator, what: string): Promise<number | null> {
+  const ok = await until(page, async () => (await cell.count()) > 0 && (await shown(cell)) !== '', error, what);
+  return ok ? Number(await shown(cell)) : null;
+}
+
 // ---- session ---------------------------------------------------------------------------------
 
 export async function userPage(browser: Browser, user: string, sheet: string): Promise<Page> {
@@ -88,6 +94,34 @@ export async function setToday(page: Page, date: string): Promise<void> {
   await expect(page.getByTestId('sheet-today')).toHaveText(date);
 }
 
+/** Change the sheet's today where the screen may refuse it (an archived sheet, a viewer, an
+ *  as-of view): true when the date took, false when the sheet's error element appeared. */
+export async function setTodayTry(page: Page, date: string): Promise<boolean> {
+  await page.getByTestId('sheet-today-input').fill(date);
+  await page.getByTestId('sheet-today-save').click();
+  return until(page, async () => (await shown(page.getByTestId('sheet-today'))) === date,
+    page.getByTestId('sheet-error'), 'set today');
+}
+
+/** Archive the sheet: true once the screen shows it archived, false when refused. */
+export async function archive(page: Page): Promise<boolean> {
+  await page.getByTestId('sheet-archive').click();
+  return until(page, async () => (await shown(page.getByTestId('sheet-archived'))) === 'yes',
+    page.getByTestId('sheet-error'), 'archive');
+}
+
+/** Show the sheet as of a date (this user's screen only). */
+export async function setAsOf(page: Page, date: string): Promise<void> {
+  await page.getByTestId('asof-date').fill(date);
+  await page.getByTestId('asof-set').click();
+  await expect(page.getByTestId('sheet-asof')).toHaveText(date);
+}
+
+export async function clearAsOf(page: Page): Promise<void> {
+  await page.getByTestId('asof-clear').click();
+  await expect(page.getByTestId('sheet-asof')).toHaveText('');
+}
+
 // ---- people ----------------------------------------------------------------------------------
 
 export function row(page: Page, personId: string): Locator {
@@ -110,14 +144,17 @@ export async function personId(page: Page, name: string): Promise<string> {
   return idOf(await r.getAttribute('data-testid'), 'person-row-');
 }
 
-async function fillPersonForm(page: Page, f: { name?: string; grade?: string; gradeFrom?: string }) {
+type PersonFields = { name?: string; grade?: string; gradeFrom?: string; terms?: string };
+
+async function fillPersonForm(page: Page, f: PersonFields) {
   if (f.name !== undefined) await page.getByTestId('person-form-name').fill(f.name);
   if (f.grade !== undefined) await page.getByTestId('person-form-grade').selectOption(f.grade);
   if (f.gradeFrom !== undefined) await page.getByTestId('person-form-grade-from').fill(f.gradeFrom);
+  if (f.terms !== undefined) await page.getByTestId('person-form-terms').fill(f.terms);
 }
 
 /** Add a person through the form. The new row's id, or null when the form refused. */
-export async function addPerson(page: Page, f: { name: string; grade: string; gradeFrom?: string }): Promise<string | null> {
+export async function addPerson(page: Page, f: PersonFields & { name: string; grade: string }): Promise<string | null> {
   const before = await ids(rows(page), 'person-row-');
   await fillPersonForm(page, f);
   await page.getByTestId('person-form-submit').click();
@@ -139,8 +176,7 @@ export async function editOpen(page: Page, personId: string): Promise<void> {
  * the grade the row shows once saved: by default the grade entered, but a grade dated from another
  * day may leave the grade in force on the sheet's today unchanged.
  */
-export async function editSave(page: Page, f: { name?: string; grade?: string; gradeFrom?: string },
-                               shows: string | undefined = f.grade): Promise<boolean> {
+export async function editSave(page: Page, f: PersonFields, shows: string | undefined = f.grade): Promise<boolean> {
   const id = editing.get(page);
   if (!id) throw new Error('editSave without editOpen');
   await fillPersonForm(page, f);
@@ -149,12 +185,12 @@ export async function editSave(page: Page, f: { name?: string; grade?: string; g
   return until(page, async () => {
     if (f.name !== undefined && await shown(r.getByTestId('person-name')) !== f.name.trim()) return false;
     if (shows !== undefined && await shown(r.getByTestId('person-grade')) !== shows) return false;
+    if (f.terms !== undefined && await shown(r.getByTestId('person-terms')) !== f.terms) return false;
     return !(await page.getByTestId('person-form-error').isVisible().catch(() => false));
   }, page.getByTestId('person-form-error'), 'save person');
 }
 
-export async function editPerson(page: Page, personId: string, f: { name?: string; grade?: string; gradeFrom?: string },
-                                 shows?: string): Promise<boolean> {
+export async function editPerson(page: Page, personId: string, f: PersonFields, shows?: string): Promise<boolean> {
   await editOpen(page, personId);
   return editSave(page, f, shows);
 }
@@ -177,6 +213,15 @@ export async function statement(page: Page, personId: string): Promise<boolean> 
     r.getByTestId('person-error'), 'statement');
 }
 
+/** Cancel the person's last statement: true once the statement count has moved on. */
+export async function unstate(page: Page, personId: string): Promise<boolean> {
+  const r = row(page, personId);
+  const was = await shown(r.getByTestId('person-statement-count'));
+  await r.getByTestId('person-unstate').click();
+  return until(page, async () => await shown(r.getByTestId('person-statement-count')) !== was,
+    r.getByTestId('person-error'), 'cancel statement');
+}
+
 /** Toggle the hold (no dates), or add a hold with dates: true once the row shows it. */
 export async function hold(page: Page, personId: string, f: { from?: string; to?: string }): Promise<boolean> {
   const r = row(page, personId);
@@ -191,6 +236,14 @@ export async function hold(page: Page, personId: string, f: { from?: string; to?
     ? (await lines.count()) > wasLines
     : await shown(r.getByTestId('person-hold')) !== wasText,
     r.getByTestId('person-error'), 'hold');
+}
+
+/** Start (true) or stop (false) watching the person as the signed-in user. */
+export async function watch(page: Page, personId: string, on: boolean): Promise<boolean> {
+  const r = row(page, personId);
+  await r.getByTestId('person-watch').click();
+  return until(page, async () => (await shown(r.getByTestId('person-watched'))) === (on ? 'yes' : 'no'),
+    r.getByTestId('person-error'), 'watch');
 }
 
 export async function showRetired(page: Page, on: boolean): Promise<void> {
@@ -210,6 +263,20 @@ export async function addPatron(page: Page, personId: string, patronName: string
   return until(page, async () => (await names()) > before, r.getByTestId('person-patron-error'), 'add patron');
 }
 
+/** Give the selected people a grade together: how many were changed. */
+export async function bulkGrade(page: Page, personIds: string[], f: { grade: string; from?: string }): Promise<number | null> {
+  for (const id of personIds) await row(page, id).getByTestId('person-select').setChecked(true);
+  await page.getByTestId('bulk-grade').selectOption(f.grade);
+  if (f.from !== undefined) await page.getByTestId('bulk-grade-from').fill(f.from);
+  const was = await shown(page.getByTestId('bulk-graded'));
+  await page.getByTestId('bulk-grade-apply').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await page.getByTestId('bulk-graded').count()) > 0
+    && (await shown(page.getByTestId('bulk-graded'))) !== '' && ((await shown(page.getByTestId('bulk-graded'))) !== was || was === ''),
+    page.getByTestId('person-error'), 'bulk grade');
+  return ok ? Number(await shown(page.getByTestId('bulk-graded'))) : null;
+}
+
 // ---- claims ----------------------------------------------------------------------------------
 
 export function claimRow(page: Page, claimId: string): Locator {
@@ -226,6 +293,16 @@ function personRowOf(page: Page, claimId: string): Locator {
 
 export async function claimCount(page: Page, personId: string): Promise<number> {
   return claimRows(row(page, personId)).count();
+}
+
+/** The id of the person's claim at position `idx` in creation order (claims are listed newest
+ *  first, so the oldest is the last row). */
+export async function claimAt(page: Page, personId: string, idx: number): Promise<string> {
+  const all = claimRows(row(page, personId));
+  const n = await all.count();
+  const r = all.nth(n - 1 - idx);
+  await expect(r).toBeVisible();
+  return idOf(await r.getAttribute('data-testid'), 'claim-row-');
 }
 
 type ClaimFields = { amount?: string; date?: string; note?: string; corrects?: string };
@@ -266,6 +343,16 @@ export async function addClaimTwice(page: Page, personId: string, f: ClaimFields
   return ok ? newestClaim(r) : null;
 }
 
+/** Paste lines of claims into the paste box: how many were added, or null when refused. */
+export async function pasteClaims(page: Page, text: string): Promise<number | null> {
+  const before = await claimRows(page).count();
+  await page.getByTestId('paste-claims').fill(text);
+  await page.getByTestId('paste-submit').click();
+  const ok = await until(page, async () => (await claimRows(page).count()) > before,
+    page.getByTestId('paste-error'), 'paste claims');
+  return ok ? Number(await shown(page.getByTestId('paste-added'))) : null;
+}
+
 /** Edit a claim through its edit button and the claim form; true when the row shows the change. */
 export async function editClaim(page: Page, claimId: string, f: ClaimFields): Promise<boolean> {
   const c = claimRow(page, claimId);
@@ -284,6 +371,37 @@ export async function editClaim(page: Page, claimId: string, f: ClaimFields): Pr
   }, error, 'edit claim');
 }
 
+/** Open a claim's editor (the edit button) and leave it open: true when the form filled with
+ *  the claim's values, false when the claim refused (not editable, or locked by another user). */
+export async function claimEditOpen(page: Page, claimId: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const r = personRowOf(page, claimId);
+  const amount = await shown(c.getByTestId('claim-amount'));
+  await c.getByTestId('claim-edit').click();
+  return until(page, async () => (await r.getByTestId('claim-form-amount').inputValue().catch(() => '')) === amount
+    && !(await c.getByTestId('claim-error').isVisible().catch(() => false)),
+    c.getByTestId('claim-error'), 'open claim editor');
+}
+
+/** Save the claim editor opened with claimEditOpen: true when the row shows the change. */
+export async function claimEditSave(page: Page, claimId: string, f: ClaimFields): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const r = personRowOf(page, claimId);
+  await fillClaimForm(r, f);
+  await r.getByTestId('claim-form-submit').click();
+  const error = c.getByTestId('claim-error').or(r.getByTestId('claim-form-error'));
+  return until(page, async () => {
+    for (const [k, v] of Object.entries(f)) {
+      if (await shown(c.getByTestId(`claim-${k}`)) !== v) return false;
+    }
+    return true;
+  }, error, 'save claim editor');
+}
+
+export async function claimEditCancel(page: Page, claimId: string): Promise<void> {
+  await claimRow(page, claimId).getByTestId('claim-cancel').click();
+}
+
 /** open | settle | void | approve | reject(reason): true when the status changed. */
 export async function claimAction(page: Page, claimId: string, action: string, reason?: string): Promise<boolean> {
   const c = claimRow(page, claimId);
@@ -292,6 +410,64 @@ export async function claimAction(page: Page, claimId: string, action: string, r
   await c.getByTestId(`claim-${action}`).click();
   return until(page, async () => await shown(c.getByTestId('claim-status')) !== was,
     c.getByTestId('claim-error'), `claim ${action}`);
+}
+
+/** Re-settle a settled claim: true once its status log gained a line. */
+export async function resettle(page: Page, claimId: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const lines = c.getByTestId('claim-log-line');
+  const was = await lines.count();
+  await c.getByTestId('claim-resettle').click();
+  return until(page, async () => (await lines.count()) > was, c.getByTestId('claim-error'), 're-settle');
+}
+
+/** Defer an open claim until a date: true once the row shows the date. */
+export async function defer(page: Page, claimId: string, until_: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  await c.getByTestId('claim-defer-date').fill(until_);
+  await c.getByTestId('claim-defer').click();
+  return until(page, async () => (await shown(c.getByTestId('claim-deferred-until'))) === until_,
+    c.getByTestId('claim-error'), 'defer');
+}
+
+/** Raise the claim's proofs count by one: true once the count moved. */
+export async function addProof(page: Page, claimId: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const was = await shown(c.getByTestId('claim-proofs'));
+  await c.getByTestId('claim-proof').click();
+  return until(page, async () => (await shown(c.getByTestId('claim-proofs'))) !== was,
+    c.getByTestId('claim-error'), 'add proof');
+}
+
+/** Send a reminder for the claim: true once the row shows a new reminder date. */
+export async function remind(page: Page, claimId: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const was = await shown(c.getByTestId('claim-reminded'));
+  await c.getByTestId('claim-remind').click();
+  return until(page, async () => (await shown(c.getByTestId('claim-reminded'))) !== was,
+    c.getByTestId('claim-error'), 'remind');
+}
+
+/** Re-date a claim: true once the row shows the new date. */
+export async function redate(page: Page, claimId: string, date: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  await c.getByTestId('claim-date-new').fill(date);
+  await c.getByTestId('claim-redate').click();
+  return until(page, async () => (await shown(c.getByTestId('claim-date'))) === date,
+    c.getByTestId('claim-error'), 'redate');
+}
+
+/** Split an amount off an open claim: the new claim's id (listed newest first under its
+ *  person), or null when refused. */
+export async function split(page: Page, personId: string, claimId: string, amount: string): Promise<string | null> {
+  const r = row(page, personId);
+  const c = claimRow(page, claimId);
+  const before = await claimRows(r).count();
+  await c.getByTestId('claim-split-amount').fill(amount);
+  await c.getByTestId('claim-split').click();
+  const ok = await until(page, async () => (await claimRows(r).count()) > before,
+    c.getByTestId('claim-error'), 'split');
+  return ok ? newestClaim(r) : null;
 }
 
 export async function numbersOf(page: Page, claimIds: string[]): Promise<string[]> {
@@ -322,6 +498,16 @@ export async function bulkOpen(page: Page, claimIds: string[]): Promise<{ opened
   };
 }
 
+export async function bulkSettle(page: Page, claimIds: string[]): Promise<{ settled: number; refused: number }> {
+  for (const id of claimIds) await claimRow(page, id).getByTestId('claim-select').setChecked(true);
+  await page.getByTestId('bulk-settle').click();
+  await expect(page.getByTestId('bulk-settled')).toBeVisible();
+  return {
+    settled: Number(await shown(page.getByTestId('bulk-settled'))),
+    refused: Number(await shown(page.getByTestId('bulk-settle-refused'))),
+  };
+}
+
 /** The quick-add bar: the new claim's id, or null when refused. */
 export async function quickAdd(page: Page, f: { name: string; amount: string }): Promise<string | null> {
   const before = await ids(claimRows(page), 'claim-row-');
@@ -335,15 +521,17 @@ export async function quickAdd(page: Page, f: { name: string; amount: string }):
   return fresh.length === 1 ? fresh[0] : newestClaim(rowsNamed(page, f.name).last());
 }
 
-// ---- rates, periods, settings, roles, import, export ----------------------------------------
+// ---- rates, periods, settings, roles, export -------------------------------------------------
 
-export async function setRate(page: Page, f: { grade: string; pct: string; from?: string }): Promise<boolean> {
+export async function setRate(page: Page, f: { grade: string; pct: string; from?: string; to?: string }): Promise<boolean> {
   await page.getByTestId('rate-form-grade').selectOption(f.grade);
   await page.getByTestId('rate-form-pct').fill(f.pct);
   if (f.from !== undefined) await page.getByTestId('rate-form-from').fill(f.from);
+  if (f.to !== undefined) await page.getByTestId('rate-form-to').fill(f.to);
   await page.getByTestId('rate-form-submit').click();
   const r = page.getByTestId(`rate-row-${f.grade}-${f.from ?? 'start'}`);
-  return until(page, async () => await shown(r.getByTestId('rate-pct')) === f.pct,
+  return until(page, async () => await shown(r.getByTestId('rate-pct')) === f.pct
+    && (f.to === undefined || await shown(r.getByTestId('rate-to')) === f.to),
     page.getByTestId('rate-form-error'), 'set rate');
 }
 
@@ -357,7 +545,20 @@ export async function addPeriod(page: Page, f: { name: string; from: string; to:
   return until(page, async () => (await all.count()) > before, page.getByTestId('period-form-error'), 'add period');
 }
 
-/** close | reopen: true when the period's closed flag changed. */
+/** Generate monthly periods between two dates: how many were made, or null when refused. */
+export async function generatePeriods(page: Page, from: string, to: string): Promise<number | null> {
+  await page.getByTestId('period-generate-from').fill(from);
+  await page.getByTestId('period-generate-to').fill(to);
+  const was = await shown(page.getByTestId('period-generated'));
+  await page.getByTestId('period-generate').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await page.getByTestId('period-generated').count()) > 0
+    && (await shown(page.getByTestId('period-generated'))) !== '' && ((await shown(page.getByTestId('period-generated'))) !== was || was === ''),
+    page.getByTestId('period-generate-error'), 'generate periods');
+  return ok ? Number(await shown(page.getByTestId('period-generated'))) : null;
+}
+
+/** close | soft-close | reopen: true when the period's closed flag changed. */
 export async function periodAction(page: Page, name: string, action: string): Promise<boolean> {
   const r = page.getByTestId(`period-row-${name}`);
   const was = await shown(r.getByTestId('period-closed'));
@@ -372,6 +573,27 @@ export async function setSetting(page: Page, key: string, value: string): Promis
   await expect(page.getByTestId(`setting-${key}-current`)).toHaveText(value);
 }
 
+/** Save a setting where the screen may refuse it: true when the value in force shows it. */
+export async function setSettingTry(page: Page, key: string, value: string): Promise<boolean> {
+  await page.getByTestId(`setting-${key}`).fill(value);
+  await page.getByTestId('settings-save').click();
+  return until(page, async () => (await shown(page.getByTestId(`setting-${key}-current`))) === value,
+    page.getByTestId('settings-error'), 'save setting');
+}
+
+/** Save a setting from a date; `shows` is the value in force on the sheet's today once saved
+ *  (a from-date after today leaves the current value as it was). */
+export async function setSettingDated(page: Page, key: string, value: string, from: string, shows: string): Promise<boolean> {
+  await page.getByTestId(`setting-${key}`).fill(value);
+  await page.getByTestId(`setting-${key}-from`).fill(from);
+  await page.getByTestId('settings-save').click();
+  const ok = await until(page, async () => (await shown(page.getByTestId(`setting-${key}-current`))) === shows
+    && !(await page.getByTestId('settings-error').isVisible().catch(() => false)),
+    page.getByTestId('settings-error'), 'save dated setting');
+  if (ok) await page.waitForTimeout(300);     // the value may already have shown; let the save land
+  return ok;
+}
+
 export async function setRole(page: Page, user: string, role: string): Promise<boolean> {
   await page.getByTestId('role-form-user').fill(user);
   await page.getByTestId('role-form-role').fill(role);
@@ -379,6 +601,17 @@ export async function setRole(page: Page, user: string, role: string): Promise<b
   const r = page.getByTestId(`role-row-${user}`);
   return until(page, async () => await shown(r.getByTestId('role-value')) === role,
     page.getByTestId('role-form-error'), 'set role');
+}
+
+/** Delegate the steward role: true once a delegation line appeared. */
+export async function delegate(page: Page, f: { user: string; from: string; to: string }): Promise<boolean> {
+  const lines = page.getByTestId('delegate-line');
+  const was = await lines.count();
+  await page.getByTestId('delegate-user').fill(f.user);
+  await page.getByTestId('delegate-from').fill(f.from);
+  await page.getByTestId('delegate-to').fill(f.to);
+  await page.getByTestId('delegate-submit').click();
+  return until(page, async () => (await lines.count()) > was, page.getByTestId('delegate-error'), 'delegate');
 }
 
 export async function exportCsv(page: Page): Promise<string> {

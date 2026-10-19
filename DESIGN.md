@@ -1,6 +1,6 @@
 # ui-long-degradation-test Design Notes
 
-> **The stream (restarted 2026-10-18):** `main` carries **40 checkpoints** on one figure, built to push the
+> **The stream (restarted 2026-10-18):** `main` carries **80 checkpoints** on one figure, built to push the
 > system past what a person can review: statements that bind figures to the moment they were shown (cp15),
 > ROLLUP/TOTALS audit lines after every write that moves a figure (cp16), precedence exceptions between
 > floor, late charge, statements, holds, pending and corrections (cp24 on), three generated multi-user

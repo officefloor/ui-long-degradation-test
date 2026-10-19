@@ -3,6 +3,7 @@
     .venv/bin/python -m harness.stream_build --config config.yaml          # write everything
     .venv/bin/python -m harness.stream_build --config config.yaml --check  # verify, write nothing
     ... --no-density                                                        # skip the pairwise metric
+    ... --jobs 8                                                            # density in parallel
 
 Writes checkpoints.yaml (the requests, types, `mutates:`), one own spec per checkpoint under
 acceptance/specs/ (its story test plus the generated scenarios), for each mutative checkpoint N
@@ -42,6 +43,7 @@ import yaml
 
 from functools import lru_cache
 from itertools import combinations
+from multiprocessing import Pool
 
 from .oracle import hell, hell_gen
 from .oracle.hell import COVERAGE, REQUESTS, RULES, SLUG, TYPE, Model, Refused
@@ -52,6 +54,14 @@ MIN_DEGREE, MIN_DEGREE_FROM = 2, 17     # a new rule must cross >= 2 earlier one
 ROLLUP_SINCE = {"rollup-claimed-total": 5, "rollup-due-total": 7,
                 "rollup-overdue-count": 25, "rollup-overdue-total": 25}
 PERIOD_SINCE = {"period-due-total": 17, "period-closed": 18}
+HEADER_SINCE = 41
+PERSON_PERIOD_SINCE = 47
+SHEET_SINCE = {"sheet-archived": 62, "sheet-asof": 73}
+
+
+def summary_since(key: str) -> int:
+    return 67 if key.endswith("-active") else 31
+
 
 HARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPECS_DIR = os.path.join(HARNESS_ROOT, "acceptance", "specs")
@@ -72,6 +82,12 @@ def tpl(v: str) -> str:
 def slugify(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "_", name.strip().casefold()).strip("_")
     return s or "x"
+
+
+class HiddenRow(KeyError):
+    """A step acts on a retired person's row while that user's screen hides retired people: a
+    story must show them first; a generated scenario drops the step (under ablation a refused
+    retirement may go through, hiding a row the scenario then reaches for)."""
 
 
 class Renderer:
@@ -120,8 +136,8 @@ class Renderer:
         for name in hell_gen.row_targets(st):
             p = self.m.people.get(hell.norm_name(name))
             if p is not None and not self.m.visible(p):
-                raise RuntimeError(f"step {st!r} acts on {name}'s row while retired people are hidden "
-                                   f"from {self.m.user}; show them first")
+                raise HiddenRow(f"step {st!r} acts on {name}'s row while retired people are hidden "
+                                f"from {self.m.user}; show them first")
         getattr(self, "s_" + op)(*args)
 
     def s_as(self, user: str) -> None:
@@ -136,21 +152,29 @@ class Renderer:
         self.pg = self.pages[user]
 
     def s_today(self, d: str) -> None:
-        self.m.set_today(d)
-        self.emit(f"await ui.setToday({self.pg}, {ts(d)});")
+        if self.attempt(self.m.set_today, d):
+            self.emit(f"await ui.setToday({self.pg}, {ts(d)});")
+        else:
+            self.expect_ok(f"ui.setTodayTry({self.pg}, {ts(d)})", False)
 
     def s_statement(self, name: str) -> None:
         assert self.k >= hell.SINCE["statement"], "statement is only rendered from cp15"
-        self.m.statement(name)
-        self.expect_ok(f"ui.statement({self.pg}, {self.pvar(name)})", True)
+        ok = self.attempt(self.m.statement, name)
+        self.expect_ok(f"ui.statement({self.pg}, {self.pvar(name)})", ok)
 
-    def s_person(self, name: str, grade: str, grade_from: str | None = None) -> None:
+    def s_unstate(self, name: str) -> None:
+        ok = self.attempt(self.m.unstate, name)
+        self.expect_ok(f"ui.unstate({self.pg}, {self.pvar(name)})", ok)
+
+    def s_person(self, name: str, grade: str, grade_from: str | None = None, terms=None) -> None:
         fields = {"name": name, "grade": grade}
         if grade_from and self.m.has("grade_dated"):
             fields["gradeFrom"] = grade_from
+        if terms is not None and self.m.has("person_terms"):
+            fields["terms"] = str(terms)
         call = f"ui.addPerson({self.pg}, {ts(fields)})"
         try:
-            p = self.m.add_person(name, grade, grade_from)
+            p = self.m.add_person(name, grade, grade_from, terms=terms)
         except Refused:
             self.emit(f"expect(await {call}).toBeNull();")
             return
@@ -167,6 +191,9 @@ class Renderer:
             if key == "grade_from":
                 if self.m.has("grade_dated"):
                     out["gradeFrom"] = val
+            elif key == "terms":
+                if self.m.has("person_terms"):
+                    out["terms"] = str(val)
             else:
                 out[key] = val
         return out
@@ -177,6 +204,7 @@ class Renderer:
         try:
             p = self.m.edit_save(fields)
         except Refused:
+            self.m.editing.pop(self.m.user, None)
             return False, ""
         shows = ""
         if fields.get("grade") is not None and self.m.grade_now(p) != fields["grade"]:
@@ -192,6 +220,14 @@ class Renderer:
         self.m.edit_open(name)
         ok, shows = self._save(fields)
         self.expect_ok(f"ui.editPerson({self.pg}, {pv}, {ts(self._fields(fields))}{shows})", ok)
+
+    def s_bulk_grade(self, names: list, grade: str, start: str | None = None) -> None:
+        pvs = [self.pvar(n) for n in names]
+        done = self.m.bulk_grade(names, grade, start)
+        f = {"grade": grade}
+        if start:
+            f["from"] = start
+        self.emit(f"expect(await ui.bulkGrade({self.pg}, [{', '.join(pvs)}], {ts(f)})).toBe({done});")
 
     def _claim_fields(self, amount, when, note, corrects) -> dict:
         f = {"amount": amount}
@@ -228,10 +264,41 @@ class Renderer:
         self.emit(f"const {c.var} = ui.must(await {call});")
         self.emit(f"expect(await ui.claimCount({self.pg}, {pv})).toBe({n});")
 
+    def s_paste(self, lines: list) -> None:
+        text = "\n".join(lines)
+        call = f"ui.pasteClaims({self.pg}, {ts(text)})"
+        try:
+            made = self.m.paste_claims(lines)
+        except Refused:
+            self.emit(f"expect(await {call}).toBeNull();")
+            return
+        self.emit(f"expect(await {call}).toBe({made});")
+        for c in self.m.claims:
+            if not c.var:
+                c.var = self.var(f"c_{slugify(self.m.people[c.person].name)}_{c.idx}")
+                self.emit(f"const {c.var} = await ui.claimAt({self.pg}, {self.m.people[c.person].var}, {c.idx});")
+
     def s_claim_edit(self, name, idx, fields) -> None:
         cv = self.cvar(name, idx)
         ok = self.attempt(self.m.edit_claim, name, idx, fields)
         self.expect_ok(f"ui.editClaim({self.pg}, {cv}, {ts(fields)})", ok)
+
+    def s_claim_edit_open(self, name, idx) -> None:
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.claim_edit_open, name, idx)
+        self.expect_ok(f"ui.claimEditOpen({self.pg}, {cv})", ok)
+
+    def s_claim_edit_save(self, name, idx, fields) -> None:
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.edit_claim, name, idx, fields)
+        if ok:
+            self.m.locks.pop(self.m.claim(name, idx).seq, None)
+        self.expect_ok(f"ui.claimEditSave({self.pg}, {cv}, {ts(fields)})", ok)
+
+    def s_claim_edit_cancel(self, name, idx) -> None:
+        cv = self.cvar(name, idx)
+        self.m.claim_edit_cancel(name, idx)
+        self.emit(f"await ui.claimEditCancel({self.pg}, {cv});")
 
     def _action(self, name, idx, action, fn, *extra) -> None:
         cv = self.cvar(name, idx)
@@ -254,6 +321,43 @@ class Renderer:
     def s_reject(self, name, idx, reason):
         self._action(name, idx, "reject", self.m.reject_claim, reason)
 
+    def s_resettle(self, name, idx):
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.resettle_claim, name, idx)
+        self.expect_ok(f"ui.resettle({self.pg}, {cv})", ok)
+
+    def s_defer(self, name, idx, until):
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.defer_claim, name, idx, until)
+        self.expect_ok(f"ui.defer({self.pg}, {cv}, {ts(until)})", ok)
+
+    def s_proof(self, name, idx):
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.add_proof, name, idx)
+        self.expect_ok(f"ui.addProof({self.pg}, {cv})", ok)
+
+    def s_remind(self, name, idx):
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.remind, name, idx)
+        self.expect_ok(f"ui.remind({self.pg}, {cv})", ok)
+
+    def s_redate(self, name, idx, new):
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.redate_claim, name, idx, new)
+        self.expect_ok(f"ui.redate({self.pg}, {cv}, {ts(new)})", ok)
+
+    def s_split(self, name, idx, amount):
+        cv = self.cvar(name, idx)
+        pv = self.pvar(name)
+        call = f"ui.split({self.pg}, {pv}, {cv}, {ts(amount)})"
+        try:
+            c = self.m.split_claim(name, idx, amount)
+        except Refused:
+            self.emit(f"expect(await {call}).toBeNull();")
+            return
+        c.var = self.var(f"c_{slugify(name)}_{c.idx}")
+        self.emit(f"const {c.var} = ui.must(await {call});")
+
     def s_open_both(self, a, b) -> None:
         (n1, i1, u1), (n2, i2, u2) = a, b
         for u in (u1, u2):
@@ -274,20 +378,35 @@ class Renderer:
         # the assertion, and each claim's own number cell accepts either.
         self.raced[c1] = self.raced[c2] = nums
 
-    def s_rate(self, grade, pct, start=None) -> None:
+    def s_rate(self, grade, pct, start=None, end=None) -> None:
         f = {"grade": grade, "pct": pct}
         if start and self.m.has("rate_dated"):
             f["from"] = start
-        ok = self.attempt(self.m.set_rate, grade, pct, start)
+        if end and self.m.has("rate_ended"):
+            f["to"] = end
+        ok = self.attempt(self.m.set_rate, grade, pct, start, end)
         self.expect_ok(f"ui.setRate({self.pg}, {ts(f)})", ok)
 
     def s_period(self, name, start, end) -> None:
         ok = self.attempt(self.m.add_period, name, start, end)
         self.expect_ok(f"ui.addPeriod({self.pg}, {ts({'name': name, 'from': start, 'to': end})})", ok)
 
+    def s_generate_periods(self, start, end) -> None:
+        call = f"ui.generatePeriods({self.pg}, {ts(start)}, {ts(end)})"
+        try:
+            made = self.m.generate_periods(start, end)
+        except Refused:
+            self.emit(f"expect(await {call}).toBeNull();")
+            return
+        self.emit(f"expect(await {call}).toBe({made});")
+
     def s_close(self, name) -> None:
         ok = self.attempt(self.m.close_period, name)
         self.expect_ok(f"ui.periodAction({self.pg}, {ts(name)}, \"close\")", ok)
+
+    def s_soft_close(self, name) -> None:
+        ok = self.attempt(self.m.soft_close_period, name)
+        self.expect_ok(f"ui.periodAction({self.pg}, {ts(name)}, \"soft-close\")", ok)
 
     def s_reopen(self, name) -> None:
         ok = self.attempt(self.m.reopen_period, name)
@@ -308,18 +427,22 @@ class Renderer:
             self.emit(f"const {p.var} = await ui.personId({self.pg}, {ts(p.name)});")
 
     def s_retire(self, name, when) -> None:
-        self.m.retire(name, when)
-        self.expect_ok(f"ui.retire({self.pg}, {self.pvar(name)}, {ts(when)})", True)
+        ok = self.attempt(self.m.retire, name, when)
+        self.expect_ok(f"ui.retire({self.pg}, {self.pvar(name)}, {ts(when)})", ok)
 
     def s_hold(self, name, start=None, end=None) -> None:
-        self.m.hold(name, start, end)
+        ok = self.attempt(self.m.hold, name, start, end)
         f = {}
         if self.m.has("hold_interval"):
             if start:
                 f["from"] = start
             if end:
                 f["to"] = end
-        self.expect_ok(f"ui.hold({self.pg}, {self.pvar(name)}, {ts(f)})", True)
+        self.expect_ok(f"ui.hold({self.pg}, {self.pvar(name)}, {ts(f)})", ok)
+
+    def s_watch(self, name, on: bool) -> None:
+        ok = self.attempt(self.m.watch, name, on)
+        self.expect_ok(f"ui.watch({self.pg}, {self.pvar(name)}, {'true' if on else 'false'})", ok)
 
     def s_show_retired(self, on: bool) -> None:
         self.m.set_show_retired(on)
@@ -329,9 +452,32 @@ class Renderer:
         ok = self.attempt(self.m.set_role, user, role)
         self.expect_ok(f"ui.setRole({self.pg}, {ts(user)}, {ts(role)})", ok)
 
-    def s_setting(self, key, value) -> None:
-        self.m.set_setting(key, value)
-        self.emit(f"await ui.setSetting({self.pg}, {ts(key)}, {ts(value)});")
+    def s_delegate(self, user, start, end) -> None:
+        ok = self.attempt(self.m.delegate, user, start, end)
+        self.expect_ok(f"ui.delegate({self.pg}, {ts({'user': user, 'from': start, 'to': end})})", ok)
+
+    def s_archive(self) -> None:
+        ok = self.attempt(self.m.archive_sheet)
+        self.expect_ok(f"ui.archive({self.pg})", ok)
+
+    def s_asof(self, d: str) -> None:
+        self.m.set_asof(d)
+        self.emit(f"await ui.setAsOf({self.pg}, {ts(d)});")
+
+    def s_asof_clear(self) -> None:
+        self.m.set_asof(None)
+        self.emit(f"await ui.clearAsOf({self.pg});")
+
+    def s_setting(self, key, value, start=None) -> None:
+        if start and self.m.has("settings_dated"):
+            ok = self.attempt(self.m.set_setting, key, value, start)
+            shows = self.m.setting(key) or ""
+            self.expect_ok(f"ui.setSettingDated({self.pg}, {ts(key)}, {ts(value)}, {ts(start)}, {ts(shows)})", ok)
+            return
+        if self.attempt(self.m.set_setting, key, value):
+            self.emit(f"await ui.setSetting({self.pg}, {ts(key)}, {ts(value)});")
+        else:
+            self.expect_ok(f"ui.setSettingTry({self.pg}, {ts(key)}, {ts(value)})", False)
 
     def s_patron(self, name, patron) -> None:
         ok = self.attempt(self.m.add_patron, name, patron)
@@ -349,6 +495,13 @@ class Renderer:
         self.emit(f"expect(await ui.bulkOpen({self.pg}, [{', '.join(cvs)}])).toEqual("
                   f"{{ opened: {opened}, refused: {len(res) - opened} }});")
 
+    def s_bulk_settle(self, items) -> None:
+        cvs = [self.cvar(n, i) for n, i in items]
+        res = self.m.bulk_settle(items)
+        done = sum(1 for r in res if r)
+        self.emit(f"expect(await ui.bulkSettle({self.pg}, [{', '.join(cvs)}])).toEqual("
+                  f"{{ settled: {done}, refused: {len(res) - done} }});")
+
     def s_export(self) -> None:
         self.emit(f"expect(await ui.exportCsv({self.pg})).toBe({ts(self.m.export_csv())});")
 
@@ -365,11 +518,15 @@ class Renderer:
             self.emit(f"await expect({pg}.getByTestId(\"sheet-current-id\")).toHaveText(sheet);")
         if spec.get("today") and self.n >= 2:
             self.emit(f"await expect({pg}.getByTestId(\"sheet-today\")).toHaveText({ts(v['today'])});")
+        if spec.get("sheet"):
+            for tid, val in v["sheet_cells"].items():
+                if SHEET_SINCE[tid] <= self.n:
+                    self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         for key, row in v["people"].items():
-            p = row["person"]
-            if not p.var:
+            pv = row["var"]
+            if not pv:
                 continue
-            rv = f"{pg}.getByTestId(\"person-row-\" + {p.var})"
+            rv = f"{pg}.getByTestId(\"person-row-\" + {pv})"
             if not row["visible"]:
                 if spec.get("people") or spec.get("claims"):
                     self.emit(f"await expect({rv}).toHaveCount(0);")
@@ -378,10 +535,14 @@ class Renderer:
                 tid = f"person-{cell}"
                 if tid in row["cells"]:
                     self.emit(f"await expect({rv}.getByTestId({ts(tid)})).toHaveText({ts(row['cells'][tid])});")
-            for c, cells in row["claims"]:
-                if not c.var:
+            if spec.get("person_periods") and self.n >= PERSON_PERIOD_SINCE:
+                for name, val in row["periods"].items():
+                    tid = f"person-period-{name}-due-total"
+                    self.emit(f"await expect({rv}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
+            for cvar, cells in row["claims"]:
+                if not cvar:
                     continue
-                cv = f"{pg}.getByTestId(\"claim-row-\" + {c.var})"
+                cv = f"{pg}.getByTestId(\"claim-row-\" + {cvar})"
                 for cell in spec.get("claims") or []:
                     tid = f"claim-{cell}"
                     if tid not in cells:
@@ -389,14 +550,17 @@ class Renderer:
                     val = cells[tid]
                     if isinstance(val, list):
                         self.emit(f"await expect({cv}.getByTestId({ts(tid + '-line')})).toHaveText({ts(val)});")
-                    elif tid == "claim-number" and c.var in self.raced and val in self.raced[c.var]:
-                        self.emit(f"await expect({cv}.getByTestId({ts(tid)})).toHaveText(/^({'|'.join(self.raced[c.var])})$/);")
+                    elif tid == "claim-number" and cvar in self.raced and val in self.raced[cvar]:
+                        self.emit(f"await expect({cv}.getByTestId({ts(tid)})).toHaveText(/^({'|'.join(self.raced[cvar])})$/);")
                     else:
                         self.emit(f"await expect({cv}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("rollups"):
             for tid, val in v["rollups"].items():
                 if ROLLUP_SINCE[tid] > self.n:
                     continue
+                self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
+        if spec.get("counters") and self.n >= HEADER_SINCE:
+            for tid, val in v["header"].items():
                 self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("periods"):
             for name, cells in v["periods"].items():
@@ -410,6 +574,8 @@ class Renderer:
                 self.emit(f"await expect({pg}.getByTestId({ts('rate-current-' + g)})).toHaveText({ts(val)});")
         if spec.get("summary") and self.n >= 31:
             for tid, val in v["summary"].items():
+                if summary_since(tid) > self.n:
+                    continue
                 self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("audit") and self.n >= 6:
             body = ",\n      ".join(tpl(line) for line in self.m.audit_text(self.n))
@@ -430,6 +596,8 @@ def render_test(n: int, k: int, script: list, off=(), lenient: bool = False) -> 
                 continue
             if off:
                 return None
+            if isinstance(e, HiddenRow):
+                raise RuntimeError(f"cp{n:02d} script at k={k}: {e.args[0]}")
             raise RuntimeError(f"cp{n:02d} script at k={k}: step {st!r} refers to a missing row ({e!r})")
     return r.lines
 
@@ -578,7 +746,7 @@ def copy_path(n: int, prior: int) -> str:
     return f"acceptance/specs/cp{n:02d}/cp{prior:02d}_{SLUG[prior]}.spec.ts"
 
 
-def build(check_only: bool, with_density: bool = True) -> int:
+def build(check_only: bool, with_density: bool = True, jobs: int = 1) -> int:
     lo, hi = COVERAGE
     problems: list[str] = []
     files: dict[str, str] = {}
@@ -622,9 +790,14 @@ def build(check_only: bool, with_density: bool = True) -> int:
     # density: the pressure each checkpoint puts on the rules already in force
     reports = []
     if with_density:
-        for n in range(lo, hi + 1):
-            rep = density(n)
-            reports.append(rep)
+        ns = list(range(lo, hi + 1))
+        if jobs > 1:
+            with Pool(jobs) as pool:
+                reports = pool.map(density, ns, chunksize=1)
+        else:
+            reports = [density(n) for n in ns]
+        for rep in reports:
+            n = rep["n"]
             if n >= MIN_DEGREE_FROM:
                 for r, partners in rep["partners"].items():
                     if len(partners) < MIN_DEGREE:
@@ -701,12 +874,14 @@ def main(argv=None) -> int:
     ap.add_argument("--config", default="config.yaml")
     ap.add_argument("--check", action="store_true", help="verify only; write nothing")
     ap.add_argument("--no-density", action="store_true", help="skip the pairwise interaction metric")
+    ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 1),
+                    help="processes for the density metric")
     args = ap.parse_args(argv)
     cfg = yaml.safe_load(open(os.path.join(HARNESS_ROOT, args.config))) or {}
     if cfg.get("checkpoints_file", "checkpoints.yaml") != "checkpoints.yaml":
         print("error: this builder writes checkpoints.yaml", file=sys.stderr)
         return 2
-    return build(args.check, with_density=not args.no_density)
+    return build(args.check, with_density=not args.no_density, jobs=args.jobs)
 
 
 if __name__ == "__main__":
