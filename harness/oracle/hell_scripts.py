@@ -969,11 +969,40 @@ def cp72(k):
 
 
 def cp73(k):
+    chk = {"people": ["due-total", "statement-count", "stated-total", "statement-date", "hold", "retired"],
+           "claims": ["due", "status", "stated"], "rollups": True, "periods": True}
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B")),
+                 rates=(("A", "10.00"), ("B", "12.50"))) + [
+        ("role", "wes", "viewer"), ("role", "vic", "steward"),
+        ("setting", "floor", "2.00"), ("setting", "late-pct", "10.00"), ("setting", "terms", "5"),
+        ("period", "P1", "2026-03-01", "2026-03-10"),
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("claim", "Ben", "4.00"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0),
+        ("today", "2026-03-05"), ("rate", "A", "20.00"), ("as", "vic"), ("settle", "Ada", 0),
+        ("as", "uma"), ("statement", "Ada", "2026-03-01"),
+        ("check", chk),
+        ("statement", "Ada", "2026-03-20"),
+        ("today", "2026-03-10"), ("hold", "Ada", "2026-03-01", None), ("retire", "Ben", "2026-03-10"),
+        ("show_retired", True), ("statement", "Ben", "2026-03-09"), ("statement", "Ben", "2026-03-10"),
+        ("close", "P1"), ("today", "2026-03-20"), ("rate", "A", "30.00"), ("claim", "Ada", "7.77"),
+        ("open", "Ada", 2), ("statement", "Ada", "2026-03-05"),
+        ("check", dict(chk, rates=True, summary=True)),
+        ("as", "wes"), ("statement", "Ada", "2026-03-05"),
+        ("as", "vic"), ("unstate", "Ada"),
+        ("check", chk),
+        ("statement", "Ada", "2026-03-20"), ("statement", "Ada"),
+        ("check", chk),
+        ("archive",), ("statement", "Ada", "2026-03-05"),
+        ("check", {"people": ["statement-count", "stated-total", "statement-date"], "claims": ["stated"],
+                   "audit": True})]
+
+
+def cp74(k):
     return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=(("A", "10.00"),)) + [
         ("setting", "terms", "5"), ("period", "P1", "2026-03-01", "2026-03-10"),
         ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("open", "Ada", 0), ("open", "Ada", 1),
         ("today", "2026-03-05"), ("rate", "A", "20.00"), ("as", "vic"), ("settle", "Ada", 0),
-        ("as", "uma"), ("statement", "Ada"), ("person", "Ben", "B"),
+        ("as", "uma"), ("statement", "Ada", "2026-03-01"), ("person", "Ben", "B"),
         ("today", "2026-03-10"), ("hold", "Ada", "2026-03-01", None), ("retire", "Ben", "2026-03-10"),
         ("close", "P1"), ("today", "2026-03-20"), ("rate", "A", "30.00"),
         ("check", {"people": ["due-total", "hold", "retired", "statement-count", "overdue-total"],
@@ -983,7 +1012,7 @@ def cp73(k):
         ("check", {"people": ["due-total", "hold", "retired", "statement-count", "overdue-total"],
                    "claims": ["due", "status", "stated", "overdue"], "rollups": True, "periods": True,
                    "rates": True, "summary": True, "counters": True, "sheet": True}),
-        ("open", "Ada", 1), ("rate", "A", "40.00"), ("today", "2026-03-21"),
+        ("statement", "Ada", "2026-03-01"), ("open", "Ada", 1), ("rate", "A", "40.00"), ("today", "2026-03-21"),
         ("asof", "2026-03-07"),
         ("check", {"people": ["due-total", "hold", "retired", "statement-count", "overdue-total"],
                    "claims": ["due", "status", "stated", "overdue"], "rollups": True, "periods": True,
@@ -991,23 +1020,12 @@ def cp73(k):
         ("asof", "2026-03-10"),
         ("check", {"people": ["due-total", "hold", "retired"], "claims": ["due", "status"], "rollups": True,
                    "periods": True, "sheet": True}),
-        ("as", "vic"),
-        ("check", {"people": ["due-total"], "claims": ["due", "status"], "sheet": True}),
+        ("as", "vic"), ("statement", "Ada", "2026-03-05"),
+        ("check", {"people": ["due-total", "statement-count", "statement-date"], "claims": ["due", "status", "stated"],
+                   "sheet": True}),
         ("as", "uma"), ("asof_clear",),
-        ("check", {"people": ["due-total", "hold"], "claims": ["due", "status"], "rollups": True, "sheet": True,
-                   "audit": True})]
-
-
-def cp74(k):
-    return _base(k, people=(("Ada", "A"),), rates=(("A", "10.00"),)) + [
-        ("role", "wes", "viewer"), ("role", "vic", "steward"),
-        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("open", "Ada", 0),
-        ("remind", "Ada", 0), ("remind", "Ada", 0), ("remind", "Ada", 1),
-        ("as", "wes"), ("remind", "Ada", 0),
-        ("as", "uma"), ("today", "2026-03-11"), ("remind", "Ada", 0),
-        ("check", {"claims": ["reminded", "status"]}),
-        ("as", "vic"), ("archive",), ("today", "2026-03-12"), ("remind", "Ada", 0),
-        ("check", {"claims": ["reminded"], "audit": True})]
+        ("check", {"people": ["due-total", "hold", "statement-count", "statement-date"], "claims": ["due", "status", "stated"],
+                   "rollups": True, "sheet": True, "audit": True})]
 
 
 def cp75(k):

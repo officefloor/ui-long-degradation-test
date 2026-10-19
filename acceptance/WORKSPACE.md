@@ -97,7 +97,7 @@ changes what every prior spec expects.
 | 68 | M | **backing is the patrons' settled figures of the last 90 days** |
 | 69–71 | A | an open editor locks the claim for other users; soft close (figures fixed, late entries allowed); cancel the last statement |
 | 72 | M | **a retired person's open claims leave the live totals** from the retirement date |
-| 73–75 | A | **the as-of view**: every cell as of a date, by replaying every change made while the sheet's today was on or before it; reminders once a day; bulk grade |
+| 73–75 | A | **a statement as of a date**: the claims bound to their figures as they stood at the end of that day, asof= in the audit; **the as-of view**: every cell as of a date, by replaying every change made while the sheet's today was on or before it; bulk grade |
 | 76 | M | **SNAPSHOT lines** for every person on every change of the sheet's today, before the change takes effect |
 | 77–79 | A | a dated note threshold (no open with an empty note above it); age buckets; an entry date as the default claim date |
 | 80 | M | **a claim belongs to the period containing its due-by date**: totals, numbering and closed-period refusals follow |

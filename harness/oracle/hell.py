@@ -29,7 +29,9 @@ Figures (two decimals, dot, no grouping; `n/a` when undefined):
                        person into being) is followed in the audit by one ROLLUP line per person
                        changed, in list order, then TOTALS when the sheet's totals changed; the
                        overdue-total moves it too from cp44.
-  as-of (cp73)         every cell as it stood at the end of the last sheet-today on or before a
+  statement as-of (cp73) a statement taken as of a date binds the person's claims to their
+                       figures as they stood at the end of that day, and writes asof= in the audit.
+  as-of (cp74)         every cell as it stood at the end of the last sheet-today on or before a
                        date: the model replays its journal of successful writes up to that day.
 """
 from __future__ import annotations
@@ -107,8 +109,8 @@ RULES = {
     "soft_close": 70,    # a soft-closed period fixes its total but takes late entries
     "unstate": 71,       # a steward cancels the last statement
     "retire_excludes": 72,  # a retired person's open claims leave the live totals
-    "asof": 73,          # the as-of view renders every cell as of a date
-    "remind": 74,        # one reminder per claim per sheet-today
+    "statement_asof": 73,  # a statement as of a date binds the figures as they stood then
+    "asof": 74,          # the as-of view renders every cell as of a date
     "bulk_grade": 75,    # selected people get a dated grade together
     "snapshot": 76,      # SNAPSHOT lines on every change of the sheet's today
     "note_required": 77, # above the note threshold, no open with an empty note
@@ -129,7 +131,7 @@ SINCE = {
     "person_period": 47, "settings_dated": 48, "paste": 49, "deferred": 50, "proofs": 51,
     "perms": 53, "viewer": 54, "auto_close": 55, "split": 57, "notify": 58, "templates": 59,
     "delegation": 61, "archive": 62, "person_terms": 63, "void_settled": 65, "redate": 66,
-    "active": 67, "lock": 69, "soft_close": 70, "unstate": 71, "asof": 73, "remind": 74,
+    "active": 67, "lock": 69, "soft_close": 70, "unstate": 71, "statement_asof": 73, "asof": 74,
     "bulk_grade": 75, "note_required": 77, "age": 78, "entry_date": 79,
 }
 
@@ -145,7 +147,7 @@ CELL_SINCE = {
     "claim-number": 9, "claim-opened-by": 13, "claim-stated": 15, "claim-period": 17,
     "claim-due-by": 25, "claim-overdue": 25, "claim-corrects": 30, "claim-log": 39,
     "claim-deferred": 50, "claim-deferred-until": 50, "claim-proofs": 51, "claim-split-from": 57,
-    "claim-late-entry": 70, "claim-reminded": 74,
+    "claim-late-entry": 70,
 }
 
 DEFAULT_FLOOR = Decimal("1.00")
@@ -217,7 +219,6 @@ class Claim:
     proofs: int = 0                                  # cp51
     split_from: str = ""                             # the number of the claim this was split off (cp57)
     late_entry: bool = False                         # added into a soft-closed period (cp70)
-    reminded: date | None = None                     # cp74
     var: str = ""
 
 
@@ -238,8 +239,9 @@ def write(fn):
     before the write (a person who did not exist before counts as changed), in list order, then
     TOTALS claimed-total=<x> due-total=<y> when the sheet's totals differ. A refused write (an
     exception) writes nothing. Writes nest (quick-add, bulk open): the inner ones report. Every
-    successful top-level write is journaled for the as-of replay (cp73). A write is refused
-    outright under the user's as-of view (cp73), on an archived sheet (cp62) and by a viewer (cp54)."""
+    successful top-level write is journaled for the as-of replay (cp73, cp74), in a replay too so
+    that a statement as of a date (cp73) inside the replay can replay in turn. A write is refused
+    outright under the user's as-of view (cp74), on an archived sheet (cp62) and by a viewer (cp54)."""
     def inner(self, *a, **kw):
         if self._depth == 0 and not self._replay:
             if self.on("asof") and self.asof.get(self.user):
@@ -303,7 +305,7 @@ class Model:
         self.delegations: list[tuple] = []               # (user, from, to, steward) (cp61)
         self.archived = False                            # cp62
         self.watching: dict[str, set] = {}               # user -> person keys (cp58)
-        self.asof: dict[str, date] = {}                  # user -> as-of date (cp73)
+        self.asof: dict[str, date] = {}                  # user -> as-of date (cp74)
         self.journal: list = []                          # (user, today, method, args, kwargs)
         self._depth = 0
         self._replay = False
@@ -316,7 +318,7 @@ class Model:
         return self.k >= SINCE[feature]
 
     def _journal(self, name: str, a: tuple, kw: dict, today_before: date) -> None:
-        if self._depth == 0 and not self._replay:
+        if self._depth == 0:
             self.journal.append((self.user, today_before, name, a, kw))
 
     def delegator(self, user: str | None = None) -> str | None:
@@ -484,7 +486,7 @@ class Model:
     def edit_open(self, name: str) -> None:
         p = self.person(name)
         self.editing[self.user] = (self._key(p), p.version)
-        if self._depth == 0 and not self._replay:
+        if self._depth == 0:
             self.journal.append((self.user, self.today, "edit_open", (name,), {}))
 
     def _key(self, p: Person) -> str:
@@ -769,7 +771,7 @@ class Model:
         self.audit_line("SHEET_ARCHIVED")
 
     def set_asof(self, d: str | None) -> None:
-        """cp73: the current user's screen shows every cell as of the date (None clears it)."""
+        """cp74: the current user's screen shows every cell as of the date (None clears it)."""
         if d is None:
             self.asof.pop(self.user, None)
         elif self.on("asof"):
@@ -1163,15 +1165,6 @@ class Model:
         self.audit_line("CLAIM_REDATED", *self._ident(c), ("old", old.isoformat(), 66), ("new", new, 66))
         return c
 
-    @write
-    def remind(self, name: str, idx: int) -> Claim:
-        c = self.claim(name, idx)
-        if not self.on("remind") or c.status not in ("OPEN", "PENDING") or c.reminded == self.today:
-            raise Refused("claim-error")
-        c.reminded = self.today
-        self.audit_line("REMIND", *self._ident(c))
-        return c
-
     def quick_add(self, name: str, amount: str) -> Claim:
         # one transaction: a claim that would be refused leaves no new person behind
         self._amount(amount, None)
@@ -1226,13 +1219,16 @@ class Model:
         return self.base(c)
 
     @write
-    def statement(self, name: str) -> Person:
+    def statement(self, name: str, asof: str | None = None) -> Person:
         """State the person: every claim that counts now is bound to its base figure as of now
         (the late charge is never stated), every other claim of theirs is unstated, and the
-        statement's due-total is kept on the row and in the audit."""
+        statement's due-total is kept on the row and in the audit. With a date (cp73) the
+        statement is taken as of that date instead."""
         p = self.person(name)
         if not self.has("statement"):
             raise Refused("person-error")
+        if asof and self.on("statement_asof"):
+            return self._statement_asof(p, day(asof))
         counted = [c for c in self.person_claims(p) if self.counts(c)]
         if self.on("statement"):
             bases = {id(c): self.statement_figure(c) for c in counted}
@@ -1248,6 +1244,34 @@ class Model:
         p.statement_log.append((p.stated_total, p.stated_on, [c.seq for c in counted]))
         self.audit_line("STATEMENT", ("name", p.name, 15), ("due-total", p.stated_total, 15),
                         ("claims", len(counted), 15))
+        return p
+
+    def _statement_asof(self, p: Person, d: date) -> Person:
+        """cp73: the statement as of `d`: the person's claims that counted at the end of that day
+        (every write journaled while the sheet's today was on or before `d`, with `d` as today) are
+        bound to their figures as they stood then, every other claim of theirs is unstated, and
+        the row keeps `d` as the statement date and that day's due-total as the stated total.
+        A date after the sheet's today is refused."""
+        if d > self.today:
+            raise Refused("person-error")
+        r = self.asof_model(d)
+        rp = r.people.get(p.name) or next((q for q in r.people.values() if q.order == p.order), None)
+        if rp is None:
+            raise Refused("person-error")
+        counted = [rc for rc in r.person_claims(rp) if r.counts(rc)]
+        bases = {rc.seq: r.statement_figure(rc) for rc in counted}
+        if self.on("statement"):
+            for rc in r.person_claims(rp):
+                rc.stated = ("n/a" if bases[rc.seq] is None else bases[rc.seq]) if rc.seq in bases else None
+            for c in self.person_claims(p):
+                c.stated = ("n/a" if bases[c.seq] is None else bases[c.seq]) if c.seq in bases else None
+        v = r.due_total(rp)
+        p.statements += 1
+        p.stated_total = "n/a" if v is None else money(v)
+        p.stated_on = d
+        p.statement_log.append((p.stated_total, p.stated_on, list(bases)))
+        self.audit_line("STATEMENT", ("name", p.name, 15), ("due-total", p.stated_total, 15),
+                        ("claims", len(counted), 15), ("asof", d.isoformat(), 73))
         return p
 
     @write
@@ -1549,8 +1573,6 @@ class Model:
             cells["claim-split-from"] = c.split_from
         if self.has("soft_close"):
             cells["claim-late-entry"] = "yes" if c.late_entry else "no"
-        if self.has("remind"):
-            cells["claim-reminded"] = c.reminded.isoformat() if c.reminded else ""
         return cells
 
     def person_cells(self, p: Person) -> dict:
@@ -1647,7 +1669,7 @@ class Model:
                         "n/a" if v is None else money(v)])
         return buf.getvalue()
 
-    # ---- the as-of view (cp73) --------------------------------------------------------------
+    # ---- the as-of view (cp74) --------------------------------------------------------------
     def asof_model(self, d: date) -> "Model":
         """The sheet as it stood at the end of the last sheet-today on or before `d`: every
         successful write journaled while the sheet's today was on or before `d`, replayed in
@@ -1727,7 +1749,7 @@ SLUG = {
     61: "delegation", 62: "archive-sheet", 63: "person-terms", 64: "floor-after-late",
     65: "void-settled", 66: "redate-claim", 67: "active-people", 68: "backing-recent-settled",
     69: "claim-lock", 70: "soft-close", 71: "cancel-statement", 72: "retired-leave-totals",
-    73: "as-of-view", 74: "remind", 75: "bulk-grade", 76: "snapshots",
+    73: "statement-as-of", 74: "as-of-view", 75: "bulk-grade", 76: "snapshots",
     77: "note-required", 78: "age-buckets", 79: "entry-date", 80: "period-by-due-by",
 }
 AREA = {n: "calc" for n in range(1, 81)}
@@ -1735,7 +1757,7 @@ AREA.update({1: "entity", 2: "entity", 3: "entity", 5: "entity", 6: "audit", 16:
              17: "entity", 23: "entity", 27: "relation", 31: "view", 33: "view", 39: "view",
              41: "view", 44: "audit", 45: "entity", 47: "view", 49: "entity", 53: "entity",
              54: "entity", 58: "audit", 59: "entity", 61: "entity", 62: "entity", 67: "view",
-             69: "entity", 73: "view", 74: "audit", 75: "entity", 76: "audit", 78: "view"})
+             69: "entity", 73: "audit", 74: "view", 75: "entity", 76: "audit", 78: "view"})
 
 REQUESTS = {
     1: """Anyone using the app first signs in by typing a name; there is no password. The signed-in
@@ -2113,18 +2135,24 @@ one, and the row shows the statement before it (or nothing).""",
 OPEN and PENDING claims leave every live total, as a hold's would; their SETTLED claims still
 count, and a claim bound by a statement stays in the totals. Retiring, and a change of the sheet's
 today that reaches a retirement date, moves figures like any other change.""",
-    73: """An as-of date can be set on the screen (an entry, a set button and a clear button; show the
+    73: """A statement can be taken as of a date on or before the sheet's today (a date entry beside the
+statement button; blank takes the statement now). It binds the person's claims that counted at the
+end of that date to their figures as they stood then: every change made while the sheet's today
+was on or before that date counts, every later change does not, and that date stands in for the
+sheet's today in every figure (the grade and rate in force, the floor, late charges, holds,
+retirements, closed periods). Every other claim of theirs is unstated, as a statement does. The
+row shows that date as the statement date and that day's due-total as the stated total; STATEMENT
+gains asof=<date> at its end when a date was given. A date after the sheet's today is refused with
+an error on the person.""",
+    74: """An as-of date can be set on the screen (an entry, a set button and a clear button; show the
 as-of date, or nothing). While it is set, every figure and flag on the screen for the signed-in
 user, in every row, every total, the header, the periods, the rates and the summary, is shown as
 it stood at the end of the last day on or before that date: every change made while the sheet's
 today was on or before the as-of date counts, every later change does not, and the as-of date
 stands in for the sheet's today in every figure (overdue, late charges, holds, deferrals,
-retirements, the grade and rate in force). The audit file is unaffected, and every change is
-refused with its usual error while the as-of date is set. The as-of date belongs to the signed-in
-user's screen; other users are unaffected.""",
-    74: """A reminder can be sent for an OPEN or PENDING claim (a button on the claim; REMIND naming the
-claim), at most once per claim per sheet-today: a second press on the same day is refused with an
-error on the claim. Show on the claim the date of its last reminder, or nothing.""",
+retirements, the grade and rate in force). The audit file is unaffected, and every change,
+a statement as of a date included, is refused with its usual error while the as-of date is set.
+The as-of date belongs to the signed-in user's screen; other users are unaffected.""",
     75: """People can be selected (a checkbox on each row) and given a grade together: a grade, a from-date
 (default the sheet's today) and a button. Each selected person, in list order, gets that grade
 from that date exactly as the person form would, with the same PERSON_EDITED and rollup lines.

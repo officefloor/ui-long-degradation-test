@@ -213,6 +213,16 @@ export async function statement(page: Page, personId: string): Promise<boolean> 
     r.getByTestId('person-error'), 'statement');
 }
 
+/** Take the person's statement as of a date: true once the statement count has moved on. */
+export async function statementAsOf(page: Page, personId: string, date: string): Promise<boolean> {
+  const r = row(page, personId);
+  const was = await shown(r.getByTestId('person-statement-count'));
+  await r.getByTestId('person-statement-asof').fill(date);
+  await r.getByTestId('person-statement').click();
+  return until(page, async () => await shown(r.getByTestId('person-statement-count')) !== was,
+    r.getByTestId('person-error'), 'statement as of');
+}
+
 /** Cancel the person's last statement: true once the statement count has moved on. */
 export async function unstate(page: Page, personId: string): Promise<boolean> {
   const r = row(page, personId);
@@ -437,15 +447,6 @@ export async function addProof(page: Page, claimId: string): Promise<boolean> {
   await c.getByTestId('claim-proof').click();
   return until(page, async () => (await shown(c.getByTestId('claim-proofs'))) !== was,
     c.getByTestId('claim-error'), 'add proof');
-}
-
-/** Send a reminder for the claim: true once the row shows a new reminder date. */
-export async function remind(page: Page, claimId: string): Promise<boolean> {
-  const c = claimRow(page, claimId);
-  const was = await shown(c.getByTestId('claim-reminded'));
-  await c.getByTestId('claim-remind').click();
-  return until(page, async () => (await shown(c.getByTestId('claim-reminded'))) !== was,
-    c.getByTestId('claim-error'), 'remind');
 }
 
 /** Re-date a claim: true once the row shows the new date. */

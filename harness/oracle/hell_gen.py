@@ -75,8 +75,6 @@ def apply(m: hell.Model, st: tuple) -> None:
             m.reject_claim(*a)
         elif op == "proof":
             m.add_proof(*a)
-        elif op == "remind":
-            m.remind(*a)
         elif op == "split":
             m.split_claim(*a)
         elif op == "rate":
@@ -122,7 +120,7 @@ def apply(m: hell.Model, st: tuple) -> None:
         elif op == "bulk_grade":
             m.bulk_grade(*a)
         elif op == "statement":
-            m.statement(a[0])
+            m.statement(*a)
         elif op == "unstate":
             m.unstate(a[0])
         elif op == "asof":
@@ -139,7 +137,7 @@ def apply(m: hell.Model, st: tuple) -> None:
 
 ROW_OPS = {"claim": (0,), "claim2": (0,), "claim_edit": (0,), "claim_edit_open": (0,), "claim_edit_save": (0,),
            "claim_edit_cancel": (0,), "open": (0,), "settle": (0,), "void": (0,), "approve": (0,), "reject": (0,),
-           "resettle": (0,), "defer": (0,), "proof": (0,), "remind": (0,), "redate": (0,), "split": (0,),
+           "resettle": (0,), "defer": (0,), "proof": (0,), "redate": (0,), "split": (0,),
            "edit": (0,), "hold": (0,), "patron": (0,), "statement": (0,), "unstate": (0,), "watch": (0,),
            "retire": (0,), "reassign": (0, 2)}
 
@@ -490,10 +488,10 @@ class _Gen:
         stated = [p.name for p in people if p.statements]
         if self.has("unstate") and self.steward and stated:
             out.append((0.8, [("as", self.steward), ("unstate", rnd.choice(stated))]))
-        if self.has("remind") and (opens or pending):
-            name, idx, _ = rnd.choice(opens + pending)
-            out.append((1.0, [("remind", name, idx), ("remind", name, idx)] if rnd.random() < 0.3
-                       else [("remind", name, idx)]))
+        if self.has("statement_asof") and names:
+            future = [d for d in DATES if hell.day(d) > m.today]
+            when = rnd.choice(future) if future and rnd.random() < 0.2 else self.past_date()
+            out.append((1.5, [("statement", rnd.choice(names), when)]))
         if self.has("bulk_grade") and len(names) >= 2:
             chosen = rnd.sample(names, 2)
             st = ("bulk_grade", chosen, rnd.choice(GRADES))

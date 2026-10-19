@@ -845,10 +845,25 @@ checkpoints:
       count, and a claim bound by a statement stays in the totals. Retiring, and a change of the sheet's
       today that reaches a retirement date, moves figures like any other change.
 
-  - id: cp73_as-of-view
+  - id: cp73_statement-as-of
+    type: additive
+    area: audit
+    test: acceptance/specs/cp73_statement-as-of.spec.ts
+    request: |
+      A statement can be taken as of a date on or before the sheet's today (a date entry beside the
+      statement button; blank takes the statement now). It binds the person's claims that counted at the
+      end of that date to their figures as they stood then: every change made while the sheet's today
+      was on or before that date counts, every later change does not, and that date stands in for the
+      sheet's today in every figure (the grade and rate in force, the floor, late charges, holds,
+      retirements, closed periods). Every other claim of theirs is unstated, as a statement does. The
+      row shows that date as the statement date and that day's due-total as the stated total; STATEMENT
+      gains asof=<date> at its end when a date was given. A date after the sheet's today is refused with
+      an error on the person.
+
+  - id: cp74_as-of-view
     type: additive
     area: view
-    test: acceptance/specs/cp73_as-of-view.spec.ts
+    test: acceptance/specs/cp74_as-of-view.spec.ts
     request: |
       An as-of date can be set on the screen (an entry, a set button and a clear button; show the
       as-of date, or nothing). While it is set, every figure and flag on the screen for the signed-in
@@ -856,18 +871,9 @@ checkpoints:
       it stood at the end of the last day on or before that date: every change made while the sheet's
       today was on or before the as-of date counts, every later change does not, and the as-of date
       stands in for the sheet's today in every figure (overdue, late charges, holds, deferrals,
-      retirements, the grade and rate in force). The audit file is unaffected, and every change is
-      refused with its usual error while the as-of date is set. The as-of date belongs to the signed-in
-      user's screen; other users are unaffected.
-
-  - id: cp74_remind
-    type: additive
-    area: audit
-    test: acceptance/specs/cp74_remind.spec.ts
-    request: |
-      A reminder can be sent for an OPEN or PENDING claim (a button on the claim; REMIND naming the
-      claim), at most once per claim per sheet-today: a second press on the same day is refused with an
-      error on the claim. Show on the claim the date of its last reminder, or nothing.
+      retirements, the grade and rate in force). The audit file is unaffected, and every change,
+      a statement as of a date included, is refused with its usual error while the as-of date is set.
+      The as-of date belongs to the signed-in user's screen; other users are unaffected.
 
   - id: cp75_bulk-grade
     type: additive

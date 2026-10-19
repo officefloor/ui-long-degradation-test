@@ -56,7 +56,7 @@ ROLLUP_SINCE = {"rollup-claimed-total": 5, "rollup-due-total": 7,
 PERIOD_SINCE = {"period-due-total": 17, "period-closed": 18}
 HEADER_SINCE = 41
 PERSON_PERIOD_SINCE = 47
-SHEET_SINCE = {"sheet-archived": 62, "sheet-asof": 73}
+SHEET_SINCE = {"sheet-archived": 62, "sheet-asof": 74}
 
 
 def summary_since(key: str) -> int:
@@ -157,8 +157,12 @@ class Renderer:
         else:
             self.expect_ok(f"ui.setTodayTry({self.pg}, {ts(d)})", False)
 
-    def s_statement(self, name: str) -> None:
+    def s_statement(self, name: str, asof: str | None = None) -> None:
         assert self.k >= hell.SINCE["statement"], "statement is only rendered from cp15"
+        if asof and self.m.has("statement_asof"):
+            ok = self.attempt(self.m.statement, name, asof)
+            self.expect_ok(f"ui.statementAsOf({self.pg}, {self.pvar(name)}, {ts(asof)})", ok)
+            return
         ok = self.attempt(self.m.statement, name)
         self.expect_ok(f"ui.statement({self.pg}, {self.pvar(name)})", ok)
 
@@ -335,11 +339,6 @@ class Renderer:
         cv = self.cvar(name, idx)
         ok = self.attempt(self.m.add_proof, name, idx)
         self.expect_ok(f"ui.addProof({self.pg}, {cv})", ok)
-
-    def s_remind(self, name, idx):
-        cv = self.cvar(name, idx)
-        ok = self.attempt(self.m.remind, name, idx)
-        self.expect_ok(f"ui.remind({self.pg}, {cv})", ok)
 
     def s_redate(self, name, idx, new):
         cv = self.cvar(name, idx)

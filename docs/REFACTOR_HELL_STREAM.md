@@ -15,7 +15,11 @@ material below, re-cut to the three engines: dated settings in force on the clai
 figures by status as of the period's end, the late charge per boundary, the floor after the late
 charge, trimmed totals, snapshots on every today change, periods by due-by, and an as-of view that
 replays every change made on or before a date. The table in `acceptance/WORKSPACE.md` §2 is the
-built sequence._
+built sequence. Later the same day cp73 became a statement as of a date (the figures as they stood at
+the end of that day, bound and written to the audit with asof=) and the as-of view moved to cp74,
+replacing reminders: the two Act I chains showed every figure computed once in the browser for the
+screen and again on the server for the audit, so the reconstruction is demanded first where only the
+server can answer it, and the screen's as-of view comes one checkpoint later._
 
 ## 1. Why the current stream does not erode
 
