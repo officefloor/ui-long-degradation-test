@@ -210,8 +210,9 @@ paths:
   # with the RUN ID in its path (run_experiment.per_run_dirs), so two runs on one machine never
   # share a write area:
   #   work_root/<run_id>/<condition>-chainN      the chain worktree (and -capture, its staging)
-  #   sandbox_root/<run_id>                      the agent's cwd, rebuilt fresh each turn; it has
-  #                                              no worktree/.git/results siblings to walk into
+  #   sandbox_root/<run_id>/<stack>              the agent's cwd, named after the stack repo and
+  #                                              rebuilt fresh each turn; no worktree/.git/results
+  #                                              siblings to walk into
   #   tmp_root/<run_id>                          the run's temp directory, given to every process
   #                                              (TMPDIR and java.io.tmpdir) and the ONLY scratch
   #                                              space on the agent's Landlock allowlist: /tmp is

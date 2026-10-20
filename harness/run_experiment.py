@@ -565,7 +565,8 @@ def per_run_dirs(cfg: dict, run_id: str) -> None:
     overwrite each other, and anything left behind says which run left it:
 
         work_root/<run_id>/<condition>-chainN[-capture]   the chain worktree, its staged capture
-        sandbox_root/<run_id>                              the agent's working directory (cwd)
+        sandbox_root/<run_id>/<stack>                      the agent's working directory (cwd),
+                                                           named after the stack repo it mirrors
         tmp_root/<run_id>                                  the run's temp directory, in place of /tmp
 
     The temp directory is handed to every process of the run — the gate's build, app and
@@ -580,7 +581,8 @@ def per_run_dirs(cfg: dict, run_id: str) -> None:
         root = paths.get(key)
         if not root or os.path.abspath(root) in ("/", os.path.expanduser("~"), "/tmp"):
             raise RuntimeError(f"paths.{key} must be a dedicated directory, not {root!r}")
-    paths["sandbox"] = os.path.join(paths["sandbox_root"], run_id)
+    stack = os.path.basename(os.path.normpath(cfg["app"]["repo"]))
+    paths["sandbox"] = os.path.join(paths["sandbox_root"], run_id, stack)
     paths["tmp"] = os.path.join(paths["tmp_root"], run_id)
     os.makedirs(paths["tmp"], exist_ok=True)
     for var in ("TMPDIR", "TMP", "TEMP"):
@@ -970,8 +972,9 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         shutil.rmtree(cap_dir, ignore_errors=True)
     os.makedirs(cap_dir, exist_ok=True)
 
-    sandbox = cfg["paths"]["sandbox"]          # sandbox_root/<run_id>, see per_run_dirs
+    sandbox = cfg["paths"]["sandbox"]          # sandbox_root/<run_id>/<stack>, see per_run_dirs
     shutil.rmtree(sandbox, ignore_errors=True)
+    os.makedirs(os.path.dirname(sandbox), exist_ok=True)
 
     # Regressions are relative to the last scored suite, so a resumed chain must reload it.
     baseline = baseline_from_capture(wt, done) if resume else correctness.Baseline()
@@ -1162,8 +1165,8 @@ def main() -> int:
                          "carries its run id (see per_run_dirs), so nothing else collides")
     ap.add_argument("--sandbox-root",
                     help="make this run's sandbox (the agent's working directory) at "
-                         "<root>/<run_id> instead of under config paths.sandbox_root; a dedicated "
-                         "directory")
+                         "<root>/<run_id>/<stack> instead of under config paths.sandbox_root; a "
+                         "dedicated directory")
     ap.add_argument("--tmp-root",
                     help="make this run's private temp directory at <root>/<run_id> instead of "
                          "under config paths.tmp_root; a dedicated directory")
