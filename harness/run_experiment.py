@@ -182,7 +182,7 @@ def make_worktree(app_cfg: dict, work_root: str, condition: str, chain: int,
     branch = f"evolve/{run_id}/{condition}/chain{chain}"
     if branch == base_ref or not branch.startswith("evolve/"):
         raise RuntimeError(f"refusing to write to non-evolve branch {branch!r}")
-    wt = os.path.join(work_root, run_id, f"{condition}-chain{chain}")
+    wt = os.path.join(work_root, "runs", run_id, f"{condition}-chain{chain}")
     if resume:
         if not _branch_exists(repo, branch):
             raise RuntimeError(
@@ -566,11 +566,11 @@ def per_run_dirs(cfg: dict, run_id: str) -> None:
     per purpose, so two runs on one machine can never overwrite each other and anything left
     behind says which run left it and what it was for:
 
-        work_root/<run_id>/<condition>-chainN            the chain worktree (the app's git checkout)
-        work_root/<run_id>/<condition>-chainN-capture    its staged capture, before it is committed
-        work_root/<run_id>/sandbox/<stack>               the agent's working directory (cwd), named
+        work_root/runs/<run_id>/<condition>-chainN            the chain worktree (the app's git checkout)
+        work_root/runs/<run_id>/<condition>-chainN-capture    its staged capture, before it is committed
+        work_root/runs/<run_id>/sandbox/<stack>               the agent's working directory (cwd), named
                                                          after the stack repo it mirrors
-        work_root/<run_id>/tmp                           the run's temp directory, in place of /tmp
+        work_root/runs/<run_id>/tmp                           the run's temp directory, in place of /tmp
 
     The agent's Landlock allowlist holds ONLY the sandbox and tmp subtrees: work_root, the run
     directory and the worktree beside them are unlisted and verified denied before every turn
@@ -589,7 +589,7 @@ def per_run_dirs(cfg: dict, run_id: str) -> None:
     if not root or os.path.abspath(root) in ("/", os.path.expanduser("~"), "/tmp"):
         raise RuntimeError(f"paths.work_root must be a dedicated directory, not {root!r}")
     stack = os.path.basename(os.path.normpath(cfg["app"]["repo"]))
-    paths["run_dir"] = os.path.join(root, run_id)
+    paths["run_dir"] = os.path.join(root, "runs", run_id)
     paths["sandbox"] = os.path.join(paths["run_dir"], "sandbox", stack)
     paths["tmp"] = os.path.join(paths["run_dir"], "tmp")
     os.makedirs(paths["tmp"], exist_ok=True)
@@ -1020,7 +1020,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         shutil.rmtree(cap_dir, ignore_errors=True)
     os.makedirs(cap_dir, exist_ok=True)
 
-    sandbox = cfg["paths"]["sandbox"]          # work_root/<run_id>/sandbox/<stack>, see per_run_dirs
+    sandbox = cfg["paths"]["sandbox"]          # work_root/runs/<run_id>/sandbox/<stack>, see per_run_dirs
     shutil.rmtree(sandbox, ignore_errors=True)
     os.makedirs(os.path.dirname(sandbox), exist_ok=True)
 
@@ -1247,7 +1247,7 @@ def main() -> int:
             f"config {args.config}: app.repo must NOT be set — the stack repo is passed per run "
             f"with --repo. Delete app.repo (found {cfg['app']['repo']!r}).")
     cfg["app"]["repo"], cfg["app"]["origin"] = stack_repo(args.repo)
-    # Everything the run writes goes under work_root/<run_id>, and the run's temp dir replaces
+    # Everything the run writes goes under work_root/runs/<run_id>, and the run's temp dir replaces
     # /tmp for every process from here on (preflight's confined smoke included).
     cfg["paths"]["work_root"] = resolve(cfg["paths"].get("work_root"))
     per_run_dirs(cfg, run_id)
@@ -1326,7 +1326,7 @@ def main() -> int:
     # One chain if asked for by number, else every chain the config declares. They run
     # SEQUENTIALLY: the run's sandbox and app.port are single-valued within a run, so concurrent
     # chains would fight over the sandbox and the port (two RUNS may share a machine: each claims
-    # its own port, and everything else a run writes is under work_root/<run_id>).
+    # its own port, and everything else a run writes is under work_root/runs/<run_id>).
     chains = [args.chain] if args.chain else list(range(1, max(1, int(cfg.get("chains") or 1)) + 1))
     print(f"run_id={run_id} model={cfg['model']} condition={condition} "
           f"port={cfg['app'].get('port')} run_dir={cfg['paths']['run_dir']} "

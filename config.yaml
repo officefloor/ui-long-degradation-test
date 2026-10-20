@@ -30,7 +30,7 @@ limits:
 # THE APP: the single external code folder that EVOLVES over the run (DESIGN.md §2, §14). One
 # Spring Boot app — base front-end shell + Spring-with-OfficeFloor plugin + Flyway (empty H2, no
 # tables) + the whole-stack start/stop scripts — all in one repo.
-# Only ever READ at base_ref; the harness mirrors it into work_root/sandbox (copy/sync + Landlock)
+# Only ever READ at base_ref; the harness mirrors it into runs/<run_id>/sandbox/<stack> (rsync + Landlock)
 # for the agent turn, and builds+runs it whole for the gate. Rebuilt each checkpoint; always one
 # JVM (embedded H2, static SPA), so embeddable under Landlock (§15).
 app:
@@ -209,14 +209,16 @@ isolation:
 
 paths:
   # MUST be absolute and EXTERNAL to the harness and the stack repos; a home/root//tmp path is
-  # refused. Everything a run WRITES lives under work_root/<run_id>, one subdirectory per purpose
-  # (run_experiment.per_run_dirs), so two runs on one machine never share a write area and every
-  # directory says which run it belongs to and what it is for:
-  #   <run_id>/<condition>-chainN            the chain worktree (and -capture, its staging)
-  #   <run_id>/sandbox/<stack>               the agent's cwd, named after the stack repo, rebuilt
+  # refused. Everything a run WRITES lives under work_root/runs/<run_id>, one subdirectory per
+  # purpose (run_experiment.per_run_dirs), so two runs on one machine never share a write area and
+  # every directory says which run it belongs to and what it is for; the port locks live apart
+  # from the runs, in work_root/ports:
+  #   runs/<run_id>/<condition>-chainN       the chain worktree (and -capture, its staging)
+  #   runs/<run_id>/sandbox/<stack>          the agent's cwd, named after the stack repo, rebuilt
   #                                          fresh each turn
-  #   <run_id>/tmp                           the run's temp directory, given to every process
+  #   runs/<run_id>/tmp                      the run's temp directory, given to every process
   #                                          (TMPDIR and java.io.tmpdir)
+  #   ports/<port>.lock                      the run id holding that port (run_experiment.claim_port)
   # The agent's Landlock allowlist holds ONLY sandbox/<stack> and tmp: work_root, the run
   # directory, the worktree beside them and /tmp are withheld and verified denied every turn.
   work_root: ${HOME}/ui-work
