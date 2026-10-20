@@ -76,7 +76,7 @@ def _source_config_dir() -> str:
 _OAUTH_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
 
 
-def _seed_clean_config_dir() -> Optional[str]:
+def _seed_clean_config_dir(tmp_dir: Optional[str] = None) -> Optional[str]:
     """Create a throwaway config dir for ONE agent turn and return its path (the caller
     sets CLAUDE_CONFIG_DIR to it and removes it after).
 
@@ -100,7 +100,9 @@ def _seed_clean_config_dir() -> Optional[str]:
     then produces are not comparable with any other run. Fail loudly instead; there is no
     legitimate configuration in which a run should proceed from here."""
     src = os.path.join(_source_config_dir(), _LOGIN_FILE)
-    cfg = tempfile.mkdtemp(prefix="pe-claude-cfg-")
+    # Under the run's private temp dir when given (paths.tmp_root/<run_id>): the agent is
+    # confined to it, and /tmp is not on its allowlist.
+    cfg = tempfile.mkdtemp(prefix="pe-claude-cfg-", dir=tmp_dir)
     if os.path.isfile(src):
         dst = os.path.join(cfg, _LOGIN_FILE)
         shutil.copy2(src, dst)
@@ -354,7 +356,7 @@ def _print_event(ev: dict, prefix: str) -> None:
 def run_agent(prompt: str, cwd: str, model: str, timeout: int = 3600,
               allowed_tools: Optional[str] = None, stream: bool = True,
               label: str = "claude", capture_path: Optional[str] = None,
-              confine: Optional[dict] = None) -> AgentResult:
+              confine: Optional[dict] = None, tmp_dir: Optional[str] = None) -> AgentResult:
     """Run one fresh headless agent turn in `cwd`, streaming events to the
     console. No session is resumed. Returns the parsed terminal result, or an
     error result on timeout / missing completion.
@@ -368,16 +370,27 @@ def run_agent(prompt: str, cwd: str, model: str, timeout: int = 3600,
     every child it spawns — is Landlock-restricted to the sandbox + toolchain, so it
     cannot read the withheld tests/specs anywhere on the filesystem. Fails CLOSED:
     if Landlock is unavailable or the sentinel self-check finds withheld material
-    still readable, the turn is refused (no agent runs) rather than run un-blinded."""
+    still readable, the turn is refused (no agent runs) rather than run un-blinded.
+
+    `tmp_dir` is the run's private temp directory (paths.tmp_root/<run_id>): the throwaway
+    config dir is made there, the child gets it as TMPDIR/TMP/TEMP and as java.io.tmpdir (the
+    JVM ignores TMPDIR), and it is the only temp directory on the Landlock allowlist, /tmp
+    being withheld. So nothing the agent writes to scratch is shared with another run."""
     cmd = ["claude", "-p", prompt, *invocation_flags(model, allowed_tools)]
 
     # Isolate Claude's config/memory to a fresh login-only dir for this one call,
     # so nothing (memory, history, session state) leaks across checkpoints, chains
     # or arms. Removed in `finally`; the real ~/.claude is untouched.
-    cfg_dir = _seed_clean_config_dir()
+    cfg_dir = _seed_clean_config_dir(tmp_dir)
     child_env = strip_harness_python_env(os.environ.copy())
     if cfg_dir:
         child_env["CLAUDE_CONFIG_DIR"] = cfg_dir
+    if tmp_dir:
+        for var in ("TMPDIR", "TMP", "TEMP"):
+            child_env[var] = tmp_dir
+        jto = f"-Djava.io.tmpdir={tmp_dir}"
+        if jto not in child_env.get("JAVA_TOOL_OPTIONS", ""):
+            child_env["JAVA_TOOL_OPTIONS"] = (child_env.get("JAVA_TOOL_OPTIONS", "") + " " + jto).strip()
 
     # Filesystem confinement (see landlock.py). Built here so the sandbox (=cwd) and
     # the throwaway cfg_dir are in the allowlist; refused if it can't be enforced.
@@ -388,7 +401,7 @@ def run_agent(prompt: str, cwd: str, model: str, timeout: int = 3600,
                 shutil.rmtree(cfg_dir, ignore_errors=True)
             return AgentResult(ok=False, error="agent_confinement enabled but Landlock "
                                "unavailable on this host; refusing to run agent unconfined")
-        ro, rw = landlock.default_allowlist(cwd, cfg_dir)
+        ro, rw = landlock.default_allowlist(cwd, cfg_dir, tmp_dir=tmp_dir)
         ro += list(confine.get("ro", []))
         rw += list(confine.get("rw", []))
         sentinels = list(confine.get("sentinels", []))
@@ -514,7 +527,8 @@ def run_agent(prompt: str, cwd: str, model: str, timeout: int = 3600,
 
 def probe(question: str, cwd: str, model: str, expected: Optional[list[str]] = None,
           timeout: int = 900, capture_path: Optional[str] = None,
-          confine: Optional[dict] = None, poll_seconds: int = 1800) -> dict:
+          confine: Optional[dict] = None, poll_seconds: int = 1800,
+          tmp_dir: Optional[str] = None) -> dict:
     """Cold-reader comprehension probe (read-only).
 
     Re-asked verbatim at each phase boundary. As the Spring hotspot method
@@ -528,7 +542,7 @@ def probe(question: str, cwd: str, model: str, expected: Optional[list[str]] = N
     while True:
         res = run_agent(question, cwd=cwd, model=model, timeout=timeout,
                         allowed_tools=PROBE_TOOLS, label="probe",
-                        capture_path=capture_path, confine=confine)
+                        capture_path=capture_path, confine=confine, tmp_dir=tmp_dir)
         if not (res.limit_reached or res.retryable):
             break
         transient = transient + 1 if not res.limit_reached else 0

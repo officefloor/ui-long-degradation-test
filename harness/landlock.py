@@ -77,11 +77,18 @@ def _handled_mask(abi: int) -> int:
     return m
 
 
-def default_allowlist(sandbox: str, cfg_dir: str | None, home: str | None = None):
-    """(ro, rw) path lists exposing ONLY the sandbox + the toolchain. Everything
-    else (harness repo, checkpoints.yaml, pe-work, compare, Trash, the rest of
-    $HOME) is absent from both lists and therefore denied. Missing paths are
-    skipped at apply time, so the lists are safe supersets."""
+def default_allowlist(sandbox: str, cfg_dir: str | None, home: str | None = None,
+                      tmp_dir: str | None = None):
+    """(ro, rw) path lists exposing ONLY the sandbox + the toolchain + the run's own temp
+    directory. Everything else (harness repo, checkpoints.yaml, pe-work, compare, Trash, the
+    rest of $HOME, and /tmp itself) is absent from both lists and therefore denied. Missing
+    paths are skipped at apply time, so the lists are safe supersets.
+
+    /tmp is withheld on purpose: a run hands every process its own `tmp_dir`
+    (paths.tmp_root/<run_id>, see run_experiment.per_run_dirs), so two runs sharing a machine
+    never share scratch space, and nothing an agent leaves in temp is readable by the next
+    run's agent. A caller that passes no tmp_dir gets an allowlist with NO writable temp
+    directory at all, which fails loudly rather than quietly sharing /tmp."""
     home = home or os.path.expanduser("~")
     ro = ["/usr", "/etc", "/opt", "/bin", "/lib", "/lib64", "/sbin", "/proc",
           "/sys",                             # Chromium renderers read /sys at startup (CPU/cgroup
@@ -94,7 +101,7 @@ def default_allowlist(sandbox: str, cfg_dir: str | None, home: str | None = None
           os.path.join(home, ".local/bin"),
           os.path.join(home, ".config"),
           os.path.join(home, ".sdkman")]
-    rw = ["/tmp", "/dev",
+    rw = ["/dev",
           os.path.join(home, ".m2"),      # shared Maven repo (deps + the plugin's node/npm archives)
           os.path.join(home, ".npm"),     # npm cacache — `npm ci` reads/writes it every build (the
                                           #   stack excludes node_modules from the mirror, so each turn
@@ -103,6 +110,8 @@ def default_allowlist(sandbox: str, cfg_dir: str | None, home: str | None = None
                                           #   justification as ~/.m2.
           os.path.join(home, ".cache"),   # Playwright browser binaries (~/.cache/ms-playwright) etc.
           sandbox]
+    if tmp_dir:
+        rw.append(tmp_dir)
     if cfg_dir:
         rw.append(cfg_dir)
     return ro, rw

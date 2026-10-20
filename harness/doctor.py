@@ -286,6 +286,22 @@ def _agent_env() -> dict:
         return dict(os.environ)
 
 
+def _run_dirs(cfg: dict) -> tuple[str, str]:
+    """The agent's cwd and temp directory a turn gets: the run's own (run_experiment.per_run_dirs
+    sets paths.sandbox and paths.tmp), else a doctor-owned stand-in under the configured roots,
+    so a standalone doctor checks the same shape of allowlist a run applies. The temp dir is
+    created, because landlock._apply skips an absent path."""
+    paths = cfg.get("paths") or {}
+
+    def _p(key, default):
+        return os.path.expanduser(os.path.expandvars(str(paths.get(key) or default)))
+
+    sandbox = _p("sandbox", os.path.join(_p("sandbox_root", "~/ui-sandbox"), "doctor"))
+    tmp = _p("tmp", os.path.join(_p("tmp_root", "~/ui-tmp"), "doctor"))
+    os.makedirs(tmp, exist_ok=True)
+    return sandbox, tmp
+
+
 def _effective_allowlist(cfg: dict) -> tuple[list[str], list[str]] | None:
     """The (ro, rw) the turn actually enforces: run_experiment._confine_config (which carries
     the config's extra_*_binds) unioned with landlock.default_allowlist, which agent.run_agent
@@ -294,11 +310,10 @@ def _effective_allowlist(cfg: dict) -> tuple[list[str], list[str]] | None:
     iso = ((cfg.get("isolation") or {}).get("agent_confinement") or {})
     if not iso.get("enabled") or os.environ.get("HARNESS_NO_CONFINE"):
         return None
-    sandbox = (cfg.get("paths") or {}).get("sandbox_root") or "~/ui-sandbox"
-    sandbox = os.path.expanduser(os.path.expandvars(str(sandbox)))
+    sandbox, tmp = _run_dirs(cfg)
     try:
         from . import landlock, run_experiment      # deferred: run_experiment imports doctor
-        ro, rw = landlock.default_allowlist(sandbox, None)
+        ro, rw = landlock.default_allowlist(sandbox, None, tmp_dir=tmp)
         conf = run_experiment._confine_config(cfg, sandbox)
         if conf:
             ro = list(ro) + list(conf.get("ro") or [])
@@ -309,7 +324,7 @@ def _effective_allowlist(cfg: dict) -> tuple[list[str], list[str]] | None:
         # toolchain question still gets an answer.
         try:
             from . import landlock
-            ro, rw = landlock.default_allowlist(sandbox, None)
+            ro, rw = landlock.default_allowlist(sandbox, None, tmp_dir=tmp)
         except Exception:                                       # noqa: BLE001
             return None
     return [str(p) for p in ro], [str(p) for p in rw]
@@ -413,14 +428,18 @@ def confined_smoke(cfg: dict, timeout: int = 60) -> list[Finding]:
     path = env.get("PATH") or ""
     out: list[Finding] = []
 
-    # cwd must itself be reachable confined; /tmp is on the rw list and always exists, whereas
-    # sandbox_root does not exist until a run creates it.
+    # cwd must itself be reachable confined; the run's temp dir is on the rw list and exists
+    # (_run_dirs creates it), whereas the sandbox does not exist until a run creates it. The
+    # probes get that temp dir exactly as the turn does: /tmp is not on the allowlist.
+    _, tmp = _run_dirs(cfg)
+    for var in ("TMPDIR", "TMP", "TEMP"):
+        env[var] = tmp
     import tempfile
     try:
-        cwd = tempfile.mkdtemp(prefix="harness-confined-smoke-", dir="/tmp")
+        cwd = tempfile.mkdtemp(prefix="harness-confined-smoke-", dir=tmp)
     except OSError as e:
         return [Finding("confined smoke", "smoke", BLOCKING, BROKEN,
-                        detail=f"cannot create a scratch dir under /tmp ({e})",
+                        detail=f"cannot create a scratch dir under {tmp} ({e})",
                         consequence="the smoke test could not run")]
 
     def run(argv, label, why, sev, cmd_path_check=True):
