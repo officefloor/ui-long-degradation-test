@@ -1123,6 +1123,15 @@ def main() -> int:
                          "(sequentially — chains share sandbox_root and the app port)")
     ap.add_argument("--run-id")
     ap.add_argument("--model")
+    ap.add_argument("--port", type=int,
+                    help="serve the app on this port instead of config app.port. Two runs can share "
+                         "a machine (two stacks side by side, so neither is favoured by going first "
+                         "or by a different agent build) only when each has its own --port AND "
+                         "--sandbox-root: the gate frees app.port before every start and the "
+                         "sandbox is wiped every turn")
+    ap.add_argument("--sandbox-root",
+                    help="the agent's working directory instead of config paths.sandbox_root; a "
+                         "dedicated directory, see --port")
     ap.add_argument("--from", dest="lo", type=int, default=1, help="first checkpoint (1-based)")
     ap.add_argument("--to", dest="hi", type=int, default=10**9, help="last checkpoint (inclusive)")
     ap.add_argument("--resume", action="store_true",
@@ -1165,6 +1174,14 @@ def main() -> int:
             f"config {args.config}: app.repo must NOT be set — the stack repo is passed per run "
             f"with --repo. Delete app.repo (found {cfg['app']['repo']!r}).")
     cfg["app"]["repo"], cfg["app"]["origin"] = stack_repo(args.repo)
+    if args.port:
+        cfg["app"]["port"] = args.port
+    if args.sandbox_root:
+        cfg["paths"]["sandbox_root"] = args.sandbox_root
+    # The agent's own bin/e2e serves on $PORT (default 3000); hand it the run's port, else two
+    # agents' self-tests fight over one port even when the gates do not.
+    if cfg["app"].get("port"):
+        os.environ["PORT"] = str(cfg["app"]["port"])
     # The layer source roots belong to the STACK, not this config (see stack_layers): they decide
     # what every per-layer metric and the ImpactGate's per-layer scoring even looks at.
     cfg["app"]["source_globs"], _layer_prov = stack_layers(
@@ -1234,10 +1251,12 @@ def main() -> int:
         cp["n"] = i
 
     # One chain if asked for by number, else every chain the config declares. They run
-    # SEQUENTIALLY: paths.sandbox_root and app.port are single-valued, so concurrent chains
-    # would fight over the sandbox and the port.
+    # SEQUENTIALLY: paths.sandbox_root and app.port are single-valued within a run, so concurrent
+    # chains would fight over the sandbox and the port (two RUNS may share a machine, each with
+    # its own --port and --sandbox-root).
     chains = [args.chain] if args.chain else list(range(1, max(1, int(cfg.get("chains") or 1)) + 1))
     print(f"run_id={run_id} model={cfg['model']} condition={condition} "
+          f"port={cfg['app'].get('port')} sandbox={cfg['paths']['sandbox_root']} "
           f"chains={','.join(str(c) for c in chains)} "
           f"checkpoints={args.lo}..{min(args.hi, len(checkpoints))}"
           + (" (resume)" if args.resume else ""), flush=True)
