@@ -162,6 +162,10 @@ def serve(worktree: str, cfg: dict):
     run_dir = os.path.join(worktree, ".run")
     os.makedirs(run_dir, exist_ok=True)
     audit_file = os.path.join(run_dir, "audit.log")
+    # Start the audit file empty: the app only appends, every spec filters by its own sheet id,
+    # and the specs re-read the whole file on every audit check, so a file that kept growing
+    # across a run's gates (21 MB by cp71 of run 202610192149) made every check slower.
+    open(audit_file, "w").close()
     env = os.environ.copy()
     env["PORT"] = str(port)
     env["BASE_URL"] = base_url
