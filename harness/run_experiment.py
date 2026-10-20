@@ -626,7 +626,7 @@ def claim_port(cfg: dict, run_id: str) -> int:
                 if fh.read().strip() == run_id:
                     return int(name[:-len(".lock")])
     base = int(cfg["app"].get("port") or 3000)
-    for port in range(base, base + 100):
+    for port in range(base, base + 500):
         lock = os.path.join(ports_dir, f"{port}.lock")
         if os.path.exists(lock) or not _port_free(port):
             continue
@@ -637,7 +637,7 @@ def claim_port(cfg: dict, run_id: str) -> int:
         with os.fdopen(fd, "w") as fh:
             fh.write(run_id + "\n")
         return port
-    raise RuntimeError(f"no free port in {base}..{base + 99}: every one has a lock file in "
+    raise RuntimeError(f"no free port in {base}..{base + 499}: every one has a lock file in "
                        f"{ports_dir} or is in use. Delete stale *.lock files there.")
 
 
