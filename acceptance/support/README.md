@@ -95,7 +95,7 @@ A refused action shows its error element (`<thing>-error`) with a message; submi
 action on that form or row clears it, so an error visible after a submit is that submit's
 refusal. The helpers wait on the screen's result or its error and return as soon as either
 shows (an error left over from before counts once it has been cleared and shown again, its
-text has changed, or half a second has passed with no result). An audit line may land a moment
+text has changed, or two seconds have passed with no result). An audit line may land a moment
 after the screen shows its result; the spec re-reads the file for up to three seconds, until it
 holds as many lines as expected. Loading a sheet id puts that sheet on screen; re-loading goes
 through a throwaway id (`<sheet>-reload`), which has no one on it, so the change is visible: the
