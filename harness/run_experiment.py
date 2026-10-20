@@ -26,6 +26,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -600,6 +601,46 @@ def per_run_dirs(cfg: dict, run_id: str) -> None:
         os.environ["JAVA_TOOL_OPTIONS"] = (os.environ.get("JAVA_TOOL_OPTIONS", "") + " " + jto).strip()
 
 
+def _port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("", port))
+            return True
+        except OSError:
+            return False
+
+
+def claim_port(cfg: dict, run_id: str) -> int:
+    """The run's app port, held by a lock file work_root/ports/<port>.lock whose content is the
+    run id. A run that finds a lock file naming it (a resume, a later chain) uses that port; a
+    new run walks up from app.port (3000) to the first port with no lock file that is also free
+    to bind right now, and claims it by creating the lock atomically (O_EXCL), so two runs
+    starting at once cannot both take it. One file per port and nothing else to keep in step.
+    To start the numbering again, delete work_root/ports/*.lock (a run that is still going keeps
+    its port only as long as its lock file exists, so do that between runs)."""
+    ports_dir = os.path.join(cfg["paths"]["work_root"], "ports")
+    os.makedirs(ports_dir, exist_ok=True)
+    for name in sorted(os.listdir(ports_dir)):
+        if name.endswith(".lock"):
+            with open(os.path.join(ports_dir, name)) as fh:
+                if fh.read().strip() == run_id:
+                    return int(name[:-len(".lock")])
+    base = int(cfg["app"].get("port") or 3000)
+    for port in range(base, base + 100):
+        lock = os.path.join(ports_dir, f"{port}.lock")
+        if os.path.exists(lock) or not _port_free(port):
+            continue
+        try:
+            fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except FileExistsError:
+            continue
+        with os.fdopen(fd, "w") as fh:
+            fh.write(run_id + "\n")
+        return port
+    raise RuntimeError(f"no free port in {base}..{base + 99}: every one has a lock file in "
+                       f"{ports_dir} or is in use. Delete stale *.lock files there.")
+
+
 def _confine_config(cfg: dict, sandbox: str) -> dict | None:
     """Landlock confine dict for the agent turn, or None to run unconfined.
 
@@ -1161,15 +1202,9 @@ def main() -> int:
     ap.add_argument("--condition", help="intervention condition (default active_condition)")
     ap.add_argument("--chain", type=int,
                     help="run ONE chain by number; omitted runs chains 1..N from config `chains` "
-                         "(sequentially — chains share the run's sandbox and the app port)")
+                         "(sequentially — chains share the run's sandbox and its port)")
     ap.add_argument("--run-id")
     ap.add_argument("--model")
-    ap.add_argument("--port", type=int,
-                    help="serve the app on this port instead of config app.port. Two runs can share "
-                         "a machine (two stacks side by side, so neither is favoured by going first "
-                         "or by a different agent build) when each has its own --port: the gate "
-                         "frees app.port before every start, and everything else a run writes "
-                         "is under work_root/<run_id> (see per_run_dirs), so nothing collides")
     ap.add_argument("--from", dest="lo", type=int, default=1, help="first checkpoint (1-based)")
     ap.add_argument("--to", dest="hi", type=int, default=10**9, help="last checkpoint (inclusive)")
     ap.add_argument("--resume", action="store_true",
@@ -1212,16 +1247,16 @@ def main() -> int:
             f"config {args.config}: app.repo must NOT be set — the stack repo is passed per run "
             f"with --repo. Delete app.repo (found {cfg['app']['repo']!r}).")
     cfg["app"]["repo"], cfg["app"]["origin"] = stack_repo(args.repo)
-    if args.port:
-        cfg["app"]["port"] = args.port
-    # The agent's own bin/e2e serves on $PORT (default 3000); hand it the run's port, else two
-    # agents' self-tests fight over one port even when the gates do not.
-    if cfg["app"].get("port"):
-        os.environ["PORT"] = str(cfg["app"]["port"])
     # Everything the run writes goes under work_root/<run_id>, and the run's temp dir replaces
     # /tmp for every process from here on (preflight's confined smoke included).
     cfg["paths"]["work_root"] = resolve(cfg["paths"].get("work_root"))
     per_run_dirs(cfg, run_id)
+    # The run's port is claimed by a lock file (claim_port), so two runs sharing a machine (two
+    # stacks side by side, so neither is favoured by going first or by a different agent build)
+    # never serve on one port. The agent's own bin/e2e serves on $PORT; hand it the run's port,
+    # else two agents' self-tests fight over one port even when the gates do not.
+    cfg["app"]["port"] = claim_port(cfg, run_id)
+    os.environ["PORT"] = str(cfg["app"]["port"])
     # The layer source roots belong to the STACK, not this config (see stack_layers): they decide
     # what every per-layer metric and the ImpactGate's per-layer scoring even looks at.
     cfg["app"]["source_globs"], _layer_prov = stack_layers(
@@ -1290,8 +1325,8 @@ def main() -> int:
 
     # One chain if asked for by number, else every chain the config declares. They run
     # SEQUENTIALLY: the run's sandbox and app.port are single-valued within a run, so concurrent
-    # chains would fight over the sandbox and the port (two RUNS may share a machine, each with
-    # its own --port: everything else a run writes is under work_root/<run_id>).
+    # chains would fight over the sandbox and the port (two RUNS may share a machine: each claims
+    # its own port, and everything else a run writes is under work_root/<run_id>).
     chains = [args.chain] if args.chain else list(range(1, max(1, int(cfg.get("chains") or 1)) + 1))
     print(f"run_id={run_id} model={cfg['model']} condition={condition} "
           f"port={cfg['app'].get('port')} run_dir={cfg['paths']['run_dir']} "

@@ -49,8 +49,11 @@ app:
                                     #   Flyway migrates empty H2 up to this checkpoint's schema on
                                     #   boot; Spring serves the SPA (static/) + OfficeFloor REST
   stop_cmd: bin/stop                # kill the JVM / free PORT (in-mem H2 dies with it). Idempotent.
-  port: 3000
-  health_url: http://localhost:3000/actuator/health   # Spring Actuator; correctness.wait_ready
+  port: 3000                        # the FIRST port of the range: a run claims the lowest port from
+                                    #   here with no work_root/ports/<port>.lock and free to bind,
+                                    #   and writes its run id into that lock (run_experiment.
+                                    #   claim_port); a resume finds its id there and reuses the port
+  health_url: http://localhost:<port>/actuator/health   # Spring Actuator; correctness.wait_ready
   # Erosion is measured per layer (DESIGN.md §8): front-end TS (file-scope container) and backend
   # Java (class-scope, comparable to the REST arm) tracked as SEPARATE series.
   # FALLBACK ONLY. The layer source roots are declared by the STACK, in its own `stack.yaml` at
