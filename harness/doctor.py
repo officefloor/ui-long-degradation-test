@@ -288,16 +288,17 @@ def _agent_env() -> dict:
 
 def _run_dirs(cfg: dict) -> tuple[str, str]:
     """The agent's cwd and temp directory a turn gets: the run's own (run_experiment.per_run_dirs
-    sets paths.sandbox and paths.tmp), else a doctor-owned stand-in under the configured roots,
-    so a standalone doctor checks the same shape of allowlist a run applies. The temp dir is
+    sets paths.sandbox and paths.tmp), else a doctor-owned stand-in work_root/doctor/{sandbox,tmp}
+    of the same shape, so a standalone doctor checks the allowlist a run applies. The temp dir is
     created, because landlock._apply skips an absent path."""
     paths = cfg.get("paths") or {}
 
     def _p(key, default):
         return os.path.expanduser(os.path.expandvars(str(paths.get(key) or default)))
 
-    sandbox = _p("sandbox", os.path.join(_p("sandbox_root", "~/ui-sandbox"), "doctor"))
-    tmp = _p("tmp", os.path.join(_p("tmp_root", "~/ui-tmp"), "doctor"))
+    stand_in = os.path.join(_p("work_root", "~/ui-work"), "doctor")
+    sandbox = _p("sandbox", os.path.join(stand_in, "sandbox"))
+    tmp = _p("tmp", os.path.join(stand_in, "tmp"))
     os.makedirs(tmp, exist_ok=True)
     return sandbox, tmp
 

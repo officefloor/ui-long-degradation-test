@@ -100,7 +100,7 @@ def _seed_clean_config_dir(tmp_dir: Optional[str] = None) -> Optional[str]:
     then produces are not comparable with any other run. Fail loudly instead; there is no
     legitimate configuration in which a run should proceed from here."""
     src = os.path.join(_source_config_dir(), _LOGIN_FILE)
-    # Under the run's private temp dir when given (paths.tmp_root/<run_id>): the agent is
+    # Under the run's private temp dir when given (work_root/<run_id>/tmp): the agent is
     # confined to it, and /tmp is not on its allowlist.
     cfg = tempfile.mkdtemp(prefix="pe-claude-cfg-", dir=tmp_dir)
     if os.path.isfile(src):
@@ -372,7 +372,7 @@ def run_agent(prompt: str, cwd: str, model: str, timeout: int = 3600,
     if Landlock is unavailable or the sentinel self-check finds withheld material
     still readable, the turn is refused (no agent runs) rather than run un-blinded.
 
-    `tmp_dir` is the run's private temp directory (paths.tmp_root/<run_id>): the throwaway
+    `tmp_dir` is the run's private temp directory (work_root/<run_id>/tmp): the throwaway
     config dir is made there, the child gets it as TMPDIR/TMP/TEMP and as java.io.tmpdir (the
     JVM ignores TMPDIR), and it is the only temp directory on the Landlock allowlist, /tmp
     being withheld. So nothing the agent writes to scratch is shared with another run."""

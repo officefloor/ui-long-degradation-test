@@ -561,29 +561,36 @@ def _layer_src_dirs(cfg: dict) -> list[str]:
 
 
 def per_run_dirs(cfg: dict, run_id: str) -> None:
-    """Every directory a run WRITES carries the run id, so two runs on one machine can never
-    overwrite each other, and anything left behind says which run left it:
+    """Everything a run WRITES lives under ONE directory named after the run, one subdirectory
+    per purpose, so two runs on one machine can never overwrite each other and anything left
+    behind says which run left it and what it was for:
 
-        work_root/<run_id>/<condition>-chainN[-capture]   the chain worktree, its staged capture
-        sandbox_root/<run_id>/<stack>                      the agent's working directory (cwd),
-                                                           named after the stack repo it mirrors
-        tmp_root/<run_id>                                  the run's temp directory, in place of /tmp
+        work_root/<run_id>/<condition>-chainN            the chain worktree (the app's git checkout)
+        work_root/<run_id>/<condition>-chainN-capture    its staged capture, before it is committed
+        work_root/<run_id>/sandbox/<stack>               the agent's working directory (cwd), named
+                                                         after the stack repo it mirrors
+        work_root/<run_id>/tmp                           the run's temp directory, in place of /tmp
+
+    The agent's Landlock allowlist holds ONLY the sandbox and tmp subtrees: work_root, the run
+    directory and the worktree beside them are unlisted and verified denied before every turn
+    (_confine_config's sentinels), so the agent cannot reach the checkout's .git history or the
+    full spec suite the gate installs there.
 
     The temp directory is handed to every process of the run — the gate's build, app and
     Playwright, and the agent's turn and everything it spawns — as TMPDIR/TMP/TEMP (node,
     Playwright, Chromium, python) and as java.io.tmpdir through JAVA_TOOL_OPTIONS (the JVM
     ignores TMPDIR, and Spring Boot's Tomcat unpacks under java.io.tmpdir). It is the ONLY temp
-    directory on the agent's Landlock allowlist: /tmp is withheld and verified denied before
-    every turn (_confine_config's sentinels), so nothing the agent writes to scratch is shared
-    with another run or readable by a later one. Sets paths.sandbox and paths.tmp on cfg."""
+    directory on the allowlist: /tmp is withheld and verified denied too, so nothing the agent
+    writes to scratch is shared with another run or readable by a later one. Sets
+    paths.run_dir, paths.sandbox and paths.tmp on cfg."""
     paths = cfg["paths"]
-    for key in ("work_root", "sandbox_root", "tmp_root"):
-        root = paths.get(key)
-        if not root or os.path.abspath(root) in ("/", os.path.expanduser("~"), "/tmp"):
-            raise RuntimeError(f"paths.{key} must be a dedicated directory, not {root!r}")
+    root = paths.get("work_root")
+    if not root or os.path.abspath(root) in ("/", os.path.expanduser("~"), "/tmp"):
+        raise RuntimeError(f"paths.work_root must be a dedicated directory, not {root!r}")
     stack = os.path.basename(os.path.normpath(cfg["app"]["repo"]))
-    paths["sandbox"] = os.path.join(paths["sandbox_root"], run_id, stack)
-    paths["tmp"] = os.path.join(paths["tmp_root"], run_id)
+    paths["run_dir"] = os.path.join(root, run_id)
+    paths["sandbox"] = os.path.join(paths["run_dir"], "sandbox", stack)
+    paths["tmp"] = os.path.join(paths["run_dir"], "tmp")
     os.makedirs(paths["tmp"], exist_ok=True)
     for var in ("TMPDIR", "TMP", "TEMP"):
         os.environ[var] = paths["tmp"]
@@ -632,9 +639,9 @@ def _confine_config(cfg: dict, sandbox: str) -> dict | None:
                  os.path.join(HARNESS_ROOT, "acceptance", "WORKSPACE.md"),
                  os.path.join(HARNESS_ROOT, "checkpoints.yaml"),
                  "/tmp"]      # the machine's shared scratch: the run has its own (per_run_dirs)
-    wr = (cfg.get("paths") or {}).get("work_root")
-    if wr:
-        sentinels.append(wr)
+    for key in ("work_root", "run_dir"):   # the worktrees; this run's own directory beside the sandbox
+        if (cfg.get("paths") or {}).get(key):
+            sentinels.append(cfg["paths"][key])
     sents = [s for s in sentinels if os.path.exists(s)]
     if not sents:
         # verify_denied only runs when there is something to check; an empty set would skip the
@@ -972,7 +979,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         shutil.rmtree(cap_dir, ignore_errors=True)
     os.makedirs(cap_dir, exist_ok=True)
 
-    sandbox = cfg["paths"]["sandbox"]          # sandbox_root/<run_id>/<stack>, see per_run_dirs
+    sandbox = cfg["paths"]["sandbox"]          # work_root/<run_id>/sandbox/<stack>, see per_run_dirs
     shutil.rmtree(sandbox, ignore_errors=True)
     os.makedirs(os.path.dirname(sandbox), exist_ok=True)
 
@@ -1161,15 +1168,8 @@ def main() -> int:
                     help="serve the app on this port instead of config app.port. Two runs can share "
                          "a machine (two stacks side by side, so neither is favoured by going first "
                          "or by a different agent build) when each has its own --port: the gate "
-                         "frees app.port before every start, and every directory a run writes "
-                         "carries its run id (see per_run_dirs), so nothing else collides")
-    ap.add_argument("--sandbox-root",
-                    help="make this run's sandbox (the agent's working directory) at "
-                         "<root>/<run_id>/<stack> instead of under config paths.sandbox_root; a "
-                         "dedicated directory")
-    ap.add_argument("--tmp-root",
-                    help="make this run's private temp directory at <root>/<run_id> instead of "
-                         "under config paths.tmp_root; a dedicated directory")
+                         "frees app.port before every start, and everything else a run writes "
+                         "is under work_root/<run_id> (see per_run_dirs), so nothing collides")
     ap.add_argument("--from", dest="lo", type=int, default=1, help="first checkpoint (1-based)")
     ap.add_argument("--to", dest="hi", type=int, default=10**9, help="last checkpoint (inclusive)")
     ap.add_argument("--resume", action="store_true",
@@ -1214,19 +1214,13 @@ def main() -> int:
     cfg["app"]["repo"], cfg["app"]["origin"] = stack_repo(args.repo)
     if args.port:
         cfg["app"]["port"] = args.port
-    if args.sandbox_root:
-        cfg["paths"]["sandbox_root"] = args.sandbox_root
-    if args.tmp_root:
-        cfg["paths"]["tmp_root"] = args.tmp_root
     # The agent's own bin/e2e serves on $PORT (default 3000); hand it the run's port, else two
     # agents' self-tests fight over one port even when the gates do not.
     if cfg["app"].get("port"):
         os.environ["PORT"] = str(cfg["app"]["port"])
-    # Every write area of the run carries the run id, and the run's temp dir replaces /tmp for
-    # every process from here on (preflight's confined smoke included).
-    for key in ("work_root", "sandbox_root", "tmp_root"):
-        cfg["paths"][key] = resolve(cfg["paths"].get(key)
-                                    or ("${HOME}/ui-tmp" if key == "tmp_root" else None))
+    # Everything the run writes goes under work_root/<run_id>, and the run's temp dir replaces
+    # /tmp for every process from here on (preflight's confined smoke included).
+    cfg["paths"]["work_root"] = resolve(cfg["paths"].get("work_root"))
     per_run_dirs(cfg, run_id)
     # The layer source roots belong to the STACK, not this config (see stack_layers): they decide
     # what every per-layer metric and the ImpactGate's per-layer scoring even looks at.
@@ -1297,11 +1291,11 @@ def main() -> int:
     # One chain if asked for by number, else every chain the config declares. They run
     # SEQUENTIALLY: the run's sandbox and app.port are single-valued within a run, so concurrent
     # chains would fight over the sandbox and the port (two RUNS may share a machine, each with
-    # its own --port: every directory a run writes carries its run id).
+    # its own --port: everything else a run writes is under work_root/<run_id>).
     chains = [args.chain] if args.chain else list(range(1, max(1, int(cfg.get("chains") or 1)) + 1))
     print(f"run_id={run_id} model={cfg['model']} condition={condition} "
-          f"port={cfg['app'].get('port')} sandbox={cfg['paths']['sandbox']} "
-          f"tmp={cfg['paths']['tmp']} work={os.path.join(cfg['paths']['work_root'], run_id)} "
+          f"port={cfg['app'].get('port')} run_dir={cfg['paths']['run_dir']} "
+          f"(sandbox/{os.path.basename(cfg['paths']['sandbox'])}, tmp, <condition>-chainN) "
           f"chains={','.join(str(c) for c in chains)} "
           f"checkpoints={args.lo}..{min(args.hi, len(checkpoints))}"
           + (" (resume)" if args.resume else ""), flush=True)

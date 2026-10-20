@@ -205,21 +205,18 @@ isolation:
     # — embeddable under Landlock. A Docker/daemon-backed stack could not run here.
 
 paths:
-  # All three MUST be absolute, EXTERNAL, and SEPARATE (see the REST arm's paths note); a
-  # home/root//tmp path is refused. Every directory a run WRITES sits under one of these roots
-  # with the RUN ID in its path (run_experiment.per_run_dirs), so two runs on one machine never
-  # share a write area:
-  #   work_root/<run_id>/<condition>-chainN      the chain worktree (and -capture, its staging)
-  #   sandbox_root/<run_id>/<stack>              the agent's cwd, named after the stack repo and
-  #                                              rebuilt fresh each turn; no worktree/.git/results
-  #                                              siblings to walk into
-  #   tmp_root/<run_id>                          the run's temp directory, given to every process
-  #                                              (TMPDIR and java.io.tmpdir) and the ONLY scratch
-  #                                              space on the agent's Landlock allowlist: /tmp is
-  #                                              withheld and verified denied before every turn
+  # MUST be absolute and EXTERNAL to the harness and the stack repos; a home/root//tmp path is
+  # refused. Everything a run WRITES lives under work_root/<run_id>, one subdirectory per purpose
+  # (run_experiment.per_run_dirs), so two runs on one machine never share a write area and every
+  # directory says which run it belongs to and what it is for:
+  #   <run_id>/<condition>-chainN            the chain worktree (and -capture, its staging)
+  #   <run_id>/sandbox/<stack>               the agent's cwd, named after the stack repo, rebuilt
+  #                                          fresh each turn
+  #   <run_id>/tmp                           the run's temp directory, given to every process
+  #                                          (TMPDIR and java.io.tmpdir)
+  # The agent's Landlock allowlist holds ONLY sandbox/<stack> and tmp: work_root, the run
+  # directory, the worktree beside them and /tmp are withheld and verified denied every turn.
   work_root: ${HOME}/ui-work
-  sandbox_root: ${HOME}/ui-sandbox
-  tmp_root: ${HOME}/ui-tmp
   results_csv: results/records.csv
 
 # ---------------------------------------------------------------------------------------------------

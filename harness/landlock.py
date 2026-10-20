@@ -85,7 +85,7 @@ def default_allowlist(sandbox: str, cfg_dir: str | None, home: str | None = None
     paths are skipped at apply time, so the lists are safe supersets.
 
     /tmp is withheld on purpose: a run hands every process its own `tmp_dir`
-    (paths.tmp_root/<run_id>, see run_experiment.per_run_dirs), so two runs sharing a machine
+    (work_root/<run_id>/tmp, see run_experiment.per_run_dirs), so two runs sharing a machine
     never share scratch space, and nothing an agent leaves in temp is readable by the next
     run's agent. A caller that passes no tmp_dir gets an allowlist with NO writable temp
     directory at all, which fails loudly rather than quietly sharing /tmp."""
