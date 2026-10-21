@@ -52,16 +52,9 @@ from .oracle.hell_scripts import SCRIPTS
 
 MIN_DEGREE, MIN_DEGREE_FROM = 2, 17     # a new rule must cross >= 2 earlier ones from cp17 on
 
-ROLLUP_SINCE = {"rollup-claimed-total": 5, "rollup-due-total": 7,
-                "rollup-overdue-count": 25, "rollup-overdue-total": 25}
-PERIOD_SINCE = {"period-due-total": 17, "period-closed": 18}
-HEADER_SINCE = 41
 PERSON_PERIOD_SINCE = 47
-SHEET_SINCE = {"sheet-archived": 62, "sheet-asof": 74}
-
-
-def summary_since(key: str) -> int:
-    return 67 if key.endswith("-active") else 31
+HEADER_SINCE = 41
+top_since = hell.top_since
 
 
 HARNESS_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -520,7 +513,7 @@ class Renderer:
             self.emit(f"await expect({pg}.getByTestId(\"sheet-today\")).toHaveText({ts(v['today'])});")
         if spec.get("sheet"):
             for tid, val in v["sheet_cells"].items():
-                if SHEET_SINCE[tid] <= self.n:
+                if top_since(tid) <= self.n:
                     self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         for key, row in v["people"].items():
             pv = row["var"]
@@ -556,17 +549,19 @@ class Renderer:
                         self.emit(f"await expect({cv}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("rollups"):
             for tid, val in v["rollups"].items():
-                if ROLLUP_SINCE[tid] > self.n:
+                if top_since(tid) > self.n:
                     continue
                 self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("counters") and self.n >= HEADER_SINCE:
             for tid, val in v["header"].items():
+                if top_since(tid) > self.n:
+                    continue
                 self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("periods"):
             for name, cells in v["periods"].items():
                 pv = f"{pg}.getByTestId({ts('period-row-' + name)})"
                 for tid, val in cells.items():
-                    if PERIOD_SINCE[tid] > self.n:
+                    if top_since(tid) > self.n:
                         continue
                     self.emit(f"await expect({pv}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("rates") and self.n >= 7:
@@ -574,7 +569,7 @@ class Renderer:
                 self.emit(f"await expect({pg}.getByTestId({ts('rate-current-' + g)})).toHaveText({ts(val)});")
         if spec.get("summary") and self.n >= 31:
             for tid, val in v["summary"].items():
-                if summary_since(tid) > self.n:
+                if top_since(tid) > self.n:
                     continue
                 self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("audit") and self.n >= 6:

@@ -150,6 +150,32 @@ CELL_SINCE = {
     "claim-late-entry": 70,
 }
 
+# Sheet-level cell -> first checkpoint a spec may assert it (a spec written at n asserts only the
+# header, summary, rollup, period and sheet cells its checkpoint knows). Tried in order: the
+# first pattern (a prefix, with `*` for one path segment) that matches decides.
+TOP_SINCE = [
+    ("rollup-claimed-total", 5), ("rollup-due-total", 7), ("rollup-overdue-count", 25),
+    ("rollup-overdue-total", 25),
+    ("period-due-total", 17), ("period-closed", 18),
+    ("sheet-archived", 62), ("sheet-asof", 74),
+    ("summary-grade-*-active", 67), ("summary-", 31),
+    ("header-", 41),
+]
+
+
+def top_since(tid: str) -> int:
+    """The checkpoint from which a sheet-level cell may be asserted (see TOP_SINCE)."""
+    import re as _re
+    for pat, since in TOP_SINCE:
+        if "*" in pat:
+            rx = "^" + _re.escape(pat).replace(r"\*", "[^-]+") + "$"
+            if _re.match(rx, tid):
+                return since
+        elif tid.startswith(pat):
+            return since
+    raise KeyError(tid)
+
+
 DEFAULT_FLOOR = Decimal("1.00")
 DEFAULT_TERMS = 14
 DATED_SETTINGS = ("floor", "late-pct", "terms", "clerk-limit", "cap", "proof-threshold", "note-threshold")
@@ -286,8 +312,20 @@ def write(fn):
 
 
 class Model:
-    def __init__(self, k: int, sheet: str = "S", off=()):
+    """One sheet. Sheets that know of each other (a parent, a transfer target, a clone) share a
+    `family` {sheet id: Model}; what belongs to a user's SCREEN rather than to a sheet (the
+    show-retired box, the as-of date, later the locale, the hidden columns and the preview date)
+    lives in `screen`, shared by the family, since loading another sheet leaves the screen as it
+    is."""
+
+    def __init__(self, k: int, sheet: str = "S", off=(), family: dict | None = None,
+                 screen: dict | None = None):
         self.k, self.sheet, self.off = k, sheet, set(off)
+        self.family: dict = family if family is not None else {}
+        self.family[sheet] = self
+        self.screen: dict = screen if screen is not None else {
+            "show_retired": set(), "asof": {}, "locale": {}, "columns": {}, "preview": {}}
+        self.grades: list[str] = list(GRADES)
         self.user: str | None = None
         self.today: date = date(2026, 1, 1)
         self.people: dict[str, Person] = {}
@@ -299,16 +337,31 @@ class Model:
         self.counter = 0
         self.period_counters: dict[str, int] = {}
         self.audit: list = []
-        self.show_retired: set[str] = set()      # users whose screen has "show retired" on
         self.editing: dict[str, tuple[str, int]] = {}    # user -> (person key, version seen)
         self.locks: dict[int, str] = {}                  # claim seq -> user holding its editor (cp69)
         self.delegations: list[tuple] = []               # (user, from, to, steward) (cp61)
         self.archived = False                            # cp62
         self.watching: dict[str, set] = {}               # user -> person keys (cp58)
-        self.asof: dict[str, date] = {}                  # user -> as-of date (cp74)
         self.journal: list = []                          # (user, today, method, args, kwargs)
         self._depth = 0
         self._replay = False
+
+    @property
+    def show_retired(self) -> set:
+        return self.screen["show_retired"]
+
+    @property
+    def asof(self) -> dict:
+        return self.screen["asof"]
+
+    def sibling(self, sheet: str) -> "Model":
+        """The family member with this id, made (empty, same checkpoint and ablation) on first
+        use; the current user carries over, as a screen does when it loads another sheet."""
+        m = self.family.get(sheet)
+        if m is None:
+            m = Model(self.k, sheet, self.off, family=self.family, screen=self.screen)
+        m.user = self.user
+        return m
 
     # ---- rules -----------------------------------------------------------------------------
     def on(self, rule: str) -> bool:
@@ -469,7 +522,7 @@ class Model:
             name = self._name_rules(name)
         except Refused:
             raise Refused(anchor)
-        if grade not in GRADES:
+        if grade not in self.grades:
             raise Refused(anchor)
         key = norm_name(name)
         if key in self.people and not self.on("names"):
@@ -503,7 +556,7 @@ class Model:
         name = self._name_rules(name, exclude=key)
         grade = fields.get("grade")
         if grade is not None:
-            if grade not in GRADES:
+            if grade not in self.grades:
                 raise Refused("person-form-error")
             if self.on("grade_dated"):
                 start = day(fields["grade_from"]) if fields.get("grade_from") else self.today
@@ -627,7 +680,7 @@ class Model:
     # ---- rates, periods, roles -----------------------------------------------------------
     @write
     def set_rate(self, grade: str, pct: str, start: str | None = None, end: str | None = None) -> None:
-        if grade not in GRADES:
+        if grade not in self.grades:
             raise Refused("rate-form-error")
         try:
             val = D(pct)
@@ -1652,7 +1705,7 @@ class Model:
         out = {}
         if not self.has("summary"):
             return out
-        for g in GRADES:
+        for g in self.grades:
             ps = [p for p in self.people.values() if self.grade_now(p) == g and not p.retired_from]
             out[f"summary-grade-{g}-count"] = str(len(ps))
             out[f"summary-grade-{g}-due-total"] = money(
@@ -1680,21 +1733,22 @@ class Model:
         """The sheet as it stood at the end of the last sheet-today on or before `d`: every
         successful write journaled while the sheet's today was on or before `d`, replayed in
         order, with `d` as today for every figure."""
-        r = Model(self.k, self.sheet, self.off)
-        r._replay = True
-        for user, today, name, a, kw in self.journal:
-            if today > d:
-                continue
-            r.user = user
-            try:
-                getattr(r, name)(*a, **kw)
-            except (Refused, KeyError, StopIteration, ValueError):
-                pass
-        r.today = d
-        r.show_retired = set(self.show_retired)
-        r.user = self.user
-        r.asof = {}
-        return r
+        fam: dict = {}
+        screen = dict(self.screen, asof={}, preview={})
+        for sid, live in self.family.items():
+            r = Model(self.k, sid, self.off, family=fam, screen=screen)
+            r._replay = True
+            for user, today, name, a, kw in live.journal:
+                if today > d:
+                    continue
+                r.user = user
+                try:
+                    getattr(r, name)(*a, **kw)
+                except (Refused, KeyError, StopIteration, ValueError):
+                    pass
+            r.today = d
+            r.user = self.user
+        return fam[self.sheet]
 
     def view(self) -> dict:
         src = self
@@ -1715,7 +1769,7 @@ class Model:
                        ("yes" if per.closed else "no")}
                    for n, per in src.periods.items()}
         rates = {}
-        for g in GRADES:
+        for g in src.grades:
             r = src.rate_at(g, src.today)
             rates[g] = "n/a" if r is None else money(r)
         return {"user": self.user, "sheet": self.sheet, "today": self.today.isoformat(),
