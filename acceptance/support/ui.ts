@@ -97,14 +97,18 @@ function idOf(testid: string | null, prefix: string): string {
  *  Each check returns as soon as it can. An error already visible at the first look after the
  *  click may be left over from the action before (the screen clears it when a new action is
  *  submitted, see README): it counts as this action's refusal once it has gone away and been
- *  shown again, once its text changes, or once ERROR_GRACE has passed with no result. */
-async function until(page: Page, done: () => Promise<boolean>, error: Locator, what: string): Promise<boolean> {
+ *  shown again, once its text changes, or once ERROR_GRACE has passed with no result.
+ *  `already` says `done` held BEFORE the action (watching a person already watched, saving a
+ *  setting at its current value): then the result on screen proves nothing, and the action
+ *  counts as taken only once ERROR_GRACE has passed with no refusal shown. */
+async function until(page: Page, done: () => Promise<boolean>, error: Locator, what: string,
+                     already = false): Promise<boolean> {
   const deadline = Date.now() + WAIT;
   let stale: string | null | undefined;   // text of an error visible at the first look; null if none
   let seenGone = false;
   const grace = Date.now() + ERROR_GRACE;
   while (Date.now() < deadline) {
-    if (await done()) return true;
+    if (!already && await done()) return true;
     const visible = await error.isVisible().catch(() => false);
     if (stale === undefined) stale = visible ? await shown(error) : null;
     if (visible) {
@@ -112,6 +116,8 @@ async function until(page: Page, done: () => Promise<boolean>, error: Locator, w
     } else {
       seenGone = true;
     }
+    // the state held before the action: an error still showing at the grace outranks it
+    if (already && Date.now() >= grace && await done()) return true;
     await page.waitForTimeout(50);
   }
   if (await done()) return true;
@@ -204,17 +210,19 @@ export async function setToday(page: Page, date: string): Promise<void> {
 /** Change the sheet's today where the screen may refuse it (an archived sheet, a viewer, an
  *  as-of view): true when the date took, false when the sheet's error element appeared. */
 export async function setTodayTry(page: Page, date: string): Promise<boolean> {
+  const done = async () => (await shown(page.getByTestId('sheet-today'))) === date;
+  const already = await done();
   await page.getByTestId('sheet-today-input').fill(date);
   await page.getByTestId('sheet-today-save').click();
-  return until(page, async () => (await shown(page.getByTestId('sheet-today'))) === date,
-    page.getByTestId('sheet-error'), 'set today');
+  return until(page, done, page.getByTestId('sheet-error'), 'set today', already);
 }
 
 /** Archive the sheet: true once the screen shows it archived, false when refused. */
 export async function archive(page: Page): Promise<boolean> {
+  const done = async () => (await shown(page.getByTestId('sheet-archived'))) === 'yes';
+  const already = await done();
   await page.getByTestId('sheet-archive').click();
-  return until(page, async () => (await shown(page.getByTestId('sheet-archived'))) === 'yes',
-    page.getByTestId('sheet-error'), 'archive');
+  return until(page, done, page.getByTestId('sheet-error'), 'archive', already);
 }
 
 /** Show the sheet as of a date (this user's screen only). */
@@ -303,11 +311,11 @@ export async function editPerson(page: Page, personId: string, f: PersonFields, 
 
 export async function retire(page: Page, personId: string, date: string): Promise<boolean> {
   const r = row(page, personId);
+  const done = async () => (await r.count()) === 0 || await shown(r.getByTestId('person-retired')) === 'yes';
+  const already = await done();
   await r.getByTestId('person-retire-date').fill(date);
   await r.getByTestId('person-retire').click();
-  return until(page, async () => (await r.count()) === 0
-    || await shown(r.getByTestId('person-retired')) === 'yes',
-    r.getByTestId('person-error'), 'retire');
+  return until(page, done, r.getByTestId('person-error'), 'retire', already);
 }
 
 /** Take a statement for the person: true once the row's statement count has moved on. */
@@ -357,9 +365,10 @@ export async function hold(page: Page, personId: string, f: { from?: string; to?
 /** Start (true) or stop (false) watching the person as the signed-in user. */
 export async function watch(page: Page, personId: string, on: boolean): Promise<boolean> {
   const r = row(page, personId);
+  const done = async () => (await shown(r.getByTestId('person-watched'))) === (on ? 'yes' : 'no');
+  const already = await done();
   await r.getByTestId('person-watch').click();
-  return until(page, async () => (await shown(r.getByTestId('person-watched'))) === (on ? 'yes' : 'no'),
-    r.getByTestId('person-error'), 'watch');
+  return until(page, done, r.getByTestId('person-error'), 'watch', already);
 }
 
 export async function showRetired(page: Page, on: boolean): Promise<void> {
@@ -535,10 +544,11 @@ export async function resettle(page: Page, claimId: string): Promise<boolean> {
 /** Defer an open claim until a date: true once the row shows the date. */
 export async function defer(page: Page, claimId: string, until_: string): Promise<boolean> {
   const c = claimRow(page, claimId);
+  const done = async () => (await shown(c.getByTestId('claim-deferred-until'))) === until_;
+  const already = await done();
   await c.getByTestId('claim-defer-date').fill(until_);
   await c.getByTestId('claim-defer').click();
-  return until(page, async () => (await shown(c.getByTestId('claim-deferred-until'))) === until_,
-    c.getByTestId('claim-error'), 'defer');
+  return until(page, done, c.getByTestId('claim-error'), 'defer', already);
 }
 
 /** Raise the claim's proofs count by one: true once the count moved. */
@@ -553,10 +563,11 @@ export async function addProof(page: Page, claimId: string): Promise<boolean> {
 /** Re-date a claim: true once the row shows the new date. */
 export async function redate(page: Page, claimId: string, date: string): Promise<boolean> {
   const c = claimRow(page, claimId);
+  const done = async () => (await shown(c.getByTestId('claim-date'))) === date;
+  const already = await done();
   await c.getByTestId('claim-date-new').fill(date);
   await c.getByTestId('claim-redate').click();
-  return until(page, async () => (await shown(c.getByTestId('claim-date'))) === date,
-    c.getByTestId('claim-error'), 'redate');
+  return until(page, done, c.getByTestId('claim-error'), 'redate', already);
 }
 
 /** Split an amount off an open claim: the new claim's id, or null when refused. */
@@ -584,10 +595,11 @@ export async function numbersOf(page: Page, claimIds: string[]): Promise<string[
 
 export async function reassign(page: Page, claimId: string, toName: string): Promise<boolean> {
   const c = claimRow(page, claimId);
+  const done = async () => (await rowsNamed(page, toName).filter({ has: claimRow(page, claimId) }).count()) > 0;
+  const already = await done();
   await c.getByTestId('claim-reassign-to').selectOption({ label: toName });
   await c.getByTestId('claim-reassign').click();
-  return until(page, async () => (await rowsNamed(page, toName).filter({ has: claimRow(page, claimId) }).count()) > 0,
-    c.getByTestId('claim-error'), 'reassign');
+  return until(page, done, c.getByTestId('claim-error'), 'reassign', already);
 }
 
 export async function bulkOpen(page: Page, claimIds: string[]): Promise<{ opened: number; refused: number }> {
@@ -629,11 +641,12 @@ export async function setRate(page: Page, f: { grade: string; pct: string; from?
   await page.getByTestId('rate-form-pct').fill(f.pct);
   if (f.from !== undefined) await page.getByTestId('rate-form-from').fill(f.from);
   if (f.to !== undefined) await page.getByTestId('rate-form-to').fill(f.to);
-  await page.getByTestId('rate-form-submit').click();
   const r = page.getByTestId(`rate-row-${f.grade}-${f.from ?? 'start'}`);
-  return until(page, async () => await shown(r.getByTestId('rate-pct')) === f.pct
-    && (f.to === undefined || await shown(r.getByTestId('rate-to')) === f.to),
-    page.getByTestId('rate-form-error'), 'set rate');
+  const done = async () => (await r.count()) > 0 && await shown(r.getByTestId('rate-pct')) === f.pct
+    && (f.to === undefined || await shown(r.getByTestId('rate-to')) === f.to);
+  const already = await done();
+  await page.getByTestId('rate-form-submit').click();
+  return until(page, done, page.getByTestId('rate-form-error'), 'set rate', already);
 }
 
 export async function addPeriod(page: Page, f: { name: string; from: string; to: string }): Promise<boolean> {
@@ -676,21 +689,23 @@ export async function setSetting(page: Page, key: string, value: string): Promis
 
 /** Save a setting where the screen may refuse it: true when the value in force shows it. */
 export async function setSettingTry(page: Page, key: string, value: string): Promise<boolean> {
+  const done = async () => (await shown(page.getByTestId(`setting-${key}-current`))) === value;
+  const already = await done();
   await page.getByTestId(`setting-${key}`).fill(value);
   await page.getByTestId('settings-save').click();
-  return until(page, async () => (await shown(page.getByTestId(`setting-${key}-current`))) === value,
-    page.getByTestId('settings-error'), 'save setting');
+  return until(page, done, page.getByTestId('settings-error'), 'save setting', already);
 }
 
 /** Save a setting from a date; `shows` is the value in force on the sheet's today once saved
  *  (a from-date after today leaves the current value as it was). */
 export async function setSettingDated(page: Page, key: string, value: string, from: string, shows: string): Promise<boolean> {
+  const done = async () => (await shown(page.getByTestId(`setting-${key}-current`))) === shows
+    && !(await page.getByTestId('settings-error').isVisible().catch(() => false));
+  const already = await done();
   await page.getByTestId(`setting-${key}`).fill(value);
   await page.getByTestId(`setting-${key}-from`).fill(from);
   await page.getByTestId('settings-save').click();
-  const ok = await until(page, async () => (await shown(page.getByTestId(`setting-${key}-current`))) === shows
-    && !(await page.getByTestId('settings-error').isVisible().catch(() => false)),
-    page.getByTestId('settings-error'), 'save dated setting');
+  const ok = await until(page, done, page.getByTestId('settings-error'), 'save dated setting', already);
   if (ok) await page.waitForTimeout(300);     // the value may already have shown; let the save land
   return ok;
 }
@@ -698,10 +713,11 @@ export async function setSettingDated(page: Page, key: string, value: string, fr
 export async function setRole(page: Page, user: string, role: string): Promise<boolean> {
   await page.getByTestId('role-form-user').fill(user);
   await page.getByTestId('role-form-role').fill(role);
-  await page.getByTestId('role-form-submit').click();
   const r = page.getByTestId(`role-row-${user}`);
-  return until(page, async () => await shown(r.getByTestId('role-value')) === role,
-    page.getByTestId('role-form-error'), 'set role');
+  const done = async () => (await r.count()) > 0 && await shown(r.getByTestId('role-value')) === role;
+  const already = await done();
+  await page.getByTestId('role-form-submit').click();
+  return until(page, done, page.getByTestId('role-form-error'), 'set role', already);
 }
 
 /** Delegate the steward role: true once a delegation line appeared. */

@@ -68,7 +68,7 @@ test.describe("delegation", () => {
       `DELEGATED sheet=${sheet} by=vic user=wes from=2026-03-10 to=2026-03-12`,
       `PERIOD_REOPENED sheet=${sheet} by=wes period=P1 for=vic`,
       `CLAIM_SETTLED sheet=${sheet} by=wes person=Ada amount=20.00 date=2026-03-10 number=1 due=2.00 for=vic`,
-      `SNAPSHOT sheet=${sheet} by=wes for=vic`,
+      `SNAPSHOT sheet=${sheet} by=wes`,
       `CLAIM_PENDING sheet=${sheet} by=wes person=Ada amount=30.00 date=2026-03-10 number=2`,
       `PERIOD_CLOSED sheet=${sheet} by=wes period=P1 total=0.00`,
       `PERIOD_REOPENED sheet=${sheet} by=vic period=P1`

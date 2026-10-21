@@ -690,9 +690,9 @@ test.describe("cancel statement", () => {
     expect(await ui.reassign(pg_vic, c_cam_0, "Ben")).toBe(true);
     expect(await ui.retire(pg_vic, p_ada, "2026-03-15")).toBe(true);
     expect(await ui.claimAction(pg_vic, c_cam_0, "open")).toBe(true);
+    await ui.showRetired(pg_vic, true);
     expect(await ui.pasteClaims(pg_vic, "Ada,3.33,2026-03-09,a, b")).toBe(1);
     const c_ada_0 = await ui.claimAt(pg_vic, p_ada, 0);
-    await ui.showRetired(pg_vic, true);
     expect(await ui.editClaim(pg_vic, c_ada_0, {"amount": "12.50"})).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("99.95");

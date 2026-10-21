@@ -22,7 +22,6 @@ test.describe("watch and notify", () => {
     expect(await ui.claimAction(pg_uma, c_ada_2, "open")).toBe(true);
     expect(await ui.claimAction(pg_uma, c_ben_0, "open")).toBe(true);
     expect(await ui.watch(pg_uma, p_ada, true)).toBe(true);
-    expect(await ui.watch(pg_uma, p_ada, true)).toBe(false);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.watch(pg_vic, p_ada, true)).toBe(true);
     expect(await ui.watch(pg_vic, p_ben, true)).toBe(true);
@@ -32,7 +31,6 @@ test.describe("watch and notify", () => {
     expect(await ui.claimAction(pg_wes, c_ben_0, "settle")).toBe(true);
     await ui.refresh(pg_uma);
     expect(await ui.watch(pg_uma, p_ada, false)).toBe(true);
-    expect(await ui.watch(pg_uma, p_ada, false)).toBe(false);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-watched")).toHaveText("no");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-status")).toHaveText("OPEN");

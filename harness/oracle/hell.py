@@ -334,9 +334,10 @@ class Model:
 
     def audit_line(self, event: str, *fields) -> None:
         """Record an audit line: `fields` are (key, value, since) triples, `since` being the
-        checkpoint that added that field. The renderer keeps the fields a spec's checkpoint knows,
-        and the spec matches a line by prefix, so a later field extends a line without changing it.
-        A line written by a delegate (not ROLLUP/TOTALS) ends with for=<steward> (cp61)."""
+        checkpoint that added that field. The renderer keeps the fields a spec's checkpoint knows
+        (audit_text), and the spec matches a line by prefix, so a later field extends a line
+        without changing it. A line written by a delegate (not ROLLUP/TOTALS) ends with
+        for=<steward> (cp61)."""
         if not self.has("audit") or self._replay:
             return
         fields = list(fields)
@@ -592,7 +593,9 @@ class Model:
         key = self._key(p)
         mine = self.watching.setdefault(self.user, set())
         if on == (key in mine):
-            raise Refused("person-error")
+            # the row's watch control is ONE toggle: a click always flips the state, so a script
+            # asking for the state already held describes a click no screen can refuse
+            raise RuntimeError(f"watch {p.name} {'on' if on else 'off'}: already so; a toggle cannot refuse it")
         if on:
             mine.add(key)
             p.watchers.append(self.user)
@@ -1168,7 +1171,10 @@ class Model:
     def quick_add(self, name: str, amount: str) -> Claim:
         # one transaction: a claim that would be refused leaves no new person behind
         self._amount(amount, None)
-        if self.in_closed(self._claim_date(None)):
+        when = self._claim_date(None)
+        # placed as the claim would be (by its due-by under cp80): a new name gets grade A
+        p = self.people.get(norm_name(name)) or Person(name=name, grades=[(None, "A")], order=len(self.people))
+        if self.in_closed(self.placing_date(p, when)):
             raise Refused("quick-error")
         if norm_name(name) not in self.people:
             self.add_person(name, "A", anchor="quick-error")
@@ -1718,11 +1724,17 @@ class Model:
                 "audit": list(self.audit)}
 
     def audit_text(self, n: int) -> list[str]:
-        """The audit lines as a spec written at checkpoint n knows them (fields since <= n)."""
+        """The audit lines as a spec written at checkpoint n knows them: the longest run of
+        leading fields with since <= n. The spec matches a line by prefix, so a field the spec
+        does not know hides every field after it too (a cp61 spec cannot assert for= on a
+        SNAPSHOT line, whose name= and due-total= came at cp76 and stand before it)."""
         out = []
         for event, user, fields in self.audit:
             parts = [event, f"sheet={self.sheet}", f"by={user}"]
-            parts += [f"{a}={b}" for a, b, s in fields if s <= n]
+            for a, b, s in fields:
+                if s > n:
+                    break
+                parts.append(f"{a}={b}")
             out.append(" ".join(parts))
         return out
 

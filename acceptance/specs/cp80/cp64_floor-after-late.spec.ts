@@ -439,8 +439,8 @@ test.describe("floor after late", () => {
     await expect(pg_wes.getByTestId("header-overdue-total")).toHaveText("0.00");
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.claimAction(pg_vic, c_ben_0, "settle")).toBe(true);
-    expect(await ui.pasteClaims(pg_vic, "Cam,20.00,2026-03-15,")).toBeNull();
     await ui.showRetired(pg_vic, true);
+    expect(await ui.pasteClaims(pg_vic, "Cam,20.00,2026-03-15,")).toBeNull();
     expect(await ui.statement(pg_vic, p_cam)).toBe(true);
     expect(await ui.editPerson(pg_vic, p_cam, {"grade": "A"})).toBe(true);
     const c_ben_1 = ui.must(await ui.addClaim(pg_vic, p_ben, {"amount": "99.95", "date": "2026-03-01"}));

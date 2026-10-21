@@ -750,9 +750,9 @@ def cp58(k):
         ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"),
         ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("claim", "Ben", "5.00"),
         ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2), ("open", "Ben", 0),
-        ("watch", "Ada", True), ("watch", "Ada", True), ("as", "vic"), ("watch", "Ada", True), ("watch", "Ben", True),
+        ("watch", "Ada", True), ("as", "vic"), ("watch", "Ada", True), ("watch", "Ben", True),
         ("settle", "Ada", 0), ("as", "wes"), ("settle", "Ada", 1), ("settle", "Ben", 0),
-        ("as", "uma"), ("watch", "Ada", False), ("watch", "Ada", False),
+        ("as", "uma"), ("watch", "Ada", False),
         ("check", {"people": ["watched"], "claims": ["status"]}),
         ("as", "vic"), ("approve", "Ada", 1), ("resettle", "Ada", 0),
         ("check", {"people": ["watched"], "claims": ["status", "due"], "audit": True})]

@@ -149,6 +149,9 @@ def row_targets(st: tuple) -> list[str]:
         return [name for name, _ in a[0]]
     if op == "bulk_grade":
         return list(a[0])
+    if op == "paste":
+        # the claims a paste makes are read back through their person's row (claimAt)
+        return [line.split(",", 1)[0].strip() for line in a[0] if line.strip()]
     return [a[i] for i in ROW_OPS.get(op, ())]
 
 
