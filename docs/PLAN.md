@@ -140,11 +140,12 @@ compared across layers:
   the share of a layer's complexity held by its top file or class, change entropy and the cumulative
   change concentration, re-edit rates.
 - **Sinews:** coupling divergence per method (`d = out − in`, roles catchment / pipe / junction)
-  and the junction share per checkpoint as the divergence study and the flow-injection analysis
-  define them, read with the injected-coupling instrument so an injected parameter is not counted
-  as threaded; beside them the harness's existing families: coupling (CBO, RFC, LCOM, fan-in and
-  fan-out, ATFD and PMD's god-class verdict), data flow (`dfdata_tramp_*`, `drdata_*`,
-  `drcol_*`) and reach (`reach_*`: does a type arrive before it is used, and is it used at all).
+  as the divergence study defines it, and the share of a checkpoint's complexity held by junctions;
+  an injected parameter must not be counted as threaded, which needs an instrument that tells the
+  two apart before the Spring and Angular arms can be read; beside them the harness's existing
+  families: coupling (CBO, RFC, LCOM, fan-in and fan-out, ATFD and PMD's god-class verdict), data
+  flow (`dfdata_tramp_*`, `drdata_*`, `drcol_*`) and reach (`reach_*`: does a type arrive before
+  it is used, and is it used at all).
 - **The PetClinic family** for conservation of complexity and plasticity: Halstead, maintainability
   index, cognitive and NPath totals and maxima, duplication, verbosity, the unit-shape and
   class-shape tables.
@@ -327,16 +328,11 @@ computed later over the same commits.
    rank test and the trajectory plots; the write-up compares the three on the sinews measures first
    and on the PetClinic family second.
 
-**The registered analysis and what it expects.** The flow-injection containment draft reads this
-harness's `tanstack-spring` and `tanstack-officefloor` chains, ten per cell, under *both*
-conditions, `just-solve` and `gated`, at a named stream and harness commit, and is itself gated on
-the divergence study holding up and on the injected-coupling instrument validating for Spring. Run
-B supplies its two `just-solve` cells. Whether the `gated` cells are run is an open decision to
-close before that plan registers: the month-run model is `just-solve` only, and `gated` needs its
-block percentile recalibrated to this stream first. Whichever way it closes, the stream, model and
-chain count must be fixed and named before that analysis exists, so the stream is frozen at a
-tagged commit before Run A starts and never rebuilt during the three runs.
+**Fixed before the first run.** The stream, the model and the chain count are named and frozen
+at a tagged commit before Run A starts and never rebuilt during the three runs, so any analysis
+registered against these runs can name what it reads. A harness fix made during a run lands on
+main for the next run; the running stream does not move.
 
-Open: the divergence study's final measure and the injected-coupling instrument, to be added to
-`harness.analyze` when fixed; the `gated` cells above; whether the control run needs a crossed
-pairing of its own (it does not test the pairing confound, only the floor).
+Open: the divergence study's final measure and an instrument that separates injected from
+threaded parameters, to be added to `harness.analyze` when fixed; whether the control run needs a
+crossed pairing of its own (it does not test the pairing confound, only the floor).
