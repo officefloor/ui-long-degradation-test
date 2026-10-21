@@ -36,18 +36,6 @@ All are in the `officefloor` GitHub organisation and cloned beside this reposito
   its *coupling divergence*, the data it hands on minus the data it receives (`d = out − in` per
   method, giving each method a role: catchment, pipe or junction), and asks whether that tells a
   god unit from a complex leaf. It supplies the sinew measure this experiment reads.
-- **sinew-identification-study** (on hold until paper one finishes): the construct, the four
-  harms, and the exploratory observations behind the claim that sinews are an early marker of
-  concentration.
-- **injected-coupling-measurement-study** (draft): the static instrument that tells threaded,
-  injected and bound parameters apart, validated against the containers themselves. Without it the
-  Spring arm's injected parameters cannot be told from threaded ones, so no comparison of injection
-  styles can be read until it exists.
-- **flow-injection-containment-experiment** (draft announcement, not yet registered): the
-  registered analysis *of this harness's runs*: whether the function-injected backend holds less
-  of its conserved complexity in junctions (junction share, the share of a checkpoint's backend
-  method complexity in methods that hand on more data than they receive), with predictions and
-  falsifiers written before any backend result is read. See §7 for what it expects of the runs.
 - **spring-petclinic-rest-long-degradation-test**, the predecessor: Spring `@RestController`
   methods against OfficeFloor YAML-composed functions over a long change stream, published as
   Sagenschneider (2026), *Conserved amount, negotiable placement. Prompting perturbs one
@@ -134,7 +122,9 @@ the architecture is the variable.
 - Every checkpoint: the checkpoint's own spec against the agent's commit. It says the change was
   made.
 - Every tenth checkpoint, and the chain's last: the full cp01..cpK suite, mutative copies winning.
-  It says nothing was lost. Only full tests move the regression baseline.
+  It says nothing was lost. Only full tests move the regression baseline. Focus is only on the system
+  implementing all features and not deleting features, so every 10th is deemed reasonable against
+  testing time every checkpoint to ensure all functionality is implemented.
 - The system never approaches the agent's context window, so the agent can hold the whole system
   and make informed decisions. Most own specs and most regression suites are expected to pass on
   every stack. A stack that fails a lot is a stack whose structure stopped the agent, which is a
@@ -200,6 +190,10 @@ series: an architecture that costs the agent more per change is also a finding.
    close, precedence between exceptions, retirement and holds that remove rows from some totals and
    not others, delegation that changes who a user is, as-of reconstruction, retroactive versus
    forward-only changes, two semantics alive at once, consolidation across a hierarchy.
+7. **Change complex not uniform** every act will also introduce 3 complex algorithms each, so it is 
+   not all similar complexity being added.  This ensures leaf node complexity algorithms are correctly 
+   managed by the architecture and not convoluted into the refactoring churn. 
+   
 
 ### 4.2 The acts
 
@@ -332,7 +326,6 @@ computed later over the same commits.
 5. **Run A, then Run B, then Run C**, each at one harness commit, each analysed with the chain
    rank test and the trajectory plots; the write-up compares the three on the sinews measures first
    and on the PetClinic family second.
-6. **Later:** the hypermedia variant on the htmx stacks; a different agent on the same stream.
 
 **The registered analysis and what it expects.** The flow-injection containment draft reads this
 harness's `tanstack-spring` and `tanstack-officefloor` chains, ten per cell, under *both*
