@@ -3,7 +3,8 @@
     .venv/bin/python -m harness.stream_build --config config.yaml          # write everything
     .venv/bin/python -m harness.stream_build --config config.yaml --check  # verify, write nothing
     ... --no-density                                                        # skip the pairwise metric
-    ... --jobs 8                                                            # density in parallel
+    ... --jobs 8                                                            # checks and density in parallel
+    ... --to 120 --check                                                    # verify a prefix while authoring
 
 Writes checkpoints.yaml (the requests, types, `mutates:`), one own spec per checkpoint under
 acceptance/specs/ (its story test plus the generated scenarios), for each mutative checkpoint N
@@ -695,27 +696,34 @@ def interacts(n: int, a: str, b: str, base: dict, only_a: dict, only_b: dict) ->
     return screen, audit
 
 
-def density(n: int) -> dict:
-    """The interaction report of checkpoint n's own spec."""
+def density(n: int, full: bool = False) -> dict:
+    """The interaction report of checkpoint n's own spec. By default the pairs tried are those of
+    each rule the checkpoint introduces against every earlier rule (what the DEGREE check reads);
+    `full` tries every pair of rules in force, which is quadratic in the rules and only worth it
+    for a one-off report."""
     rules = [r for r, since in RULES.items() if since <= n]
     base = _cells_off(n, frozenset())
     singles = {r: _cells_off(n, frozenset((r,))) for r in rules}
     biting = [r for r in rules if singles[r] != base]
+    new = [r for r in rules if RULES[r] == n]
     pairs_screen, pairs_audit = [], []
-    for a, b in combinations(rules, 2):
+    if full:
+        tried = list(combinations(rules, 2))
+    else:
+        tried = [(a, b) for a in new for b in rules if RULES[b] < n]
+    for a, b in tried:
         sc, au = interacts(n, a, b, base, singles[a], singles[b])
         if sc:
             pairs_screen.append((a, b))
         if au:
             pairs_audit.append((a, b))
-    new = [r for r in rules if RULES[r] == n]
     partners = {}
     for r in new:
         partners[r] = sorted({x for pair in pairs_screen + pairs_audit for x in pair
                               if r in pair and x != r and RULES[x] < n})
-    possible = len(rules) * (len(rules) - 1) // 2
+    possible = len(tried)
     return {"n": n, "rules": rules, "biting": biting, "screen": pairs_screen, "audit": pairs_audit,
-            "possible": possible, "new": new, "partners": partners}
+            "possible": possible, "new": new, "partners": partners, "full": full}
 
 
 def density_md(reports: list[dict]) -> str:
@@ -723,13 +731,18 @@ def density_md(reports: list[dict]) -> str:
            "",
            "Two rules interact at a checkpoint when a value asserted by that checkpoint's own spec",
            "depends on both (see harness/stream_build.py). `pairs` counts interacting pairs among the",
-           "rules in force, on screen cells and on audit lines; `density` is screen pairs over possible",
-           "pairs; `degree` is how many earlier rules each rule introduced here interacts with.",
+           "pairs tried (each rule the checkpoint introduces against every earlier rule; every pair in",
+           "force under --full-density), on screen cells and on audit lines; `density` is screen pairs",
+           "over the pairs tried; `degree` is how many earlier rules each new rule interacts with.",
            "",
            "| cp | type | in force | biting | screen pairs | audit pairs | possible | density | new rule: degree (partners) |",
            "|---|---|---|---|---|---|---|---|---|"]
     for r in reports:
         n = r["n"]
+        if not r["new"] and not r.get("full"):
+            dens = ""
+            out.append(f"| {n} | {TYPE[n][0].upper()} | {len(r['rules'])} | {len(r['biting'])} | | | | | |")
+            continue
         newcol = "; ".join(f"{k}: {len(v)} ({', '.join(v)})" for k, v in r["partners"].items()) or ""
         dens = f"{len(r['screen']) / r['possible']:.2f}" if r["possible"] else ""
         out.append(f"| {n} | {TYPE[n][0].upper()} | {len(r['rules'])} | {len(r['biting'])} | {len(r['screen'])} | "
@@ -745,56 +758,75 @@ def copy_path(n: int, prior: int) -> str:
     return f"acceptance/specs/cp{n:02d}/cp{prior:02d}_{SLUG[prior]}.spec.ts"
 
 
-def build(check_only: bool, with_density: bool = True, jobs: int = 1) -> int:
-    lo, hi = COVERAGE
+def check_n(n: int) -> dict:
+    """Everything the build needs of checkpoint n, computed in one process so the renders it
+    shares (every prior at n and at n-1) are cached together: its own spec, which priors it
+    changes (and their copies when it is mutative), its ablation problems and the rules it
+    leaves unexercised."""
+    lo = COVERAGE[0]
+    files = {own_path(n): render(n, n)}
+    changed = []
+    for prior in range(lo, n):
+        before, after = render(prior, n - 1), render(prior, n)
+        if before != after:
+            changed.append(prior)
+            if TYPE[n] == "mutative":
+                files[copy_path(n, prior)] = after
+    problems = []
+    if TYPE[n] == "additive" and changed:
+        problems.append(f"cp{n:02d} is additive but changes the spec of cp"
+                        + ", cp".join(f"{p:02d}" for p in changed))
+    if TYPE[n] == "mutative" and not changed:
+        problems.append(f"cp{n:02d} is mutative but changes no prior spec")
+    rules = [r for r, since in RULES.items() if since == n]
+    for r in rules:
+        if render(n, n, off={r}) == files[own_path(n)]:
+            problems.append(f"cp{n:02d} own spec does not exercise its rule {r!r}")
+    if TYPE[n] == "mutative":
+        for prior in changed:
+            if rules and all(render(prior, n, off={r}) == files[copy_path(n, prior)] for r in rules):
+                problems.append(f"cp{n:02d} copy of cp{prior:02d} exercises none of {rules}")
+    idle = [r for r, since in RULES.items() if since <= n and render(n, n, off={r}) == files[own_path(n)]]
+    return {"n": n, "files": files, "changed": changed, "problems": problems, "idle": idle}
+
+
+def _density_job(args):
+    n, full = args
+    return density(n, full)
+
+
+def build(check_only: bool, with_density: bool = True, jobs: int = 1, hi: int | None = None,
+          full_density: bool = False, quiet: bool = False) -> int:
+    lo, top = COVERAGE
+    hi = min(hi, top) if hi else top
     problems: list[str] = []
     files: dict[str, str] = {}
     derived: dict[int, list[int]] = {}
+    quiet_rules = {}
 
-    for n in range(lo, hi + 1):
-        files[own_path(n)] = render(n, n)
-        changed = []
-        for prior in range(lo, n):
-            before, after = render(prior, n - 1), render(prior, n)
-            if before != after:
-                changed.append(prior)
-                if TYPE[n] == "mutative":
-                    files[copy_path(n, prior)] = after
-        if TYPE[n] == "additive" and changed:
-            problems.append(f"cp{n:02d} is additive but changes the spec of cp"
-                            + ", cp".join(f"{p:02d}" for p in changed))
+    ns = list(range(lo, hi + 1))
+    if jobs > 1:
+        with Pool(jobs) as pool:
+            checks = pool.map(check_n, ns, chunksize=1)
+    else:
+        checks = [check_n(n) for n in ns]
+    for c in checks:
+        n = c["n"]
+        files.update(c["files"])
+        problems += c["problems"]
         if TYPE[n] == "mutative":
-            derived[n] = changed
-            if not changed:
-                problems.append(f"cp{n:02d} is mutative but changes no prior spec")
-
-    # ablation: every rule a checkpoint introduces must bite in its own spec, and every copy it
-    # ships must exercise at least one of them (a checkpoint with two rules may change a prior
-    # through either)
-    for n in range(lo, hi + 1):
-        rules = [r for r, since in RULES.items() if since == n]
-        for r in rules:
-            if render(n, n, off={r}) == files[own_path(n)]:
-                problems.append(f"cp{n:02d} own spec does not exercise its rule {r!r}")
-        for prior in derived.get(n, []):
-            if rules and all(render(prior, n, off={r}) == files[copy_path(n, prior)] for r in rules):
-                problems.append(f"cp{n:02d} copy of cp{prior:02d} exercises none of {rules}")
-    # informative: which in-force rules each own spec leaves unexercised
-    quiet = {}
-    for n in range(lo, hi + 1):
-        idle = [r for r, since in RULES.items() if since <= n and render(n, n, off={r}) == files[own_path(n)]]
-        if idle:
-            quiet[n] = idle
+            derived[n] = c["changed"]
+        if c["idle"]:
+            quiet_rules[n] = c["idle"]
 
     # density: the pressure each checkpoint puts on the rules already in force
     reports = []
     if with_density:
-        ns = list(range(lo, hi + 1))
         if jobs > 1:
             with Pool(jobs) as pool:
-                reports = pool.map(density, ns, chunksize=1)
+                reports = pool.map(_density_job, [(n, full_density) for n in ns], chunksize=1)
         else:
-            reports = [density(n) for n in ns]
+            reports = [density(n, full_density) for n in ns]
         for rep in reports:
             n = rep["n"]
             if n >= MIN_DEGREE_FROM:
@@ -802,22 +834,25 @@ def build(check_only: bool, with_density: bool = True, jobs: int = 1) -> int:
                     if len(partners) < MIN_DEGREE:
                         problems.append(f"cp{n:02d} rule {r!r} interacts with only {len(partners)} earlier "
                                         f"rule(s) ({', '.join(partners) or 'none'}); {MIN_DEGREE} needed")
-            print(f"  cp{n:02d} density: {len(rep['screen'])}/{rep['possible']} screen pairs, "
-                  f"{len(rep['audit'])} audit pairs, biting {len(rep['biting'])}/{len(rep['rules'])}"
-                  + "".join(f"; {r} crosses {len(ps)}" for r, ps in rep["partners"].items()), flush=True)
+            if rep["new"]:
+                print(f"  cp{n:02d} density: {len(rep['screen'])}/{rep['possible']} screen pairs, "
+                      f"{len(rep['audit'])} audit pairs, biting {len(rep['biting'])}/{len(rep['rules'])}"
+                      + "".join(f"; {r} crosses {len(ps)}" for r, ps in rep["partners"].items()), flush=True)
 
     # stale files
     stale = []
-    for root, _dirs, names in os.walk(SPECS_DIR):
-        for fn in names:
-            rel = os.path.relpath(os.path.join(root, fn), HARNESS_ROOT)
-            if rel not in files:
-                stale.append(rel)
+    if hi == top:
+        for root, _dirs, names in os.walk(SPECS_DIR):
+            for fn in names:
+                rel = os.path.relpath(os.path.join(root, fn), HARNESS_ROOT)
+                if rel not in files:
+                    stale.append(rel)
 
-    print(f"stream: cp{lo:02d}-cp{hi:02d}, {sum(1 for n in TYPE if TYPE[n] == 'mutative')} mutatives, "
+    print(f"stream: cp{lo:02d}-cp{hi:02d}, {sum(1 for n in TYPE if TYPE[n] == 'mutative' and n <= hi)} mutatives, "
           f"{len(files)} spec files ({len(files) - (hi - lo + 1)} ripple copies)")
-    for n, idle in quiet.items():
-        print(f"  cp{n:02d} leaves unexercised: {', '.join(idle)}")
+    if not quiet:
+        for n, idle in quiet_rules.items():
+            print(f"  cp{n:02d} leaves unexercised: {', '.join(idle)}")
     if stale:
         print(f"\nSTALE: {len(stale)} file(s) under acceptance/specs are not part of this stream. "
               "Remove them first:\n  git rm -rq acceptance/specs && git checkout -- . ; "
@@ -828,8 +863,9 @@ def build(check_only: bool, with_density: bool = True, jobs: int = 1) -> int:
         for p in problems:
             print(f"  - {p}")
         return 1
-    if check_only:
-        print("OK (check only, nothing written)")
+    if check_only or hi != top:
+        print("OK (check only, nothing written)" if check_only else
+              f"OK through cp{hi:02d} (a partial build writes nothing)")
         return 0
 
     for rel, text in files.items():
@@ -850,15 +886,16 @@ def checkpoints_yaml(derived: dict[int, list[int]]) -> str:
     lo, hi = COVERAGE
     out = ["# GENERATED by harness.stream_build from the reference model harness/oracle/hell.py and the",
            "# scripts in harness/oracle/hell_scripts.py: edit those, then rebuild. Never hand-edit.",
-           f"# cp{lo:02d}-cp{hi:02d}, cadence 3:1 (mutative when n % 4 == 0); each spec: a story test plus",
-           "# the generated scenarios of harness/oracle/hell_gen.py.",
+           f"# cp{lo:02d}-cp{hi:02d} in acts of fifty (docs/PLAN.md §4), cadence 3:1 (mutative when n % 4 == 0);",
+           "# each spec: a story test plus the generated scenarios of harness/oracle/hell_gen.py.",
            "checkpoints:"]
     for n in range(lo, hi + 1):
         out.append(f"  - id: cp{n:02d}_{SLUG[n]}")
         out.append(f"    type: {TYPE[n]}")
         out.append(f"    area: {hell.AREA[n]}")
-        if TYPE[n] == "mutative":
+        if n in hell.ALGORITHM:
             out.append(f"    algorithm: {hell.ALGORITHM[n]}")
+        if TYPE[n] == "mutative":
             out.append(f"    mutates: [{', '.join(str(p) for p in derived[n])}]")
         out.append(f"    test: {own_path(n)}")
         out.append("    request: |")
@@ -873,14 +910,19 @@ def main(argv=None) -> int:
     ap.add_argument("--config", default="config.yaml")
     ap.add_argument("--check", action="store_true", help="verify only; write nothing")
     ap.add_argument("--no-density", action="store_true", help="skip the pairwise interaction metric")
+    ap.add_argument("--full-density", action="store_true",
+                    help="try every pair of rules in force, not only the new rules' pairs")
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 1),
-                    help="processes for the density metric")
+                    help="processes for the per-checkpoint checks and the density metric")
+    ap.add_argument("--to", type=int, help="check only through this checkpoint (writes nothing)")
+    ap.add_argument("--quiet", action="store_true", help="do not list the rules each spec leaves idle")
     args = ap.parse_args(argv)
     cfg = yaml.safe_load(open(os.path.join(HARNESS_ROOT, args.config))) or {}
     if cfg.get("checkpoints_file", "checkpoints.yaml") != "checkpoints.yaml":
         print("error: this builder writes checkpoints.yaml", file=sys.stderr)
         return 2
-    return build(args.check, with_density=not args.no_density, jobs=args.jobs)
+    return build(args.check, with_density=not args.no_density, jobs=args.jobs, hi=args.to,
+                 full_density=args.full_density, quiet=args.quiet)
 
 
 if __name__ == "__main__":
