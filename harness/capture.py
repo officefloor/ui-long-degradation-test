@@ -238,6 +238,36 @@ def provenance(cfg: dict, run_id: str, model: str, harness_dir: str,
     return prov
 
 
+def tests_block(outcome) -> dict:
+    """The stored form of a gate's outcome: the capture record's `tests`, and a queued gate's
+    result (harness.gate_queue). correctness.outcome_from_record reads either back."""
+    if getattr(outcome, "ungated", False):
+        # No test ran in the loop: the run's test queue tests the commit beside it. `queued` says
+        # whether this checkpoint's commit was handed to the queue.
+        return {"gated": False, "queued": bool(getattr(outcome, "queued", False))}
+    return {
+        "gated": True,
+        # "checkpoint": only the checkpoint's own spec ran; "full": the cp01..cpK suite.
+        "scope": "checkpoint" if getattr(outcome, "partial", False) else "full",
+        "build_ok": outcome.build_ok,
+        "build_output": outcome.build_output,
+        "total_selected": outcome.total_selected,
+        "results": outcome.results,     # {test_id: passed} — the atom
+        "detail": outcome.detail,       # per-test time + failure text
+        "error": outcome.error,
+        # A gate that ABORTED after `gate_attempts` tries carries no verdict; analyze must treat
+        # it as missing data, never as a suite-wide regression. Persisted so the hole survives
+        # into re-analysis.
+        "gate_invalid": outcome.gate_invalid,
+        # The code under test gave no working app (no build, never ready, died on both
+        # attempts): reported, but never scored as regressions (correctness.TestOutcome).
+        "app_broken": getattr(outcome, "app_broken", False),
+        "gate_attempts": outcome.gate_attempts,
+        # Retired with the seed endpoint; kept so old captures still read.
+        "seed_contract": getattr(outcome, "seed_contract", None),
+    }
+
+
 def checkpoint_record(k: int, cp_id: str, phase: str, shas: dict, agent_result,
                       outcome, probe: dict | None, pinned_touched: list[str],
                       acceptance_touched: list[str], stream_file: str | None,
@@ -295,24 +325,7 @@ def checkpoint_record(k: int, cp_id: str, phase: str, shas: dict, agent_result,
         "agent_stream_file": stream_file,
         "agent_diff_file": diff_file,
         "build_log_file": build_log_file,
-        "tests": {
-            "build_ok": outcome.build_ok,
-            "build_output": outcome.build_output,
-            "total_selected": outcome.total_selected,
-            "results": outcome.results,     # {test_id: passed} — the atom
-            "detail": outcome.detail,       # per-test time + failure text
-            "error": outcome.error,
-            # A gate that ABORTED (Surefire fork crash) after `gate_attempts` tries
-            # carries no verdict; analyze must treat it as missing data, never as a
-            # suite-wide regression. Persisted so the hole survives into re-analysis.
-            "gate_invalid": outcome.gate_invalid,
-            # The code under test gave no working app (no build, never ready, died on both
-            # attempts): reported, but never scored as regressions (correctness.TestOutcome).
-            "app_broken": getattr(outcome, "app_broken", False),
-            "gate_attempts": outcome.gate_attempts,
-            # AGENTS.md §4.4: earlier checkpoints' fixtures replayed and read back before the suite.
-            "seed_contract": getattr(outcome, "seed_contract", None),
-        },
+        "tests": tests_block(outcome),
         "probe": probe,
         "pinned_touched": pinned_touched,
         "acceptance_touched": acceptance_touched,

@@ -54,9 +54,25 @@ def test_regression_summary_mutative():
     }]
     rs = A.regression_summary(rows)
     assert rs == {"total": 2, "true": 1, "intended": 1, "mutative_cps": 1, "invalid_gates": 0,
-                  "app_broken": 0, "unsatisfied_replacement": 0,
+                  "ungated": 0, "checkpoint_only": 0, "app_broken": 0, "unsatisfied_replacement": 0,
                   "anchor_drift": 1, "behaviour_loss": 1, "seed_path": 0,
                   "infrastructure": 0}, rs   # absent column reads as 0 (runs before the label)
+
+
+def test_scored_drops_ungated():
+    """A checkpoint the full suite did not run at (the gate queue samples them) has no verdict:
+    it is left out of every correctness figure and counted on its own. Rows from before the
+    `gated` column existed were all gated."""
+    rows = _rows("x", 1, [0, 0]) + [{"condition": "x", "chain": 1, "checkpoint": 3,
+                                     "gated": "False", "regressions": ""}]
+    assert len(A.scored(rows)) == 2, A.scored(rows)
+    assert A.regression_summary(rows)["ungated"] == 1
+    # Only the checkpoint's own spec ran: no regression figures, but its own-spec verdict counts.
+    rows.append({"condition": "x", "chain": 1, "checkpoint": 4, "gated": "checkpoint",
+                 "iso_pass": "True", "regressions": ""})
+    assert len(A.scored(rows)) == 2, A.scored(rows)
+    assert A.regression_summary(rows)["checkpoint_only"] == 1
+    assert A.own_spec_pass(rows)[0] >= 1
 
 
 def test_scored_drops_invalid():

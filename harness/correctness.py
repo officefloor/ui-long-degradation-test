@@ -70,6 +70,15 @@ class TestOutcome:
     # out of the regression counts, and the baseline stays with the last working checkpoint.
     app_broken: bool = False
     gate_attempts: int = 0
+    # No gate ran at this checkpoint: the full suite runs only at sampled checkpoints, beside the
+    # change loop (harness.gate_queue). Unscored, like an invalid gate: the baseline carries over.
+    ungated: bool = False
+    # An ungated checkpoint whose agent commit was handed to the run's test queue.
+    queued: bool = False
+    # Only the checkpoint's own spec ran (the queue's `checkpoint` test), not the full suite: it
+    # says whether the change was made, but holds no earlier test, so it never becomes the
+    # regression baseline.
+    partial: bool = False
     # Retired with the seed endpoint; always None now, kept so old captures still read.
     seed_contract: dict | None = None
     core_pass: int = 0
@@ -345,14 +354,16 @@ def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
                         "AUDIT_FILE": os.path.join(worktree, ".run", "audit.log"),
                         "PLAYWRIGHT_JSON_OUTPUT_NAME": json_out,
                         "RUN_DIR": os.path.join(worktree, ".run")})
-            # --workers=1: every spec drives ONE shared app. Each test uses its own sheet id and
-            # filters the audit file by it, so parallel workers are possible in principle; the
-            # serial run keeps a failure attributable to one test and the app's load constant.
-            cmd = ["npx", "playwright", "test", "--reporter=json", "--workers=1",
+            # Every spec drives ONE shared app. Each test signs in on a sheet id of its own and
+            # filters the audit file by it, so tests on several workers do not see each other's
+            # data: a dry gate of 280 tests (2026-10-21) gave the same verdicts at one worker and
+            # at three, in 42 and 15 minutes. acceptance.workers sets it (default 1).
+            workers = gate_workers(cfg)
+            cmd = ["npx", "playwright", "test", "--reporter=json", f"--workers={workers}",
                    f"--output={os.path.join(worktree, '.run', 'pw-artifacts')}"]
             try:
                 p = subprocess.run(cmd, cwd=e2e_dir, env=env, capture_output=True, text=True,
-                                   timeout=(cfg.get("acceptance") or {}).get("test_timeout", 1800))
+                                   timeout=gate_timeout(cfg, len(expected)))
             except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
                 return None, f"playwright failed to launch/timed out: {e}", \
                     console + f"\n[playwright launch/timeout] {e}"
@@ -374,6 +385,21 @@ def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
     except RuntimeError as e:
         return None, f"{_SERVE_FAILED}: {e}", console + f"\n[serve] {e}"
     return report, gate_problem(p.returncode, report, expected, alive), console
+
+
+def gate_workers(cfg: dict) -> int:
+    return max(1, int((cfg.get("acceptance") or {}).get("workers") or 1))
+
+
+def gate_timeout(cfg: dict, spec_files: int) -> int:
+    """Seconds the whole Playwright run may take before it is killed as hung: acceptance.
+    test_timeout, raised to test_timeout_per_spec x installed spec files / workers. A fixed limit
+    is outgrown by a suite that only grows: at cp75 of run 202610192149 a healthy 42-minute suite
+    was killed at 30 minutes on both attempts and the checkpoint scored nothing."""
+    acc = cfg.get("acceptance") or {}
+    floor = int(acc.get("test_timeout", 1800))
+    per_spec = int(acc.get("test_timeout_per_spec") or 0)
+    return max(floor, per_spec * spec_files // gate_workers(cfg))
 
 
 def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
@@ -570,9 +596,23 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=(),
     """Flatten a scored TestOutcome to the per-checkpoint correctness row (incl. Normalized
     Change + regressions + a reason breakdown). Called by the runner and by analyze, through
     Baseline, which supplies what has changed since the last scored checkpoint."""
+    if outcome.ungated:
+        return {"build_ok": "", "gate_invalid": False, "app_broken": False, "gated": False,
+                **{f: "" for f in _ROW_FIELDS}}
+    if outcome.partial:
+        row = {"build_ok": outcome.build_ok, "gate_invalid": outcome.gate_invalid,
+               "app_broken": outcome.app_broken, "gated": "checkpoint",
+               **{f: "" for f in _ROW_FIELDS}}
+        if not (outcome.gate_invalid or outcome.app_broken):
+            row.update({"total_selected": outcome.total_selected, "iso_pass": outcome.iso_pass,
+                        "core_pass": outcome.core_all_pass,
+                        "core_p": outcome.core_pass, "core_t": outcome.core_total,
+                        "error_p": outcome.error_pass, "error_t": outcome.error_total,
+                        "func_p": outcome.func_pass, "func_t": outcome.func_total})
+        return row
     if outcome.gate_invalid or outcome.app_broken:
         return {"build_ok": outcome.build_ok, "gate_invalid": outcome.gate_invalid,
-                "app_broken": outcome.app_broken, **{f: "" for f in _ROW_FIELDS}}
+                "app_broken": outcome.app_broken, "gated": True, **{f: "" for f in _ROW_FIELDS}}
     mut = {int(m) for m in (mutated_cps or ())}
     rep = set(replaced or ())
     reason_counts = {r.value: 0 for r in RegressionReason}
@@ -590,6 +630,7 @@ def outcome_row(outcome: "TestOutcome", prior_passing: set[str], mutated_cps=(),
         "build_ok": outcome.build_ok,
         "gate_invalid": False,
         "app_broken": False,
+        "gated": True,
         "total_selected": outcome.total_selected,
         "strict_pass": outcome.all_pass,
         "iso_pass": outcome.iso_pass,
@@ -621,7 +662,8 @@ class Baseline:
     """What a checkpoint is scored against: the last SCORED checkpoint's results, plus every
     `mutates` and changed copy installed since then.
 
-    A gate that is invalid or whose app is broken gives no per-test verdict, so it never becomes
+    A checkpoint that was not gated, that ran only its own spec, or whose gate is invalid or whose
+    app is broken, gives no verdict on the whole suite, so it never becomes
     the baseline — but the copies it installed and the retirements it declared are still in the
     suite at the next scored checkpoint, so they are carried to it. Without that, a retirement at
     an unscored mutative checkpoint reads as a true regression at the next one. The live run,
@@ -636,9 +678,38 @@ class Baseline:
         mut = self.mutates | {int(m) for m in (mutates or ())}
         rep = self.replaced | set(replaced or ())
         row = outcome_row(outcome, self.passing, sorted(mut), self.selected, rep)
-        if outcome.gate_invalid or outcome.app_broken:
+        if outcome.gate_invalid or outcome.app_broken or outcome.ungated or outcome.partial:
             self.mutates, self.replaced = mut, rep
         else:
             self.passing, self.selected = set(outcome.passing), set(outcome.results)
             self.mutates, self.replaced = set(), set()
         return row
+
+
+def outcome_from_record(tests: dict, k: int) -> TestOutcome:
+    """Rebuild a scored TestOutcome from a stored `tests` block (a capture record's, or a queued
+    gate's result), re-scoring through score_results so the numbers are derived, not read back.
+    analyze and the gate queue's chain summary both score through this and Baseline."""
+    t = tests or {}
+    if t.get("gated") is False:
+        return TestOutcome(ungated=True, queued=bool(t.get("queued")))
+    partial = t.get("scope") == "checkpoint"
+    if t.get("gate_invalid") or t.get("app_broken"):
+        return TestOutcome(build_ok=bool(t.get("build_ok")),
+                           gate_invalid=bool(t.get("gate_invalid")),
+                           app_broken=bool(t.get("app_broken")), error=t.get("error", ""),
+                           partial=partial)
+    detail = t.get("detail") or []
+    cats = {d["test_id"]: d.get("category", "functionality") for d in detail if d.get("test_id")}
+    outcome = score_results(t.get("results") or {}, k, cats)
+    outcome.build_ok = bool(t.get("build_ok", True))
+    outcome.detail = detail
+    outcome.seed_contract = t.get("seed_contract")
+    outcome.gate_attempts = int(t.get("gate_attempts") or 0)
+    outcome.partial = partial
+    for d in detail:
+        if not d.get("passed", True) and d.get("test_id"):
+            # The REAL reason, with no `mutated` excuse: reasons are read only for prior-passing
+            # failures, which are true regressions (outcome_row counts intended changes apart).
+            outcome.reasons[d["test_id"]] = _classify(d, set())
+    return outcome

@@ -297,8 +297,15 @@ tests-as-spec.
 - **tests-as-spec.** The suite is the current spec, so there is no prose corpus to rot.
 - **blind authoring.** The agent gets only this checkpoint's request plus its own test, the delta,
   plus the code. It never reads the historical suite.
-- **full-suite gate.** The whole cp1..cpK suite runs after the turn as the regression gate. It never
-  enters the agent's context.
+- **full-suite gate.** The whole cp1..cpK suite runs as the regression gate. It never enters the
+  agent's context, so it need not run inside the loop either: the harness queues a test of every
+  agent commit, the checkpoint's own spec (flat cost: was the change made) or at every 10th and
+  the last the full suite (`gate.every`), and the run's own processor beside the loop runs them in
+  order (`harness.gate_queue`). A regression standing between two gates is caught by the next
+  one and pinned to its checkpoint by bisecting the commits in between. The gate's cost grows with
+  the square of the checkpoint count (K tests at checkpoint K), so gating every checkpoint of a
+  250-checkpoint chain is about 129 h of Playwright at 3 workers against about 15 h of agent turns;
+  every 10th is about 13 h and keeps up.
 
 The last split matters for the product economics. The full suite grows unbounded over an app's life,
 but because it is a gate and not context, the agent's token cost per change stays flat regardless of

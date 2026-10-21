@@ -43,6 +43,7 @@ if it produces no completion within `timeout` seconds.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -74,6 +75,19 @@ def _source_config_dir() -> str:
 
 
 _OAUTH_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
+
+
+def empty_dir(path: str) -> None:
+    """Remove everything inside `path`, keeping the directory itself (it is on the Landlock
+    allowlist by path, and other processes of the run hold it as TMPDIR)."""
+    os.makedirs(path, exist_ok=True)
+    for name in os.listdir(path):
+        full = os.path.join(path, name)
+        if os.path.isdir(full) and not os.path.islink(full):
+            shutil.rmtree(full, ignore_errors=True)
+        else:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(full)
 
 
 def _seed_clean_config_dir(tmp_dir: Optional[str] = None) -> Optional[str]:
@@ -375,8 +389,13 @@ def run_agent(prompt: str, cwd: str, model: str, timeout: int = 3600,
     `tmp_dir` is the run's private temp directory (work_root/runs/<run_id>/tmp): the throwaway
     config dir is made there, the child gets it as TMPDIR/TMP/TEMP and as java.io.tmpdir (the
     JVM ignores TMPDIR), and it is the only temp directory on the Landlock allowlist, /tmp
-    being withheld. So nothing the agent writes to scratch is shared with another run."""
+    being withheld. So nothing the agent writes to scratch is shared with another run. It is
+    EMPTIED before every turn, so nothing one turn wrote there is still there for the next: the
+    sandbox is rebuilt per turn, and a temp directory that carried over would be the one place a
+    fresh agent could find an earlier one's notes, caches or build output."""
     cmd = ["claude", "-p", prompt, *invocation_flags(model, allowed_tools)]
+    if tmp_dir:
+        empty_dir(tmp_dir)
 
     # Isolate Claude's config/memory to a fresh login-only dir for this one call,
     # so nothing (memory, history, session state) leaks across checkpoints, chains

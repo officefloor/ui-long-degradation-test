@@ -126,9 +126,35 @@ acceptance:
   harness_files:
     AGENTS.md: acceptance/AGENTS.md
     e2e/support/ui.ts: acceptance/support/ui.ts
+  # Playwright workers for the full-suite gate. Every test signs in on a sheet id of its own and
+  # reads the audit file filtered by it, so tests on parallel workers never see each other's data:
+  # a dry gate of the cp73 suite (280 tests, 2026-10-21) gave identical verdicts at 1 and 3
+  # workers, in 42 and 15 minutes, with the app at 487 MB.
+  workers: 3
+  # The whole Playwright run is killed as hung after test_timeout seconds, raised to
+  # test_timeout_per_spec x installed spec files / workers (correctness.gate_timeout): a fixed
+  # limit is outgrown by a suite that only grows (cp75 of run 202610192149: a healthy 42-minute
+  # suite killed at 30 minutes on both attempts, scoring nothing).
+  test_timeout: 1800
+  test_timeout_per_spec: 300
   agent_test_cmd: bin/e2e          # the command the AGENT runs to test as it works (DESIGN.md §15):
                                    # build + app.start + run the VISIBLE spec(s) only + app.stop.
                                    # Pinned so agent edits to it don't reach the gate.
+
+# Correctness tests run BESIDE the change loop, never in it (harness.gate_queue): the agent never
+# sees a result, so after each checkpoint the run loop only queues a test of its agent commit and
+# goes on to the next turn. Every checkpoint is tested on its OWN spec (four tests, flat cost: did
+# the agent make the change), and every `every`-th and the chain's last on the FULL cp01..cpK suite
+# instead (did it keep everything else). The queue is the run's own: runs/<run_id>/queued-tests,
+# drained in order by one processor per run (started by the run, outliving it), testing in
+# runs/<run_id>/testing on a port of its own from work_root/ports, so two runs on one machine never
+# share anything. A chain's results are committed to its branch (evolve-results/tests/) once its
+# last test is done. A regression between two full gates is found by the next one and pinned by
+# bisecting the commits in between. At every 10th, a chain's test work (about 13 h of full suites
+# + 4 h of own specs at 3 workers over 250 checkpoints) is near its agent time (about 15 h).
+#   status: python -m harness.gate_queue --config config.yaml --run-id <id> status
+gate:
+  every: 10
 
 # The `gated` condition (DESIGN.md §8, §10). After each implement turn the staged diff is scored
 # PER LAYER (front-end TS + backend Java) by impact-gate, grading the change's composite against

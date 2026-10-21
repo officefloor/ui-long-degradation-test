@@ -9,9 +9,13 @@ checkpoints, growing the app from empty. At each checkpoint k:
   1. run a FRESH headless agent (harness.agent.run_agent) with the plain-English request;
      it authors the full-stack change and may run bin/e2e; optionally Landlock-confined.
   2. mirror the sandbox back (excluding e2e/specs); commit the pure agent delta (COMMIT 1).
-  3. GATE: restore pinned files, install the FULL cp01..cpK suite (mutative priors win by
-     basename) into the worktree e2e/specs, run correctness.run_tests (build+serve+PW).
-  4. write raw capture; normalise pins; reset commit (COMMIT 2). Two-commit boundary.
+  3. write raw capture; normalise pins; reset commit (COMMIT 2). Two-commit boundary.
+  4. QUEUE a test of the agent commit in the run's test queue (harness.gate_queue), which runs
+     beside the loop, never in it (the agent never sees a result): its OWN spec at every
+     checkpoint, and at every gate.every-th and the last the FULL cp01..cpK suite instead
+     (mutative priors win by basename). Each restores pinned files and builds, serves and runs
+     Playwright in runs/<run_id>/testing; the chain's results are committed to the branch
+     (evolve-results/tests/) when its last test is done.
 
 The condition defaults to config `active_condition` (`just-solve`, the experiment's); pass
 --condition gated for the ImpactGate loop. Usage:
@@ -35,8 +39,8 @@ from datetime import datetime
 
 import yaml
 
-from . import (agent, capture, correctness, doctor, expand_path, fixtures, impact_gate, landlock,
-               metrics, parser_selftest, quality_gate, stack_label, stack_layer_options,
+from . import (agent, capture, correctness, doctor, expand_path, fixtures, gate_queue, impact_gate,
+               landlock, metrics, parser_selftest, quality_gate, stack_label, stack_layer_options,
                stack_layers, stack_repo)
 
 HARNESS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -48,7 +52,7 @@ CSV_FIELDS = [
     "stack", "stack_origin",
     "run_id", "model", "branch", "condition", "chain", "checkpoint", "checkpoint_id", "phase",
     "checkpoint_type", "agent_ok", "cost_usd", "input_tokens", "output_tokens",
-    "num_turns", "duration_ms", "duration_api_ms", "build_ok", "gate_invalid", "app_broken",
+    "num_turns", "duration_ms", "duration_api_ms", "build_ok", "gated", "gate_invalid", "app_broken",
     "total_selected", "strict_pass", "iso_pass", "core_pass", "core_p", "core_t",
     "error_p", "error_t", "func_p", "func_t", "regr_p", "regr_t",
     "normalized_change", "regressions", "true_regressions", "intended_regressions",
@@ -354,19 +358,19 @@ def _own_spec(cp: dict) -> str:
     return fixtures.own_spec(cp)
 
 
-def _spec_entries(cp: dict) -> list[str]:
+def _spec_entries(cp: dict, root: str = HARNESS_ROOT) -> list[str]:
     """Repo-root-relative spec paths a checkpoint installs (see fixtures.spec_entries)."""
-    return fixtures.spec_entries(cp, HARNESS_ROOT)
+    return fixtures.spec_entries(cp, root)
 
 
-def _authored_specs(checkpoints: list[dict], k: int) -> dict[str, str]:
+def _authored_specs(checkpoints: list[dict], k: int, root: str = HARNESS_ROOT) -> dict[str, str]:
     """{installed basename -> repo-root-relative source path} as of checkpoint k, walking
     in order so a later (mutative) entry for the same basename wins."""
     authored: dict[str, str] = {}
     for cp in checkpoints:
         if cp["n"] > k:
             break
-        for entry in _spec_entries(cp):
+        for entry in _spec_entries(cp, root):
             authored[os.path.basename(entry)] = entry
     return authored
 
@@ -382,14 +386,16 @@ def _clear_specs(dest: str) -> None:
                 os.remove(os.path.join(dest, fn))
 
 
-def install_measurement_suite(wt: str, cfg: dict, checkpoints: list[dict], k: int) -> None:
+def install_measurement_suite(wt: str, cfg: dict, checkpoints: list[dict], k: int,
+                              root: str = HARNESS_ROOT) -> None:
     """Install the FULL authored cp01..cpK suite (mutative priors winning) into the
-    worktree e2e/specs for the gate — the priors the agent never saw."""
+    worktree e2e/specs for the gate — the priors the agent never saw. `root` is the harness tree
+    the specs come from: this checkout, or the gate queue's snapshot of the commit a job names."""
     dest = _specs_dest(wt, cfg)
     os.makedirs(dest, exist_ok=True)
     _clear_specs(dest)
-    for entry in _authored_specs(checkpoints, k).values():
-        src = os.path.join(HARNESS_ROOT, entry)
+    for entry in _authored_specs(checkpoints, k, root).values():
+        src = os.path.join(root, entry)
         if os.path.isfile(src):
             shutil.copy2(src, os.path.join(dest, os.path.basename(entry)))
 
@@ -415,12 +421,12 @@ def _neutralize_spec(text: str) -> str:
 # version, nor anything specific to the AI service.
 # The agent may not change them: edits are flagged like pinned files and never copied back.
 
-def harness_files(cfg: dict) -> dict[str, str]:
+def harness_files(cfg: dict, root: str = HARNESS_ROOT) -> dict[str, str]:
     """{path in the app -> absolute source in the harness}: acceptance.harness_files plus the agent
     service's agent.instruction_files (how that service finds AGENTS.md)."""
     declared = {**((cfg.get("acceptance") or {}).get("harness_files") or {}),
                 **((cfg.get("agent") or {}).get("instruction_files") or {})}
-    return {dst: os.path.join(HARNESS_ROOT, src) for dst, src in declared.items()}
+    return {dst: os.path.join(root, src) for dst, src in declared.items()}
 
 
 def harness_files_provenance(cfg: dict) -> dict:
@@ -429,9 +435,10 @@ def harness_files_provenance(cfg: dict) -> dict:
             for dst, src in harness_files(cfg).items()}
 
 
-def install_harness_files(dst_root: str, cfg: dict, cp: dict | None = None) -> None:
-    """Copy the harness-owned files into an app tree."""
-    for dst, src in harness_files(cfg).items():
+def install_harness_files(dst_root: str, cfg: dict, cp: dict | None = None,
+                          root: str = HARNESS_ROOT) -> None:
+    """Copy the harness-owned files into an app tree (from `root`, see install_measurement_suite)."""
+    for dst, src in harness_files(cfg, root).items():
         out = os.path.join(dst_root, dst)
         os.makedirs(os.path.dirname(out) or dst_root, exist_ok=True)
         shutil.copyfile(src, out)
@@ -571,6 +578,12 @@ def per_run_dirs(cfg: dict, run_id: str) -> None:
         work_root/runs/<run_id>/sandbox/<stack>               the agent's working directory (cwd), named
                                                          after the stack repo it mirrors
         work_root/runs/<run_id>/tmp                           the run's temp directory, in place of /tmp
+        work_root/runs/<run_id>/queued-tests                  the run's test queue, its results and
+                                                         the suite snapshots (harness.gate_queue)
+        work_root/runs/<run_id>/testing                       the checkout each queued test runs in
+
+    The queued tests run no agent and use the normal /tmp, never the run's tmp: Playwright caches
+    the compiled specs under TMPDIR, and the run's tmp is on the agent's allowlist.
 
     The agent's Landlock allowlist holds ONLY the sandbox and tmp subtrees: work_root, the run
     directory and the worktree beside them are unlisted and verified denied before every turn
@@ -992,6 +1005,7 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         if lo > min(hi, len(checkpoints)):
             print(f"    resume : nothing left to run (cp{done:02d} is the last requested "
                   f"checkpoint) — leaving the branch untouched", flush=True)
+            _queue_missing_gates(cfg, run_id, condition, chain, branch, wt, done, final=True)
             return
 
     prov = capture.provenance(cfg, run_id, model, HARNESS_DIR, extra={
@@ -1024,10 +1038,18 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
     shutil.rmtree(sandbox, ignore_errors=True)
     os.makedirs(os.path.dirname(sandbox), exist_ok=True)
 
-    # Regressions are relative to the last scored suite, so a resumed chain must reload it.
-    baseline = baseline_from_capture(wt, done) if resume else correctness.Baseline()
+    # A resumed chain may have finished checkpoints whose gate never reached the queue (a crash
+    # between the reset commit and the enqueue): queue them now. Scoring happens in the queue.
+    if resume:
+        _queue_missing_gates(cfg, run_id, condition, chain, branch, wt, done, final=False)
+    # Tests left waiting by a reboot or a killed processor start again.
+    if gate_queue.ensure_processor(cfg["paths"]["run_dir"]):
+        print(f"    tests  : started the processor for jobs already waiting — "
+              f"{gate_queue.status_line(cfg['paths']['run_dir'])}", flush=True)
+    every = gate_queue.gate_every(cfg)
+    last = min(hi, len(checkpoints))
     captures: list[dict] = []
-    strict_count = regr_count = 0
+    full_queued = 0
     chain_started, spent_usd, model_seen = time.time(), 0.0, ""
 
     for cp in checkpoints:
@@ -1080,35 +1102,18 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
                        capture_output=True, text=True)
         agent_sha = git(["-C", wt, "rev-parse", "HEAD"])
 
-        # GATE prep: restore pins to base, install the full cp01..cpK suite, drop stale build.
-        _restore_pins_to_base(wt, app_cfg, cfg)
-        install_harness_files(wt, cfg, cp)
-        install_measurement_suite(wt, cfg, checkpoints, k)
-        shutil.rmtree(os.path.join(wt, "target"), ignore_errors=True)
-
-        outcome = _run_gate(wt, k, cfg)
+        # No test in the loop: the run's test queue tests this agent commit beside it — its own
+        # spec, or at every gate.every-th checkpoint and the last the full cp01..cpK suite
+        # (harness.gate_queue). The agent never sees a result, so the next turn need not wait.
+        kind = gate_queue.test_kind(k, every, last)
+        outcome = correctness.TestOutcome(ungated=True, queued=True)
         build_log_file = None
-        if outcome.console:
-            build_log_file = f"cp{k:02d}.build.log"
-            with open(os.path.join(cap_dir, build_log_file), "w") as fh:
-                fh.write(outcome.console[:1_000_000])
-
         mutated = [int(m) for m in (cp.get("mutates") or [])]
         replaced = fixtures.replaced_tests(checkpoints, k, HARNESS_ROOT)
-        row = baseline.score(outcome, mutated, replaced)
-        strict_count += 1 if row.get("strict_pass") is True else 0
-        regr_count += int(row.get("regressions") or 0)
-
-        # console summary
-        failed = [t for t, ok in (outcome.results or {}).items() if not ok]
-        print(f"    gate   : build_ok={outcome.build_ok} selected={outcome.total_selected} "
-              f"strict_pass={row.get('strict_pass')} regressions={row.get('regressions')} "
-              f"true_regr={row.get('true_regressions')} gate_invalid={outcome.gate_invalid} app_broken={outcome.app_broken}", flush=True)
-        if failed:
-            print(f"    FAILED : {len(failed)}/{outcome.total_selected}: "
-                  + "; ".join(sorted(failed)[:6]), flush=True)
-        if outcome.error:
-            print(f"    error  : {outcome.error[:200]}", flush=True)
+        row: dict = {}
+        print("    tests  : " + ("the full cp01..cpK suite" if kind == "full"
+                                 else "this checkpoint's own spec")
+              + ", queued to run beside the loop", flush=True)
         if touched_pins:
             print(f"    flags  : pinned_touched={touched_pins}", flush=True)
 
@@ -1168,15 +1173,46 @@ def run_chain(cfg: dict, condition: str, chain: int, run_id: str,
         git(["-C", wt, "add", "-A"])
         subprocess.run(["git", "-C", wt, "commit", "--allow-empty", "-m", f"cp{k:02d} reset {cid}"],
                        capture_output=True, text=True)
+        # Queued only once the checkpoint is committed, so a job never names a commit that a
+        # resume would redo; a crash before this line is caught by _queue_missing_gates.
+        job = gate_queue.enqueue_test(cfg, run_id, condition, chain, branch, k, cid, agent_sha, kind)
+        gate_queue.ensure_processor(cfg["paths"]["run_dir"])
+        full_queued += kind == "full"
+        print(f"    queued : {os.path.basename(job)}", flush=True)
 
         shutil.rmtree(sandbox, ignore_errors=True)
 
-    headline = (f"checkpoints={len(captures)} strict_pass={strict_count}/{len(captures)} "
-                f"regressions={regr_count} agent_spend=${spent_usd:.2f} model={model_seen or model} "
-                f"elapsed={_hms(time.time() - chain_started)} (derived numbers recomputed by analyze)")
+    headline = (f"checkpoints={len(captures)} tests_queued={len(captures)} "
+                f"(full suite at {full_queued}) "
+                f"agent_spend=${spent_usd:.2f} model={model_seen or model} "
+                f"elapsed={_hms(time.time() - chain_started)} (correctness lands with the test "
+                f"results; derived numbers recomputed by analyze)")
     commit_chain_results(wt, branch, run_id, condition, chain, cap_dir, headline)
     shutil.rmtree(sandbox, ignore_errors=True)
+    if captures:
+        gate_queue.enqueue_finalise(cfg, run_id, condition, chain, branch, captures[-1]["checkpoint"])
+        gate_queue.ensure_processor(cfg["paths"]["run_dir"])
     print(f"\n=== done: {headline} ===", flush=True)
+    print(f"    tests  : {gate_queue.status_line(cfg['paths']['run_dir'])}", flush=True)
+
+
+def _queue_missing_gates(cfg: dict, run_id: str, condition: str, chain: int, branch: str, wt: str,
+                         done: int, final: bool) -> None:
+    """Queue the test of every committed checkpoint up to cp`done` that has none yet, and with
+    `final` the chain's finalise job, from the commits each capture record names
+    (gate_queue.queue_missing)."""
+    caps = {}
+    cap_dir = os.path.join(wt, "evolve-results", "capture")
+    for k in range(1, done + 1):
+        path = os.path.join(cap_dir, f"cp{k:02d}.json")
+        if os.path.isfile(path):
+            with open(path) as fh:
+                caps[k] = json.load(fh)
+    queued = gate_queue.queue_missing(cfg, run_id, condition, chain, branch, caps, done, final)
+    if queued:
+        print(f"    tests  : queued {len(queued)} missing job(s): "
+              + ", ".join(os.path.basename(j) for j in queued), flush=True)
+        gate_queue.ensure_processor(cfg["paths"]["run_dir"])
 
 
 def _agent_cli_version() -> str:

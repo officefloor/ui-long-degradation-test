@@ -33,7 +33,10 @@ application from scratch** under a long sequence of plain-English change request
   its own; there is no seed endpoint, so every write path is under test.
 - **The agent works blind** (sees only the current checkpoint's request + its own test, never the
   priors) and can run that test against the live app as it works. The full accumulated suite runs
-  afterwards as the regression gate. Functionality is tracked as **tests, not specifications**.
+  as the regression gate at every 10th checkpoint and the last (`gate.every`), and every other
+  checkpoint is tested on its own spec; both run beside the loop rather than in it
+  (`harness.gate_queue`), so no agent turn waits for a test. Functionality is
+  tracked as **tests, not specifications**.
 - **No front-end arms** — the front-end is the fixed OfficeHQ opinionated shell. The only optional
   comparison is the intervention condition (the gated OfficeHQ loop vs an ungated control), to
   quantify what ImpactGate buys. Erosion is measured per layer (front-end TS + backend Java).
@@ -63,6 +66,17 @@ STACK=~/officehq-react-officefloor
 # and the gate poll until they work again (the run is meant to be watched; a token that never
 # recovers needs a person). An agent that runs past agent_timeout is retried once, then its
 # partial work is gated as its outcome.
+# Tests run BESIDE the loop: after each checkpoint the run queues a test of its agent commit in
+# work_root/runs/<run_id>/queued-tests (its own spec; the full cp01..cpK suite at every
+# gate.every-th and the last) and starts the run's detached processor, which tests each commit in
+# order in runs/<run_id>/testing, on a port of its own from work_root/ports, with the suite frozen
+# at the harness commit the job was queued under, and commits a chain's results to its branch
+# (evolve-results/tests/, a final `tests:` commit) once that chain's last test is done. Each run
+# has its own queue, checkout and port, so two runs share a machine. The queue is on disk: a killed
+# processor's job is re-run, a resume queues any test that never reached it, and the processor
+# outlives the run process, so the next chain's agents work while it catches up.
+.venv/bin/python -m harness.gate_queue --config config.yaml --run-id <id> status        # queued / running
+.venv/bin/python -m harness.gate_queue --config config.yaml --run-id <id> retry-failed  # requeue failed jobs
 # NOTE --from does NOT resume: it starts at base_ref, so it would skip the features later
 # checkpoints build on. Use it only to run a prefix (--to N) or a smoke test.
 .venv/bin/python -m harness.run_experiment --config config.yaml --repo $STACK \

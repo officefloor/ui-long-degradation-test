@@ -122,32 +122,26 @@ def _read_captures(repo: str, branch: str) -> dict[int, dict]:
     return caps
 
 
+def _read_gates(repo: str, branch: str) -> dict[int, dict]:
+    """checkpoint -> test result, from evolve-results/tests/cpNN.json on the branch: the tests
+    the run's test queue ran beside the loop (the checkpoint's own spec, or the full suite at
+    every gate.every-th) and committed when the chain's last one was done (harness.gate_queue).
+    Empty for a chain tested in the loop, or whose results have not landed."""
+    gates: dict[int, dict] = {}
+    ls = git_out(repo, ["ls-tree", "-r", "--name-only", branch, "evolve-results/tests/"])
+    for path in ls.splitlines():
+        mt = re.search(r"/cp0*(\d+)\.json$", path)
+        if mt:
+            rec = _read_json_blob(repo, branch, path.strip())
+            if rec is not None:
+                gates[int(mt.group(1))] = rec
+    return gates
+
+
 def _outcome_from_capture(rec: dict) -> correctness.TestOutcome:
     """Rebuild a scored TestOutcome from a checkpoint's RAW capture (results map + detail),
     re-scoring through correctness so the numbers are derived, not read back."""
-    t = rec.get("tests") or {}
-    k = int(rec["checkpoint"])
-    if t.get("gate_invalid") or t.get("app_broken"):
-        return correctness.TestOutcome(build_ok=bool(t.get("build_ok")),
-                                       gate_invalid=bool(t.get("gate_invalid")),
-                                       app_broken=bool(t.get("app_broken")),
-                                       error=t.get("error", ""))
-    detail = t.get("detail") or []
-    cats = {d["test_id"]: d.get("category", "functionality") for d in detail if d.get("test_id")}
-    outcome = correctness.score_results(t.get("results") or {}, k, cats)
-    outcome.build_ok = bool(t.get("build_ok", True))
-    outcome.detail = detail
-    outcome.gate_invalid = False
-    outcome.seed_contract = t.get("seed_contract")
-    mutated = {int(m) for m in (rec.get("mutates") or [])}
-    for d in detail:
-        if not d.get("passed", True) and d.get("test_id"):
-            # Classify the REAL reason (no `mutated` excuse): the reason breakdown is only read for
-            # PRIOR-passing failures, which are true regressions and must get anchor_drift/
-            # behaviour_loss/seed_path — never "intended", which would drop them (outcome_row counts
-            # the intended-change display separately via the mutates set).
-            outcome.reasons[d["test_id"]] = correctness._classify(d, set())
-    return outcome
+    return correctness.outcome_from_record(rec.get("tests") or {}, int(rec["checkpoint"]))
 
 
 def _heartbeat_val(row: dict, field: str) -> str:
@@ -212,6 +206,12 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
         if not caps:
             print(f"  [{i_br}/{n_br}] {branch}: no capture — skipped", flush=True)
             continue
+        # A queued test's result replaces the capture's "not tested in the loop".
+        gates = _read_gates(repo, branch)
+        for k, g in gates.items():
+            if k in caps:
+                caps[k] = {**caps[k], "tests": g.get("tests") or {}}
+        n_ungated = sum(1 for rec in caps.values() if (rec.get("tests") or {}).get("gated") is False)
         n = max(caps)
         ks = sorted(caps)
         n_cp = len(ks)
@@ -257,7 +257,8 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
             # Raw gate counts for the pass/fail figure: every test the gate ran, unscored, so a
             # failure shows on every checkpoint it persists (regressions count only its onset).
             # Blank when the gate gave no verdict (invalid gate / broken app), never zero.
-            if not (outcome.gate_invalid or outcome.app_broken):
+            if not (outcome.gate_invalid or outcome.app_broken or outcome.ungated
+                    or outcome.partial):
                 res = outcome.results
                 failing = sorted(t for t, ok in res.items() if not ok)
                 row.update({"tests_passed": len(res) - len(failing),
@@ -312,6 +313,8 @@ def recompute_rows(repo: str, run_id: str, app_cfg: dict | None = None,
         print(f"  recomputed {branch}: {n_cp} checkpoint(s)"
               + (f" ({n_noop} no-op)" if n_noop else "")
               + (f"  ! {n_invalid} INVALID GATE(S) — correctness excluded" if n_invalid else "")
+              + (f"  ({len(gates)} queued test result(s); {n_ungated} checkpoint(s) untested)"
+                 if gates or n_ungated else "")
               + f"  [{(time.time() - t_chain) / 60:.1f}m]", flush=True)
     print(f"recompute done: {len(rows)} rows from {n_br} branch(es) "
           f"in {(time.time() - t_all) / 60:.1f}m", flush=True)
@@ -471,10 +474,30 @@ def phase_means(rows: list[dict], field: str):
 
 
 def scored(rows: list[dict]) -> list[dict]:
-    """Rows whose gate returned a per-test verdict. A gate-invalid checkpoint carries no
-    correctness; one whose app was broken (no build, never ready, died on both attempts) is
+    """Rows whose gate returned a verdict on the WHOLE suite. A checkpoint with no test, or only
+    its own spec (the full suite runs at every gate.every-th), or a gate-invalid one carries no
+    regression figures; one whose app was broken (no build, never ready, died on both attempts) is
     counted on its own (regression_summary's app_broken), never as regressions."""
-    return [r for r in rows if not _b(r.get("gate_invalid")) and not _b(r.get("app_broken"))]
+    return [r for r in rows if not _b(r.get("gate_invalid")) and not _b(r.get("app_broken"))
+            and not _ungated(r) and not _checkpoint_only(r)]
+
+
+def _ungated(r: dict) -> bool:
+    """No test ran at this checkpoint (rows from before the field existed were all gated)."""
+    return str(r.get("gated", "")).strip().lower() in ("false", "0", "no")
+
+
+def _checkpoint_only(r: dict) -> bool:
+    """Only the checkpoint's own spec ran here, not the full suite."""
+    return str(r.get("gated", "")).strip().lower() == "checkpoint"
+
+
+def own_spec_pass(rows: list[dict]) -> tuple[int, int]:
+    """(checkpoints whose own spec passed, checkpoints whose own spec gave a verdict), from the
+    checkpoint tests and the full ones alike: did the agent make each change it was asked for."""
+    graded = [r for r in rows if not _b(r.get("gate_invalid")) and not _b(r.get("app_broken"))
+              and not _ungated(r) and str(r.get("iso_pass", "")).strip() != ""]
+    return sum(1 for r in graded if _b(r.get("iso_pass"))), len(graded)
 
 
 def evoscore(rows: list[dict], gamma: float) -> float:
@@ -544,6 +567,8 @@ def regression_summary(rows: list[dict]) -> dict:
                 else total - true)
     return {"total": total, "true": true, "intended": intended, "mutative_cps": n_mut,
             "invalid_gates": sum(1 for r in rows if _b(r.get("gate_invalid"))),
+            "ungated": sum(1 for r in rows if _ungated(r)),
+            "checkpoint_only": sum(1 for r in rows if _checkpoint_only(r)),
             "app_broken": sum(1 for r in rows if _b(r.get("app_broken"))),
             "unsatisfied_replacement": unsat,
             "anchor_drift": ad, "behaviour_loss": bl, "seed_path": sp, "infrastructure": inf}
@@ -1298,7 +1323,9 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
          f"- conditions: {', '.join(sorted(by_cond))}",
          f"- chains: {sorted({int(r['chain']) for r in rows})}",
          f"- checkpoints: {sorted({int(r['checkpoint']) for r in rows})}",
-         f"- rows: {len(rows)}  (gate-invalid: {sum(1 for r in rows if _b(r.get('gate_invalid')))})",
+         f"- rows: {len(rows)}  (gate-invalid: {sum(1 for r in rows if _b(r.get('gate_invalid')))}; "
+         f"own spec only: {sum(1 for r in rows if _checkpoint_only(r))}; "
+         f"untested: {sum(1 for r in rows if _ungated(r))})",
          "", "> Correctness headline + per-layer structural erosion/impact (front-end TS at "
          "file-scope, backend Java at class-scope) — separate series, never compared across "
          "layers (DESIGN.md §8).", ""]
@@ -1312,6 +1339,10 @@ def write_summary(rows: list[dict], run_id: str, gammas: list[float], out_dir: s
               f"- Zero-Regression Rate: {zero_regression_rate(cr):.3f}",
               "- EvoScore: " + ", ".join(f"γ={g}: {evoscore(cr, g):.3f}" for g in gammas)]
         rs = regression_summary(cr)
+        own_ok, own_n = own_spec_pass(cr)
+        if own_n:
+            L += [f"- own spec passing: {own_ok}/{own_n} checkpoints (the change each asked for); "
+                  f"regression figures below come from the {len(scored(cr))} full-suite gates"]
         L += [f"- regressions: total={rs['total']} true={rs['true']} intended={rs['intended']} "
               f"(mutative checkpoints={rs['mutative_cps']}, invalid gates={rs['invalid_gates']})",
               f"- broken app: {rs['app_broken']} checkpoint(s) whose code gave no working app (no "
