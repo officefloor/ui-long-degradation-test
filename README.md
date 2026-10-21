@@ -75,6 +75,10 @@ STACK=~/officehq-react-officefloor
 # has its own queue, checkout and port, so two runs share a machine. The queue is on disk: a killed
 # processor's job is re-run, a resume queues any test that never reached it, and the processor
 # outlives the run process, so the next chain's agents work while it catches up.
+# Two logs per run, both appended to on a resume: runs/<run_id>/run.log holds everything the run
+# prints (the terminal that started it shows the same), runs/<run_id>/test.log the test
+# processor's progress — each job's steps, a line per test as Playwright finishes it, the result.
+tail -f ~/ui-work/runs/<run_id>/test.log                                                  # watch the tests
 .venv/bin/python -m harness.gate_queue --config config.yaml --run-id <id> status        # queued / running
 .venv/bin/python -m harness.gate_queue --config config.yaml --run-id <id> retry-failed  # requeue failed jobs
 # NOTE --from does NOT resume: it starts at base_ref, so it would skip the features later

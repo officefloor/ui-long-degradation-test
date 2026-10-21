@@ -25,9 +25,11 @@ stacks side by side) never share a queue, a checkout, a port or a temp directory
                                    job names, extracted when the job is queued, so a test runs the
                                    suite of its own run even after main moves on
         results/<condition>-chainN/cpNN.json      a test's result (+ cpNN.test.log, its console)
-        processor.lock             flock held by the run's one processor; processor.log its output
+        processor.lock             flock held by the run's one processor
     work_root/runs/<run_id>/testing/   the worktree a test checks the commit out into and loads
                                    the specs into
+    work_root/runs/<run_id>/test.log   the processor's progress (harness.runlog): each job's start,
+                                   steps and result, and every test as Playwright finishes it
     work_root/ports/<port>.lock    the port the tests serve the app on, claimed as
                                    "<run_id>-testing" (run_experiment.claim_port)
 
@@ -63,7 +65,7 @@ from datetime import datetime
 
 import yaml
 
-from . import capture, correctness, expand_path
+from . import capture, correctness, expand_path, runlog
 
 HARNESS_DIR = os.path.dirname(os.path.abspath(__file__))
 HARNESS_ROOT = os.path.dirname(HARNESS_DIR)
@@ -318,10 +320,10 @@ def ensure_processor(run_dir: str) -> bool:
         return False
     env = _system_tmp_env(dict(os.environ))
     env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)      # a test runs no agent
-    with open(os.path.join(q, "processor.log"), "a") as log:
-        subprocess.Popen([sys.executable, "-m", "harness.gate_queue", "--run-dir", run_dir,
-                          "process"], cwd=HARNESS_ROOT, env=env, stdin=subprocess.DEVNULL,
-                         stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    # Its output goes to runs/<run_id>/test.log (process_logged), never to the run's terminal.
+    subprocess.Popen([sys.executable, "-m", "harness.gate_queue", "--run-dir", run_dir,
+                      "process"], cwd=HARNESS_ROOT, env=env, stdin=subprocess.DEVNULL,
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
     return True
 
 
@@ -478,16 +480,20 @@ def run_test_job(job: dict) -> dict:
     cfg["paths"] = {"work_root": job["work_root"]}
     port = rx.claim_port(cfg, port_owner(job["run_id"]))
     cfg["app"]["port"] = port
+    k = int(job["checkpoint"])
+    label = f"chain{job['chain']} cp{k:02d} {job['kind']:10s}| "
+    cfg["_progress"] = {"prefix": label}            # correctness labels its progress lines with it
+    say = lambda line: print(f"{_now()} {label}{line}", flush=True)  # noqa: E731
     paths = ["acceptance", job["checkpoints_file"]]
     snap = ensure_snapshot(job["run_dir"], job["harness_sha"], paths)
     with open(os.path.join(snap, job["checkpoints_file"])) as fh:
         checkpoints = yaml.safe_load(fh)["checkpoints"]
     for i, cp in enumerate(checkpoints, 1):
         cp["n"] = i
-    k = int(job["checkpoint"])
     out_dir = job["results_dir"]
     os.makedirs(out_dir, exist_ok=True)
 
+    say(f"commit {job['commit'][:10]} ({job.get('checkpoint_id') or ''}) on port {port}")
     wt = testing_worktree(job)
     started = time.time()
     with _test_env(job, port):
@@ -497,6 +503,8 @@ def run_test_job(job: dict) -> dict:
             rx.install_measurement_suite(wt, cfg, checkpoints, k, root=snap)
         else:
             _install_own_spec(wt, cfg, checkpoints[k - 1], snap)
+        n_specs = len([f for f in os.listdir(rx._specs_dest(wt, cfg)) if f.endswith(".spec.ts")])
+        say(f"{n_specs} spec file(s) installed in {wt}")
         shutil.rmtree(os.path.join(wt, "target"), ignore_errors=True)
         outcome = rx._run_gate(wt, k, cfg)
     outcome.partial = job["kind"] == "checkpoint"
@@ -518,6 +526,16 @@ def run_test_job(job: dict) -> dict:
         "tests": capture.tests_block(outcome),
     }
     capture.write_json(os.path.join(out_dir, f"cp{k:02d}.json"), record)
+    if outcome.gate_invalid or outcome.app_broken:
+        say(f"NO VERDICT ({'app broken' if outcome.app_broken else 'gate invalid'}): "
+            f"{(outcome.error or '')[:200]}")
+    else:
+        say(f"{outcome.total_selected - len(failed)} passed, {len(failed)} failed of "
+            f"{outcome.total_selected} in {seconds}s")
+        for t in failed[:20]:
+            say(f"  FAILED {t}")
+        if len(failed) > 20:
+            say(f"  ... and {len(failed) - 20} more (see {log_file})")
     return {"kind": job["kind"], "selected": outcome.total_selected, "failed": len(failed),
             "seconds": seconds, "gate_invalid": outcome.gate_invalid,
             "app_broken": outcome.app_broken}
@@ -689,6 +707,10 @@ def main() -> int:
     if not os.path.isdir(run_dir):
         ap.error(f"no run directory {run_dir}")
     if args.command == "process":
+        # However it was started, the processor writes only to the run's test.log: `tail -f` it.
+        print(f"test processor output: tail -f {os.path.join(run_dir, runlog.TEST_LOG)}", flush=True)
+        runlog.redirect_output(os.path.join(run_dir, runlog.TEST_LOG),
+                               f"test processor for {os.path.basename(run_dir)}")
         return process(run_dir)
     if args.command == "status":
         return status(run_dir)

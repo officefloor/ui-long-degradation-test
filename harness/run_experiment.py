@@ -40,8 +40,8 @@ from datetime import datetime
 import yaml
 
 from . import (agent, capture, correctness, doctor, expand_path, fixtures, gate_queue, impact_gate,
-               landlock, metrics, parser_selftest, quality_gate, stack_label, stack_layer_options,
-               stack_layers, stack_repo)
+               landlock, metrics, parser_selftest, quality_gate, runlog, stack_label,
+               stack_layer_options, stack_layers, stack_repo)
 
 HARNESS_DIR = os.path.dirname(os.path.abspath(__file__))
 HARNESS_ROOT = os.path.dirname(HARNESS_DIR)   # the ui-long-degradation-test repo root
@@ -581,6 +581,8 @@ def per_run_dirs(cfg: dict, run_id: str) -> None:
         work_root/runs/<run_id>/queued-tests                  the run's test queue, its results and
                                                          the suite snapshots (harness.gate_queue)
         work_root/runs/<run_id>/testing                       the checkout each queued test runs in
+        work_root/runs/<run_id>/run.log, test.log             what the run and its tests print
+                                                         (harness.runlog)
 
     The queued tests run no agent and use the normal /tmp, never the run's tmp: Playwright caches
     the compiled specs under TMPDIR, and the run's tmp is on the agent's allowlist.
@@ -1287,6 +1289,12 @@ def main() -> int:
     # /tmp for every process from here on (preflight's confined smoke included).
     cfg["paths"]["work_root"] = resolve(cfg["paths"].get("work_root"))
     per_run_dirs(cfg, run_id)
+    # From here everything this process (and every child) prints also goes to runs/<run_id>/run.log;
+    # the tests' progress is in test.log beside it (harness.gate_queue).
+    runlog.tee_output(os.path.join(cfg["paths"]["run_dir"], runlog.RUN_LOG),
+                      f"run {run_id}: {' '.join(sys.argv[1:])}")
+    print(f"logs   : {os.path.join(cfg['paths']['run_dir'], runlog.RUN_LOG)} (this output); tests: "
+          f"tail -f {os.path.join(cfg['paths']['run_dir'], runlog.TEST_LOG)}", flush=True)
     # The run's port is claimed by a lock file (claim_port), so two runs sharing a machine (two
     # stacks side by side, so neither is favoured by going first or by a different agent build)
     # never serve on one port. The agent's own bin/e2e serves on $PORT; hand it the run's port,

@@ -359,11 +359,15 @@ def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
             # data: a dry gate of 280 tests (2026-10-21) gave the same verdicts at one worker and
             # at three, in 42 and 15 minutes. acceptance.workers sets it (default 1).
             workers = gate_workers(cfg)
-            cmd = ["npx", "playwright", "test", "--reporter=json", f"--workers={workers}",
+            # json is the record (to PLAYWRIGHT_JSON_OUTPUT_NAME); `list` prints a line per test as
+            # it finishes, streamed to this process's output (the run's test.log) as progress.
+            cmd = ["npx", "playwright", "test", "--reporter=json,list", f"--workers={workers}",
                    f"--output={os.path.join(worktree, '.run', 'pw-artifacts')}"]
+            _progress(cfg, f"playwright: {len(expected)} spec file(s), {workers} worker(s), "
+                           f"attempt {attempt}")
             try:
-                p = subprocess.run(cmd, cwd=e2e_dir, env=env, capture_output=True, text=True,
-                                   timeout=gate_timeout(cfg, len(expected)))
+                p = _run_streaming(cmd, e2e_dir, env, gate_timeout(cfg, len(expected)),
+                                   (cfg.get("_progress") or {}).get("prefix", ""))
             except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as e:
                 return None, f"playwright failed to launch/timed out: {e}", \
                     console + f"\n[playwright launch/timeout] {e}"
@@ -378,13 +382,62 @@ def _gate_attempt(worktree: str, e2e_dir: str, cfg: dict, console: str,
                 except (json.JSONDecodeError, OSError):
                     report = None
             if report is None:
-                try:
-                    report = json.loads(p.stdout)
-                except (json.JSONDecodeError, TypeError):
-                    report = None
+                _progress(cfg, f"no JSON report at {json_out}")
     except RuntimeError as e:
         return None, f"{_SERVE_FAILED}: {e}", console + f"\n[serve] {e}"
     return report, gate_problem(p.returncode, report, expected, alive), console
+
+
+def _progress(cfg: dict, line: str) -> None:
+    """A progress line for the run's test.log (the processor's output), labelled with the job."""
+    pre = (cfg.get("_progress") or {}).get("prefix", "")
+    print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {pre}{line}", flush=True)
+
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+# What the `list` reporter prints that is progress: the test count up front, one line per finished
+# test (✓ passed, ✘ failed, - skipped, ± flaky) and the closing totals. Its failure report (code
+# frames for every failure) is left out of the log; each failure's text is in the result record.
+_PROGRESS_LINE = re.compile(r"\s*(Running \d+ tests?|[✓✘±-]\s+\d+ |\d+ (passed|failed|flaky|skipped)\b)")
+
+
+class _Done:
+    def __init__(self, returncode: int, stdout: str, stderr: str):
+        self.returncode, self.stdout, self.stderr = returncode, stdout, stderr
+
+
+def _run_streaming(cmd: list[str], cwd: str, env: dict, timeout: int, prefix: str) -> _Done:
+    """subprocess.run(..., capture_output=True, timeout=...) that also prints every output line
+    as it arrives, prefixed. On timeout the whole process group is killed (npx -> sh -> node ->
+    workers -> browsers), not just npx, so nothing is left driving the app afterwards."""
+    import threading
+    proc = subprocess.Popen(cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            text=True, start_new_session=True)
+    out_lines: list[str] = []
+    err_lines: list[str] = []
+
+    def read(stream, keep, show):
+        for line in stream:
+            keep.append(line)
+            text = _ANSI.sub("", line).rstrip()
+            if show and _PROGRESS_LINE.match(text):
+                print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {prefix}  {text.strip()}", flush=True)
+
+    readers = [threading.Thread(target=read, args=(proc.stdout, out_lines, True), daemon=True),
+               threading.Thread(target=read, args=(proc.stderr, err_lines, False), daemon=True)]
+    for t in readers:
+        t.start()
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
+        raise
+    finally:
+        for t in readers:
+            t.join(timeout=10)
+    return _Done(proc.returncode, "".join(out_lines), "".join(err_lines))
 
 
 def gate_workers(cfg: dict) -> int:
@@ -409,7 +462,10 @@ def run_tests(worktree: str, checkpoint_k: int, cfg: dict) -> TestOutcome:
     # void the gate. A build that ran and failed is the code's: the app is broken.
     console = ""
     for attempt in (1, 2):
+        _progress(cfg, f"build ({cfg['app']['build_cmd']}), attempt {attempt}")
+        t0 = time.time()
         ok, build_out = build(worktree, cfg)
+        _progress(cfg, f"build {'ok' if ok else 'FAILED'} in {time.time() - t0:.0f}s")
         console += f"$ {cfg['app']['build_cmd']}  (attempt {attempt})\n{build_out}"
         if ok or not build_out.startswith(_BUILD_INFRA):
             break
