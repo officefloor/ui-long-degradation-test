@@ -164,15 +164,19 @@ class Renderer:
         ok = self.attempt(self.m.unstate, name)
         self.expect_ok(f"ui.unstate({self.pg}, {self.pvar(name)})", ok)
 
-    def s_person(self, name: str, grade: str, grade_from: str | None = None, terms=None) -> None:
+    def s_person(self, name: str, grade: str, grade_from: str | None = None, terms=None,
+                 extra: dict | None = None) -> None:
         fields = {"name": name, "grade": grade}
         if grade_from and self.m.has("grade_dated"):
             fields["gradeFrom"] = grade_from
         if terms is not None and self.m.has("person_terms"):
             fields["terms"] = str(terms)
+        extra = extra or {}
+        if "contact" in extra and self.m.has("contact"):
+            fields["contact"] = extra["contact"]
         call = f"ui.addPerson({self.pg}, {ts(fields)})"
         try:
-            p = self.m.add_person(name, grade, grade_from, terms=terms)
+            p = self.m.add_person(name, grade, grade_from, terms=terms, contact=extra.get("contact"))
         except Refused:
             self.emit(f"expect(await {call}).toBeNull();")
             return
@@ -192,6 +196,9 @@ class Renderer:
             elif key == "terms":
                 if self.m.has("person_terms"):
                     out["terms"] = str(val)
+            elif key == "contact":
+                if self.m.has("contact"):
+                    out["contact"] = val
             else:
                 out[key] = val
         return out
@@ -227,7 +234,7 @@ class Renderer:
             f["from"] = start
         self.emit(f"expect(await ui.bulkGrade({self.pg}, [{', '.join(pvs)}], {ts(f)})).toBe({done});")
 
-    def _claim_fields(self, amount, when, note, corrects) -> dict:
+    def _claim_fields(self, amount, when, note, corrects, extra=None) -> dict:
         f = {"amount": amount}
         if when:
             f["date"] = when
@@ -235,13 +242,18 @@ class Renderer:
             f["note"] = note
         if corrects and self.m.has("correction"):
             f["corrects"] = corrects
+        extra = extra or {}
+        if "ref" in extra and self.m.has("ref"):
+            f["ref"] = extra["ref"]
+        if "tags" in extra and self.m.has("tags"):
+            f["tags"] = extra["tags"]
         return f
 
-    def s_claim(self, name, amount, when=None, note="", corrects=None) -> None:
+    def s_claim(self, name, amount, when=None, note="", corrects=None, extra=None) -> None:
         pv = self.pvar(name)
-        call = f"ui.addClaim({self.pg}, {pv}, {ts(self._claim_fields(amount, when, note, corrects))})"
+        call = f"ui.addClaim({self.pg}, {pv}, {ts(self._claim_fields(amount, when, note, corrects, extra))})"
         try:
-            c = self.m.add_claim(name, amount, when, note, corrects)
+            c = self.m.add_claim(name, amount, when, note, corrects, extra=extra)
         except Refused:
             self.emit(f"expect(await {call}).toBeNull();")
             return
@@ -276,10 +288,52 @@ class Renderer:
                 c.var = self.var(f"c_{slugify(self.m.people[c.person].name)}_{c.idx}")
                 self.emit(f"const {c.var} = await ui.claimAt({self.pg}, {self.m.people[c.person].var}, {c.idx});")
 
+    def _edit_fields(self, fields: dict) -> dict:
+        return {k: v for k, v in fields.items()
+                if not (k == "ref" and not self.m.has("ref")) and not (k == "tags" and not self.m.has("tags"))}
+
     def s_claim_edit(self, name, idx, fields) -> None:
         cv = self.cvar(name, idx)
         ok = self.attempt(self.m.edit_claim, name, idx, fields)
-        self.expect_ok(f"ui.editClaim({self.pg}, {cv}, {ts(fields)})", ok)
+        self.expect_ok(f"ui.editClaim({self.pg}, {cv}, {ts(self._edit_fields(fields))})", ok)
+
+    def s_inline(self, name, idx, amount) -> None:
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.edit_inline, name, idx, amount)
+        self.expect_ok(f"ui.editInline({self.pg}, {cv}, {ts(amount)})", ok)
+
+    def s_remind(self, name, idx) -> None:
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.remind, name, idx)
+        self.expect_ok(f"ui.remind({self.pg}, {cv})", ok)
+
+    def s_comment(self, name, idx, text) -> None:
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.add_comment, name, idx, text)
+        self.expect_ok(f"ui.addComment({self.pg}, {cv}, {ts(text)})", ok)
+
+    def s_holiday(self, d) -> None:
+        ok = self.attempt(self.m.add_holiday, d)
+        self.expect_ok(f"ui.addHoliday({self.pg}, {ts(d)})", ok)
+
+    def s_void_reason(self, reason) -> None:
+        ok = self.attempt(self.m.add_void_reason, reason)
+        self.expect_ok(f"ui.addVoidReason({self.pg}, {ts(reason)})", ok)
+
+    def s_bulk_reassign(self, items, to) -> None:
+        cvs = [self.cvar(n, i) for n, i in items]
+        res = self.m.bulk_reassign(items, to)
+        done = sum(1 for r in res if r)
+        self.emit(f"expect(await ui.bulkReassign({self.pg}, [{', '.join(cvs)}], {ts(self.m.person(to).name)})).toEqual("
+                  f"{{ reassigned: {done}, refused: {len(res) - done} }});")
+
+    def s_rate_preview(self, grade, pct) -> None:
+        res = self.m.rate_preview(grade, pct)
+        call = f"ui.ratePreview({self.pg}, {ts(grade)}, {ts(pct)})"
+        if res is None:
+            self.emit(f"expect(await {call}).toBeNull();")
+        else:
+            self.emit(f"expect(await {call}).toEqual({{ count: {res[0]}, diff: {ts(res[1])} }});")
 
     def s_claim_edit_open(self, name, idx) -> None:
         cv = self.cvar(name, idx)
@@ -310,8 +364,9 @@ class Renderer:
     def s_settle(self, name, idx):
         self._action(name, idx, "settle", self.m.settle_claim)
 
-    def s_void(self, name, idx):
-        self._action(name, idx, "void", self.m.void_claim)
+    def s_void(self, name, idx, *reason):
+        reason = reason if (reason and self.m.has("void_reasons")) else ()
+        self._action(name, idx, "void", self.m.void_claim, *reason)
 
     def s_approve(self, name, idx):
         self._action(name, idx, "approve", self.m.approve_claim)
@@ -572,6 +627,11 @@ class Renderer:
                 if top_since(tid) > self.n:
                     continue
                 self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
+        for key in ("tags", "months"):
+            if spec.get(key):
+                for tid, val in v[key].items():
+                    if top_since(tid) <= self.n:
+                        self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("audit") and self.n >= 6:
             body = ",\n      ".join(tpl(line) for line in self.m.audit_text(self.n))
             self.emit(f"await ui.expectAudit(sheet, [\n      {body}\n    ]);")

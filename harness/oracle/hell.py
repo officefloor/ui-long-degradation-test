@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 
-COVERAGE = (1, 80)
+COVERAGE = (1, 100)
 GRADES = ("A", "B", "C")
 STATUSES = ("DRAFT", "OPEN", "PENDING", "SETTLED", "VOID")
 
@@ -116,6 +116,27 @@ RULES = {
     "note_required": 77, # above the note threshold, no open with an empty note
     "entry_date": 79,    # the entry date is the default claim date
     "period_due_by": 80, # a claim belongs to the period containing its due-by date
+    # ---- Act II, second half (cp81-100): time, permissions, write paths, surfaces
+    "remind": 81,        # REMIND once per claim per sheet-day
+    "split_totals": 82,  # settled-total and open-total per person and for the sheet
+    "holidays": 83,      # a due-by on a holiday moves to the next day that is not one
+    "business_days": 84, # terms count business days (weekends and holidays skipped)
+    "grace": 85,         # per-grade grace days before a claim is overdue
+    "inline_edit": 86,   # a draft's amount can be edited in the row
+    "ext_ref": 87,       # an external reference, unique per sheet
+    "compound_late": 88, # each late boundary charges on the figure plus the earlier charges
+    "tags": 89,          # claim tags and a due-total per tag
+    "void_reasons": 90,  # with a reason list, a void needs a reason from it
+    "comments": 91,      # comments on a claim, by user and sheet-day
+    "four_eyes_editor": 92,  # the last editor cannot settle or approve either
+    "bulk_reassign": 93, # selected claims reassigned together
+    "proof_grade": 94,   # a per-grade proof threshold wins over the sheet's
+    "rate_preview": 95,  # what a candidate rate would change, nothing saved
+    "holidays_redate": 96,  # a new holiday re-fixes the due-by of unsettled claims
+    "monthly": 97,       # a due-total per calendar month of the claim date
+    "batch": 98,         # a bulk settle that settles anything is a numbered batch
+    "contact": 99,       # a person's contact, normalised and unique
+    "batch_atomic": 100, # a bulk settle is all-or-nothing and writes BATCH_SETTLED
 }
 
 # Feature -> first checkpoint it exists (screens, cells, audit fields). Not ablatable: what the
@@ -133,6 +154,9 @@ SINCE = {
     "delegation": 61, "archive": 62, "person_terms": 63, "void_settled": 65, "redate": 66,
     "active": 67, "lock": 69, "soft_close": 70, "unstate": 71, "statement_asof": 73, "asof": 74,
     "bulk_grade": 75, "note_required": 77, "age": 78, "entry_date": 79,
+    "remind": 81, "split_totals": 82, "holidays": 83, "inline": 86, "ref": 87, "tags": 89,
+    "void_reasons": 90, "comments": 91, "bulk_reassign": 93, "rate_preview": 95, "monthly": 97,
+    "batch": 98, "contact": 99,
 }
 
 # Cell -> first checkpoint a spec may assert it (the generator asserts every cell in force).
@@ -148,6 +172,8 @@ CELL_SINCE = {
     "claim-due-by": 25, "claim-overdue": 25, "claim-corrects": 30, "claim-log": 39,
     "claim-deferred": 50, "claim-deferred-until": 50, "claim-proofs": 51, "claim-split-from": 57,
     "claim-late-entry": 70,
+    "claim-reminded": 81, "person-settled-total": 82, "person-open-total": 82, "claim-ref": 87,
+    "claim-tags": 89, "claim-comments": 91, "claim-batch": 98, "person-contact": 99,
 }
 
 # Sheet-level cell -> first checkpoint a spec may assert it (a spec written at n asserts only the
@@ -158,8 +184,10 @@ TOP_SINCE = [
     ("rollup-overdue-total", 25),
     ("period-due-total", 17), ("period-closed", 18),
     ("sheet-archived", 62), ("sheet-asof", 74),
-    ("summary-grade-*-active", 67), ("summary-", 31),
+    ("summary-grade-*-active", 67), ("summary-void-", 90), ("summary-", 31),
     ("header-", 41),
+    ("rollup-settled-total", 82), ("rollup-open-total", 82), ("tag-", 89), ("month-", 97),
+    ("bulk-settle-batch", 98),
 ]
 
 
@@ -179,6 +207,7 @@ def top_since(tid: str) -> int:
 DEFAULT_FLOOR = Decimal("1.00")
 DEFAULT_TERMS = 14
 DATED_SETTINGS = ("floor", "late-pct", "terms", "clerk-limit", "cap", "proof-threshold", "note-threshold")
+DATED_PREFIXES = ("terms-", "grace-", "proof-threshold-")
 PERM_DEFAULT = {"open": ("clerk", "steward"), "settle": ("clerk", "steward"), "void": ("clerk", "steward"),
                 "close": ("clerk", "steward"), "reassign": ("steward",), "reopen": ("steward",)}
 
@@ -222,6 +251,7 @@ class Person:
     statement_log: list = field(default_factory=list)  # [(due-total text, date, [claim seqs])] (cp71)
     terms: int | None = None                         # the person's own terms (cp63)
     watchers: list = field(default_factory=list)     # users watching, in order (cp58)
+    contact: str = ""                                # normalised contact, unique (cp99)
     var: str = ""                                    # TS variable the renderer gives the row id
 
 
@@ -245,6 +275,14 @@ class Claim:
     proofs: int = 0                                  # cp51
     split_from: str = ""                             # the number of the claim this was split off (cp57)
     late_entry: bool = False                         # added into a soft-closed period (cp70)
+    reminded: list = field(default_factory=list)     # sheet-days a REMIND was written (cp81)
+    terms_days: int | None = None                    # the terms the due-by was fixed with (cp96)
+    edited_by: str | None = None                     # the last user to edit it (cp92)
+    ref: str = ""                                    # external reference (cp87)
+    tags: list = field(default_factory=list)         # sorted, normalised (cp89)
+    void_reason: str = ""                            # cp90
+    comments: list = field(default_factory=list)     # [(user, date, text)] (cp91)
+    batch: str = ""                                  # the bulk-settle batch that settled it (cp98)
     var: str = ""
 
 
@@ -343,6 +381,11 @@ class Model:
         self.archived = False                            # cp62
         self.watching: dict[str, set] = {}               # user -> person keys (cp58)
         self.journal: list = []                          # (user, today, method, args, kwargs)
+        self.holidays: set = set()                       # cp83
+        self.void_reasons: list = []                     # cp90
+        self.tags_seen: list = []                        # every tag used on the sheet, in order (cp89)
+        self.batch_counter = 0                           # cp98
+        self.last_batch = ""
         self._depth = 0
         self._replay = False
 
@@ -435,7 +478,7 @@ class Model:
 
     # ---- settings (dated from cp48) --------------------------------------------------------
     def _dated_key(self, key: str) -> bool:
-        return key in DATED_SETTINGS or key.startswith("terms-")
+        return key in DATED_SETTINGS or key.startswith(DATED_PREFIXES)
 
     def setting_at(self, key: str, when: date | None, default=None):
         """The setting's raw text in force on `when` (a dated key under the dated-settings rule:
@@ -515,11 +558,20 @@ class Model:
             raise Refused("person-form-error")
         return int(raw)
 
+    def _contact_rules(self, raw, exclude: Person | None = None) -> str:
+        """cp99: a contact is stored trimmed and lower-cased; one already on the sheet is refused."""
+        c = (raw or "").strip().casefold()
+        if c and self.on("contact") and any(q.contact == c for q in self.people.values() if q is not exclude):
+            raise Refused("person-form-error")
+        return c
+
     @write
     def add_person(self, name: str, grade: str, grade_from: str | None = None,
-                   anchor: str = "person-form-error", audit: bool = True, terms=None) -> Person:
+                   anchor: str = "person-form-error", audit: bool = True, terms=None,
+                   contact: str | None = None) -> Person:
         try:
             name = self._name_rules(name)
+            contact_text = self._contact_rules(contact)
         except Refused:
             raise Refused(anchor)
         if grade not in self.grades:
@@ -531,10 +583,13 @@ class Model:
         p = Person(name=name, grades=[(None, grade)], order=len(self.people))
         if terms not in (None, "") and self.has("person_terms"):
             p.terms = self._terms_field({"terms": terms})
+        if contact_text and self.has("contact"):
+            p.contact = contact_text
         self.people[key] = p
         if audit:
             self.audit_line("PERSON_ADDED", ("name", name, 6), ("grade", grade, 6),
-                            *([("terms", p.terms, 63)] if p.terms is not None else []))
+                            *([("terms", p.terms, 63)] if p.terms is not None else []),
+                            *([("contact", p.contact, 99)] if p.contact else []))
         return p
 
     def edit_open(self, name: str) -> None:
@@ -566,6 +621,9 @@ class Model:
         terms_given = "terms" in fields and self.has("person_terms")
         if terms_given:
             p.terms = self._terms_field(fields)
+        contact_given = "contact" in fields and self.has("contact")
+        if contact_given:
+            p.contact = self._contact_rules(fields["contact"], exclude=p)
         p.name = name
         if key != norm_name(name) and norm_name(name) not in self.people:
             self.people[norm_name(name)] = self.people.pop(key)
@@ -574,7 +632,8 @@ class Model:
                     c.person = norm_name(name)
         p.version += 1
         self.audit_line("PERSON_EDITED", ("name", name, 6), ("grade", self.grade_now(p), 6),
-                        *([("terms", p.terms if p.terms is not None else "", 63)] if terms_given else []))
+                        *([("terms", p.terms if p.terms is not None else "", 63)] if terms_given else []),
+                        *([("contact", p.contact, 99)] if contact_given else []))
         return p
 
     def grade_at(self, p: Person, when: date) -> str:
@@ -858,17 +917,41 @@ class Model:
         if self.in_closed(self.placing_date(p, when)):
             raise Refused(anchor)
 
-    def _new_claim(self, p: Person, a: Decimal, dt: date, note: str, corrects=None) -> Claim:
+    def _extra_checks(self, extra: dict | None, exclude: Claim | None = None) -> tuple[str, list]:
+        """The claim form's extra fields (cp87 ref, cp89 tags), normalised; a reference already
+        on the sheet is refused."""
+        extra = extra or {}
+        ref = (extra.get("ref") or "").strip()
+        if ref and self.on("ext_ref"):
+            key = ref.casefold()
+            if any(x.ref.casefold() == key for x in self.claims if x is not exclude):
+                raise Refused("claim-form-error")
+        tags = sorted({t.strip().casefold() for t in (extra.get("tags") or "").split(",") if t.strip()})
+        return ref, tags
+
+    def _new_claim(self, p: Person, a: Decimal, dt: date, note: str, corrects=None,
+                   extra: dict | None = None) -> Claim:
+        ref, tags = self._extra_checks(extra)
         c = Claim(person=self._key(p), amount=a, date=dt, note=note, corrects=corrects,
                   idx=sum(1 for x in self.claims if x.person == self._key(p)), seq=len(self.claims))
+        c.terms_days = self.terms_for(p, dt)
         if self.on("overdue") and self.on("terms_fixed"):
-            c.due_by = dt + timedelta(days=self.terms_for(p, dt))
+            c.due_by = self.due_by_from(dt, c.terms_days)
         per = self.period_of(self.placing_date(p, dt))
         if per is not None and per.soft and self.on("soft_close"):
             c.late_entry = True
+        if self.has("ref"):
+            c.ref = ref
+        if self.on("tags"):
+            c.tags = tags
+            for t in tags:
+                if t not in self.tags_seen:
+                    self.tags_seen.append(t)
         self.claims.append(c)
         c.history.append(("DRAFT", self.user, self.today, self.due_text(c)))
-        self.audit_line("CLAIM_ADDED", *self._ident(c))
+        self.audit_line("CLAIM_ADDED", *self._ident(c),
+                        *([("ref", c.ref, 87)] if c.ref else []),
+                        *([("tags", ",".join(c.tags), 89)] if c.tags else []))
         if c.late_entry:
             self.audit_line("LATE_ENTRY", *self._ident(c))
         return c
@@ -876,18 +959,22 @@ class Model:
     @write
     def add_claim(self, name: str, amount: str, when: str | None = None, note: str = "",
                   corrects: str | None = None, anchor: str = "claim-form-error",
-                  twice: bool = False) -> Claim:
+                  twice: bool = False, extra: dict | None = None) -> Claim:
         p = self.person(name)
         a = self._amount(amount, corrects)
         dt = self._claim_date(when)
         self._claim_checks(p, dt, anchor)
+        try:
+            self._extra_checks(extra)
+        except Refused:
+            raise Refused(anchor)
         target = None
         if corrects:
             target = next((c for c in self.claims if c.number == corrects and c.person == self._key(p)
                            and c.status == "SETTLED"), None)
             if target is None:
                 raise Refused(anchor)
-        c = self._new_claim(p, a, dt, note, corrects if target else None)
+        c = self._new_claim(p, a, dt, note, corrects if target else None, extra)
         if twice and not self.on("conflict"):
             self._new_claim(p, a, dt, note)
         return c
@@ -907,27 +994,34 @@ class Model:
             name, amount = parts[0], parts[1].strip()
             when = parts[2].strip() if len(parts) > 2 else ""
             note = parts[3].strip() if len(parts) > 3 else ""
+            ref = ""
+            if self.has("ref") and " #" in note:
+                note, ref = note.rsplit(" #", 1)
+                note, ref = note.strip(), ref.strip()
             try:
                 p = self.person(name)
                 a = self._amount(amount, None)
                 dt = self._claim_date(when or None)
                 self._claim_checks(p, dt, "paste-error")
+                self._extra_checks({"ref": ref})
+                if ref and self.on("ext_ref") and any(ref.casefold() == r.casefold() for _, _, _, _, r in parsed if r):
+                    raise Refused("paste-error")
             except (KeyError, Refused, ValueError):
                 bad = True
                 continue
-            parsed.append((p, a, dt, note))
+            parsed.append((p, a, dt, note, ref))
         if bad and self.on("paste_atomic"):
             raise Refused("paste-error")
         if not parsed:
             raise Refused("paste-error")
-        for p, a, dt, note in parsed:
-            self._paste_one(p.name, money(a), dt.isoformat(), note)
+        for p, a, dt, note, ref in parsed:
+            self._paste_one(p.name, money(a), dt.isoformat(), note, ref)
         return len(parsed)
 
     @write
-    def _paste_one(self, name: str, amount: str, when: str, note: str) -> Claim:
+    def _paste_one(self, name: str, amount: str, when: str, note: str, ref: str = "") -> Claim:
         p = self.person(name)
-        return self._new_claim(p, D(amount), day(when), note)
+        return self._new_claim(p, D(amount), day(when), note, extra={"ref": ref})
 
     def claim(self, name: str, idx: int) -> Claim:
         key = self._key(self.person(name))
@@ -967,10 +1061,27 @@ class Model:
         if self.in_closed_claim(c):
             raise Refused("claim-error")
         self._claim_checks(p, dt, "claim-form-error")
+        extra = {k: fields[k] for k in ("ref", "tags") if k in fields}
+        ref, tags = self._extra_checks(extra, exclude=c)
         c.amount, c.date, c.note = a, dt, fields.get("note", c.note)
+        if "ref" in extra and self.has("ref"):
+            c.ref = ref
+        if "tags" in extra and self.on("tags"):
+            c.tags = tags
+            for t in tags:
+                if t not in self.tags_seen:
+                    self.tags_seen.append(t)
+        c.edited_by = self.user
         self.locks.pop(c.seq, None)
         self.audit_line("CLAIM_EDITED", *self._ident(c))
         return c
+
+    @write
+    def edit_inline(self, name: str, idx: int, amount: str) -> Claim:
+        """cp86: the row's own amount entry, exactly the claim form's rules."""
+        if not self.on("inline_edit"):
+            raise Refused("claim-error")
+        return self.edit_claim(name, idx, {"amount": amount})
 
     def _ident(self, c: Claim) -> list:
         """How an audit line names a claim: person, amount and date (cp6), then its number (cp9)."""
@@ -1018,7 +1129,11 @@ class Model:
     def _proofs_ok(self, c: Claim) -> bool:
         if not self.on("proofs"):
             return True
-        t = self.setting_at("proof-threshold", c.date)
+        t = None
+        if self.on("proof_grade"):
+            t = self.setting_at(f"proof-threshold-{self.grade_at(self.people[c.person], c.date)}", c.date)
+        if not t:
+            t = self.setting_at("proof-threshold", c.date)
         due = self.due(c)
         return not (t and due is not None and due > D(t) and c.proofs == 0)
 
@@ -1030,6 +1145,8 @@ class Model:
         if not self._perm("settle", True):
             raise Refused("claim-error")
         if self.on("four_eyes") and c.opened_by == self.user:
+            raise Refused("claim-error")
+        if self.on("four_eyes_editor") and c.edited_by == self.user:
             raise Refused("claim-error")
         if not self._proofs_ok(c):
             raise Refused("claim-error")
@@ -1069,6 +1186,8 @@ class Model:
         if c.status != "PENDING" or self.role() != "steward" or self.in_closed_claim(c):
             raise Refused("claim-error")
         if self.on("four_eyes") and c.opened_by == self.user:
+            raise Refused("claim-error")
+        if self.on("four_eyes_editor") and c.edited_by == self.user:
             raise Refused("claim-error")
         if not self._proofs_ok(c):
             raise Refused("claim-error")
@@ -1114,9 +1233,11 @@ class Model:
         return None
 
     @write
-    def void_claim(self, name: str, idx: int) -> Claim:
+    def void_claim(self, name: str, idx: int, reason: str | None = None) -> Claim:
         c = self.claim(name, idx)
         if not self._perm("void", True) or self.in_closed_claim(c):
+            raise Refused("claim-error")
+        if self.on("void_reasons") and self.void_reasons and reason not in self.void_reasons:
             raise Refused("claim-error")
         reversed_text = None
         if c.status == "SETTLED" and self.on("void_settled"):
@@ -1130,8 +1251,11 @@ class Model:
         if self.on("number") and not self.on("immutable"):
             c.number = None
         c.history.append(("VOID", self.user, self.today, self.due_text(c)))
+        if reason and self.has("void_reasons"):
+            c.void_reason = reason
         self.audit_line("CLAIM_VOIDED", *self._ident(c),
-                        *([("reversed", reversed_text, 65)] if reversed_text is not None else []))
+                        *([("reversed", reversed_text, 65)] if reversed_text is not None else []),
+                        *([("reason", reason, 90)] if c.void_reason else []))
         return c
 
     @write
@@ -1189,8 +1313,9 @@ class Model:
         n = Claim(person=c.person, amount=a, date=c.date, note=c.note, status="OPEN", opened_by=self.user,
                   idx=sum(1 for x in self.claims if x.person == c.person), seq=len(self.claims),
                   split_from=c.number or "", late_entry=c.late_entry)
+        n.terms_days = self.terms_for(p, c.date)
         if self.on("overdue") and self.on("terms_fixed"):
-            n.due_by = c.date + timedelta(days=self.terms_for(p, c.date))
+            n.due_by = self.due_by_from(c.date, n.terms_days)
         self.claims.append(n)
         if self.on("number"):
             n.number = self._next_number(n)
@@ -1251,19 +1376,130 @@ class Model:
                 out.append(False)
         return out
 
+    def _settle_refused(self, c: Claim) -> bool:
+        """Whether settling the claim now would be refused (going to PENDING is not a refusal)."""
+        if c.status != "OPEN" or self.in_closed_claim(c) or self.is_deferred(c):
+            return True
+        if not self._perm("settle", True):
+            return True
+        if self.on("four_eyes") and c.opened_by == self.user:
+            return True
+        if self.on("four_eyes_editor") and c.edited_by == self.user:
+            return True
+        return not self._proofs_ok(c)
+
     def bulk_settle(self, items: list) -> list:
         """cp45: settle the selected claims in list order, each by the claim's own rules; a claim
-        that goes to PENDING counts as settled by the button."""
+        that goes to PENDING counts as settled by the button. cp98: a press that settles anything
+        is a numbered batch; cp100: one refusal and nothing is settled, and a batch writes
+        BATCH_SETTLED after the claims' lines."""
+        ordered = self._list_order(items)
+        if not self.on("bulk_settle"):
+            return [False] * len(ordered)
+        if self.on("batch_atomic") and any(self._settle_refused(self.claim(n, i)) for n, i in ordered):
+            return [False] * len(ordered)
+        out, done = [], []
+        for name, idx in ordered:
+            try:
+                self.settle_claim(name, idx)
+                out.append(True)
+                done.append(self.claim(name, idx))
+            except Refused:
+                out.append(False)
+        if done and self.on("batch"):
+            self.batch_counter += 1
+            self.last_batch = str(self.batch_counter)
+            for c in done:
+                c.batch = self.last_batch
+            if self.on("batch_atomic"):
+                total = sum((c.frozen or Decimal("0") for c in done if c.status == "SETTLED"), Decimal("0"))
+                self.audit_line("BATCH_SETTLED", ("batch", self.last_batch, 100), ("count", len(done), 100),
+                                ("total", money(total), 100))
+        return out
+
+    @write
+    def remind(self, name: str, idx: int) -> Claim:
+        """cp81: a REMIND line for an OPEN or PENDING claim, once per claim per sheet-day."""
+        c = self.claim(name, idx)
+        if not self.on("remind") or c.status not in ("OPEN", "PENDING") \
+                or (c.reminded and c.reminded[-1] == self.today):
+            raise Refused("claim-error")
+        c.reminded.append(self.today)
+        self.audit_line("REMIND", *self._ident(c))
+        return c
+
+    @write
+    def add_holiday(self, d: str) -> None:
+        """cp83: a holiday on the sheet; cp96: every claim that is not settled or void and whose
+        due-by is on or after it has its due-by fixed again, with the terms it was fixed with."""
+        when = day(d)
+        if not self.on("holidays") or when in self.holidays:
+            raise Refused("holiday-error")
+        self.holidays.add(when)
+        self.audit_line("HOLIDAY_ADDED", ("date", d, 83))
+        if self.on("holidays_redate"):
+            for c in self.claims:
+                if c.status not in ("SETTLED", "VOID") and c.due_by is not None and c.due_by >= when:
+                    c.due_by = self.due_by_from(c.date, c.terms_days if c.terms_days is not None
+                                                else self.terms_for(self.people[c.person], c.date))
+
+    @write
+    def add_comment(self, name: str, idx: int, text: str) -> Claim:
+        """cp91: a comment on a claim by the signed-in user on the sheet's today."""
+        c = self.claim(name, idx)
+        if not self.on("comments") or not text.strip():
+            raise Refused("claim-error")
+        c.comments.append((self.user, self.today, text.strip()))
+        self.audit_line("COMMENT_ADDED", *self._ident(c), ("text", text.strip(), 91))
+        return c
+
+    @write
+    def add_void_reason(self, reason: str) -> None:
+        """cp90: a reason on the sheet's list; blank or repeated is refused."""
+        r = reason.strip()
+        if not self.on("void_reasons") or not r or r in self.void_reasons:
+            raise Refused("void-reason-error")
+        self.void_reasons.append(r)
+        self.audit_line("VOID_REASON_ADDED", ("reason", r, 90))
+
+    def bulk_reassign(self, items: list, to: str) -> list:
+        """cp93: the selected claims reassigned in list order, each by the single rule."""
         out = []
         for name, idx in self._list_order(items):
             try:
-                if not self.on("bulk_settle"):
+                if not self.on("bulk_reassign"):
                     raise Refused("claim-error")
-                self.settle_claim(name, idx)
+                self.reassign_claim(name, idx, to)
                 out.append(True)
             except Refused:
                 out.append(False)
         return out
+
+    def rate_preview(self, grade: str, pct: str) -> tuple[int, str] | None:
+        """cp95: how many OPEN or PENDING claims of the grade would show another due if the
+        grade's rate were `pct` for every date, and the sum of the differences; nothing saved."""
+        if not self.on("rate_preview") or grade not in self.grades:
+            return None
+        try:
+            val = D(pct)
+        except Exception:
+            return None
+        count, diff = 0, Decimal("0")
+        saved = self.rates
+        for c in self.claims:
+            p = self.people[c.person]
+            if c.status not in ("OPEN", "PENDING") or self.grade_at(p, c.date) != grade:
+                continue
+            now = self.due(c)
+            self.rates = [r for r in saved if r[0] != grade] + [(grade, None, val, None)]
+            try:
+                then = self.due(c)
+            finally:
+                self.rates = saved
+            if now != then:
+                count += 1
+                diff += (then or Decimal("0")) - (now or Decimal("0"))
+        return count, money(diff)
 
     # ---- statements (cp15) -----------------------------------------------------------------
     def statement_figure(self, c: Claim) -> Decimal | None:
@@ -1381,15 +1617,45 @@ class Model:
         t = self.setting_at("terms", when)
         return int(t) if t else DEFAULT_TERMS
 
+    def due_by_from(self, dt: date, terms: int) -> date:
+        """The due-by of a claim dated `dt` with these terms: the terms-th business day after it
+        under cp84 (Saturdays, Sundays and holidays are not counted), else dt plus the terms,
+        moved past any holiday (cp83)."""
+        if self.on("business_days"):
+            d, n = dt, 0
+            while n < terms:
+                d += timedelta(days=1)
+                if d.weekday() < 5 and d not in self.holidays:
+                    n += 1
+            return d
+        d = dt + timedelta(days=terms)
+        if self.on("holidays"):
+            while d in self.holidays:
+                d += timedelta(days=1)
+        return d
+
     def due_by(self, c: Claim) -> date | None:
         if not self.on("overdue"):
             return None
         if c.due_by is not None and self.on("terms_fixed"):
             return c.due_by
-        return c.date + timedelta(days=self.terms_for(self.people[c.person], c.date))
+        return self.due_by_from(c.date, self.terms_for(self.people[c.person], c.date))
+
+    def grace_days(self, c: Claim) -> int:
+        """cp85: the grace of the person's grade in force on the claim's date, 0 unless set."""
+        if not self.on("grace"):
+            return 0
+        p = self.people[c.person]
+        g = self.setting_at(f"grace-{self.grade_at(p, c.date)}", c.date)
+        return int(g) if g else 0
+
+    def overdue_from(self, c: Claim) -> date | None:
+        """The day after which the claim is overdue: its due-by plus any grace."""
+        db = self.due_by(c)
+        return None if db is None else db + timedelta(days=self.grace_days(c))
 
     def overdue(self, c: Claim) -> bool:
-        db = self.due_by(c)
+        db = self.overdue_from(c)
         return bool(db and c.status in ("OPEN", "PENDING") and db < self.today and not self.is_deferred(c))
 
     def rounding_date(self, c: Claim) -> date:
@@ -1428,16 +1694,18 @@ class Model:
     def late_charge(self, c: Claim, base: Decimal) -> Decimal:
         if not self.on("late") or not self.overdue(c):
             return Decimal("0")
-        n30 = (self.today - self.due_by(c)).days // 30
+        start = self.overdue_from(c)
+        n30 = (self.today - start).days // 30
         if not n30:
             return Decimal("0")
         when = self.rounding_date(c)
         if self.on("late_boundary"):
             total = Decimal("0")
             for i in range(1, n30 + 1):
-                pct = D(self.setting_at("late-pct", self.due_by(c) + timedelta(days=30 * i), "0"))
+                pct = D(self.setting_at("late-pct", start + timedelta(days=30 * i), "0"))
                 if pct:
-                    total += self._round(base * pct / 100, when)
+                    on = base + total if self.on("compound_late") else base
+                    total += self._round(on * pct / 100, when)
             return total
         pct = D(self.setting_at("late-pct", c.date, "0"))
         return self._round(base * pct / 100 * n30, when) if pct else Decimal("0")
@@ -1547,6 +1815,36 @@ class Model:
             return sum((self.due(c) or Decimal("0") for c in self.overdue_claims(p)), Decimal("0"))
         return self._trimmed([self.overdue_total(q) for q in self.people.values()])
 
+    def settled_total(self, p: Person | None = None) -> Decimal:
+        cs = self.person_claims(p) if p else self.claims
+        return sum((self.due(c) or Decimal("0") for c in cs if c.status == "SETTLED" and self.counts(c)),
+                   Decimal("0"))
+
+    def open_total(self, p: Person | None = None) -> Decimal:
+        cs = self.person_claims(p) if p else self.claims
+        return sum((self.due(c) or Decimal("0") for c in cs
+                    if c.status in ("OPEN", "PENDING") and self.counts(c)), Decimal("0"))
+
+    def tag_totals(self) -> dict:
+        """cp89: per tag ever used on the sheet, the due of the claims carrying it that count."""
+        if not self.on("tags"):
+            return {}
+        out = {}
+        for t in self.tags_seen:
+            out[f"tag-{t}-due-total"] = money(sum((self.due(c) or Decimal("0") for c in self.claims
+                                                   if t in c.tags and self.counts(c)), Decimal("0")))
+        return out
+
+    def month_totals(self) -> dict:
+        """cp97: per calendar month any claim is dated in, the due of the claims dated in it that
+        count."""
+        if not self.on("monthly"):
+            return {}
+        months = sorted({c.date.strftime("%Y-%m") for c in self.claims})
+        return {f"month-{m}-due-total": money(sum((self.due(c) or Decimal("0") for c in self.claims
+                                                   if c.date.strftime("%Y-%m") == m and self.counts(c)),
+                                                  Decimal("0"))) for m in months}
+
     def backing(self, p: Person) -> Decimal:
         total = Decimal("0")
         if self.on("backing_recent"):
@@ -1632,6 +1930,16 @@ class Model:
             cells["claim-split-from"] = c.split_from
         if self.has("soft_close"):
             cells["claim-late-entry"] = "yes" if c.late_entry else "no"
+        if self.has("remind"):
+            cells["claim-reminded"] = c.reminded[-1].isoformat() if c.reminded else ""
+        if self.has("ref"):
+            cells["claim-ref"] = c.ref
+        if self.on("tags"):
+            cells["claim-tags"] = ", ".join(c.tags)
+        if self.has("comments"):
+            cells["claim-comments"] = [f"{u} on {d.isoformat()}: {t}" for u, d, t in c.comments]
+        if self.on("batch"):
+            cells["claim-batch"] = c.batch
         return cells
 
     def person_cells(self, p: Person) -> dict:
@@ -1668,6 +1976,11 @@ class Model:
             a = self.aged(p)
             cells["person-aged-0-30"], cells["person-aged-31-60"], cells["person-aged-61"] = \
                 money(a["0-30"]), money(a["31-60"]), money(a["61"])
+        if self.on("split_totals"):
+            cells["person-settled-total"] = money(self.settled_total(p))
+            cells["person-open-total"] = money(self.open_total(p))
+        if self.has("contact"):
+            cells["person-contact"] = p.contact
         return cells
 
     def rollups(self) -> dict:
@@ -1679,6 +1992,11 @@ class Model:
         if self.has("overdue"):
             out["rollup-overdue-count"] = str(len(self.overdue_claims()))
             out["rollup-overdue-total"] = money(self.overdue_total())
+        if self.on("split_totals"):
+            out["rollup-settled-total"] = money(self.settled_total())
+            out["rollup-open-total"] = money(self.open_total())
+        if self.on("batch"):
+            out["bulk-settle-batch"] = self.last_batch
         return out
 
     def header(self) -> dict:
@@ -1716,6 +2034,10 @@ class Model:
             out[f"summary-period-{per.name}-due-total"] = self.period_total_text(per)
         for s in STATUSES:
             out[f"summary-status-{s}-count"] = str(sum(1 for c in self.claims if c.status == s))
+        if self.on("void_reasons"):
+            for r in self.void_reasons:
+                out[f"summary-void-{r}-count"] = str(sum(1 for c in self.claims
+                                                         if c.status == "VOID" and c.void_reason == r))
         return out
 
     def export_csv(self) -> str:
@@ -1775,6 +2097,7 @@ class Model:
         return {"user": self.user, "sheet": self.sheet, "today": self.today.isoformat(),
                 "people": people, "rollups": src.rollups(), "header": src.header(), "periods": periods,
                 "rates": rates, "summary": src.summary(), "sheet_cells": self.sheet_cells(),
+                "tags": src.tag_totals(), "months": src.month_totals(),
                 "audit": list(self.audit)}
 
     def audit_text(self, n: int) -> list[str]:
@@ -1795,7 +2118,7 @@ class Model:
 
 # ---- the requests, one per checkpoint, beside the rules they state ------------------------------
 
-TYPE = {n: ("mutative" if n % 4 == 0 else "additive") for n in range(1, 81)}
+TYPE = {n: ("mutative" if n % 4 == 0 else "additive") for n in range(1, COVERAGE[1] + 1)}
 SLUG = {
     1: "signin-and-sheet", 2: "sheet-today", 3: "people", 4: "name-uniqueness",
     5: "claims", 6: "audit", 7: "rates-and-due", 8: "workflow",
@@ -1817,13 +2140,22 @@ SLUG = {
     69: "claim-lock", 70: "soft-close", 71: "cancel-statement", 72: "retired-leave-totals",
     73: "statement-as-of", 74: "as-of-view", 75: "bulk-grade", 76: "snapshots",
     77: "note-required", 78: "age-buckets", 79: "entry-date", 80: "period-by-due-by",
+    # ---- Act II, second half
+    81: "remind", 82: "settled-and-open-totals", 83: "holidays", 84: "business-day-terms",
+    85: "grace-per-grade", 86: "inline-amount", 87: "external-reference", 88: "compound-late-charge",
+    89: "claim-tags", 90: "void-reasons", 91: "claim-comments", 92: "four-eyes-editor",
+    93: "bulk-reassign", 94: "proof-threshold-per-grade", 95: "rate-preview", 96: "holidays-redate",
+    97: "monthly-totals", 98: "settle-batches", 99: "person-contact", 100: "batch-all-or-nothing",
 }
-AREA = {n: "calc" for n in range(1, 81)}
+AREA = {n: "calc" for n in range(1, COVERAGE[1] + 1)}
 AREA.update({1: "entity", 2: "entity", 3: "entity", 5: "entity", 6: "audit", 16: "audit",
              17: "entity", 23: "entity", 27: "relation", 31: "view", 33: "view", 39: "view",
              41: "view", 44: "audit", 45: "entity", 47: "view", 49: "entity", 53: "entity",
              54: "entity", 58: "audit", 59: "entity", 61: "entity", 62: "entity", 67: "view",
-             69: "entity", 73: "audit", 74: "view", 75: "entity", 76: "audit", 78: "view"})
+             69: "entity", 73: "audit", 74: "view", 75: "entity", 76: "audit", 78: "view",
+             81: "audit", 82: "view", 83: "entity", 86: "entity", 87: "entity", 89: "view",
+             90: "entity", 91: "audit", 93: "entity", 95: "view", 97: "view", 98: "entity",
+             99: "entity", 100: "audit"})
 
 REQUESTS = {
     1: """Anyone using the app first signs in by typing a name; there is no password. The signed-in
@@ -2243,6 +2575,103 @@ that depends on a claim's period follows: the period shown on the claim, period 
 per-person period figures, per-period numbering, and which claims a closed period refuses (a
 claim whose due-by falls in a closed period cannot be added, edited, opened, settled or voided; a
 claim dated in a closed period whose due-by falls outside it can).""",
+    # ---- Act II, second half
+    81: """An OPEN or PENDING claim can be reminded (a button on the claim): REMIND is written, naming the
+claim like every claim line, and the claim shows the sheet's today as its reminded date. A claim
+can be reminded once per sheet-today: a second press on the same day, or a press on a claim in any
+other status, is refused with an error on the claim and writes nothing. The reminded date is the
+last day a reminder was written, or nothing.""",
+    82: """Show on each person their settled-total (the due of their SETTLED claims that count, at
+their frozen figures, corrections included) and their open-total (the due of their OPEN and
+PENDING claims that count: a held, deferred or retired-and-excluded claim is left out as it is
+from the due-total). Show the sheet's settled-total and open-total too, each simply everyone's
+figure added up (not trimmed). The two must add up to the person's untrimmed due-total before the
+cap.""",
+    83: """The sheet has a list of holidays (a date entry and an add button; HOLIDAY_ADDED date=<date>; a
+date already on the list is refused with an error beside the entry). A claim's due-by, when it is
+fixed at creation, is moved past any holiday: when the date plus the terms falls on a holiday, the
+due-by is the next day that is not a holiday. The holidays on the sheet when the claim is created
+decide; a holiday added later leaves existing due-by dates as they are.""",
+    84: """Terms now count business days. A claim's due-by is the terms-th business day after its date,
+counting forward from the day after the claim's date and skipping every Saturday, Sunday and
+holiday on the sheet (so a claim dated on a Friday with terms 1 is due on the Monday, and a claim
+with terms 5 is never due on a weekend or a holiday). Every due-by on the sheet is worked out this
+way, for the claims already on the sheet as well as new ones, each with the terms it was fixed with
+and the holidays on the sheet now; everything that reads the due-by (overdue, the late charge's
+boundaries, the period a claim belongs to) follows.""",
+    85: """Grace days can be set per grade (settings, SETTING_CHANGED key=grace-<grade> value=<days>, dated
+like the floor; blank means none). A claim whose person's grade in force on the claim's date has a
+grace in force on that date is overdue only when its due-by plus the grace days is before the
+sheet's today, and the late charge's 30-day boundaries are counted from the due-by plus the grace.
+The due-by shown on the claim is unchanged.""",
+    86: """A DRAFT claim's amount can be changed in the row itself: an amount entry and a save button on
+the claim, beside the edit button. It follows exactly the claim form's rules (the amount's form,
+a claim that cannot be edited, a locked claim, a closed period, the viewer) and writes CLAIM_EDITED
+as the form does; a refusal shows the claim's error.""",
+    87: """A claim may carry an external reference: a text on the claim form (surrounding spaces removed),
+shown on the claim. A reference already used on the sheet, comparing without regard to case, is
+refused with an error on the form, and nothing is saved; a blank reference is no reference. A
+pasted line gives it at the end of its note as ` #<reference>` (a space, a hash, the reference:
+that part is the reference, not part of the note), checked the same way and refusing the whole
+paste on a repeat, within the paste too. CLAIM_ADDED gains ref=<reference> at its end when one was
+given.""",
+    88: """The late charge now compounds: the charge for each 30-day boundary is the late percent in force
+on that boundary date of the claim's figure plus the charges of the boundaries before it, each
+rounded like the claim as before, then added up. A claim settled with its charge keeps the frozen
+figure.""",
+    89: """A claim may carry tags: a comma separated text on the claim form, each tag trimmed and
+lower-cased, repeats dropped; the claim shows its tags sorted, comma and space separated. The form
+can change a claim's tags when it can edit the claim. For every tag ever used on the sheet, the
+sheet shows a due-total per tag: the due of the claims that count which carry it (a claim with two
+tags counts in both). CLAIM_ADDED gains tags=<comma separated, sorted> at its end when any were
+given.""",
+    90: """The sheet has a list of void reasons (a text entry and an add button; VOID_REASON_ADDED
+reason=<text>; blank or repeated is refused with an error beside the entry). While the list is not
+empty, voiding a claim needs a reason chosen from it (a select on the claim): a void without one is
+refused with an error on the claim. CLAIM_VOIDED gains reason=<reason> at its end when one was
+given. The summary shows, per reason on the list, the count of VOID claims voided with it.""",
+    91: """A claim can be commented (a text entry and a button on the claim; an empty comment is refused
+with an error on the claim). Each comment is kept with the user who wrote it and the sheet's today
+when it was written, shown on the claim in order as <user> on <date>: <text>, and written as
+COMMENT_ADDED, naming the claim like every claim line and ending text=<text>. A viewer, an archived
+sheet and the as-of view refuse it like any change.""",
+    92: """The user who last edited a claim (through the claim form or the row's amount entry) can no longer
+settle or approve it, exactly as its opener cannot: the action is refused with an error on the
+claim and nothing changes. Selecting claims to settle together follows the same rule.""",
+    93: """Selected claims can be moved to another person together: a select of the person and a button
+beside the bulk buttons. Each selected claim is moved in list order by exactly the rules of moving
+one claim (who may, which statuses, closed periods, retirement, with the same CLAIM_REASSIGNED and
+rollup lines); each that cannot is left as it is. Show how many were moved and how many were
+refused.""",
+    94: """The proof threshold can be set per grade (settings, SETTING_CHANGED key=proof-threshold-<grade>
+value=<amount>, dated like the floor; blank means none). For a claim, the threshold in force is
+its person's grade's threshold in force on the claim's date when one is set, else the sheet's.""",
+    95: """The rates panel gains a preview: a grade, a candidate rate and a preview button show how many
+OPEN and PENDING claims of people on that grade (the grade in force on the claim's date) would show
+a different due if that rate applied to the grade on every date, and the sum of the differences
+(new due minus current due, two decimals, negative when lower). A claim bound by a statement does
+not change; a settled claim is not counted. Nothing is saved and nothing is written to the audit.""",
+    96: """Adding a holiday now re-fixes the due-by of every claim on the sheet that is not SETTLED or VOID
+and whose due-by is on or after the new holiday: each is worked out again from the claim's date,
+with the terms it was fixed with, over the holidays now on the sheet. A claim whose overdue state
+or late charge moves as a result moves figures like any other change, so HOLIDAY_ADDED is
+followed by the rollup lines when any figure moved.""",
+    97: """Show a due-total per calendar month: for every month (yyyy-mm) that any claim on the sheet is
+dated in, the due of the claims dated in that month that count.""",
+    98: """A bulk settle that settles at least one claim (a claim that goes to PENDING counts) is a batch,
+numbered 1, 2, ... on the sheet in the order the batches happen. Each claim settled by it shows its
+batch number; a claim settled one at a time shows nothing. The screen shows the number of the last
+batch beside the bulk settle button, or nothing when there has been none.""",
+    99: """A person may have a contact: a text on the person form, stored with surrounding spaces removed and
+lower-cased, shown on the row. A contact already on the sheet (another person's) is refused with
+an error on the form, and nothing is saved; a blank contact is none. PERSON_ADDED and
+PERSON_EDITED gain contact=<contact> at the end when the form gave one.""",
+    100: """A bulk settle is now all-or-nothing: if any selected claim cannot be settled by the signed-in
+user (any refusal the single settle would give; going to PENDING is not a refusal), none of them is
+settled, every one counts as refused and nothing is written. Otherwise every selected claim is
+settled in list order as before, and after the claims' own lines one line BATCH_SETTLED
+batch=<batch number> count=<claims in the batch> total=<the frozen figures of those SETTLED, added
+up> is written.""",
 }
 
 ALGORITHM = {4: "normalised-uniqueness", 8: "workflow-counting", 12: "half-even-sum-of-rounded",
@@ -2252,4 +2681,6 @@ ALGORITHM = {4: "normalised-uniqueness", 8: "workflow-counting", 12: "half-even-
              44: "rollups-on-overdue", 48: "settings-in-force-on-date", 52: "period-status-as-of-end",
              56: "late-per-boundary", 60: "trimmed-totals", 64: "floor-after-late",
              68: "backing-recent-settled", 72: "retired-leave-totals", 76: "snapshot-on-today-change",
-             80: "period-by-due-by"}
+             80: "period-by-due-by",
+             84: "business-day-terms", 88: "compound-late-charge", 96: "holiday-redates-due-by",
+             100: "batch-all-or-nothing"}

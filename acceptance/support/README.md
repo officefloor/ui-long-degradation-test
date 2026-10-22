@@ -31,6 +31,7 @@ Everything is on the one screen at `/`. Introduced by the checkpoint in brackets
   `bulk-grade-apply`, `bulk-graded` (cp75), `person-aged-0-30`, `person-aged-31-60`,
   `person-aged-61` (cp78); `person-statement-asof` (a date entry beside `person-statement`, cp73)
 - paste box: `paste-claims`, `paste-submit`, `paste-added`, `paste-error` (cp49)
+- `person-settled-total`, `person-open-total` (cp82); `person-form-contact`, `person-contact` (cp99)
 
 ### Claims (inside the person's row, newest first)
 - form `claim-form-amount`, `claim-form-date`, `claim-form-note`, `claim-form-corrects` (cp30),
@@ -41,7 +42,12 @@ Everything is on the one screen at `/`. Introduced by the checkpoint in brackets
   `claim-overdue` (cp25); `claim-corrects` (cp30); `claim-select` (cp34); `claim-approve`,
   `claim-reject`, `claim-reject-reason` (cp36); `claim-reassign-to`, `claim-reassign` (cp37);
   `claim-log-line` (one per status, cp39)
-- `bulk-open`, `bulk-opened`, `bulk-refused` (cp34)
+- `claim-remind`, `claim-reminded` (cp81); `claim-inline-amount`, `claim-inline-save` (cp86);
+  `claim-form-ref`, `claim-ref` (cp87); `claim-form-tags`, `claim-tags` (cp89); `claim-void-reason`
+  (a select, cp90); `claim-comment-text`, `claim-comment-add`, `claim-comments-line` (one per
+  comment, cp91); `claim-batch` (cp98)
+- `bulk-open`, `bulk-opened`, `bulk-refused` (cp34); `bulk-reassign-to` (select), `bulk-reassign`,
+  `bulk-reassigned`, `bulk-reassign-refused` (cp93); `bulk-settle-batch` (cp98)
 - `bulk-settle`, `bulk-settled`, `bulk-settle-refused` (cp45); `claim-resettle` (cp46);
   `claim-defer-date`, `claim-defer`, `claim-deferred`, `claim-deferred-until` (cp50);
   `claim-proof`, `claim-proofs` (cp51); `claim-split-amount`, `claim-split`, `claim-split-from`
@@ -71,7 +77,13 @@ Everything is on the one screen at `/`. Introduced by the checkpoint in brackets
   `sheet-archived`, `sheet-error` (cp62, the error also for a refused today change);
   `asof-date`, `asof-set`, `asof-clear`, `sheet-asof` (cp74); `summary-grade-<g>-active` (cp67)
 - `summary-grade-<g>-count`, `summary-grade-<g>-due-total`, `summary-period-<name>-due-total`,
-  `summary-status-<S>-count` (cp31)
+  `summary-status-<S>-count` (cp31); `summary-void-<reason>-count` (cp90)
+- `rollup-settled-total`, `rollup-open-total` (cp82); `holiday-date`, `holiday-add`,
+  `holiday-row-<date>`, `holiday-error` (cp83); `setting-grace-<grade>` (cp85),
+  `setting-proof-threshold-<grade>` (cp94), dated; `tag-<tag>-due-total` (cp89);
+  `void-reason-text`, `void-reason-add`, `void-reason-row-<reason>`, `void-reason-error` (cp90);
+  `rate-preview-grade`, `rate-preview-pct`, `rate-preview`, `rate-preview-count`,
+  `rate-preview-diff`, `rate-preview-error` (cp95); `month-<yyyy-mm>-due-total` (cp97)
 
 ### Values
 Amounts, rates and totals show two decimals with a dot and no grouping; `n/a` when undefined.
@@ -88,7 +100,10 @@ CLAIM_PENDING, CLAIM_APPROVED, CLAIM_REJECTED (cp36); CLAIM_REASSIGNED (cp37); C
 (cp46); CLAIM_DEFERRED (cp50); CLAIM_PROOF_ADDED (cp51); PERIOD_CLOSED auto=yes (cp55);
 CLAIM_SPLIT (cp57); PERSON_WATCHED, PERSON_UNWATCHED, NOTIFY (cp58); DELEGATED (cp61);
 SHEET_ARCHIVED (cp62); CLAIM_REDATED (cp66); PERIOD_SOFT_CLOSED, LATE_ENTRY (cp70);
-STATEMENT_CANCELLED (cp71); STATEMENT asof= at the end (cp73); SNAPSHOT (cp76).
+STATEMENT_CANCELLED (cp71); STATEMENT asof= at the end (cp73); SNAPSHOT (cp76); REMIND (cp81);
+HOLIDAY_ADDED (cp83); CLAIM_ADDED ref= (cp87) and tags= (cp89) at the end; VOID_REASON_ADDED,
+CLAIM_VOIDED reason= at the end (cp90); COMMENT_ADDED (cp91); PERSON_ADDED and PERSON_EDITED
+contact= at the end (cp99); BATCH_SETTLED (cp100).
 
 ## Errors and timing
 A refused action shows its error element (`<thing>-error`) with a message; submitting the next

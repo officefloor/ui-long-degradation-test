@@ -259,13 +259,14 @@ export async function personId(page: Page, name: string): Promise<string> {
   return idOf(await r.getAttribute('data-testid'), 'person-row-');
 }
 
-type PersonFields = { name?: string; grade?: string; gradeFrom?: string; terms?: string };
+type PersonFields = { name?: string; grade?: string; gradeFrom?: string; terms?: string; contact?: string };
 
 async function fillPersonForm(page: Page, f: PersonFields) {
   if (f.name !== undefined) await page.getByTestId('person-form-name').fill(f.name);
   if (f.grade !== undefined) await page.getByTestId('person-form-grade').selectOption(f.grade);
   if (f.gradeFrom !== undefined) await page.getByTestId('person-form-grade-from').fill(f.gradeFrom);
   if (f.terms !== undefined) await page.getByTestId('person-form-terms').fill(f.terms);
+  if (f.contact !== undefined) await page.getByTestId('person-form-contact').fill(f.contact);
 }
 
 /** Add a person through the form. The new row's id, or null when the form refused. */
@@ -430,13 +431,15 @@ export async function claimAt(page: Page, personId: string, idx: number): Promis
   return idOf(await r.getAttribute('data-testid'), 'claim-row-');
 }
 
-type ClaimFields = { amount?: string; date?: string; note?: string; corrects?: string };
+type ClaimFields = { amount?: string; date?: string; note?: string; corrects?: string; ref?: string; tags?: string };
 
 async function fillClaimForm(r: Locator, f: ClaimFields) {
   if (f.amount !== undefined) await r.getByTestId('claim-form-amount').fill(f.amount);
   if (f.date !== undefined) await r.getByTestId('claim-form-date').fill(f.date);
   if (f.note !== undefined) await r.getByTestId('claim-form-note').fill(f.note);
   if (f.corrects !== undefined) await r.getByTestId('claim-form-corrects').fill(f.corrects);
+  if (f.ref !== undefined) await r.getByTestId('claim-form-ref').fill(f.ref);
+  if (f.tags !== undefined) await r.getByTestId('claim-form-tags').fill(f.tags);
 }
 
 /** Add a claim from the person's row. The new claim's id, or null when refused. */
@@ -482,13 +485,31 @@ export async function editClaim(page: Page, claimId: string, f: ClaimFields): Pr
   await fillClaimForm(r, f);
   await r.getByTestId('claim-form-submit').click();
   const error = c.getByTestId('claim-error').or(r.getByTestId('claim-form-error'));
-  return until(page, async () => {
-    for (const [k, v] of Object.entries(f)) {
-      const cell = await shown(c.getByTestId(`claim-${k}`));
-      if (cell !== v) return false;
-    }
-    return true;
-  }, error, 'edit claim');
+  const was = await editedCells(c, f);
+  return until(page, async () => editedShows(c, f, was), error, 'edit claim');
+}
+
+/** The cells an edit will be judged by, as they are before the save. */
+async function editedCells(c: Locator, f: ClaimFields): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const k of Object.keys(f)) out[k] = await shown(c.getByTestId(`claim-${k}`));
+  return out;
+}
+
+/** Whether the row shows the edit: an amount, date, note or corrects cell equal to what was
+ *  typed; a ref or tags cell, which the app normalises, is taken as saved once the form's error
+ *  is not showing and the cell is no longer what it was (or the typed value, normalised, is a
+ *  value it could not have had before). */
+async function editedShows(c: Locator, f: ClaimFields, was: Record<string, string>): Promise<boolean> {
+  for (const [k, v] of Object.entries(f)) {
+    const cell = await shown(c.getByTestId(`claim-${k}`));
+    if (k === 'ref' || k === 'tags') {
+      const norm = k === 'ref' ? v.trim() : v.split(',').map((t) => t.trim().toLowerCase()).filter((t) => t)
+        .filter((t, i, a) => a.indexOf(t) === i).sort().join(', ');
+      if (cell !== norm) return false;
+    } else if (cell !== v) return false;
+  }
+  return true;
 }
 
 /** Open a claim's editor (the edit button) and leave it open: true when the form filled with
@@ -510,23 +531,91 @@ export async function claimEditSave(page: Page, claimId: string, f: ClaimFields)
   await fillClaimForm(r, f);
   await r.getByTestId('claim-form-submit').click();
   const error = c.getByTestId('claim-error').or(r.getByTestId('claim-form-error'));
-  return until(page, async () => {
-    for (const [k, v] of Object.entries(f)) {
-      if (await shown(c.getByTestId(`claim-${k}`)) !== v) return false;
-    }
-    return true;
-  }, error, 'save claim editor');
+  const was = await editedCells(c, f);
+  return until(page, async () => editedShows(c, f, was), error, 'save claim editor');
+}
+
+/** Change a draft's amount in the row (its own entry and save button): true when the row shows it. */
+export async function editInline(page: Page, claimId: string, amount: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const done = async () => (await shown(c.getByTestId('claim-amount'))) === money(amount);
+  const already = await done();
+  await c.getByTestId('claim-inline-amount').fill(amount);
+  await c.getByTestId('claim-inline-save').click();
+  return until(page, done, c.getByTestId('claim-error'), 'inline amount', already);
+}
+
+/** Remind a claim: true once the row's reminded date moved to the sheet's today. */
+export async function remind(page: Page, claimId: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const today = await shown(page.getByTestId('sheet-today'));
+  const done = async () => (await shown(c.getByTestId('claim-reminded'))) === today;
+  const already = await done();
+  await c.getByTestId('claim-remind').click();
+  return until(page, done, c.getByTestId('claim-error'), 'remind', already);
+}
+
+/** Add a comment to a claim: true once the claim shows one more comment line. */
+export async function addComment(page: Page, claimId: string, text: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const lines = c.getByTestId('claim-comments-line');
+  const was = await lines.count();
+  await c.getByTestId('claim-comment-text').fill(text);
+  await c.getByTestId('claim-comment-add').click();
+  return until(page, async () => (await lines.count()) > was, c.getByTestId('claim-error'), 'comment');
+}
+
+/** Add a holiday to the sheet: true once its row shows. */
+export async function addHoliday(page: Page, date: string): Promise<boolean> {
+  const r = page.getByTestId(`holiday-row-${date}`);
+  const already = (await r.count()) > 0;
+  await page.getByTestId('holiday-date').fill(date);
+  await page.getByTestId('holiday-add').click();
+  return until(page, async () => (await r.count()) > 0, page.getByTestId('holiday-error'), 'add holiday', already);
+}
+
+/** Add a void reason to the sheet's list: true once its row shows. */
+export async function addVoidReason(page: Page, reason: string): Promise<boolean> {
+  const r = page.getByTestId(`void-reason-row-${reason.trim()}`);
+  const already = reason.trim() !== '' && (await r.count()) > 0;
+  await page.getByTestId('void-reason-text').fill(reason);
+  await page.getByTestId('void-reason-add').click();
+  return until(page, async () => reason.trim() !== '' && (await r.count()) > 0,
+    page.getByTestId('void-reason-error'), 'add void reason', already);
+}
+
+/** Preview a candidate rate: the count of claims that would change and the total difference, or
+ *  null when the screen refused (no preview, a bad rate). */
+export async function ratePreview(page: Page, grade: string, pct: string): Promise<{ count: number; diff: string } | null> {
+  await page.getByTestId('rate-preview-grade').selectOption(grade);
+  await page.getByTestId('rate-preview-pct').fill(pct);
+  const countCell = page.getByTestId('rate-preview-count');
+  const diffCell = page.getByTestId('rate-preview-diff');
+  const wasCount = await shown(countCell), wasDiff = await shown(diffCell);
+  await page.getByTestId('rate-preview').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await countCell.count()) > 0 && (await shown(countCell)) !== ''
+    && ((await shown(countCell)) !== wasCount || (await shown(diffCell)) !== wasDiff || wasCount === ''),
+    page.getByTestId('rate-preview-error'), 'rate preview');
+  return ok ? { count: Number(await shown(countCell)), diff: await shown(diffCell) } : null;
 }
 
 export async function claimEditCancel(page: Page, claimId: string): Promise<void> {
   await claimRow(page, claimId).getByTestId('claim-cancel').click();
 }
 
-/** open | settle | void | approve | reject(reason): true when the status changed. */
+/** open | settle | void | approve | reject(reason) | void(reason): true when the status changed.
+ *  A reject's reason is typed; a void's is chosen from the sheet's list. */
 export async function claimAction(page: Page, claimId: string, action: string, reason?: string): Promise<boolean> {
   const c = claimRow(page, claimId);
   const was = await shown(c.getByTestId('claim-status'));
-  if (reason !== undefined) await c.getByTestId('claim-reject-reason').fill(reason);
+  if (reason !== undefined && action === 'void') {
+    try {
+      await c.getByTestId('claim-void-reason').selectOption({ label: reason }, { timeout: 2000 });
+    } catch {
+      return false;             // not offered: the screen refuses it by leaving it out
+    }
+  } else if (reason !== undefined) await c.getByTestId('claim-reject-reason').fill(reason);
   await c.getByTestId(`claim-${action}`).click();
   return until(page, async () => await shown(c.getByTestId('claim-status')) !== was,
     c.getByTestId('claim-error'), `claim ${action}`);
@@ -609,6 +698,17 @@ export async function bulkOpen(page: Page, claimIds: string[]): Promise<{ opened
   return {
     opened: Number(await shown(page.getByTestId('bulk-opened'))),
     refused: Number(await shown(page.getByTestId('bulk-refused'))),
+  };
+}
+
+export async function bulkReassign(page: Page, claimIds: string[], toName: string): Promise<{ reassigned: number; refused: number }> {
+  for (const id of claimIds) await claimRow(page, id).getByTestId('claim-select').setChecked(true);
+  await page.getByTestId('bulk-reassign-to').selectOption({ label: toName });
+  await page.getByTestId('bulk-reassign').click();
+  await expect(page.getByTestId('bulk-reassigned')).toBeVisible({ timeout: WAIT });
+  return {
+    reassigned: Number(await shown(page.getByTestId('bulk-reassigned'))),
+    refused: Number(await shown(page.getByTestId('bulk-reassign-refused'))),
   };
 }
 

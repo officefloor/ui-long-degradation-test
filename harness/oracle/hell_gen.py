@@ -52,12 +52,31 @@ def apply(m: hell.Model, st: tuple) -> None:
         elif op == "today":
             m.set_today(a[0])
         elif op == "person":
-            m.add_person(a[0], a[1], a[2] if len(a) > 2 else None, terms=a[3] if len(a) > 3 else None)
+            extra = a[4] if len(a) > 4 else {}
+            m.add_person(a[0], a[1], a[2] if len(a) > 2 else None, terms=a[3] if len(a) > 3 else None,
+                         contact=extra.get("contact"))
         elif op == "edit":
             m.edit_open(a[0])
             m.edit_save(a[1])
         elif op == "claim":
-            m.add_claim(*a)
+            if len(a) > 5:
+                m.add_claim(*a[:5], extra=a[5])
+            else:
+                m.add_claim(*a)
+        elif op == "inline":
+            m.edit_inline(*a)
+        elif op == "remind":
+            m.remind(*a)
+        elif op == "comment":
+            m.add_comment(*a)
+        elif op == "holiday":
+            m.add_holiday(a[0])
+        elif op == "void_reason":
+            m.add_void_reason(a[0])
+        elif op == "bulk_reassign":
+            m.bulk_reassign(*a)
+        elif op == "rate_preview":
+            pass
         elif op == "claim2":
             m.add_claim(a[0], a[1], a[2], a[3], twice=True)
         elif op == "claim_edit":
@@ -69,7 +88,9 @@ def apply(m: hell.Model, st: tuple) -> None:
             m.locks.pop(m.claim(a[0], a[1]).seq, None)
         elif op == "claim_edit_cancel":
             m.claim_edit_cancel(*a)
-        elif op in ("open", "settle", "void", "approve", "resettle", "defer", "redate"):
+        elif op == "void":
+            m.void_claim(a[0], a[1], *(a[2:] if m.has("void_reasons") else ()))
+        elif op in ("open", "settle", "approve", "resettle", "defer", "redate"):
             getattr(m, op + "_claim")(*a)
         elif op == "reject":
             m.reject_claim(*a)
@@ -138,6 +159,7 @@ def apply(m: hell.Model, st: tuple) -> None:
 ROW_OPS = {"claim": (0,), "claim2": (0,), "claim_edit": (0,), "claim_edit_open": (0,), "claim_edit_save": (0,),
            "claim_edit_cancel": (0,), "open": (0,), "settle": (0,), "void": (0,), "approve": (0,), "reject": (0,),
            "resettle": (0,), "defer": (0,), "proof": (0,), "redate": (0,), "split": (0,),
+           "inline": (0,), "remind": (0,), "comment": (0,),
            "edit": (0,), "hold": (0,), "patron": (0,), "statement": (0,), "unstate": (0,), "watch": (0,),
            "retire": (0,), "reassign": (0, 2)}
 
@@ -145,8 +167,8 @@ ROW_OPS = {"claim": (0,), "claim2": (0,), "claim_edit": (0,), "claim_edit_open":
 def row_targets(st: tuple) -> list[str]:
     """The people whose row on the screen a step works through (a retired one must be shown first)."""
     op, a = st[0], st[1:]
-    if op in ("bulk_open", "bulk_settle"):
-        return [name for name, _ in a[0]]
+    if op in ("bulk_open", "bulk_settle", "bulk_reassign"):
+        return [name for name, _ in a[0]] + ([a[1]] if op == "bulk_reassign" else [])
     if op == "bulk_grade":
         return list(a[0])
     if op == "paste":
@@ -173,6 +195,10 @@ def full_check(n: int) -> dict:
         spec["person_periods"] = True
     if n >= SINCE["archive"]:
         spec["sheet"] = True
+    if n >= SINCE["tags"]:
+        spec["tags"] = True
+    if n >= SINCE["monthly"]:
+        spec["months"] = True
     if n >= SINCE["audit"]:
         spec["audit"] = True
     return spec
@@ -268,6 +294,16 @@ class _Gen:
             do(("setting", "note-threshold", rnd.choice(("1.00", "2.50"))))
         if self.has("entry_date") and rnd.random() < 0.4:
             do(("setting", "entry-date", rnd.choice(("2026-03-01", "2026-03-05"))))
+        if self.has("holidays") and rnd.random() < 0.5:
+            for d in rnd.sample(("2026-03-13", "2026-03-16", "2026-03-24", "2026-04-03"), rnd.choice((1, 2))):
+                do(("holiday", d))
+        if n >= hell.RULES["grace"] and rnd.random() < 0.4:
+            do(("setting", f"grace-{rnd.choice(GRADES)}", rnd.choice(("2", "5"))))
+        if n >= hell.RULES["proof_grade"] and rnd.random() < 0.3:
+            do(("setting", f"proof-threshold-{rnd.choice(GRADES)}", rnd.choice(("0.50", "4.00"))))
+        if self.has("void_reasons") and rnd.random() < 0.4:
+            for r in rnd.sample(("dup", "error", "late"), rnd.choice((1, 2))):
+                do(("void_reason", r))
         if self.has("due"):
             for g in GRADES:
                 if g != "C" or rnd.random() < 0.5:
@@ -288,6 +324,8 @@ class _Gen:
             st = ("person", name, rnd.choice(GRADES))
             if self.has("person_terms") and rnd.random() < 0.3:
                 st = st + (None, rnd.choice(("3", "20")))
+            if self.has("contact") and rnd.random() < 0.4:
+                st = st + (None,) * (5 - len(st)) + ({"contact": rnd.choice((" Ada@x ", "ben@x", "ADA@X"))},)
             do(st)
         body = rnd.randint(16, 22)
         for step_no in range(body):
@@ -326,6 +364,13 @@ class _Gen:
             st = ("claim", name, rnd.choice(AMOUNTS)) + ((when,) if when else ())
             if n >= SINCE["note_required"] and rnd.random() < 0.5:
                 st = ("claim", name, rnd.choice(AMOUNTS), when, "n")
+            extra = {}
+            if self.has("ref") and rnd.random() < 0.3:
+                extra["ref"] = rnd.choice(("R-1", " r-1 ", "R-2", "inv 7"))
+            if self.has("tags") and rnd.random() < 0.4:
+                extra["tags"] = rnd.choice(("a", "a, B", "b,a,a", " c "))
+            if extra:
+                st = ("claim", name, st[2], st[3] if len(st) > 3 else None, st[4] if len(st) > 4 else "", None, extra)
             out.append((5.0, [st]))
         drafts = self.claims("DRAFT")
         opens = self.claims("OPEN")
@@ -343,7 +388,10 @@ class _Gen:
             out.append((3.0, steps + [("settle", name, idx)]))
         if self.has("status") and (drafts or opens):
             name, idx, _ = rnd.choice(drafts + opens)
-            out.append((1.5, [("void", name, idx)]))
+            st = ("void", name, idx)
+            if m.void_reasons and rnd.random() < 0.8:
+                st = st + (rnd.choice(m.void_reasons),)
+            out.append((1.5, [st]))
         if self.has("due") and figure_moves_ok:
             st = ("rate", rnd.choice(GRADES), rnd.choice(RATES))
             if self.has("rate_dated") and rnd.random() < 0.4:
@@ -503,6 +551,23 @@ class _Gen:
             out.append((0.8, [st]))
         if self.has("templates") and rnd.random() < 0.3:
             out.append((0.4, [("generate_periods", "2026-01-15", "2026-02-20")]))
+        # ---- Act II, second half
+        if self.has("remind") and (opens or pending):
+            name, idx, _ = rnd.choice(opens + pending)
+            out.append((1.0, [("remind", name, idx)]))
+        if self.has("inline") and drafts:
+            name, idx, _ = rnd.choice(drafts)
+            out.append((1.0, [("inline", name, idx, rnd.choice(AMOUNTS))]))
+        if self.has("comments") and (drafts or opens or pending):
+            name, idx, _ = rnd.choice(drafts + opens + pending)
+            out.append((0.8, [("comment", name, idx, rnd.choice(("ok", "see note", "")))]))
+        if self.has("holidays") and rnd.random() < 0.3:
+            out.append((0.6, [("holiday", rnd.choice(("2026-03-11", "2026-03-18", "2026-03-27", "2026-04-06")))]))
+        if self.has("bulk_reassign") and self.steward and movable and len(names) >= 2:
+            items = [(nm, i) for nm, i, _ in rnd.sample(movable, min(len(movable), rnd.choice((2, 3))))]
+            out.append((0.8, [("as", self.steward), ("bulk_reassign", items, rnd.choice(names))]))
+        if self.has("rate_preview"):
+            out.append((0.8, [("rate_preview", rnd.choice(GRADES), rnd.choice(RATES))]))
         out.append((0.8, [("as", self.other_user(m.user))]))
         return out
 
