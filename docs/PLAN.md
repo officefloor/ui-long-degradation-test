@@ -196,56 +196,89 @@ series: an architecture that costs the agent more per change is also a finding.
    managed by the architecture and not convoluted into the refactoring churn. 
    
 
-### 4.2 The acts
+### 4.2 The acts, as built
 
-The stream of cp1-80 (two acts of forty, built from `harness/oracle/` by `harness.stream_build`)
-was the material; the five acts of fifty are built (docs/STREAM.md §6), Acts III to V re-cut from
-the request material of the earlier world (in git history) onto the restarted one as Act II was.
+The stream of cp1-80 (two acts of forty, built from `harness/oracle/` by `harness.stream_build` on
+2026-10-18 and 2026-10-19 and validated against run 202610192149's final build) was kept as it
+was and the five acts cut at fifty; Acts III to V were re-cut from the request material of the
+earlier world (in git history) onto the restarted one as Act II was. Every checkpoint, with the
+rules it introduces, is in docs/STREAM.md §6; the decisions taken while building are in §7 there.
 
 **Act I (cp1-50), foundation under load.** The spine (sheet today, people, claims, statuses and
 the workflow, rates, due, periods) lands with the engines already on it: statements that bind the
-shown figures (engine 3) by cp15; write-time ROLLUP and TOTALS audit lines (engine 5) by cp16;
-the first precedence exception by cp20; quick-add, paste and bulk open as further write paths
-(engine 1) by cp30; header counters, the summary and the export as further surfaces (engine 2) by
-cp35; roles, four-eyes and edit conflicts; retirement and holds; the close of a period that freezes
-figures. Mutatives at cp4, 8, ..., 48 re-enter the spine: name normalisation, half-even rounding,
-settle freezes due, effective-dated rates, the rollup carrying overdue. Act I ends with the
-composite already moving, which the last three Act I chains (two streams) did not achieve: they
-read zero erosion at cp40 and the agents absorbed each checkpoint in minutes.
+shown figures (engine 3) at cp15; write-time ROLLUP and TOTALS audit lines (engine 5) at cp16;
+the first precedence exception at cp24 (the floor binds under a statement, a statement under a
+floor binds the floored figure), then the late charge never bound (cp26), PENDING escaping its
+statement (cp36), a bound claim staying in the totals through a hold (cp40); quick-add (cp19),
+bulk open (cp34) and paste (cp49) as further write paths (engine 1); the summary (cp31), the
+export (cp33) and the header counters (cp41) as further surfaces (engine 2); roles and the clerk
+limit (cp23), four-eyes (cp13), edit conflicts (cp14); retirement (cp21) and holds (cp22, cp40);
+the close of a period that freezes figures (cp18); dated settings in force on the claim's date
+(cp48). The mutatives at cp4, 8, ..., 48 re-enter the spine: name normalisation, the workflow's
+counting, half-even rounding with totals as sums of rounded figures, the rollups, the immutable
+open claim, the floor, the dated grade, rounding by policy date, PENDING outside statements, the
+hold as an interval, the rollup carrying overdue, the dated settings. Settle-freezes-due (cp10)
+and effective-dated rates (cp11) are additive here; the mutatives of cp12 and cp24 re-enter them.
+The gate of §7 step 3 reads this act: if one angular-spring chain does not move the composite and
+two sinews measures by cp50, which the last three Act I chains of the two earlier streams did not
+(they read zero erosion at cp40 and absorbed each checkpoint in minutes), Act I is re-cut.
 
-**Act II (cp51-100), time, permissions and reconstruction.** Dated settings in force on the
-claim's date; period figures by status as of the period's end; the late charge per boundary and
-the floor after it; trimmed totals; snapshots on every today change; periods by due-by; the
-permission matrix, the viewer role, delegation that makes a user a steward for a date range;
-archive, locks, auto-close; a statement as of a date (the server reconstructs first) and then the
-screen's as-of view (engine 3 in full). Mutatives re-enter up to 68 priors each. This is where the
+**Act II (cp51-100), time, permissions and reconstruction.** Period figures by status as of the
+period's end (cp52); the late charge per boundary (cp56), the floor after it (cp64), then the
+charge compounding (cp88); trimmed totals (cp60); snapshots on every today change (cp76); periods
+by due-by (cp80); the permission matrix (cp53), the viewer role (cp54), delegation that makes a
+user a steward for a date range (cp61); archive (cp62), locks (cp69), auto-close (cp55); a
+statement as of a date (cp73, the server reconstructs first) and then the screen's as-of view
+(cp74, engine 3 in full); then holidays and business-day terms (cp83, cp84, cp96), grace per
+grade, inline edits, references, tags, void reasons, comments, four-eyes for the last editor
+(cp92), bulk reassign, a rate preview that saves nothing, monthly totals, settle batches and the
+all-or-nothing bulk settle (cp100). Mutatives re-enter up to 68 priors each. This is where the
 last Spring run showed its shape: four god classes, a rollup service reaching into 85 foreign
 attributes, the as-of view built as whole-sheet snapshots after every write, and the people
 component at a third of the front end's complexity.
 
-**Act III (cp101-150), identity, hierarchy and cross-sheet.** Aliases and uniqueness across a
-sheet hierarchy; pools and nested pools (the first many-to-many, migrated from the one-to-many
-patron link); merge and transfer of people between sheets, with claims, statements and audit
-history following; child sheets and the first consolidated figures; an import path and an undo
-and restore path (two more write paths on every rule); the audit viewer as a read surface over the
-file itself; claim templates whose later changes must not alter claims made from them. Mutatives
-re-enter identity and numbering across the tree.
+**Act III (cp101-150), identity, hierarchy and cross-sheet.** The audit viewer as a read surface
+over the file itself (cp101); aliases (cp102) and uniqueness across a sheet hierarchy with
+clashes marked (cp112); claim templates whose later changes must not alter claims made from them
+(cp103); pools with cuts of a pot (cp105, cp106), nested (cp115), dated (cp122), with holds and
+retirements spreading shares (cp120, cp124) and two remainder rules (cp106, cp140); the patron
+link migrated to shares (cp108); a parent sheet lending rates (cp109) and the first consolidated
+figures (cp110); merge (cp107) and transfer (cp111, cp128) of people between sheets, with claims,
+bound figures and statements following (cp136) and audit history following (cp121, cp139); an
+import path with upserts (cp113, cp116) and a delete-and-restore path (cp114), two more write
+paths on every rule; list positions and screen sorting; a clone (cp126); plans that generate
+claims (cp131, cp141); numbering shared across the tree (cp132) and restarting per fiscal year
+(cp144); lines, alerts, a period's cap on open claims, a search over the tree. Mutatives re-enter
+identity and numbering across the tree.
 
 **Act IV (cp151-200), rule versioning and legacy semantics.** Rules that apply from a date and to
-records in a state, not everywhere: rounding by policy date, rates and terms by version,
-retroactive corrections against settled claims versus forward-only plan changes; the classic
-summary kept alive beside the new one so two semantics must both be right; the review state in the
-workflow; locale and column choice as surface variance that must not touch a figure; as-of
-reconstruction that now crosses versions and sheets. This is the bitemporal swamp of engine 4: a
-team that sprinkled date checks is in trouble by cp170.
+records in a state, not everywhere: a dated rounding mode replacing the policy date (cp151), rate
+versions (cp153) that are retroactive or forward-only (cp156), a person's dated terms (cp169) and
+the terms by the version in force when the claim was created (cp180), corrections limited to what
+remains of their target (cp164); the classic summary kept alive beside the new one so two
+semantics must both be right (cp154); the REVIEW state in the workflow (cp155) with an SLA and
+assignments; locale and column choice as surface variance that must not touch a figure (cp157,
+cp158); carried figures fixed at close (cp159, cp160); as-of reconstruction that now crosses
+sheets (cp160) and reaches the exports (cp161), and a settle as of a date (cp194); a statement
+binding the late charge (cp176), the floor before the late charge again (cp196), holds leaving
+claimed alone (cp184) and then counting everywhere but the cuts (cp200); crews that become pools
+(cp168); pasted claims arriving open (cp152). This is the bitemporal swamp of engine 4: a team
+that sprinkled date checks is in trouble by cp170.
 
-**Act V (cp201-250), the squeeze.** Consolidation over the tree with the trim rule applied once at
-the top, transferred people counted once, snapshot comparisons, plans that generate claims with
-pause and history and retroactive amount changes; the restricted-role lever, a screen total over
-rows the signed-in user is not shown, which only the server can answer; and final mutatives that
-reorder the precedence of the exceptions every earlier act introduced, so every surface, every
-write path and every reconstruction must change together. The act exists to see whether an
-architecture that survived to cp200 can still take a change that touches everything.
+**Act V (cp201-250), the squeeze.** Consolidation over the tree with the trim rule applied once
+at the top and each name counted once (cp204), per grade and status (cp201), and reaching the
+settled, open and cut totals (cp244); snapshot comparisons (cp202); plans with pauses (cp203), a
+change history (cp205) and amount changes reaching their drafts (cp220); the restricted-role
+lever (cp206), a screen total over rows the signed-in user is not shown, which only the server
+can answer; the year-end rollover with carried balances (cp207), its undo (cp219) and its soft
+close (cp228); numbers given on settle (cp208); scores and bands (cp209-cp212); shared claims
+(cp217) worked out per holder (cp240); grades retired, merged retroactively and added (cp223,
+cp225, cp229, cp232); a preview date without side effects (cp226); and final mutatives that
+reorder the precedence of the exceptions every earlier act introduced (the cap covering cuts
+cp224, a bound deferred claim counting cp236, the trim reaching every total cp244, the policy
+versions by the claim's date cp248), so every surface, every write path and every reconstruction
+must change together. The act exists to see whether an architecture that survived to cp200 can
+still take a change that touches everything.
 
 ### 4.3 How the stress is kept continuous
 
