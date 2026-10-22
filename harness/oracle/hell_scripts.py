@@ -1644,7 +1644,9 @@ def cp119(k):
         ("pool", "P3"), ("pool_member", "P3", "Ada", "10.00"),
         ("check", {"people": ["cut-total"], "pools": True, "rollups": True}),
         ("hold", "Cam", "2026-03-01", None), ("setting", "pot", "1.01"),
-        ("check", {"people": ["cut-total"], "pools": True, "rollups": True, "audit": True})]
+        ("check", {"people": ["cut-total"], "pools": True, "rollups": True}),
+        ("claim", "Ada", "10.00"), ("open", "Ada", 0), ("rate", "A", "50.00"), ("setting", "cap", "4.00"),
+        ("check", {"people": ["cut-total", "due-total", "excess"], "pools": True, "rollups": True, "audit": True})]
 
 
 def cp120(k):
@@ -1733,6 +1735,7 @@ def cp125(k):
 def cp126(k):
     return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
         ("role", "vic", "steward"), ("setting", "terms", "5"), ("setting", "floor", "2.00"),
+        ("person", "Cam", "C"), ("claim", "Cam", "10.00"), ("open", "Cam", 0),
         ("period", "P1", "2026-03-01", "2026-03-05"), ("alias", "Ben", "Benny"), ("patron", "Ada", "Ben"),
         ("pool", "P1"), ("pool_member", "P1", "Ada", "100.00"),
         ("claim", "Ada", "10.00", "2026-03-02"), ("claim", "Ben", "20.00"), ("claim", "Ben", "30.00"),
@@ -1746,8 +1749,10 @@ def cp126(k):
                    "periods": True, "pools": True, "rollups": True, "rates": True, "audit": True}),
         ("claim", "Ada", "1.00"), ("open", "Ada", 1), ("rate", "A", "30.00"),
         ("check", {"claims": ["number", "due"], "people": ["due-total"], "rollups": True}),
-        ("sheet", ""),
-        ("check", {"claims": ["number", "due"], "people": ["due-total"], "rollups": True, "audit": True})]
+        ("sheet", ""), ("rate", "C", "10.00"),
+        ("check", {"claims": ["number", "due"], "people": ["due-total"], "rollups": True, "audit": True}),
+        ("sheet", "c"),
+        ("check", {"claims": ["due"], "people": ["due-total"], "rollups": True, "rates": True})]
 
 
 def cp127(k):
@@ -2041,4 +2046,1108 @@ def cp150(k):
             ("check", {"audit": True})]
 
 
-SCRIPTS = {n: globals()[f"cp{n:02d}"] for n in range(1, 151)}
+
+# ---- Act IV (cp151-200): rule versioning and legacy semantics -----------------------------------
+
+DUE = {"claims": ["due", "status", "stated"], "people": ["due-total"], "rollups": True}
+
+
+def cp151(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("setting", "policy-date", "2026-03-05"),
+        ("claim", "Ada", "10.25", "2026-03-01"), ("claim", "Ada", "10.25", "2026-03-06"), ("claim", "Ada", "10.35", "2026-03-08"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
+        ("check", DUE),
+        ("setting", "rounding", "half-even", "2026-03-01"), ("setting", "rounding", "x"), ("setting", "rounding", "half-up", "2026-03-07"),
+        ("check", DUE),
+        ("as", "vic"), ("settle", "Ada", 1), ("as", "uma"), ("statement", "Ada"), ("setting", "rounding", "", "2026-03-01"),
+        ("check", dict(DUE, audit=True))]
+
+
+def cp152(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("role", "vic", "steward"), ("setting", "note-threshold", "1.50"), ("period", "P1", "2026-02-01", "2026-02-10"), ("close", "P1"),
+        ("claim", "Ada", "10.00", "2026-03-01", "draft"), ("claim", "Ada", "20.00"), ("open", "Ada", 1),
+        ("paste", ["Ada,30.00,2026-03-01,draft", "Ben,5.00,,n"]),
+        ("check", {"claims": ["amount", "number", "status", "note"], "people": ["claimed", "due-total"], "rollups": True}),
+        ("paste", ["Ada,30.00,,", "Ben,6.00,,n"]), ("paste", ["Ben,1.00,2026-02-05,n"]), ("paste", ["Ada,40.00,,draft"]),
+        ("paste", ["Ada,1.00,,x", "Ada,2.00,2026-03-01,draft"]),
+        ("as", "wes"), ("paste", ["Ben,7.00,,n"]),
+        ("check", {"claims": ["amount", "number", "status", "note"], "people": ["claimed", "due-total"], "rollups": True, "audit": True})]
+
+
+def cp153(k):
+    return _base(k, people=(("Ada", "A"),), rates=()) + [
+        ("role", "wes", "viewer"), ("role", "vic", "steward"),
+        ("rate", "A", "10.00"), ("rate", "A", "20.00", "2026-03-05"), ("rate", "A", "30.00", "2026-03-05"), ("rate", "A", "12.00"),
+        ("as", "wes"), ("rate", "A", "70.00", "2026-03-05"), ("as", "vic"), ("delegate", "wes", "2026-03-10", "2026-03-12"),
+        ("as", "wes"), ("rate", "A", "25.00"), ("as", "uma"),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("check", {"claims": ["due"], "people": ["due-total"], "rates": True, "rate_rows": True, "rollups": True}),
+        ("import_rates", ["A,40.00,2026-03-05", "B,1.00"]), ("statement", "Ada"), ("rate", "A", "50.00", "2026-03-05"),
+        ("check", {"claims": ["due", "stated"], "people": ["due-total"], "rates": True, "rate_rows": True, "rollups": True, "audit": True})]
+
+
+def cp154(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=(("A", "10.00"), ("B", "20.00"), ("C", "30.00"))) + [
+        ("period", "P1", "2026-03-01", "2026-03-10"), ("period", "P2", "2026-03-11", "2026-03-20"),
+        ("claim", "Ada", "10.00", "2026-03-05"), ("claim", "Ben", "20.00", "2026-03-06"), ("claim", "Cam", "30.00", "2026-03-07"),
+        ("claim", "Ada", "40.00", "2026-03-15"),
+        ("open", "Ada", 0), ("open", "Ben", 0), ("open", "Cam", 0),
+        ("check", {"summary": True, "rollups": True}),
+        ("today", "2026-03-21"), ("open", "Ada", 1), ("as", "vic"), ("settle", "Ben", 0), ("void", "Cam", 0),
+        ("check", {"summary": True, "rollups": True}),
+        ("as", "uma"), ("close", "P1"), ("rate", "A", "20.00"), ("hold", "Ada", "2026-03-15", None),
+        ("check", {"summary": True, "rollups": True, "audit": True})]
+
+
+def cp155(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("role", "vic", "steward"), ("setting", "review-threshold", "1.50"), ("setting", "review-threshold", "3.00", "2026-03-05"),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "20.00"), ("claim", "Ada", "40.00"), ("claim", "Ben", "10.00"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2), ("open", "Ben", 0),
+        ("check", {"claims": ["status", "number", "due", "opened-by"], "people": ["due-total"], "rollups": True, "counters": True, "summary": True}),
+        ("settle", "Ada", 2), ("claim_edit", "Ada", 2, {"amount": "1.00"}), ("review", "Ada", 2),
+        ("as", "vic"), ("review", "Ada", 2), ("settle", "Ada", 2), ("review", "Ben", 0),
+        ("as", "wes"), ("settle", "Ada", 2),
+        ("as", "uma"), ("void", "Ada", 1), ("statement", "Ada"),
+        ("check", {"claims": ["status", "number", "due", "opened-by", "stated"], "people": ["due-total"], "rollups": True, "counters": True,
+                   "summary": True, "audit": True})]
+
+
+def cp156(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00", "2026-03-10"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("today", "2026-03-10"), ("rate", "A", "20.00", "2026-03-10"), ("rate", "A", "30.00", "2026-02-01"),
+        ("check", {"claims": ["due"], "people": ["due-total"], "rates": True, "rollups": True}),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00"), ("open", "Ada", 2), ("open", "Ada", 3),
+        ("check", {"claims": ["due"], "people": ["due-total"], "rates": True, "rollups": True}),
+        ("today", "2026-03-12"), ("rate", "A", "40.00", "2026-03-11"), ("rate_preview", "A", "50.00"),
+        ("claim", "Ada", "10.00"), ("open", "Ada", 4), ("statement", "Ada"), ("rate", "A", "50.00"),
+        ("check", {"claims": ["due", "stated"], "people": ["due-total"], "rates": True, "rollups": True, "audit": True})]
+
+
+def cp157(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=(("A", "10.00"), ("B", "12345.67"))) + [
+        ("claim", "Ada", "10.25"), ("claim", "Ben", "9999.99"), ("open", "Ada", 0), ("open", "Ben", 0),
+        ("as", "vic"), ("settle", "Ada", 0), ("as", "uma"), ("statement", "Ben"),
+        ("locale", "de"),
+        ("check", {"claims": ["amount", "due", "stated"], "people": ["claimed", "due-total", "stated-total"], "rollups": True,
+                   "rates": True, "counters": True, "summary": True}),
+        ("as", "vic"),
+        ("check", {"claims": ["amount", "due"], "people": ["due-total"], "rollups": True}),
+        ("as", "uma"), ("locale", "en"), ("export",),
+        ("check", {"claims": ["amount", "due"], "people": ["due-total"], "rollups": True, "audit": True})]
+
+
+def cp158(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("setting", "terms", "5"),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ben", "20.00"), ("open", "Ada", 0), ("open", "Ben", 0),
+        ("statement", "Ada"), ("hold", "Ben", "2026-03-01", None), ("rate", "A", "20.00"), ("setting", "cap", "3.00"),
+        ("columns", ["claimed", "due-total", "hold", "excess"]),
+        ("check", {"people": ["claimed", "due-total", "hold", "excess", "statement-count", "overdue-total"], "rollups": True, "counters": True}),
+        ("as", "vic"),
+        ("check", {"people": ["claimed", "due-total", "hold", "excess"], "rollups": True}),
+        ("as", "uma"), ("columns", []), ("rate", "A", "30.00"),
+        ("check", {"people": ["claimed", "due-total", "hold"], "rollups": True, "audit": True})]
+
+
+def cp159(k):
+    return _base(k, today="2026-03-05", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("setting", "terms", "2"), ("period", "P1", "2026-03-01", "2026-03-10"), ("period", "P2", "2026-03-11", "2026-03-20"), ("period", "P3", "2026-03-21", "2026-03-31"),
+        ("claim", "Ada", "10.00", "2026-03-05"), ("claim", "Ada", "20.00", "2026-03-06"), ("claim", "Ben", "30.00", "2026-03-15"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0),
+        ("today", "2026-03-25"), ("claim", "Ada", "40.00", "2026-03-25"), ("open", "Ada", 2),
+        ("check", {"person_periods": True, "periods": True}),
+        ("as", "vic"), ("settle", "Ada", 0), ("as", "uma"), ("hold", "Ben", "2026-03-01", None), ("rate", "A", "20.00"),
+        ("check", {"person_periods": True, "periods": True}),
+        ("today", "2026-04-02"), ("as", "vic"), ("settle", "Ada", 1),
+        ("check", {"person_periods": True, "periods": True, "claims": ["status", "period"], "audit": True})]
+
+
+def cp160(k):
+    return [("as", "uma"), ("sheet", "c"), ("today", "2026-03-01"), ("rate", "A", "10.00"), ("person", "Cy", "A"),
+            ("claim", "Cy", "10.00"), ("open", "Cy", 0),
+            ("sheet", ""), ("today", "2026-03-01"), ("rate", "A", "20.00"), ("role", "vic", "steward"), ("person", "Ada", "A"),
+            ("setting", "terms", "2"), ("period", "P1", "2026-03-01", "2026-03-10"), ("period", "P2", "2026-03-11", "2026-03-20"),
+            ("claim", "Ada", "10.00", "2026-03-05"), ("claim", "Ada", "20.00", "2026-03-06"), ("open", "Ada", 0), ("open", "Ada", 1),
+            ("sheet", "c"), ("setting", "parent", "__SHEET__"), ("today", "2026-03-05"), ("rate", "A", "30.00"), ("claim", "Cy", "20.00"), ("open", "Cy", 1),
+            ("sheet", ""), ("today", "2026-03-25"), ("claim", "Ada", "5.00", "2026-03-15"), ("open", "Ada", 2),
+            ("close", "P2"), ("rate", "A", "40.00"), ("as", "vic"), ("settle", "Ada", 0),
+            ("check", {"person_periods": True, "periods": True, "sheet": True, "rollups": True}),
+            ("asof", "2026-03-01"),
+            ("check", {"sheet": True, "rollups": True}),
+            ("asof", "2026-03-05"),
+            ("check", {"sheet": True, "rollups": True}),
+            ("asof_clear",), ("soft_close", "P1"), ("reopen", "P2"),
+            ("check", {"person_periods": True, "periods": True, "sheet": True, "audit": True})]
+
+
+def cp161(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("pool", "P1"), ("pool_member", "P1", "Ada", "100.00"), ("setting", "pot", "10.00"),
+        ("claim", "Ada", "10.00"), ("open", "Ada", 0),
+        ("today", "2026-03-05"), ("rate", "A", "20.00"), ("claim", "Ben", "5.00"), ("open", "Ben", 0), ("setting", "pot", "20.00"),
+        ("retire", "Ben", "2026-03-05"),
+        ("export",), ("export_claims",), ("export_pools",),
+        ("asof", "2026-03-01"),
+        ("export",), ("export_claims",), ("export_pools",),
+        ("asof_clear",), ("export",)]
+
+
+def cp162(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "20.00"),
+        ("timeline", "Ada", 0), ("open", "Ada", 0), ("claim_edit", "Ada", 1, {"note": "n"}), ("timeline", "Ada", 1),
+        ("as", "vic"), ("settle", "Ada", 0), ("remind", "Ada", 0), ("as", "uma"), ("statement", "Ada"),
+        ("timeline", "Ada", 0), ("timeline", "Ada", 2),
+        ("check", {"claims": ["status"], "audit": True})]
+
+
+def cp163(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"),
+        ("claim", "Ada", "10.00"), ("open", "Ada", 0),
+        ("statement", "Ada"), ("rate", "A", "20.00"), ("today", "2026-03-11"), ("statement", "Ada"),
+        ("claim", "Ada", "5.00"), ("open", "Ada", 1), ("today", "2026-03-12"), ("statement", "Ada", "2026-03-11"),
+        ("check", {"people": ["statement-line", "statement-count", "stated-total", "statement-date"], "claims": ["stated", "due"]}),
+        ("as", "vic"), ("unstate", "Ada"),
+        ("check", {"people": ["statement-line", "statement-count", "stated-total", "statement-date"], "claims": ["stated", "due"],
+                   "audit": True})]
+
+
+def cp164(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("claim", "Ada", "50.00"), ("open", "Ada", 0), ("as", "vic"), ("settle", "Ada", 0), ("as", "uma"),
+        ("claim", "Ada", "-30.00", None, "", ("number", "Ada", 0)), ("open", "Ada", 1),
+        ("claim", "Ada", "-20.01", None, "", ("number", "Ada", 0)), ("claim", "Ada", "-20.00", None, "", ("number", "Ada", 0)),
+        ("claim", "Ada", "-0.01", None, "", ("number", "Ada", 0)),
+        ("void", "Ada", 2), ("claim", "Ada", "-20.00", None, "", ("number", "Ada", 0)), ("open", "Ada", 3),
+        ("as", "vic"), ("settle", "Ada", 1), ("settle", "Ada", 3),
+        ("check", {"claims": ["amount", "corrects", "status", "due"], "people": ["claimed", "due-total"], "rollups": True, "audit": True})]
+
+
+def cp165(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"),
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("setting", "escalate-after", "2"),
+        ("remind", "Ada", 0), ("remind", "Ada", 0), ("today", "2026-03-11"), ("remind", "Ada", 0), ("remind", "Ada", 0),
+        ("as", "vic"), ("settle", "Ada", 1), ("as", "uma"), ("settle", "Ada", 1), ("remind", "Ada", 1),
+        ("today", "2026-03-13"), ("remind", "Ada", 0), ("remind", "Ada", 1), ("today", "2026-03-20"), ("remind", "Ada", 0),
+        ("check", {"claims": ["reminded", "status"], "audit": True})]
+
+
+def cp166(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("claim", "Ada", "10.00"), ("claim", "Ben", "20.00"), ("claim", "Cam", "30.00"), ("open", "Ada", 0), ("open", "Ben", 0), ("open", "Cam", 0),
+        ("crew", "Red", "Ada"), ("crew", "Red", "Ben"), ("crew", " ", "Ben"), ("crew", "Sky", "Cam"),
+        ("crew_member", "Red", "Ben"), ("crew_member", "Red", "Ada"), ("crew_member", "Red", "Ben"), ("crew_member", "Sky", "Ada"),
+        ("check", {"crews": True, "pools": True, "people": ["due-total"]}),
+        ("rate", "C", "10.00"), ("hold", "Ben", "2026-03-01", None), ("setting", "cap", "1.50"),
+        ("check", {"crews": True, "pools": True, "people": ["due-total"], "audit": True})]
+
+
+def cp167(k):
+    return _base(k, people=(("vic", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("claim", "vic", "10.00"), ("claim", "Ben", "20.00"), ("claim", "Cam", "30.00"), ("open", "vic", 0), ("open", "Ben", 0), ("open", "Cam", 0),
+        ("crew", "Red", "vic"), ("crew_member", "Red", "Ben"), ("crew", "Blue", "Ben"), ("crew_member", "Blue", "vic"),
+        ("check", {"counters": True, "crews": True}),
+        ("as", "vic"), ("check", {"counters": True, "crews": True}),
+        ("as", "uma"), ("alias", "Cam", "Uma"), ("crew", "Green", "Cam"), ("rate", "C", "10.00"),
+        ("check", {"counters": True, "crews": True}),
+        ("as", "vic"), ("settle", "Ben", 0),
+        ("check", {"counters": True, "crews": True, "audit": True})]
+
+
+def cp168(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("setting", "pot", "10.00"),
+        ("crew", "Red", "Ada"), ("crew_member", "Red", "Ben"), ("crew_member", "Red", "Cam"),
+        ("pool", "Red"), ("pool", "P1"), ("pool_member", "P1", "Ada", "100.00"), ("crew", "P1", "Ben"),
+        ("check", {"crews": True, "pools": True, "people": ["cut-total"], "rollups": True}),
+        ("hold", "Ben", "2026-03-01", None), ("retire", "Cam", "2026-03-01"), ("show_retired", True),
+        ("check", {"crews": True, "pools": True, "people": ["cut-total"], "rollups": True}),
+        ("export_pools",),
+        ("check", {"audit": True})]
+
+
+def cp169(k):
+    return _base(k, today="2026-03-20", people=(("Ada", "A"),), rates=A1) + [
+        ("setting", "terms", "10"),
+        ("edit", "Ada", {"terms": "3", "terms_from": "2026-03-05"}), ("edit", "Ada", {"terms": "5"}),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00", "2026-03-06"), ("claim", "Ada", "10.00"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
+        ("check", {"people": ["terms", "overdue-count"], "claims": ["due-by", "overdue"], "rollups": True}),
+        ("person", "Ben", "B", None, "2"), ("claim", "Ben", "10.00", "2026-03-01"), ("open", "Ben", 0),
+        ("edit", "Ben", {"terms": "", "terms_from": "2026-03-10"}), ("claim", "Ben", "10.00", "2026-03-12"), ("open", "Ben", 1),
+        ("check", {"people": ["terms", "overdue-count"], "claims": ["due-by", "overdue"], "rollups": True, "audit": True})]
+
+
+def cp170(k):
+    return _base(k, people=(("Ada", "A"),), rates=()) + [
+        ("rate", "A", "10.00", "2026-02-15"), ("rate", "A", "20.00", "2026-05-01", "2026-07-31"), ("rate", "B", "5.00"),
+        ("check", {"calendar": True, "rates": True}),
+        ("import_rates", ["A,30.00,2026-12-01", "C,1.00,2026-01-01"]), ("today", "2027-01-10"),
+        ("check", {"calendar": True, "rates": True, "audit": True})]
+
+
+def cp171(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "review-threshold", "1.50"), ("setting", "review-sla", "2"),
+        ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("claim", "Ada", "10.00"),
+        ("open", "Ada", 0), ("open", "Ada", 2),
+        ("today", "2026-03-12"), ("open", "Ada", 1),
+        ("check", {"claims": ["status", "review-late"], "summary": True}),
+        ("today", "2026-03-13"),
+        ("check", {"claims": ["status", "review-late"], "summary": True}),
+        ("as", "vic"), ("review", "Ada", 0), ("as", "uma"), ("setting", "review-sla", ""),
+        ("check", {"claims": ["status", "review-late", "number"], "summary": True, "audit": True})]
+
+
+def cp172(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"),
+        ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("statement", "Ada"), ("rate", "A", "20.00"),
+        ("as", "vic"), ("settle", "Ada", 0), ("as", "wes"), ("settle", "Ada", 0),
+        ("check", DUE),
+        ("as", "vic"), ("reject", "Ada", 0, "no"), ("as", "uma"), ("statement", "Ada"), ("as", "wes"), ("settle", "Ada", 1),
+        ("as", "uma"), ("rate", "A", "30.00"),
+        ("check", dict(DUE, audit=True))]
+
+
+def cp173(k):
+    return _base(k, today="2026-03-25", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("period", "P1", "2026-03-01", "2026-03-10"), ("period", "P2", "2026-03-11", "2026-03-20"),
+        ("alias", "Ben", "Benny"),
+        ("claim", "Ada", "10.00", "2026-03-05"), ("open", "Ada", 0),
+        ("import_openings", ["Ada,P2,5.00", "benny,P1,2.50"]), ("import_openings", ["Ada,P2,1.005"]), ("import_openings", ["Ada,P3,1.00"]),
+        ("import_openings", ["Zed,P1,1.00"]), ("import_openings", ["Ada,P2,-1.00"]), ("import_openings", ["Ada,P2,0.50", ""]),
+        ("check", {"person_periods": True, "periods": True}),
+        ("close", "P2"), ("import_openings", ["Ada,P2,9.00"]), ("import_openings", ["Ada,P1,4.00"]),
+        ("check", {"person_periods": True, "periods": True, "audit": True})]
+
+
+def cp174(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "terms", "5"), ("setting", "late-pct", "10.00"), ("setting", "floor", "3.00"),
+        ("claim", "Ada", "20.00"), ("claim", "Ada", "40.00"), ("claim", "Ada", "10.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("waive", "Ada", 0), ("as", "vic"), ("waive", "Ada", 0), ("waive", "Ada", 0), ("waive", "Ada", 2),
+        ("as", "uma"), ("statement", "Ada"), ("today", "2026-05-10"),
+        ("check", {"claims": ["due", "overdue", "waived", "stated"], "people": ["due-total", "overdue-total"], "rollups": True}),
+        ("as", "vic"), ("settle", "Ada", 1), ("waive", "Ada", 1),
+        ("check", {"claims": ["due", "overdue", "waived", "status"], "people": ["due-total", "overdue-total"], "rollups": True,
+                   "audit": True})]
+
+
+def cp175(k):
+    return [("as", "uma"), ("sheet", "t"), ("today", T), ("rate", "A", "20.00"), ("role", "vic", "steward"), ("role", "wes", "steward"),
+            ("sheet", ""), ("today", T), ("rate", "A", "10.00"), ("role", "vic", "steward"), ("person", "Ada", "A"), ("person", "Ben", "B"),
+            ("claim", "Ada", "10.00"), ("open", "Ada", 0), ("statement", "Ada"),
+            ("as", "vic"), ("transfer", "Ada", "t"), ("transfer", "Ben", "t"),
+            ("sheet", "t"), ("transfer_undo", "Ada"), ("as", "uma"), ("sheet", "t"), ("transfer_undo", "Ben"),
+            ("as", "wes"), ("sheet", "t"), ("today", "2026-03-11"), ("transfer_undo", "Ben"),
+            ("check", {"people": ["name", "origin", "statement-count"], "claims": ["number", "status"], "rollups": True, "audit": True}),
+            ("sheet", ""),
+            ("check", {"people": ["name", "origin", "statement-count"], "claims": ["number", "status", "stated"], "rollups": True,
+                       "audit": True})]
+
+
+def cp176(k):
+    return _base(k, today="2026-01-05", people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "terms", "5"), ("setting", "late-pct", "10.00"), ("setting", "floor", "3.00"),
+        ("claim", "Ada", "200.00"), ("claim", "Ada", "10.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("today", "2026-03-12"),
+        ("check", DUE),
+        ("statement", "Ada"), ("today", "2026-04-12"), ("rate", "A", "20.00"),
+        ("check", DUE),
+        ("statement", "Ada"), ("today", "2026-05-15"),
+        ("check", DUE),
+        ("as", "vic"), ("unstate", "Ada"),
+        ("check", DUE),
+        ("unstate", "Ada"), ("settle", "Ada", 0),
+        ("check", dict(DUE, audit=True))]
+
+
+def cp177(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "proof-threshold", "1.50"), ("setting", "proof-kinds", "receipt,photo"),
+        ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("proof", "Ada", 0, "receipt"), ("proof", "Ada", 0, "x"), ("proof", "Ada", 1),
+        ("as", "vic"), ("settle", "Ada", 0), ("settle", "Ada", 1), ("proof", "Ada", 0, "photo"), ("settle", "Ada", 0),
+        ("as", "uma"), ("setting", "proof-kinds", "photo"), ("as", "vic"), ("settle", "Ada", 1), ("proof", "Ada", 1, "photo"), ("settle", "Ada", 1),
+        ("check", {"claims": ["status", "proofs", "proofs-receipt", "proofs-photo", "due"], "rollups": True, "audit": True})]
+
+
+def cp178(k):
+    return _base(k, today="2026-03-20", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"), ("setting", "review-threshold", "3.00"), ("setting", "terms", "5"),
+        ("claim", "Ada", "20.00", "2026-03-01"), ("claim", "Ada", "40.00"), ("claim", "Ben", "10.00", "2026-03-01"), ("claim", "Ben", "5.00"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0), ("open", "Ben", 1),
+        ("as", "wes"), ("settle", "Ada", 0),
+        ("check", {"dash": True}),
+        ("as", "vic"), ("check", {"dash": True}),
+        ("hold", "Ben", "2026-03-01", None), ("review", "Ada", 1),
+        ("check", {"dash": True, "audit": True})]
+
+
+def cp179(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("role", "vic", "steward"),
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("claim", "Ben", "5.00"),
+        ("flag", "Ada", "late", "2026-03-12"), ("as", "vic"), ("flag", "Ada", "", "2026-03-12"), ("flag", "Ada", "late", "2026-03-12"),
+        ("as", "uma"), ("open", "Ada", 0), ("bulk_open", [("Ada", 1), ("Ben", 0)]), ("paste", ["Ada,1.00,,"]),
+        ("as", "vic"), ("open", "Ada", 0),
+        ("check", {"people": ["flag-shown"], "claims": ["status"]}),
+        ("as", "uma"), ("today", "2026-03-13"), ("open", "Ada", 1),
+        ("check", {"people": ["flag-shown"], "claims": ["status"], "audit": True})]
+
+
+def cp180(k):
+    return _base(k, today="2026-03-10", people=(("Ada", "A"), ("Ben", "B"))) + [
+        ("setting", "terms", "5"), ("setting", "terms", "2", "2026-03-10"), ("setting", "terms-B", "7", "2026-03-01"),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00"), ("claim", "Ben", "10.00", "2026-02-20"),
+        ("edit", "Ben", {"terms": "1", "terms_from": "2026-03-10"}), ("claim", "Ben", "10.00", "2026-03-01"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0), ("open", "Ben", 1),
+        ("check", {"claims": ["due-by", "overdue"], "people": ["overdue-count"]}),
+        ("today", "2026-03-20"), ("setting", "terms", "20", "2026-03-15"), ("claim", "Ada", "10.00", "2026-03-01"), ("open", "Ada", 2),
+        ("check", {"claims": ["due-by", "overdue"], "people": ["overdue-count"], "rollups": True, "audit": True})]
+
+
+def cp181(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "wes", "viewer"), ("role", "vic", "steward"),
+        ("note", "first"), ("note", " "), ("as", "vic"), ("today", "2026-03-11"), ("note", "second"),
+        ("delegate", "uma", "2026-03-11", "2026-03-12"), ("as", "uma"), ("note", "third"),
+        ("as", "wes"), ("note", "nope"),
+        ("as", "vic"), ("archive",), ("note", "late"),
+        ("as", "uma"), ("check", {"notes": True, "audit": True})]
+
+
+def cp182(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("setting", "terms", "5"), ("period", "P1", "2026-03-01", "2026-03-10"), ("patron", "Ben", "Ada"),
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("statement", "Ada"), ("rate", "A", "20.00"),
+        ("claim_hold", "Ada", 0), ("claim_hold", "Ada", 2), ("claim_hold", "Ada", 1),
+        ("check", {"claims": ["held", "due", "stated"], "people": ["claimed", "due-total", "backing"], "rollups": True, "periods": True,
+                   "person_periods": True}),
+        ("today", "2026-03-20"), ("claim_hold", "Ada", 1), ("as", "vic"), ("settle", "Ada", 0),
+        ("check", {"claims": ["held", "due", "status", "overdue"], "people": ["claimed", "due-total", "overdue-total"], "rollups": True,
+                   "audit": True})]
+
+
+def cp183(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("period", "P1", "2026-03-01", "2026-03-10"),
+        ("claim", "Ada", "10.00", "2026-03-05"), ("open", "Ada", 0),
+        ("close", "P1"), ("lock", "P1", True), ("as", "vic"), ("lock", "P1", True), ("lock", "P1", True),
+        ("reopen", "P1"), ("rate", "A", "20.00"),
+        ("check", {"periods": True, "claims": ["due"]}),
+        ("lock", "P1", False), ("lock", "P1", False), ("reopen", "P1"),
+        ("check", {"periods": True, "claims": ["due"], "audit": True})]
+
+
+def cp184(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "20.00"), ("claim", "Ben", "30.00"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0), ("statement", "Ada"),
+        ("hold", "Ada", "2026-03-01", "2026-03-05"), ("claim_hold", "Ben", 0),
+        ("check", {"people": ["claimed", "due-total"], "claims": ["held", "due"], "rollups": True, "counters": True}),
+        ("as", "vic"), ("settle", "Ada", 1), ("as", "uma"), ("defer", "Ben", 0, "2026-03-20"),
+        ("check", {"people": ["claimed", "due-total"], "claims": ["due", "status"], "rollups": True, "audit": True})]
+
+
+def cp185(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"), ("setting", "proof-threshold", "4.00"),
+        ("claim", "Ada", "60.00"), ("claim", "Ada", "20.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("settle_part", "Ada", 0, "10.00"), ("as", "vic"), ("settle_part", "Ada", 0, "10.00"), ("settle_part", "Ada", 0, "50.00"),
+        ("settle_part", "Ada", 0, "45.00"), ("settle_part", "Ada", 1, "5.00"),
+        ("as", "wes"), ("settle_part", "Ada", 0, "1.00"),
+        ("check", {"claims": ["amount", "number", "status", "due", "split-from", "proofs"], "people": ["claimed", "due-total"], "rollups": True,
+                   "audit": True})]
+
+
+def cp186(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("period", "P1", "2026-05-01", "2026-05-10"),
+        ("generate_quarters", "2026"), ("generate_quarters", "x"), ("generate_quarters", "2026"),
+        ("claim", "Ada", "10.00", "2026-02-15"), ("claim", "Ada", "20.00", "2026-09-30"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("check", {"periods": True, "claims": ["period"], "summary": True, "audit": True})]
+
+
+def cp187(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B"))) + [
+        ("period", "P1", "2026-03-01", "2026-03-10"), ("period", "P2", "2026-03-11", "2026-03-20"),
+        ("setting", "pot", "10.00"), ("pool", "P"), ("pool_member", "P", "Ada", "50.00"), ("pool_member", "P", "Ben", "50.00"),
+        ("today", "2026-03-11"), ("setting", "pot", "20.00"), ("hold", "Ben", "2026-03-11", None),
+        ("check", {"pools": True}),
+        ("today", "2026-03-21"), ("pool_member", "P", "Ada", "1.00"), ("setting", "pot", "30.00"),
+        ("check", {"pools": True}),
+        ("close", "P1"), ("setting", "pot", "40.00"),
+        ("check", {"pools": True, "audit": True})]
+
+
+def cp188(k):
+    return [("as", "uma"), ("sheet", "p"), ("today", T), ("rate", "B", "5.00"),
+            ("sheet", ""), ("today", T), ("role", "vic", "steward"), ("rate", "A", "10.00"), ("setting", "parent", "__SHEET__-p"),
+            ("person", "Ada", "A"), ("person", "Ben", "B"), ("person", "Cam", "C"),
+            ("claim", "Ada", "10.00"), ("claim", "Ben", "10.00"), ("claim", "Cam", "10.00"), ("open", "Ada", 0), ("open", "Ben", 0), ("open", "Cam", 0),
+            ("as", "vic"), ("clone", "c"), ("as", "uma"), ("rate", "C", "30.00"),
+            ("sheet", "p"), ("rate", "B", "7.00"),
+            ("sheet", "c"), ("setting", "parent", ""),
+            ("check", {"claims": ["due"], "people": ["due-total"], "rates": True, "rollups": True}),
+            ("rate", "C", "40.00"),
+            ("check", {"claims": ["due"], "people": ["due-total"], "rates": True, "rollups": True, "audit": True})]
+
+
+def cp189(k):
+    return _base(k, people=(), rates=(("A", "10.00"), ("B", "20.00"))) + [
+        ("setting", "default-grade", "D"), ("setting", "default-grade", "B"),
+        ("quick", "Ada", "10.00"), ("import_people", ["Ben,", "Cam,A"]), ("person", "Dot", "A"),
+        ("open", "Ada", 0),
+        ("check", {"people": ["name", "grade", "due-total"], "rollups": True}),
+        ("setting", "default-grade", ""), ("quick", "Eve", "1.00"), ("import_people", ["Fay,"]),
+        ("check", {"people": ["name", "grade"], "summary": True, "audit": True})]
+
+
+def cp190(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("role", "vic", "steward"), ("period", "P1", "2026-02-01", "2026-02-10"),
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("claim", "Ben", "30.00"), ("claim", "Ben", "5.00", "2026-02-05"),
+        ("open", "Ada", 0), ("open", "Ben", 0), ("close", "P1"), ("as", "vic"), ("settle", "Ben", 0),
+        ("as", "uma"), ("bulk_void", [("Ada", 0), ("Ada", 1), ("Ben", 0), ("Ben", 1)]),
+        ("check", {"claims": ["status", "number"], "people": ["claimed"], "rollups": True}),
+        ("void_reason", "dup"), ("claim", "Ada", "1.00"), ("bulk_void", [("Ada", 2)]), ("bulk_void", [("Ada", 2)], "dup"),
+        ("as", "vic"), ("bulk_void", [("Ben", 0)], "dup"),
+        ("check", {"claims": ["status", "number"], "people": ["claimed", "due-total"], "summary": True, "rollups": True, "audit": True})]
+
+
+def cp191(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"), ("setting", "clerk-limit-B", "5.00"), ("setting", "clerk-limit-A", "0.50", "2026-03-20"),
+        ("claim", "Ada", "10.00"), ("claim", "Ben", "20.00"), ("claim", "Ben", "30.00"), ("open", "Ada", 0), ("open", "Ben", 0), ("open", "Ben", 1),
+        ("as", "wes"), ("settle", "Ada", 0), ("settle", "Ben", 0), ("settle", "Ben", 1),
+        ("check", {"claims": ["status", "due"], "rollups": True}),
+        ("as", "uma"), ("today", "2026-03-20"), ("claim", "Ada", "6.00"), ("open", "Ada", 1), ("as", "wes"), ("settle", "Ada", 1),
+        ("as", "uma"), ("setting", "clerk-limit-B", ""), ("as", "vic"), ("approve", "Ben", 1),
+        ("check", {"claims": ["status", "due"], "rollups": True, "audit": True})]
+
+
+def cp192(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("patron", "Ada", "Ben"), ("patron", "Ada", "Cam"), ("crew", "Red", "Ben"),
+        ("claim", "Ada", "10.00"), ("open", "Ada", 0),
+        ("check", {"people": ["name", "patrons", "grade"], "crews": True}),
+        ("edit", "Ben", {"grade": "A", "grade_from": "2026-03-05"}), ("edit", "Cam", {"grade": "A", "grade_from": "2026-03-15"}),
+        ("search", "a"), ("export",),
+        ("check", {"people": ["name", "patrons", "grade"], "crews": True, "audit": True})]
+
+
+def cp193(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00", "2026-02-01"), ("claim", "Ben", "30.00", "2026-01-01"), ("claim", "Ben", "40.00", "2026-02-07"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0), ("open", "Ben", 1),
+        ("check", {"people": ["aged-0-30", "aged-31-60", "aged-61"], "rollups": True}),
+        ("today", "2026-04-10"), ("hold", "Ben", "2026-01-01", "2026-01-31"), ("as", "vic"), ("settle", "Ada", 0),
+        ("check", {"people": ["aged-0-30", "aged-31-60", "aged-61"], "rollups": True, "audit": True})]
+
+
+def cp194(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "terms", "5"), ("setting", "late-pct", "10.00"),
+        ("claim", "Ada", "100.00"), ("claim", "Ada", "20.00"), ("open", "Ada", 0),
+        ("today", "2026-03-05"), ("rate", "A", "20.00"), ("open", "Ada", 1),
+        ("today", "2026-04-20"), ("setting", "floor", "5.00"),
+        ("as", "vic"), ("settle", "Ada", 0, "2026-04-21"), ("settle", "Ada", 1, "2026-03-01"), ("settle", "Ada", 0, "2026-03-05"),
+        ("settle", "Ada", 1, "2026-04-20"),
+        ("check", {"claims": ["due", "status", "log"], "people": ["due-total"], "rollups": True, "audit": True})]
+
+
+def cp195(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("export_statement", "Ada"),
+        ("statement", "Ada"), ("rate", "A", "20.00"), ("open", "Ada", 2), ("as", "vic"), ("settle", "Ada", 0),
+        ("export_statement", "Ada"),
+        ("as", "uma"), ("statement", "Ada"), ("export_statement", "Ada")]
+
+
+def cp196(k):
+    return _base(k, today="2026-01-05", people=(("Ada", "A"),), rates=A1) + [
+        ("setting", "terms", "5"), ("setting", "late-pct", "10.00"), ("setting", "floor", "3.00"),
+        ("claim", "Ada", "20.00"), ("claim", "Ada", "40.00"), ("claim", "Ada", "5.00"), ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
+        ("today", "2026-03-12"),
+        ("check", DUE),
+        ("statement", "Ada"), ("rate", "A", "20.00"), ("today", "2026-04-12"),
+        ("check", DUE),
+        ("as", "vic"), ("settle", "Ada", 1),
+        ("check", dict(DUE, audit=True))]
+
+
+def cp197(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("claim", "Ada", "10.00"), ("open", "Ada", 0), ("as", "vic"), ("settle", "Ada", 0), ("as", "uma"), ("rate", "A", "20.00"),
+        ("activity",),
+        ("today", "2026-03-11"), ("as", "vic"), ("statement", "Ada"),
+        ("activity",), ("check", {"audit": True})]
+
+
+def cp198(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00"), ("claim", "Ben", "5.00"),
+        ("claim", "Ben", "5.00"), ("claim", "Ben", "5.00"), ("claim", "Ada", "9.00", "2026-03-01"), ("claim", "Ada", "9.00", "2026-03-01"),
+        ("dups",), ("role", "vic", "steward"), ("void_reason", "dup"),
+        ("void", "Ben", 2), ("delete", "Ada", 1), ("open", "Ada", 0),
+        ("as", "vic"), ("merge", "Ben", "Ada"), ("hidden", "Ben"),
+        ("dups",), ("check", {"audit": True})]
+
+
+def cp199(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"),
+        ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("as", "wes"), ("settle", "Ada", 0), ("settle", "Ada", 1),
+        ("approve", "Ada", 0),
+        ("as", "uma"), ("approver", "Ada", "wes"), ("as", "wes"), ("approve", "Ada", 0), ("reject", "Ada", 1, "no"),
+        ("as", "uma"), ("approver", "Ada", "uma"), ("as", "wes"), ("approve", "Ada", 0), ("as", "uma"), ("open", "Ada", 1), ("approve", "Ada", 0),
+        ("check", {"claims": ["status", "due"], "people": ["approver", "due-total"], "rollups": True, "audit": True})]
+
+
+def cp200(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("setting", "terms", "5"), ("setting", "pot", "10.00"), ("period", "P1", "2026-03-01", "2026-03-10"), ("patron", "Cam", "Ada"),
+        ("pool", "P"), ("pool_member", "P", "Ada", "50.00"), ("pool_member", "P", "Ben", "50.00"),
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("claim", "Ben", "30.00"), ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0),
+        ("statement", "Ada"), ("rate", "A", "20.00"),
+        ("hold", "Ada", "2026-03-01", None), ("claim_hold", "Ben", 0),
+        ("check", {"people": ["claimed", "due-total", "backing", "cut-total", "hold"], "claims": ["due", "held"], "rollups": True,
+                   "periods": True, "pools": True, "counters": True}),
+        ("today", "2026-03-20"),
+        ("check", {"people": ["claimed", "due-total", "overdue-total", "cut-total"], "claims": ["due", "overdue"], "rollups": True,
+                   "pools": True, "audit": True})]
+
+
+
+# ---- Act V (cp201-250): the squeeze ---------------------------------------------------------------
+
+TREE3 = [("as", "uma"), ("sheet", "c1"), ("today", T), ("rate", "A", "10.00"), ("rate", "B", "20.00"), ("person", "Cy", "A"), ("person", "Di", "B"),
+         ("claim", "Cy", "10.00"), ("claim", "Di", "20.00"), ("open", "Cy", 0), ("open", "Di", 0),
+         ("sheet", ""), ("today", T), ("rate", "A", "20.00"), ("person", "Ada", "A"), ("person", "Ben", "B"),
+         ("claim", "Ada", "10.00"), ("open", "Ada", 0),
+         ("sheet", "c1"), ("setting", "parent", "__SHEET__"), ("sheet", "")]
+
+
+def cp201(k):
+    return TREE3 + [
+        ("check", {"sheet": True, "summary": True}),
+        ("as", "vic"), ("settle", "Ada", 0), ("as", "uma"), ("rate", "B", "5.00"), ("retire", "Ben", "2026-03-01"),
+        ("sheet", "c1"), ("void", "Di", 0), ("sheet", ""),
+        ("check", {"sheet": True, "summary": True, "audit": True})]
+
+
+def cp202(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("claim", "Ada", "10.00"), ("open", "Ada", 0),
+        ("today", "2026-03-05"), ("rate", "A", "20.00"), ("claim", "Ben", "5.00"), ("open", "Ben", 0),
+        ("today", "2026-03-10"), ("hold", "Ada", "2026-03-01", None),
+        ("snapshot_compare", "2026-03-01", "2026-03-05"), ("snapshot_compare", "2026-03-05", ""), ("snapshot_compare", "2026-03-02", "2026-03-10"),
+        ("today", "2026-03-11"), ("snapshot_compare", "2026-03-01", "2026-03-10"),
+        ("check", {"audit": True})]
+
+
+def cp203(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("plan", "Ada", "10.00", "2026-03-01", "2", "2026-03-20"),
+        ("generate",), ("today", "2026-03-04"), ("plan_pause", "Ada", 0, True), ("plan_pause", "Ada", 0, True),
+        ("today", "2026-03-08"), ("generate",), ("plan_pause", "Ada", 0, False), ("plan_pause", "Ada", 0, False),
+        ("today", "2026-03-12"), ("generate",),
+        ("check", {"plans": True, "claims": ["date", "amount"], "people": ["claimed"], "audit": True})]
+
+
+def cp204(k):
+    return [("as", "uma"), ("sheet", "c1"), ("today", T), ("rate", "A", "10.00"), ("rate", "B", "20.00"), ("person", "Cy", "A"), ("person", "Di", "B"),
+            ("person", "Ada", "A"), ("alias", "Ada", "Addie"),
+            ("claim", "Cy", "10.00"), ("claim", "Di", "20.00"), ("claim", "Ada", "40.00"), ("open", "Cy", 0), ("open", "Di", 0), ("open", "Ada", 0),
+            ("sheet", ""), ("today", T), ("rate", "A", "20.00"), ("rate", "C", "30.00"), ("person", "Ada", "A"), ("person", "Ben", "B"), ("person", "Cam", "C"),
+            ("claim", "Ada", "10.00"), ("claim", "Cam", "10.00"), ("open", "Ada", 0), ("open", "Cam", 0),
+            ("sheet", "c1"), ("setting", "parent", "__SHEET__"), ("sheet", ""),
+        ("check", {"sheet": True, "rollups": True}),
+        ("setting", "terms", "1"), ("today", "2026-03-20"),
+        ("check", {"sheet": True, "rollups": True, "audit": True})]
+
+
+def cp205(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("plan", "Ada", "10.00", "2026-03-01", "3", "2026-03-20"),
+        ("generate",), ("today", "2026-03-05"), ("generate",), ("open", "Ada", 0),
+        ("plan_amount", "Ada", 0, "20.00"), ("plan_amount", "Ada", 0, "1.005"),
+        ("today", "2026-03-11"), ("generate",), ("plan_amount", "Ada", 0, "5.00"), ("today", "2026-03-14"), ("generate",),
+        ("check", {"plans": True, "claims": ["date", "amount", "status"], "people": ["claimed"], "audit": True})]
+
+
+def cp206(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("wes", "C"), ("Dot", "A")), rates=AB) + [
+        ("role", "wes", "restricted"), ("role", "wes", "x"),
+        ("claim", "Ada", "10.00"), ("claim", "wes", "20.00"), ("open", "Ada", 0), ("open", "wes", 0),
+        ("crew", "Red", "Ada"), ("crew_member", "Red", "wes"),
+        ("as", "wes"), ("hidden", "Ben"), ("hidden", "Dot"),
+        ("check", {"people": ["name", "due-total"], "rollups": True, "counters": True, "summary": True}),
+        ("as", "uma"), ("crew", "Blue", "wes"), ("crew_member", "Blue", "Dot"), ("role", "vic", "restricted"),
+        ("as", "wes"), ("hidden", "Ben"),
+        ("check", {"people": ["name", "due-total"], "rollups": True}),
+        ("as", "vic"), ("hidden", "Ada"), ("hidden", "Ben"), ("hidden", "wes"), ("hidden", "Dot"),
+        ("check", {"rollups": True, "audit": True})]
+
+
+def cp207(k):
+    return _base(k, today="2026-11-20", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("role", "vic", "steward"), ("generate_fy", "2026"),
+        ("claim", "Ada", "10.00", "2026-11-05"), ("claim", "Ada", "20.00", "2026-12-05"), ("claim", "Ben", "30.00", "2026-10-05"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0),
+        ("today", "2026-12-20"), ("as", "vic"), ("settle", "Ada", 0),
+        ("rollover", "x"), ("rollover", "2025"), ("as", "uma"), ("rollover", "2026"),
+        ("today", "2027-01-05"), ("as", "vic"), ("rollover", "2026"),
+        ("check", {"person_periods": True, "periods": True}),
+        ("today", "2027-01-10"), ("claim", "Ada", "5.00"), ("open", "Ada", 2),
+        ("check", {"person_periods": True, "periods": True, "audit": True})]
+
+
+def cp208(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"),
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("claim", "Ben", "30.00"), ("claim", "Ben", "5.00"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0), ("open", "Ben", 1),
+        ("check", {"claims": ["number", "status"]}),
+        ("as", "vic"), ("settle", "Ben", 0), ("as", "wes"), ("settle", "Ada", 1), ("as", "vic"), ("approve", "Ada", 1),
+        ("split", "Ada", 0, "4.00"), ("reassign", "Ben", 1, "Ada"), ("void", "Ada", 0), ("as", "wes"), ("settle", "Ada", 3),
+        ("as", "uma"), ("claim", "Ada", "-1.00", None, "", ("number", "Ben", 0)),
+        ("check", {"claims": ["number", "status", "due"], "people": ["due-total"], "rollups": True, "audit": True})]
+
+
+def cp209(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("setting", "terms", "5"),
+        ("claim", "Ada", "3000.00"), ("claim", "Ada", "250.00"), ("claim", "Ben", "100.00"), ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0),
+        ("as", "vic"), ("settle", "Ada", 0), ("settle", "Ada", 1),
+        ("as", "uma"), ("claim", "Ada", "-1000.00", None, "", ("number", "Ada", 0)), ("open", "Ada", 2), ("as", "vic"), ("settle", "Ada", 2),
+        ("check", {"people": ["score", "due-total"]}),
+        ("as", "uma"), ("today", "2026-03-20"),
+        ("check", {"people": ["score", "overdue-count"], "audit": True})]
+
+
+def cp210(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("setting", "terms", "5"),
+        ("claim", "Ada", "500.00"), ("claim", "Ben", "100.00"), ("claim", "Cam", "10.00"), ("open", "Ada", 0), ("open", "Ben", 0), ("open", "Cam", 0),
+        ("as", "vic"), ("settle", "Ada", 0), ("settle", "Ben", 0),
+        ("check", {"people": ["score", "band"]}),
+        ("as", "uma"), ("setting", "score-mid", "0"), ("check", {"people": ["score", "band"]}),
+        ("setting", "score-high", "1"), ("check", {"people": ["score", "band"]}),
+        ("today", "2026-03-20"),
+        ("check", {"people": ["score", "band"], "audit": True})]
+
+
+def cp211(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("setting", "terms", "1"),
+        ("claim", "Ada", "5000.00"), ("claim", "Ada", "10.00"), ("open", "Ada", 0), ("open", "Ada", 1), ("as", "vic"), ("settle", "Ada", 0), ("as", "uma"),
+        ("rate", "A", "20.00"),
+        ("today", "2026-03-02"), ("setting", "score-log", "on"), ("setting", "score-mid", "0"), ("setting", "score-high", "1"),
+        ("today", "2026-03-03"), ("claim", "Ben", "2500.00"), ("open", "Ben", 0), ("as", "vic"), ("settle", "Ben", 0),
+        ("as", "uma"), ("today", "2026-03-04"), ("setting", "score-log", ""), ("today", "2026-03-05"),
+        ("check", {"people": ["score", "band", "snapshot"], "audit": True})]
+
+
+def cp212(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("setting", "score-mid", "0"), ("setting", "score-high", "2"),
+        ("claim", "Ada", "3000.00"), ("open", "Ada", 0), ("as", "vic"), ("settle", "Ada", 0),
+        ("as", "uma"), ("claim", "Ada", "-1000.00", None, "", ("number", "Ada", 0)), ("open", "Ada", 1), ("as", "vic"), ("settle", "Ada", 1),
+        ("check", {"people": ["score", "band"]}),
+        ("as", "uma"), ("today", "2026-03-02"),
+        ("check", {"people": ["score", "band"], "audit": True})]
+
+
+def cp213(k):
+    return [("as", "uma"), ("sheet", "c"), ("today", "2026-03-01"), ("rate", "A", "10.00"), ("person", "Ada", "A"),
+            ("sheet", ""), ("today", "2026-03-01"), ("rate", "A", "20.00"), ("person", "Ada", "A"), ("person", "Ben", "B"),
+            ("sheet", "c"), ("setting", "parent", "__SHEET__"), ("sheet", ""),
+            ("plan", "Ada", "10.00", "2026-03-01", "5", "2026-03-20", "c"), ("plan", "Ben", "5.00", "2026-03-01", "5", "2026-03-20", "c"),
+            ("plan", "Ada", "1.00", "2026-03-01", "5", "2026-03-20", "x"),
+            ("generate",), ("today", "2026-03-12"), ("generate",),
+            ("check", {"plans": True, "claims": ["amount", "date"], "people": ["claimed"], "audit": True}),
+            ("sheet", "c"),
+            ("check", {"claims": ["amount", "date", "status"], "people": ["claimed"], "audit": True})]
+
+
+def cp214(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("role", "vic", "steward"), ("setting", "max-open", "2"),
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("claim", "Ada", "40.00"), ("claim", "Ben", "5.00"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2), ("bulk_open", [("Ada", 3), ("Ben", 0)]), ("paste", ["Ada,1.00,,"]),
+        ("as", "vic"), ("settle", "Ada", 0), ("open", "Ada", 2), ("as", "uma"), ("setting", "max-open", ""), ("open", "Ada", 3),
+        ("check", {"claims": ["status", "number"], "people": ["due-total"], "audit": True})]
+
+
+def cp215(k):
+    return [("as", "uma"), ("sheet", "o"), ("today", T), ("rate", "A", "10.00"), ("person", "Ox", "A"), ("claim", "Ox", "10.00"), ("open", "Ox", 0),
+            ("sheet", ""), ("today", T), ("rate", "A", "20.00"), ("rate", "B", "5.00"), ("person", "Ada", "A"), ("person", "Ben", "B"),
+            ("claim", "Ada", "10.00"), ("claim", "Ben", "10.00"), ("open", "Ada", 0), ("open", "Ben", 0),
+            ("compare", "o"), ("compare", "zz"), ("retire", "Ada", "2026-03-01"), ("show_retired", True), ("compare", "o"),
+            ("check", {"audit": True})]
+
+
+def cp216(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B"))) + [
+        ("period", "P1", "2026-03-01", "2026-03-10"), ("setting", "pot", "10.00"),
+        ("pool", "P"), ("pool_member", "P", "Ada", "50.00"), ("pool_member", "P", "Ben", "50.00"),
+        ("today", "2026-03-15"), ("setting", "pot", "20.00"),
+        ("check", {"pools": True}),
+        ("close", "P1"), ("setting", "pot", "30.00"), ("hold", "Ben", "2026-03-15", None),
+        ("check", {"pools": True}),
+        ("reopen", "P1"),
+        ("check", {"pools": True, "audit": True})]
+
+
+def cp217(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("claim", "Ada", "10.01"), ("claim", "Ada", "20.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("share", "Ada", 0, "Ben", "33.33"), ("share", "Ada", 0, "Ben", "10.00"), ("share", "Ada", 0, "Ada", "10.00"),
+        ("share", "Ada", 0, "Cam", "66.68"), ("share", "Ada", 0, "Cam", "0.00"), ("share", "Ada", 0, "Cam", "33.33"),
+        ("check", {"claims": ["shares", "due"], "people": ["due-total", "claimed"], "rollups": True}),
+        ("as", "vic"), ("settle", "Ada", 1), ("share", "Ada", 1, "Ben", "50.00"), ("as", "uma"), ("rate", "A", "20.00"),
+        ("hold", "Ada", "2026-03-01", None),
+        ("check", {"claims": ["shares", "due"], "people": ["due-total", "claimed"], "rollups": True, "audit": True})]
+
+
+def cp218(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "review-threshold", "1.50"),
+        ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("claim", "Ada", "10.00"), ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
+        ("role", "wes", "viewer"), ("as", "wes"), ("assign_review", "Ada", 0, "wes"),
+        ("as", "uma"), ("assign_review", "Ada", 0, "wes"), ("as", "vic"), ("assign_review", "Ada", 0, "wes"), ("assign_review", "Ada", 1, " "), ("assign_review", "Ada", 2, "wes"),
+        ("delegate", "uma", "2026-03-10", "2026-03-11"), ("as", "uma"), ("assign_review", "Ada", 1, "vic"), ("as", "vic"),
+        ("as", "wes"), ("check", {"claims": ["review-assigned", "status"], "counters": True}),
+        ("as", "vic"), ("review", "Ada", 0), ("check", {"claims": ["review-assigned", "status"], "counters": True, "audit": True})]
+
+
+def cp219(k):
+    return _base(k, today="2026-12-20", people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("generate_fy", "2026"), ("claim", "Ada", "10.00", "2026-12-05"), ("open", "Ada", 0),
+        ("as", "vic"), ("rollover", "2026"),
+        ("check", {"periods": True, "person_periods": True}),
+        ("rollover_undo",), ("rollover_undo",),
+        ("check", {"periods": True, "person_periods": True}),
+        ("rollover", "2026"), ("as", "uma"), ("rollover_undo",), ("claim", "Ada", "1.00", "2027-01-05"),
+        ("as", "vic"), ("rollover_undo",), ("void", "Ada", 1), ("rollover_undo",), ("today", "2026-12-21"), ("rollover", "2026"), ("today", "2026-12-22"), ("rollover_undo",),
+        ("check", {"periods": True, "person_periods": True, "audit": True})]
+
+
+def cp220(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("plan", "Ada", "10.00", "2026-03-01", "2", "2026-03-10"),
+        ("generate",), ("today", "2026-03-05"), ("generate",), ("open", "Ada", 0), ("delete", "Ada", 1),
+        ("plan_amount", "Ada", 0, "20.00"),
+        ("check", {"plans": True, "claims": ["date", "amount", "status"], "people": ["claimed"], "audit": True})]
+
+
+def cp221(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("claim", "Ada", "10.00"), ("claim", "Ben", "20.00"), ("open", "Ada", 0), ("open", "Ben", 0),
+        ("check", {"counters": True}),
+        ("watch", "Ada", True), ("watch", "Ben", True), ("as", "vic"), ("watch", "Ben", True),
+        ("check", {"counters": True}),
+        ("as", "uma"), ("hold", "Ben", "2026-03-01", None), ("setting", "cap", "1.50"), ("watch", "Ada", False),
+        ("check", {"counters": True, "audit": True})]
+
+
+def cp222(k):
+    return TREE3 + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"), ("setting", "review-threshold", "3.00"), ("setting", "terms", "5"),
+        ("claim", "Ada", "40.00"), ("open", "Ada", 1), ("as", "wes"), ("settle", "Ada", 0),
+        ("sheet", "c1"), ("as", "uma"), ("sheet", "c1"), ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"),
+        ("setting", "review-threshold", "3.00"), ("setting", "terms", "5"), ("claim", "Cy", "40.00"), ("open", "Cy", 1),
+        ("as", "wes"), ("sheet", "c1"), ("settle", "Cy", 0), ("today", "2026-03-20"),
+        ("sheet", ""), ("as", "vic"), ("check", {"dash": True}),
+        ("sheet", "c1"), ("check", {"dash": True, "audit": True})]
+
+
+def cp223(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("grade_retire", "B"), ("grade_retire", "B"), ("grade_retire", "D"),
+        ("person", "Cam", "B"), ("edit", "Ada", {"grade": "B"}), ("edit", "Ben", {"grade": "B"}), ("import_people", ["Dot,B"]),
+        ("setting", "default-grade", "B"), ("quick", "Eve", "1.00"), ("inline_grade", "Ada", "B"),
+        ("claim", "Ben", "10.00"), ("open", "Ben", 0),
+        ("check", {"people": ["name", "grade", "due-total"], "summary": True, "audit": True})]
+
+
+def cp224(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("setting", "pot", "10.00"), ("pool", "P"), ("pool_member", "P", "Ada", "50.00"), ("pool_member", "P", "Ben", "50.00"),
+        ("claim", "Ada", "40.00"), ("claim", "Ben", "10.00"), ("open", "Ada", 0), ("open", "Ben", 0),
+        ("setting", "cap", "6.00"),
+        ("check", {"people": ["due-total", "excess", "cut-total"], "rollups": True}),
+        ("setting", "cap", "3.00"), ("setting", "pot", "4.00"),
+        ("check", {"people": ["due-total", "excess", "cut-total"], "rollups": True, "audit": True})]
+
+
+def cp225(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=(("A", "10.00"), ("B", "20.00"), ("C", "30.00"))) + [
+        ("role", "vic", "steward"),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00"), ("claim", "Cam", "10.00", "2026-03-01"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Cam", 0), ("statement", "Cam"),
+        ("grade_merge", "A", "B"), ("as", "vic"), ("grade_merge", "A", "A"), ("grade_merge", "A", "B"),
+        ("check", {"people": ["grade", "due-total"], "claims": ["due", "stated"], "summary": True, "rollups": True}),
+        ("today", "2026-03-11"), ("claim", "Ada", "10.00"), ("open", "Ada", 2), ("grade_merge", "C", "B"),
+        ("check", {"people": ["grade", "due-total"], "claims": ["due", "stated"], "summary": True, "rollups": True, "audit": True})]
+
+
+def cp226(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("setting", "terms", "5"), ("setting", "late-pct", "10.00"), ("setting", "grace-days", "0"), ("setting", "score-mid", "0"), ("setting", "score-high", "1"),
+        ("period", "P1", "2026-03-01", "2026-03-10"),
+        ("claim", "Ada", "20.00"), ("claim", "Ben", "20.00"), ("open", "Ada", 0), ("open", "Ben", 0),
+        ("hold", "Ben", "2026-03-20", None), ("retire", "Ada", "2026-03-15"), ("show_retired", True), ("rate", "A", "20.00", "2026-04-01"),
+        ("check", {"people": ["due-total", "overdue-total", "retired"], "claims": ["due", "overdue"], "rollups": True, "periods": True, "sheet": True}),
+        ("preview", "2026-04-20"),
+        ("check", {"people": ["due-total", "overdue-total", "retired"], "claims": ["due", "overdue"], "rollups": True, "periods": True, "sheet": True}),
+        ("claim", "Ada", "1.00", "2026-03-01"), ("open", "Ada", 1),
+        ("check", {"claims": ["due", "overdue", "status"], "rollups": True, "sheet": True}),
+        ("as", "vic"), ("check", {"claims": ["due", "overdue"], "rollups": True, "sheet": True}),
+        ("as", "uma"), ("preview_clear",),
+        ("check", {"people": ["due-total", "overdue-total"], "rollups": True, "periods": True, "sheet": True, "audit": True})]
+
+
+def cp227(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("setting", "terms", "5"), ("setting", "late-pct", "10.00"),
+        ("claim", "Ada", "100.00"), ("open", "Ada", 0),
+        ("export",), ("export_claims",), ("preview", "2026-05-01"), ("export",), ("export_claims",), ("preview_clear",), ("export",)]
+
+
+def cp228(k):
+    return _base(k, today="2026-12-20", people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("generate_fy", "2026"), ("claim", "Ada", "10.00", "2026-12-05"), ("open", "Ada", 0),
+        ("close", "2026-11"), ("as", "vic"), ("rollover", "2026"),
+        ("check", {"periods": True, "person_periods": True}),
+        ("claim", "Ada", "5.00", "2026-12-06"), ("open", "Ada", 1), ("rate", "A", "20.00"),
+        ("check", {"periods": True, "person_periods": True, "claims": ["late-entry", "due"], "audit": True})]
+
+
+def cp229(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("grade_add", "D"), ("grade_add", "D"), ("grade_add", "dd"), ("grade_add", "ABCD"), ("grade_add", "E1"), ("grade_add", " XY "),
+        ("person", "Ben", "D"), ("rate", "D", "40.00"), ("claim", "Ben", "10.00"), ("open", "Ben", 0),
+        ("edit", "Ada", {"grade": "XY"}), ("quick", "Cam", "1.00"),
+        ("check", {"people": ["name", "grade", "due-total"], "claims": ["due"], "rates": True, "summary": True, "calendar": True, "audit": True})]
+
+
+def cp230(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"), ("setting", "pending-sla", "2"),
+        ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("as", "wes"), ("settle", "Ada", 0), ("as", "uma"), ("today", "2026-03-03"), ("as", "wes"), ("settle", "Ada", 1),
+        ("check", {"claims": ["status", "pending-late"], "summary": True}),
+        ("as", "uma"), ("today", "2026-03-04"),
+        ("check", {"claims": ["status", "pending-late"], "summary": True}),
+        ("as", "vic"), ("reject", "Ada", 0, "no"), ("as", "wes"), ("settle", "Ada", 0), ("as", "uma"), ("today", "2026-03-06"),
+        ("check", {"claims": ["status", "pending-late"], "summary": True, "audit": True})]
+
+
+def cp231(k):
+    return _base(k, today="2026-03-25", people=(("Ada", "A"), ("Lee, Jo", "B")), rates=AB) + [
+        ("period", "P1", "2026-03-01", "2026-03-10"), ("period", "P2", "2026-03-11", "2026-03-20"),
+        ("claim", "Ada", "10.00", "2026-03-05"), ("claim", "Lee, Jo", "20.00", "2026-03-15"), ("open", "Ada", 0), ("open", "Lee, Jo", 0),
+        ("export_periods",), ("close", "P1"), ("rate", "A", "20.00"), ("export_periods",)]
+
+
+def cp232(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=(("A", "10.00"), ("B", "20.00"), ("C", "30.00"))) + [
+        ("role", "vic", "steward"),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00"), ("claim", "Ben", "10.00", "2026-03-01"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0),
+        ("as", "vic"), ("grade_merge", "A", "C"),
+        ("check", {"people": ["grade", "due-total"], "claims": ["due"], "rollups": True}),
+        ("as", "uma"), ("rate", "A", "50.00"), ("rate", "C", "60.00"), ("claim", "Ada", "10.00", "2026-03-05"), ("claim", "Ada", "10.00", "2026-03-11"),
+        ("open", "Ada", 2), ("open", "Ada", 3), ("edit", "Ada", {"grade": "B", "grade_from": "2026-03-20"}),
+        ("check", {"people": ["grade", "due-total"], "claims": ["due"], "rollups": True, "audit": True})]
+
+
+def cp233(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "terms", "5"), ("setting", "late-pct", "10.00"), ("setting", "grace-A", "2"),
+        ("period", "P1", "2026-03-01", "2026-03-10"), ("period", "P2", "2026-03-11", "2026-03-20"),
+        ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("open", "Ada", 0),
+        ("set_due_by", "Ada", 0, "2026-03-15"), ("as", "vic"), ("set_due_by", "Ada", 0, "2026-03-15"), ("set_due_by", "Ada", 1, "2026-03-02"),
+        ("check", {"claims": ["due-by", "overdue", "period", "due"], "periods": True, "person_periods": True}),
+        ("as", "uma"), ("holiday", "2026-03-15"), ("today", "2026-04-20"),
+        ("check", {"claims": ["due-by", "overdue", "period", "due"], "people": ["overdue-total"], "periods": True, "audit": True})]
+
+
+def cp234(k):
+    return TREE3 + [("export_tree",), ("sheet", "c1"), ("export_tree",)]
+
+
+def cp235(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("role", "wes", "viewer"),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ben", "20.00"), ("open", "Ada", 0), ("open", "Ben", 0), ("statement", "Ada"),
+        ("bulk_hold", ["Cam", "Ada"], "2026-03-01", "2026-03-05"),
+        ("check", {"people": ["hold", "due-total"], "rollups": True}),
+        ("as", "wes"), ("bulk_hold", ["Ben"], "2026-03-01", None),
+        ("as", "uma"), ("bulk_hold", ["Ben", "Ada"], "2026-03-10", None),
+        ("check", {"people": ["hold", "due-total"], "rollups": True, "audit": True})]
+
+
+def cp236(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "terms", "2"),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "20.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("statement", "Ada"), ("rate", "A", "20.00"), ("defer", "Ada", 0, "2026-03-20"), ("defer", "Ada", 1, "2026-03-20"),
+        ("check", DUE | {"claims": ["due", "status", "stated", "deferred", "overdue"]}),
+        ("as", "vic"), ("settle", "Ada", 0), ("as", "uma"), ("statement", "Ada"),
+        ("check", DUE | {"claims": ["due", "status", "stated", "deferred"]}),
+        ("as", "vic"), ("unstate", "Ada"), ("unstate", "Ada"),
+        ("check", DUE | {"claims": ["due", "status", "stated", "deferred"], "audit": True})]
+
+
+def cp237(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("role", "wes", "viewer"),
+        ("setting", "perm-today", "steward"), ("today", "2026-03-11"), ("as", "vic"), ("today", "2026-03-12"), ("as", "wes"), ("today", "2026-03-13"),
+        ("as", "uma"), ("setting", "perm-today", ""), ("today", "2026-03-14"), ("as", "wes"), ("today", "2026-03-15"),
+        ("as", "uma"), ("check", {"today": True, "audit": True})]
+
+
+def cp238(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("role", "vic", "steward"),
+        ("claim", "Ada", "10.00"), ("claim", "Ben", "20.00"), ("claim", "Ben", "30.00"), ("open", "Ada", 0), ("open", "Ben", 0), ("open", "Ben", 1),
+        ("alias", "Ben", "Benny"), ("alias", "Ada", "Addie"),
+        ("as", "vic"), ("merge", "Ben", "Ada"), ("hidden", "Ben"), ("claim", "Ada", "5.00"),
+        ("merge_undo", "Cam"), ("as", "uma"), ("merge_undo", "Ada"), ("as", "vic"), ("merge_undo", "Ada"),
+        ("check", {"people": ["name", "aliases", "claimed", "due-total"], "claims": ["amount", "number", "status"], "rollups": True}),
+        ("merge_undo", "Ada"), ("merge", "Cam", "Ada"), ("today", "2026-03-11"), ("merge_undo", "Ada"),
+        ("check", {"people": ["name", "aliases", "claimed"], "claims": ["amount", "status"], "rollups": True, "audit": True})]
+
+
+def cp239(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("period", "P1", "2026-03-01", "2026-03-10"), ("period", "P2", "2026-03-11", "2026-03-20"),
+        ("claim", "Ada", "10.00", "2026-03-05"), ("claim", "Ada", "20.00", "2026-03-06"), ("claim", "Ada", "30.00", "2026-03-15"), ("claim", "Ada", "40.00", "2026-03-25"),
+        ("open", "Ada", 0), ("void", "Ada", 1), ("delete", "Ada", 3),
+        ("check", {"periods": True}),
+        ("close", "P1"), ("setting", "terms", "10"), ("claim", "Ada", "1.00", "2026-03-05"),
+        ("check", {"periods": True, "audit": True})]
+
+
+def cp240(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B"), ("Cam", "C")), rates=AB) + [
+        ("claim", "Ada", "10.01"), ("claim", "Ada", "20.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("share", "Ada", 0, "Ben", "33.33"), ("share", "Ada", 0, "Cam", "33.33"), ("share", "Ada", 1, "Ben", "50.00"),
+        ("check", {"claims": ["shares", "due"], "people": ["due-total"], "rollups": True}),
+        ("rate", "C", "30.00"), ("as", "vic"), ("settle", "Ada", 1), ("as", "uma"), ("rate", "B", "10.00"),
+        ("check", {"claims": ["shares", "due", "status"], "people": ["due-total"], "rollups": True, "audit": True})]
+
+
+def cp241(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("today", "2026-03-05"), ("role", "wes", "viewer"), ("role", "vic", "clerk"), ("today", "2026-03-10"),
+        ("check", {"roles": True}),
+        ("asof", "2026-03-01"), ("check", {"roles": True}),
+        ("asof", "2026-03-05"), ("check", {"roles": True}),
+        ("asof_clear",), ("check", {"roles": True, "audit": True})]
+
+
+def cp242(k):
+    return _base(k, today="2026-03-10", people=(("Ada", "A"),), rates=A1) + [
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "20.00", "2026-03-05"), ("open", "Ada", 0), ("as", "vic"), ("settle", "Ada", 0),
+        ("as", "uma"), ("edit", "Ada", {"grade": "B", "grade_from": "2026-03-05"}), ("hold", "Ada", "2026-03-02", "2026-03-04"),
+        ("retire", "Ada", "2026-03-08"), ("show_retired", True),
+        ("check", {"people": ["timeline"]}),
+        ("today", "2026-03-12"), ("unretire", "Ada"), ("hold", "Ada", "2026-03-05", None),
+        ("check", {"people": ["timeline"], "audit": True})]
+
+
+def cp243(k):
+    return _base(k, people=(("Ada", "A"), ("Lee, Jo", "B")), rates=AB) + [
+        ("claim", "Ada", "10.00"), ("open", "Ada", 0), ("alias", "Ada", "Addie"), ("hold", "Lee, Jo", "2026-03-01", None),
+        ("export_person", "Ada"), ("export_person", "Lee, Jo"),
+        ("as", "vic"), ("settle", "Ada", 0), ("as", "uma"), ("export_person", "Ada")]
+
+
+def cp244(k):
+    return TREE3 + [
+        ("person", "Cam", "C"), ("rate", "C", "30.00"), ("setting", "pot", "10.00"), ("pool", "P"),
+        ("pool_member", "P", "Ada", "40.00"), ("pool_member", "P", "Ben", "30.00"), ("pool_member", "P", "Cam", "30.00"),
+        ("claim", "Ben", "20.00"), ("claim", "Cam", "30.00"), ("open", "Ben", 0), ("open", "Cam", 0),
+        ("as", "vic"), ("settle", "Ada", 0), ("settle", "Ben", 0),
+        ("check", {"sheet": True, "rollups": True, "people": ["settled-total", "open-total", "cut-total"]}),
+        ("sheet", "c1"), ("settle", "Cy", 0), ("sheet", ""),
+        ("check", {"sheet": True, "rollups": True, "audit": True})]
+
+
+def cp245(k):
+    return _base(k, people=(("Ada", "A"),), rates=()) + [
+        ("role", "vic", "steward"),
+        ("rate", "A", "10.00"), ("rate", "A", "20.00"), ("rate", "A", "30.00", "2026-03-05"), ("rate", "B", "5.00"),
+        ("claim", "Ada", "10.00", "2026-03-01"), ("claim", "Ada", "10.00"), ("open", "Ada", 0), ("open", "Ada", 1),
+        ("check", {"claims": ["due"], "rates": True, "rate_rows": True}),
+        ("withdraw_rate", "A"), ("as", "vic"), ("withdraw_rate", "A"),
+        ("check", {"claims": ["due"], "rates": True, "rate_rows": True}),
+        ("withdraw_rate", "A"), ("withdraw_rate", "A", "2026-03-05"), ("withdraw_rate", "C"),
+        ("check", {"claims": ["due"], "people": ["due-total"], "rates": True, "rate_rows": True, "rollups": True, "audit": True})]
+
+
+def cp246(k):
+    return _base(k, people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("claim", "Ada", "10.00"), ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00"), ("claim", "Ben", "5.00"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0), ("as", "vic"), ("settle", "Ada", 0), ("void", "Ben", 0),
+        ("check", {"people": ["claims-OPEN-count", "claims-SETTLED-count"]}),
+        ("hold", "Ada", "2026-03-01", None), ("as", "uma"), ("delete", "Ada", 2),
+        ("check", {"people": ["claims-OPEN-count", "claims-SETTLED-count"], "audit": True})]
+
+
+def cp247(k):
+    return _base(k, people=(("Ada", "A"),), rates=A1) + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"),
+        ("claim", "Ada", "20.00"), ("open", "Ada", 0), ("as", "wes"), ("settle", "Ada", 0),
+        ("as", "vic"), ("reject", "Ada", 0, ""), ("reject", "Ada", 0, " "), ("reject", "Ada", 0, "no"),
+        ("check", {"claims": ["status", "log"], "audit": True})]
+
+
+def cp248(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("role", "vic", "steward"), ("setting", "clerk-limit", "1.50"), ("setting", "cap", "3.00"), ("setting", "floor", "2.00", "2026-03-05"),
+        ("claim", "Ada", "10.00", "2026-02-20"), ("claim", "Ada", "20.00"), ("claim", "Ben", "40.00", "2026-02-25"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0),
+        ("check", {"claims": ["policy", "due"], "people": ["due-total", "excess"], "counters": True, "rollups": True}),
+        ("today", "2026-03-10"), ("setting", "cap", "9.00"), ("setting", "clerk-limit", "9.00", "2026-02-22"), ("setting", "terms", "5"),
+        ("as", "wes"), ("settle", "Ada", 0), ("settle", "Ben", 0), ("settle", "Ada", 1),
+        ("as", "uma"), ("claim", "Ada", "1.00", "2026-03-10"), ("open", "Ada", 2),
+        ("check", {"claims": ["policy", "due", "status"], "people": ["due-total", "excess"], "counters": True, "rollups": True, "audit": True})]
+
+
+def cp249(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"),), rates=A1) + [
+        ("setting", "floor", "2.00"), ("setting", "terms", "5", "2026-03-10"), ("setting", "rounding", "half-up", "2026-02-01"),
+        ("claim", "Ada", "10.00", "2026-02-20"), ("claim", "Ada", "20.00"), ("claim", "Ada", "30.00", "2026-03-10"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ada", 2),
+        ("policy",), ("setting", "late-pct", "10.00", "2026-03-10"), ("policy",),
+        ("check", {"claims": ["policy"], "counters": True, "audit": True})]
+
+
+def cp250(k):
+    return _base(k, today="2026-03-01", people=(("Ada", "A"), ("Ben", "B")), rates=AB) + [
+        ("setting", "cap", "3.00"), ("setting", "terms", "5", "2026-03-10"),
+        ("claim", "Ada", "10.00", "2026-02-20"), ("claim", "Ada", "20.00"), ("claim", "Ben", "40.00", "2026-03-10"),
+        ("open", "Ada", 0), ("open", "Ada", 1), ("open", "Ben", 0), ("as", "vic"), ("settle", "Ada", 0),
+        ("export_policy",), ("as", "uma"), ("hold", "Ben", "2026-03-10", None), ("export_policy",)]
+
+
+SCRIPTS = {n: globals()[f"cp{n:02d}"] for n in range(1, 251)}

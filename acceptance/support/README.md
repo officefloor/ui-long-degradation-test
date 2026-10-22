@@ -44,6 +44,17 @@ Everything is on the one screen at `/`. Introduced by the checkpoint in brackets
   `bulk-retire`, `bulk-retired` (cp123)
 - import box: `import-people`, `import-submit`, `import-added`, `import-error` (cp113),
   `import-updated` (cp116)
+- `person-period-<name>-carried` (cp159); `person-statement-line` (one per statement, cp163);
+  `person-form-terms-from` (cp169); `person-transfer-undo` (cp175); `person-flag-reason`,
+  `person-flag-until`, `person-flag`, `person-flag-shown` (cp179); `person-export-statement`
+  (cp195); `person-approver-input`, `person-approver-save`, `person-approver` (cp199);
+  `column-<cell>` checkboxes (cp158); `user-locale` (select), `user-locale-save`,
+  `user-locale-current` (cp157)
+- `plan-pause`, `plan-resume`, `plan-paused` (cp203); `plan-amount`, `plan-amount-save`,
+  `plan-change-line` (cp205); `plan-form-sheet` (cp213); `person-score` (cp209), `person-band`
+  (cp210); `person-merge-undo` (cp238); `person-timeline-line` (cp242); `person-export` (cp243);
+  `person-claims-OPEN-count`, `person-claims-SETTLED-count` (cp246); `bulk-hold-from`,
+  `bulk-hold-to`, `bulk-hold`, `bulk-held` (cp235)
 
 ### Claims (inside the person's row, newest first)
 - form `claim-form-amount`, `claim-form-date`, `claim-form-note`, `claim-form-corrects` (cp30),
@@ -63,6 +74,15 @@ Everything is on the one screen at `/`. Introduced by the checkpoint in brackets
 - `claim-delete`, `claim-restore` (cp114); `claim-line-label`, `claim-line-qty`, `claim-line-unit`,
   `claim-line-add`, `claim-lines-line` (one per line, cp137); `bulk-redate-date`, `bulk-redate`,
   `bulk-redated`, `bulk-redate-refused` (cp145)
+- `claim-review` (cp155); `claim-review-late` (cp171); `claim-waive`, `claim-waived` (cp174);
+  `claim-proof-kind` (select), `claim-proofs-receipt`, `claim-proofs-photo` (cp177); `claim-hold`,
+  `claim-held` (cp182); `claim-settle-part-amount`, `claim-settle-part` (cp185);
+  `claim-settle-date` (cp194); `bulk-void-reason` (select), `bulk-void`, `bulk-voided`,
+  `bulk-void-refused` (cp190)
+- `claim-share-select`, `claim-share-pct`, `claim-share-add`, `claim-shares` (cp217);
+  `claim-review-user`, `claim-review-assign`, `claim-review-assigned` (cp218);
+  `claim-pending-late` (cp230); `claim-due-by-new`, `claim-set-due-by` (cp233); `claim-timeline`,
+  `claim-timeline-line` (cp162); `claim-policy` (cp248)
 - `bulk-settle`, `bulk-settled`, `bulk-settle-refused` (cp45); `claim-resettle` (cp46);
   `claim-defer-date`, `claim-defer`, `claim-deferred`, `claim-deferred-until` (cp50);
   `claim-proof`, `claim-proofs` (cp51); `claim-split-amount`, `claim-split`, `claim-split-from`
@@ -112,6 +132,35 @@ Everything is on the one screen at `/`. Introduced by the checkpoint in brackets
 - the tree: `setting-parent`, `sheet-parent` (cp109); `consolidated-people-count`,
   `consolidated-due-total`, `consolidated-overdue-total` (cp110); `sheet-clone-to`, `sheet-clone`,
   `sheet-cloned-to` (cp126); `search-name`, `search`, `search-count`, `search-line` (cp150)
+- `setting-rounding` (cp151, dated); `rate-version` on the rate row (cp153); `classic-period-<name>-due-total`,
+  `classic-due-total` (cp154); `setting-review-threshold` (cp155, dated), `setting-review-sla`,
+  `summary-review-late-count` (cp171); `rate-month-<grade>-<yyyy-mm>` (cp170);
+  `opening-import`, `opening-import-submit`, `opening-import-done`, `opening-error` (cp173);
+  `setting-proof-kinds` (cp177); `dash-pending-count`, `dash-review-count`, `dash-overdue-count`
+  (cp178); `note-text`, `note-add`, `note-line`, `note-error` (cp181); `period-lock`,
+  `period-unlock`, `period-locked` (cp183); `period-generate-quarters-year`,
+  `period-generate-quarters` (cp186); `pool-cut-<period>` on a member's line (cp187);
+  `setting-default-grade` (cp189); `setting-clerk-limit-<grade>` (cp191, dated);
+  `rollup-aged-0-30`, `rollup-aged-31-60`, `rollup-aged-61` (cp193); `activity-show`,
+  `activity-line` (cp197); `dups-show`, `dup-line` (cp198); `header-claims-REVIEW-count`,
+  `summary-status-REVIEW-count` (cp155)
+- `consolidated-grade-<g>-due-total`, `consolidated-status-<S>-count` (cp201),
+  `consolidated-settled-total`, `consolidated-open-total`, `consolidated-cut-total` (cp244);
+  `snapshot-from`, `snapshot-to`, `snapshot-compare`, `snapshot-line` (cp202); `rollover-year`,
+  `rollover`, `rollover-made`, `rollover-error` (cp207), `rollover-undo` (cp219);
+  `setting-score-mid`, `setting-score-high` (cp210); `setting-max-open` (cp214); `compare-sheet`,
+  `compare`, `compare-line` (cp215); `my-reviews-count` (cp218); `watched-due-total` (cp221);
+  `grade-retire-select`, `grade-retire`, `grade-row-<g>` with `grade-retired`, `grade-error`
+  (cp223); `grade-merge-from`, `grade-merge-into`, `grade-merge`, `grade-merged` (cp225);
+  `preview-date`, `preview-set`, `preview-clear`, `sheet-preview` (cp226); `grade-add-code`,
+  `grade-add` (cp229); `setting-pending-sla`, `summary-pending-late-count` (cp230);
+  `export-periods` (cp231), `export-tree` (cp234); `setting-perm-today` (cp237);
+  `period-claims-count` (cp239); `rate-withdraw` on the rate row (cp245); `policy-version`,
+  `policy-show`, `policy-line` (cp248, cp249); `export-policy` (cp250); `role-row-<user>` with
+  `role-value` asserted under as-of (cp241)
+- crews: `crew-form-name`, `crew-form-lead` (select), `crew-form-submit`, `crew-form-error`;
+  `crew-row-<name>` with `crew-lead`, `crew-due-total`, `crew-member-select`, `crew-member-add`,
+  `crew-member-line`, `crew-error` (cp166); `my-crew-due-total` (cp167)
 - `import-rates`, `import-rates-submit`, `import-rates-set`, `import-rates-error` (cp118);
   `my-due-total`, `my-overdue-total` (cp127); export `export-claims` (cp129);
   `summary-period-<name>-change` (cp130); `plan-generate`, `plan-generated-count`,
@@ -141,7 +190,15 @@ contact= at the end (cp99); BATCH_SETTLED (cp100); PERSON_ALIAS_ADDED (cp102); T
 (cp103); POOL_ADDED, POOL_MEMBER_ADDED (cp105; from= to= at the end cp122); PERSON_MERGED (cp107);
 PERSON_TRANSFERRED (cp111); CLAIM_DELETED, CLAIM_RESTORED (cp114); PERSON_MOVED (cp117);
 PERSON_UNRETIRED (cp125); SHEET_CLONE_MADE, SHEET_CLONED (cp126); PLAN_ADDED (cp131; day= cp141);
-CLAIM_LINE_ADDED (cp137); ALERT (cp146); PERIOD_ADDED cap= at the end (cp149).
+CLAIM_LINE_ADDED (cp137); ALERT (cp146); PERIOD_ADDED cap= at the end (cp149); CLAIM_REVIEW,
+CLAIM_REVIEWED (cp155); ESCALATE (cp165); CREW_ADDED, CREW_MEMBER_ADDED (cp166); OPENING_SET
+(cp173); CLAIM_WAIVED (cp174); PERSON_TRANSFER_UNDONE (cp175); CLAIM_PROOF_ADDED kind= at the end
+(cp177); PERSON_FLAGGED (cp179); NOTE_ADDED (cp181); CLAIM_HELD, CLAIM_RELEASED (cp182);
+PERIOD_LOCKED, PERIOD_UNLOCKED (cp183); CLAIM_SETTLED on= at the end (cp194); APPROVER_SET
+(cp199); PLAN_PAUSED, PLAN_RESUMED (cp203); PLAN_CHANGED (cp205); ROLLOVER (cp207); SCORE
+(cp211); PLAN_ADDED sheet= at the end (cp213); CLAIM_SHARED (cp217); REVIEW_ASSIGNED (cp218);
+ROLLOVER_UNDONE (cp219); GRADE_RETIRED (cp223); GRADE_MERGED (cp225); GRADE_ADDED (cp229);
+CLAIM_DUE_BY_SET (cp233); PERSON_MERGE_UNDONE (cp238); RATE_WITHDRAWN (cp245).
 
 ## Errors and timing
 A refused action shows its error element (`<thing>-error`) with a message; submitting the next

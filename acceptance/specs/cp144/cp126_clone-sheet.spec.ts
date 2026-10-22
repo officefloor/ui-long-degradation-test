@@ -14,6 +14,9 @@ test.describe("clone sheet", () => {
     expect(await ui.setRole(pg_uma, "vic", "steward")).toBe(true);
     await ui.setSetting(pg_uma, "terms", "5");
     await ui.setSetting(pg_uma, "floor", "2.00");
+    const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "C"}));
+    const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "10.00"}));
+    expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(true);
     expect(await ui.addPeriod(pg_uma, {"name": "P1", "from": "2026-03-01", "to": "2026-03-05"})).toBe(true);
     expect(await ui.addAlias(pg_uma, p_ben, "Benny")).toBe(true);
     expect(await ui.addPatron(pg_uma, p_ada, "Ben")).toBe(true);
@@ -38,7 +41,7 @@ test.describe("clone sheet", () => {
     expect(await ui.cloneSheet(pg_vic, `${sheet}-c`)).toBe(true);
     expect(await ui.cloneSheet(pg_vic, `${sheet}-c`)).toBe(false);
     await ui.refresh(pg_vic);
-    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("40.00");
+    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("50.00");
     await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("7.00");
     await expect(pg_vic.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("rollup-overdue-total")).toHaveText("0.00");
@@ -52,6 +55,8 @@ test.describe("clone sheet", () => {
     const p_ben_2 = await ui.personId(pg_vic, "Ben");
     const c_ben_0_2 = await ui.claimAt(pg_vic, p_ben_2, 0);
     const c_ben_1_2 = await ui.claimAt(pg_vic, p_ben_2, 1);
+    const p_cam_2 = await ui.personId(pg_vic, "Cam");
+    const c_cam_0_2 = await ui.claimAt(pg_vic, p_cam_2, 0);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("current-user")).toHaveText("vic");
     await expect(pg_vic.getByTestId("sheet-current-id")).toHaveText(`${sheet}-c`);
@@ -59,7 +64,7 @@ test.describe("clone sheet", () => {
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
     await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("");
-    await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("2");
+    await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("3");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("8.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("person-row-" + p_ada_2).getByTestId("person-name")).toHaveText("Ada");
@@ -98,7 +103,22 @@ test.describe("clone sheet", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_0_2).getByTestId("claim-status")).toHaveText("OPEN");
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_0_2).getByTestId("claim-due")).toHaveText("4.00");
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_0_2).getByTestId("claim-stated")).toHaveText("no");
-    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("40.00");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-name")).toHaveText("Cam");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-grade")).toHaveText("C");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-aliases")).toHaveText("");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-patrons")).toHaveText("");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-hold")).toHaveText("no");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-claimed")).toHaveText("10.00");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-due-total")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-statement-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-stated-total")).toHaveText("");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0_2).getByTestId("claim-number")).toHaveText("FY2026-4");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0_2).getByTestId("claim-amount")).toHaveText("10.00");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0_2).getByTestId("claim-date")).toHaveText("2026-03-10");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0_2).getByTestId("claim-status")).toHaveText("OPEN");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0_2).getByTestId("claim-due")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0_2).getByTestId("claim-stated")).toHaveText("no");
+    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("50.00");
     await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("8.00");
     await expect(pg_vic.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("rollup-overdue-total")).toHaveText("0.00");
@@ -119,14 +139,15 @@ test.describe("clone sheet", () => {
       `SHEET_CLONED sheet=${sheet}-c by=vic from=${sheet}`,
       `ROLLUP sheet=${sheet}-c by=vic person=Ada claimed=10.00 due-total=2.00 overdue-total=0.00`,
       `ROLLUP sheet=${sheet}-c by=vic person=Ben claimed=30.00 due-total=6.00 overdue-total=0.00`,
-      `TOTALS sheet=${sheet}-c by=vic claimed-total=40.00 due-total=8.00 overdue-total=0.00`
+      `ROLLUP sheet=${sheet}-c by=vic person=Cam claimed=10.00 due-total=n/a overdue-total=0.00`,
+      `TOTALS sheet=${sheet}-c by=vic claimed-total=50.00 due-total=8.00 overdue-total=0.00`
     ]);
     const c_ada_1 = ui.must(await ui.addClaim(pg_vic, p_ada_2, {"amount": "1.00"}));
     expect(await ui.claimAction(pg_vic, c_ada_1, "open")).toBe(true);
     expect(await ui.setRate(pg_vic, {"grade": "A", "pct": "30.00"})).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ada_2).getByTestId("person-due-total")).toHaveText("5.00");
-    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-number")).toHaveText("FY2026-4");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-number")).toHaveText("FY2026-5");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-due")).toHaveText("2.00");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0_2).getByTestId("claim-number")).toHaveText("FY2026-1");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0_2).getByTestId("claim-due")).toHaveText("3.00");
@@ -135,7 +156,10 @@ test.describe("clone sheet", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_1_2).getByTestId("claim-due")).toHaveText("6.00");
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_0_2).getByTestId("claim-number")).toHaveText("FY2026-2");
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_0_2).getByTestId("claim-due")).toHaveText("4.00");
-    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("41.00");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-due-total")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0_2).getByTestId("claim-number")).toHaveText("FY2026-4");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0_2).getByTestId("claim-due")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("51.00");
     await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("11.00");
     await expect(pg_vic.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("rollup-overdue-total")).toHaveText("0.00");
@@ -144,21 +168,25 @@ test.describe("clone sheet", () => {
     await expect(pg_vic.getByTestId("bulk-settle-batch")).toHaveText("");
     await expect(pg_vic.getByTestId("rollup-cut-total")).toHaveText("0.00");
     await ui.loadSheet(pg_vic, sheet);
+    expect(await ui.setRate(pg_vic, {"grade": "C", "pct": "10.00"})).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("1.00");
-    await expect(pg_vic.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-number")).toHaveText("FY2026-2");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-number")).toHaveText("FY2026-3");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-due")).toHaveText("1.00");
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("6.00");
-    await expect(pg_vic.getByTestId("claim-row-" + c_ben_1).getByTestId("claim-number")).toHaveText("FY2026-1");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ben_1).getByTestId("claim-number")).toHaveText("FY2026-2");
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_1).getByTestId("claim-due")).toHaveText("6.00");
-    await expect(pg_vic.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-number")).toHaveText("FY2026-3");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-number")).toHaveText("FY2026-4");
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-due")).toHaveText("4.00");
-    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("40.00");
-    await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("7.00");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-due-total")).toHaveText("2.00");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-number")).toHaveText("FY2026-1");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-due")).toHaveText("2.00");
+    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("50.00");
+    await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("2.00");
     await expect(pg_vic.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("rollup-overdue-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("rollup-settled-total")).toHaveText("6.00");
-    await expect(pg_vic.getByTestId("rollup-open-total")).toHaveText("1.00");
+    await expect(pg_vic.getByTestId("rollup-open-total")).toHaveText("3.00");
     await expect(pg_vic.getByTestId("bulk-settle-batch")).toHaveText("");
     await expect(pg_vic.getByTestId("rollup-cut-total")).toHaveText("0.00");
     await ui.expectAudit(sheet, [
@@ -171,6 +199,12 @@ test.describe("clone sheet", () => {
       `ROLE_SET sheet=${sheet} by=uma user=vic role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=5`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=2.00`,
+      `PERSON_ADDED sheet=${sheet} by=uma name=Cam grade=C`,
+      `ROLLUP sheet=${sheet} by=uma person=Cam claimed=0.00 due-total=n/a overdue-total=0.00`,
+      `CLAIM_ADDED sheet=${sheet} by=uma person=Cam amount=10.00 date=2026-03-10`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Cam amount=10.00 date=2026-03-10 number=FY2026-1`,
+      `ROLLUP sheet=${sheet} by=uma person=Cam claimed=10.00 due-total=n/a overdue-total=0.00`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=10.00 due-total=0.00 overdue-total=0.00`,
       `PERIOD_ADDED sheet=${sheet} by=uma period=P1 from=2026-03-01 to=2026-03-05`,
       `PERSON_ALIAS_ADDED sheet=${sheet} by=uma name=Ben alias=Benny`,
       `PATRON_ADDED sheet=${sheet} by=uma name=Ada patron=Ben`,
@@ -179,25 +213,49 @@ test.describe("clone sheet", () => {
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=10.00 date=2026-03-02`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=20.00 date=2026-03-10`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=30.00 date=2026-03-10`,
-      `CLAIM_OPENED sheet=${sheet} by=uma person=Ben amount=30.00 date=2026-03-10 number=FY2026-1`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Ben amount=30.00 date=2026-03-10 number=FY2026-2`,
       `ROLLUP sheet=${sheet} by=uma person=Ben claimed=30.00 due-total=6.00 overdue-total=0.00`,
-      `TOTALS sheet=${sheet} by=uma claimed-total=30.00 due-total=6.00 overdue-total=0.00`,
-      `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=10.00 date=2026-03-02 number=FY2026-2`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=40.00 due-total=6.00 overdue-total=0.00`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=10.00 date=2026-03-02 number=FY2026-3`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=10.00 due-total=1.00 overdue-total=0.00`,
-      `TOTALS sheet=${sheet} by=uma claimed-total=40.00 due-total=7.00 overdue-total=0.00`,
-      `CLAIM_OPENED sheet=${sheet} by=uma person=Ben amount=20.00 date=2026-03-10 number=FY2026-3`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=50.00 due-total=7.00 overdue-total=0.00`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Ben amount=20.00 date=2026-03-10 number=FY2026-4`,
       `ROLLUP sheet=${sheet} by=uma person=Ben claimed=50.00 due-total=10.00 overdue-total=0.00`,
-      `TOTALS sheet=${sheet} by=uma claimed-total=60.00 due-total=11.00 overdue-total=0.00`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=70.00 due-total=11.00 overdue-total=0.00`,
       `STATEMENT sheet=${sheet} by=uma name=Ada due-total=1.00 claims=1`,
       `RATE_SET sheet=${sheet} by=uma grade=A rate=20.00`,
-      `CLAIM_SETTLED sheet=${sheet} by=vic person=Ben amount=30.00 date=2026-03-10 number=FY2026-1 due=6.00`,
+      `CLAIM_SETTLED sheet=${sheet} by=vic person=Ben amount=30.00 date=2026-03-10 number=FY2026-2 due=6.00`,
       `PERIOD_CLOSED sheet=${sheet} by=vic period=P1 total=0.00`,
       `PERSON_HELD sheet=${sheet} by=vic name=Ben from=2026-03-01`,
       `ROLLUP sheet=${sheet} by=vic person=Ben claimed=30.00 due-total=6.00 overdue-total=0.00`,
-      `TOTALS sheet=${sheet} by=vic claimed-total=40.00 due-total=7.00 overdue-total=0.00`,
+      `TOTALS sheet=${sheet} by=vic claimed-total=50.00 due-total=7.00 overdue-total=0.00`,
       `SHEET_CLONE_MADE sheet=${sheet} by=vic to=${sheet}-`,
-      `SHEET_CLONE_MADE sheet=${sheet} by=vic to=${sheet}-c`
+      `SHEET_CLONE_MADE sheet=${sheet} by=vic to=${sheet}-c`,
+      `RATE_SET sheet=${sheet} by=vic grade=C rate=10.00`,
+      `ROLLUP sheet=${sheet} by=vic person=Cam claimed=10.00 due-total=2.00 overdue-total=0.00`,
+      `TOTALS sheet=${sheet} by=vic claimed-total=50.00 due-total=2.00 overdue-total=0.00`
     ]);
+    await ui.loadSheet(pg_vic, `${sheet}-c`);
+    await ui.refresh(pg_vic);
+    await expect(pg_vic.getByTestId("person-row-" + p_ada_2).getByTestId("person-due-total")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-due")).toHaveText("2.00");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_0_2).getByTestId("claim-due")).toHaveText("3.00");
+    await expect(pg_vic.getByTestId("person-row-" + p_ben_2).getByTestId("person-due-total")).toHaveText("6.00");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ben_1_2).getByTestId("claim-due")).toHaveText("6.00");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ben_0_2).getByTestId("claim-due")).toHaveText("4.00");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam_2).getByTestId("person-due-total")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0_2).getByTestId("claim-due")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("51.00");
+    await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("11.00");
+    await expect(pg_vic.getByTestId("rollup-overdue-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("rollup-overdue-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-settled-total")).toHaveText("6.00");
+    await expect(pg_vic.getByTestId("rollup-open-total")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("bulk-settle-batch")).toHaveText("");
+    await expect(pg_vic.getByTestId("rollup-cut-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("30.00");
+    await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("20.00");
+    await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("n/a");
   });
   test("clone sheet scenario 1", { tag: '@functionality' }, async ({ browser }) => {
     const sheet = ui.sheetId();

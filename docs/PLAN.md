@@ -310,6 +310,10 @@ change that fixes this" at cp71 is the sinew forming. Nothing is discarded; meas
 defined (the coupling-divergence measure, a data-flow coupling metric, signature churn) can be
 computed later over the same commits.
 
+_Status 2026-10-22: step 3 below is built: five acts of fifty, cp1-250, from the oracle, lint
+clean, every own spec compiling; the decisions taken are in docs/STREAM_ACTS.md §1. The dry gate of
+each act against a real build is the next thing to do. Step 2, the control stack, is not started._
+
 ## 7. Order of work and decision gates
 
 1. **This plan** (done when this file is merged).

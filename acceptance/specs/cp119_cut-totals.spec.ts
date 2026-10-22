@@ -79,6 +79,44 @@ test.describe("cut totals", () => {
     await expect(pg_uma.getByTestId("pool-row-P3").getByTestId("pool-balanced")).toHaveText("no");
     await expect(pg_uma.getByTestId("pool-member-P3-" + p_ada).getByTestId("pool-share")).toHaveText("10.00");
     await expect(pg_uma.getByTestId("pool-member-P3-" + p_ada).getByTestId("pool-cut")).toHaveText("");
+    const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "10.00"}));
+    expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(true);
+    expect(await ui.setRate(pg_uma, {"grade": "A", "pct": "50.00"})).toBe(true);
+    await ui.setSetting(pg_uma, "cap", "4.00");
+    await ui.refresh(pg_uma);
+    await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-cut-total")).toHaveText("0.85");
+    await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("4.00");
+    await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-excess")).toHaveText("1.00");
+    await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-cut-total")).toHaveText("0.50");
+    await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-excess")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-cut-total")).toHaveText("0.67");
+    await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-due-total")).toHaveText("n/a");
+    await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-excess")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("rollup-claimed-total")).toHaveText("10.00");
+    await expect(pg_uma.getByTestId("rollup-due-total")).toHaveText("4.00");
+    await expect(pg_uma.getByTestId("rollup-overdue-count")).toHaveText("0");
+    await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("rollup-settled-total")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("rollup-open-total")).toHaveText("5.00");
+    await expect(pg_uma.getByTestId("bulk-settle-batch")).toHaveText("");
+    await expect(pg_uma.getByTestId("rollup-cut-total")).toHaveText("2.02");
+    await expect(pg_uma.getByTestId("pool-row-P1").getByTestId("pool-total-share")).toHaveText("100.00");
+    await expect(pg_uma.getByTestId("pool-row-P1").getByTestId("pool-balanced")).toHaveText("yes");
+    await expect(pg_uma.getByTestId("pool-member-P1-" + p_ada).getByTestId("pool-share")).toHaveText("50.00");
+    await expect(pg_uma.getByTestId("pool-member-P1-" + p_ada).getByTestId("pool-cut")).toHaveText("0.51");
+    await expect(pg_uma.getByTestId("pool-member-P1-" + p_ben).getByTestId("pool-share")).toHaveText("50.00");
+    await expect(pg_uma.getByTestId("pool-member-P1-" + p_ben).getByTestId("pool-cut")).toHaveText("0.50");
+    await expect(pg_uma.getByTestId("pool-row-P2").getByTestId("pool-total-share")).toHaveText("100.00");
+    await expect(pg_uma.getByTestId("pool-row-P2").getByTestId("pool-balanced")).toHaveText("yes");
+    await expect(pg_uma.getByTestId("pool-member-P2-" + p_ada).getByTestId("pool-share")).toHaveText("33.33");
+    await expect(pg_uma.getByTestId("pool-member-P2-" + p_ada).getByTestId("pool-cut")).toHaveText("0.34");
+    await expect(pg_uma.getByTestId("pool-member-P2-" + p_cam).getByTestId("pool-share")).toHaveText("66.67");
+    await expect(pg_uma.getByTestId("pool-member-P2-" + p_cam).getByTestId("pool-cut")).toHaveText("0.67");
+    await expect(pg_uma.getByTestId("pool-row-P3").getByTestId("pool-total-share")).toHaveText("10.00");
+    await expect(pg_uma.getByTestId("pool-row-P3").getByTestId("pool-balanced")).toHaveText("no");
+    await expect(pg_uma.getByTestId("pool-member-P3-" + p_ada).getByTestId("pool-share")).toHaveText("10.00");
+    await expect(pg_uma.getByTestId("pool-member-P3-" + p_ada).getByTestId("pool-cut")).toHaveText("");
     await ui.expectAudit(sheet, [
       `RATE_SET sheet=${sheet} by=uma grade=A rate=10.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=12.50`,
@@ -98,7 +136,17 @@ test.describe("cut totals", () => {
       `POOL_ADDED sheet=${sheet} by=uma name=P3`,
       `POOL_MEMBER_ADDED sheet=${sheet} by=uma pool=P3 name=Ada share=10.00`,
       `PERSON_HELD sheet=${sheet} by=uma name=Cam from=2026-03-01`,
-      `SETTING_CHANGED sheet=${sheet} by=uma key=pot value=1.01`
+      `SETTING_CHANGED sheet=${sheet} by=uma key=pot value=1.01`,
+      `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=10.00 date=2026-03-10`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=10.00 date=2026-03-10 number=1`,
+      `ROLLUP sheet=${sheet} by=uma person=Ada claimed=10.00 due-total=1.00 overdue-total=0.00`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=10.00 due-total=1.00 overdue-total=0.00`,
+      `RATE_SET sheet=${sheet} by=uma grade=A rate=50.00`,
+      `ROLLUP sheet=${sheet} by=uma person=Ada claimed=10.00 due-total=5.00 overdue-total=0.00`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=10.00 due-total=5.00 overdue-total=0.00`,
+      `SETTING_CHANGED sheet=${sheet} by=uma key=cap value=4.00`,
+      `ROLLUP sheet=${sheet} by=uma person=Ada claimed=10.00 due-total=4.00 overdue-total=0.00`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=10.00 due-total=4.00 overdue-total=0.00`
     ]);
   });
   test("cut totals scenario 1", { tag: '@functionality' }, async ({ browser }) => {

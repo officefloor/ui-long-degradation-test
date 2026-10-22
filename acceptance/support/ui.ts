@@ -70,11 +70,16 @@ function money(amount: string): string {
   return amount.trim() !== '' && Number.isFinite(n) ? n.toFixed(2) : amount;
 }
 
+/** A name as a name cell shows it, without a trailing " (<grade>)" the screen may append. */
+function plainName(shown: string): string {
+  return shown.trim().replace(/\s\([^()]*\)$/, '');
+}
+
 /** The id of a person row new since `before` whose name is `name` (case and outer spaces
  *  ignored), or null when none shows yet. */
 async function addedPerson(page: Page, before: string[], name: string): Promise<string | null> {
   const want = name.trim().toLowerCase();
-  const hit = (await freshRows(rows(page), 'person-row-', before, ['person-name'])).find((p) => p['person-name'].toLowerCase() === want);
+  const hit = (await freshRows(rows(page), 'person-row-', before, ['person-name'])).find((p) => plainName(p['person-name']).toLowerCase() === want);
   return hit ? hit.id : null;
 }
 
@@ -189,11 +194,13 @@ export async function refresh(page: Page): Promise<void> {
   const retired = page.getByTestId('show-retired');
   const showRetiredWas = (await retired.count()) > 0 ? await retired.isChecked() : null;
   const asofWas = await shown(page.getByTestId('sheet-asof'));
+  const previewWas = await shown(page.getByTestId('sheet-preview'));
   await loadSheet(page, sheet + '-reload');
   await expect.poll(() => rows(page).count(), { message: 'the throwaway sheet, which has no one on it, is on screen', timeout: LOAD_WAIT }).toBe(0);
   await loadSheet(page, sheet);
   if (showRetiredWas !== null && (await retired.isChecked()) !== showRetiredWas) await retired.setChecked(showRetiredWas);
   if (asofWas !== '' && (await shown(page.getByTestId('sheet-asof'))) !== asofWas) await setAsOf(page, asofWas);
+  if (previewWas !== '' && (await shown(page.getByTestId('sheet-preview'))) !== previewWas) await setPreview(page, previewWas);
   if (before.size === 0) return;
   const back = async () => {
     if ((await rows(page).count()) === 0) return false;
@@ -254,7 +261,7 @@ function rows(page: Page): Locator {
 }
 
 function rowsNamed(page: Page, name: string): Locator {
-  const re = new RegExp(`^\\s*${escapeRe(name.trim())}\\s*$`, 'i');
+  const re = new RegExp(`^\\s*${escapeRe(name.trim())}(\\s\\([^()]*\\))?\\s*$`, 'i');
   return rows(page).filter({ has: page.getByTestId('person-name').filter({ hasText: re }) });
 }
 
@@ -265,13 +272,14 @@ export async function personId(page: Page, name: string): Promise<string> {
   return idOf(await r.getAttribute('data-testid'), 'person-row-');
 }
 
-type PersonFields = { name?: string; grade?: string; gradeFrom?: string; terms?: string; contact?: string; tags?: string };
+type PersonFields = { name?: string; grade?: string; gradeFrom?: string; terms?: string; termsFrom?: string; contact?: string; tags?: string };
 
 async function fillPersonForm(page: Page, f: PersonFields) {
   if (f.name !== undefined) await page.getByTestId('person-form-name').fill(f.name);
   if (f.grade !== undefined) await page.getByTestId('person-form-grade').selectOption(f.grade);
   if (f.gradeFrom !== undefined) await page.getByTestId('person-form-grade-from').fill(f.gradeFrom);
   if (f.terms !== undefined) await page.getByTestId('person-form-terms').fill(f.terms);
+  if (f.termsFrom !== undefined) await page.getByTestId('person-form-terms-from').fill(f.termsFrom);
   if (f.contact !== undefined) await page.getByTestId('person-form-contact').fill(f.contact);
   if (f.tags !== undefined) await page.getByTestId('person-form-tags').fill(f.tags);
 }
@@ -305,7 +313,7 @@ export async function editSave(page: Page, f: PersonFields, shows: string | unde
   await page.getByTestId('person-form-submit').click();
   const r = row(page, id);
   return until(page, async () => {
-    if (f.name !== undefined && await shown(r.getByTestId('person-name')) !== f.name.trim()) return false;
+    if (f.name !== undefined && plainName(await shown(r.getByTestId('person-name'))) !== f.name.trim()) return false;
     if (shows !== undefined && await shown(r.getByTestId('person-grade')) !== shows) return false;
     if (f.terms !== undefined && await shown(r.getByTestId('person-terms')) !== f.terms) return false;
     return !(await page.getByTestId('person-form-error').isVisible().catch(() => false));
@@ -490,7 +498,7 @@ export async function bulkRetire(page: Page, personIds: string[], date: string):
   return ok ? Number(await shown(page.getByTestId('bulk-retired'))) : null;
 }
 
-type PlanFields = { amount: string; start: string; every?: string; day?: string; end: string };
+type PlanFields = { amount: string; start: string; every?: string; day?: string; end: string; sheet?: string };
 
 /** Add a plan on the person's row: the new plan row's id, or null when refused. */
 export async function addPlan(page: Page, personId: string, f: PlanFields): Promise<string | null> {
@@ -501,6 +509,7 @@ export async function addPlan(page: Page, personId: string, f: PlanFields): Prom
   await r.getByTestId('plan-form-start').fill(f.start);
   if (f.every !== undefined) await r.getByTestId('plan-form-every').fill(f.every);
   if (f.day !== undefined) await r.getByTestId('plan-form-day').fill(f.day);
+  if (f.sheet !== undefined) await r.getByTestId('plan-form-sheet').fill(f.sheet);
   await r.getByTestId('plan-form-end').fill(f.end);
   await r.getByTestId('plan-form-submit').click();
   let added: string | null = null;
@@ -512,6 +521,25 @@ export async function addPlan(page: Page, personId: string, f: PlanFields): Prom
   return ok ? added : null;
 }
 
+/** Pause (true) or resume (false) a plan: true once the plan shows it. */
+export async function planPause(page: Page, planId: string, on: boolean): Promise<boolean> {
+  const r = page.getByTestId(`plan-row-${planId}`);
+  const done = async () => (await shown(r.getByTestId('plan-paused'))) === (on ? 'yes' : 'no');
+  const already = await done();
+  await r.getByTestId(on ? 'plan-pause' : 'plan-resume').click();
+  return until(page, done, r.getByTestId('plan-error'), 'plan pause', already);
+}
+
+/** Change a plan's amount: true once the plan shows one more change line. */
+export async function planAmount(page: Page, planId: string, amount: string): Promise<boolean> {
+  const r = page.getByTestId(`plan-row-${planId}`);
+  const lines = r.getByTestId('plan-change-line');
+  const was = await lines.count();
+  await r.getByTestId('plan-amount').fill(amount);
+  await r.getByTestId('plan-amount-save').click();
+  return until(page, async () => (await lines.count()) > was, r.getByTestId('plan-error'), 'plan amount');
+}
+
 /** Generate the plans' claims: how many were made, or null when refused. */
 export async function generatePlans(page: Page): Promise<number | null> {
   const cell = page.getByTestId('plan-generated-count');
@@ -521,6 +549,70 @@ export async function generatePlans(page: Page): Promise<number | null> {
   const ok = await until(page, async () => (await cell.count()) > 0 && (await shown(cell)) !== ''
     && ((await shown(cell)) !== was || was === ''), page.getByTestId('plan-generate-error'), 'generate plans');
   return ok ? Number(await shown(cell)) : null;
+}
+
+/** Flag the person with a reason until a date: true once the row shows the reason. */
+export async function flag(page: Page, personId: string, reason: string, until_: string): Promise<boolean> {
+  const r = row(page, personId);
+  const done = async () => reason.trim() !== '' && (await shown(r.getByTestId('person-flag-shown'))) === reason.trim();
+  const already = await done();
+  await r.getByTestId('person-flag-reason').fill(reason);
+  await r.getByTestId('person-flag-until').fill(until_);
+  await r.getByTestId('person-flag').click();
+  return until(page, done, r.getByTestId('person-error'), 'flag', already);
+}
+
+/** Set the person's approver: true once the row shows the user. */
+export async function setApprover(page: Page, personId: string, user: string): Promise<boolean> {
+  const r = row(page, personId);
+  const done = async () => (await shown(r.getByTestId('person-approver'))) === user.trim();
+  const already = await done();
+  await r.getByTestId('person-approver-input').fill(user);
+  await r.getByTestId('person-approver-save').click();
+  return until(page, done, r.getByTestId('person-error'), 'set approver', already);
+}
+
+/** Undo the transfer that brought the person here: true once the row is gone. */
+export async function transferUndo(page: Page, personId: string): Promise<boolean> {
+  const r = row(page, personId);
+  await r.getByTestId('person-transfer-undo').click();
+  return until(page, async () => (await r.count()) === 0, r.getByTestId('person-error'), 'transfer undo');
+}
+
+export async function exportStatement(page: Page, personId: string): Promise<string> {
+  const [download] = await Promise.all([page.waitForEvent('download'), row(page, personId).getByTestId('person-export-statement').click()]);
+  const path = await download.path();
+  if (!path) throw new Error('export produced no file');
+  return readFileSync(path, 'utf8');
+}
+
+/** Undo the last merge into this person: true once the merged person's row is back (one more row). */
+export async function mergeUndo(page: Page, personId: string): Promise<boolean> {
+  const r = row(page, personId);
+  const was = await rows(page).count();
+  await r.getByTestId('person-merge-undo').click();
+  return until(page, async () => (await rows(page).count()) > was, r.getByTestId('person-error'), 'merge undo');
+}
+
+/** Hold the selected people together: how many were held. */
+export async function bulkHold(page: Page, personIds: string[], f: { from?: string; to?: string }): Promise<number | null> {
+  for (const id of personIds) await row(page, id).getByTestId('person-select').setChecked(true);
+  if (f.from !== undefined) await page.getByTestId('bulk-hold-from').fill(f.from);
+  if (f.to !== undefined) await page.getByTestId('bulk-hold-to').fill(f.to);
+  const was = await shown(page.getByTestId('bulk-held'));
+  await page.getByTestId('bulk-hold').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await page.getByTestId('bulk-held').count()) > 0
+    && (await shown(page.getByTestId('bulk-held'))) !== '' && ((await shown(page.getByTestId('bulk-held'))) !== was || was === ''),
+    page.getByTestId('person-error'), 'bulk hold');
+  return ok ? Number(await shown(page.getByTestId('bulk-held'))) : null;
+}
+
+export async function exportPerson(page: Page, personId: string): Promise<string> {
+  const [download] = await Promise.all([page.waitForEvent('download'), row(page, personId).getByTestId('person-export').click()]);
+  const path = await download.path();
+  if (!path) throw new Error('export produced no file');
+  return readFileSync(path, 'utf8');
 }
 
 /** Give the selected people a grade together: how many were changed. */
@@ -789,6 +881,8 @@ export async function claimAction(page: Page, claimId: string, action: string, r
     } catch {
       return false;             // not offered: the screen refuses it by leaving it out
     }
+  } else if (reason !== undefined && action === 'settle') {
+    await c.getByTestId('claim-settle-date').fill(reason);
   } else if (reason !== undefined) await c.getByTestId('claim-reject-reason').fill(reason);
   await c.getByTestId(`claim-${action}`).click();
   return until(page, async () => await shown(c.getByTestId('claim-status')) !== was,
@@ -814,13 +908,84 @@ export async function defer(page: Page, claimId: string, until_: string): Promis
   return until(page, done, c.getByTestId('claim-error'), 'defer', already);
 }
 
-/** Raise the claim's proofs count by one: true once the count moved. */
-export async function addProof(page: Page, claimId: string): Promise<boolean> {
+/** Raise the claim's proofs count by one (of a kind, when the claim offers kinds): true once the count moved. */
+export async function addProof(page: Page, claimId: string, kind?: string): Promise<boolean> {
   const c = claimRow(page, claimId);
   const was = await shown(c.getByTestId('claim-proofs'));
+  if (kind !== undefined) {
+    try {
+      await c.getByTestId('claim-proof-kind').selectOption(kind, { timeout: 2000 });
+    } catch {
+      return false;
+    }
+  }
   await c.getByTestId('claim-proof').click();
   return until(page, async () => (await shown(c.getByTestId('claim-proofs'))) !== was,
     c.getByTestId('claim-error'), 'add proof');
+}
+
+/** Waive the claim's late charge: true once the row shows waived yes. */
+export async function waive(page: Page, claimId: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const done = async () => (await shown(c.getByTestId('claim-waived'))) === 'yes';
+  const already = await done();
+  await c.getByTestId('claim-waive').click();
+  return until(page, done, c.getByTestId('claim-error'), 'waive', already);
+}
+
+/** Hold or release the claim: true once its held flag flipped. */
+export async function holdClaim(page: Page, claimId: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const was = await shown(c.getByTestId('claim-held'));
+  await c.getByTestId('claim-hold').click();
+  return until(page, async () => (await shown(c.getByTestId('claim-held'))) !== was, c.getByTestId('claim-error'), 'hold claim');
+}
+
+/** Settle part of an open claim: the new (settled) claim's id, or null when refused. */
+export async function settlePart(page: Page, personId: string, claimId: string, amount: string): Promise<string | null> {
+  const r = row(page, personId);
+  const c = claimRow(page, claimId);
+  const before = await ids(claimRows(r), 'claim-row-');
+  await c.getByTestId('claim-settle-part-amount').fill(amount);
+  await c.getByTestId('claim-settle-part').click();
+  let added: string | null = null;
+  const ok = await until(page, async () => (added = await addedClaim(r, before, { amount })) !== null,
+    c.getByTestId('claim-error'), 'settle part');
+  return ok ? added : null;
+}
+
+/** Share the claim with a person (by name) at a share percent: true once the claim's shares cell changed. */
+export async function shareClaim(page: Page, claimId: string, who: string, share: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const was = await shown(c.getByTestId('claim-shares'));
+  try {
+    await c.getByTestId('claim-share-select').selectOption({ label: who }, { timeout: 2000 });
+  } catch {
+    return false;
+  }
+  await c.getByTestId('claim-share-pct').fill(share);
+  await c.getByTestId('claim-share-add').click();
+  return until(page, async () => (await shown(c.getByTestId('claim-shares'))) !== was, c.getByTestId('claim-error'), 'share claim');
+}
+
+/** Assign a review to a user: true once the claim shows the user. */
+export async function assignReview(page: Page, claimId: string, user: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const done = async () => user.trim() !== '' && (await shown(c.getByTestId('claim-review-assigned'))) === user.trim();
+  const already = await done();
+  await c.getByTestId('claim-review-user').fill(user);
+  await c.getByTestId('claim-review-assign').click();
+  return until(page, done, c.getByTestId('claim-error'), 'assign review', already);
+}
+
+/** Set the claim's due-by directly: true once the row shows it. */
+export async function setDueBy(page: Page, claimId: string, date: string): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const done = async () => (await shown(c.getByTestId('claim-due-by'))) === date;
+  const already = await done();
+  await c.getByTestId('claim-due-by-new').fill(date);
+  await c.getByTestId('claim-set-due-by').click();
+  return until(page, done, c.getByTestId('claim-error'), 'set due-by', already);
 }
 
 /** Re-date a claim: true once the row shows the new date. */
@@ -947,12 +1112,13 @@ export async function generatePeriods(page: Page, from: string, to: string): Pro
   return ok ? Number(await shown(page.getByTestId('period-generated'))) : null;
 }
 
-/** close | soft-close | reopen: true when the period's closed flag changed. */
+/** close | soft-close | reopen | lock | unlock: true when the period's closed (or locked) flag changed. */
 export async function periodAction(page: Page, name: string, action: string): Promise<boolean> {
   const r = page.getByTestId(`period-row-${name}`);
-  const was = await shown(r.getByTestId('period-closed'));
+  const cell = action === 'lock' || action === 'unlock' ? 'period-locked' : 'period-closed';
+  const was = await shown(r.getByTestId(cell));
   await r.getByTestId(`period-${action}`).click();
-  return until(page, async () => await shown(r.getByTestId('period-closed')) !== was,
+  return until(page, async () => await shown(r.getByTestId(cell)) !== was,
     r.getByTestId('period-error'), `period ${action}`);
 }
 
@@ -1104,6 +1270,241 @@ export async function expectAuditView(page: Page, filter: string, expected: stri
     expect(ok, `audit view line ${i + 1}\n  expected: ${e}\n  actual:   ${line}`).toBe(true);
   });
 }
+
+/** Add a sheet note: true once one more note line shows. */
+export async function addNote(page: Page, text: string): Promise<boolean> {
+  const lines = page.getByTestId('note-line');
+  const was = await lines.count();
+  await page.getByTestId('note-text').fill(text);
+  await page.getByTestId('note-add').click();
+  return until(page, async () => (await lines.count()) > was, page.getByTestId('note-error'), 'add note');
+}
+
+/** Add a crew with a lead (by name): true once its row shows. */
+export async function addCrew(page: Page, name: string, lead: string): Promise<boolean> {
+  const r = page.getByTestId(`crew-row-${name.trim()}`);
+  const already = name.trim() !== '' && (await r.count()) > 0;
+  await page.getByTestId('crew-form-name').fill(name);
+  try {
+    await page.getByTestId('crew-form-lead').selectOption({ label: lead }, { timeout: 2000 });
+  } catch {
+    return false;
+  }
+  await page.getByTestId('crew-form-submit').click();
+  return until(page, async () => name.trim() !== '' && (await r.count()) > 0, page.getByTestId('crew-form-error'), 'add crew', already);
+}
+
+/** Add a member (by name) to a crew: true once the crew shows one more member line. */
+export async function addCrewMember(page: Page, crew: string, who: string): Promise<boolean> {
+  const r = page.getByTestId(`crew-row-${crew}`);
+  const members = r.getByTestId('crew-member-line');
+  const was = await members.count();
+  try {
+    await r.getByTestId('crew-member-select').selectOption({ label: who }, { timeout: 2000 });
+  } catch {
+    return false;
+  }
+  await r.getByTestId('crew-member-add').click();
+  return until(page, async () => (await members.count()) > was, r.getByTestId('crew-error'), 'add crew member');
+}
+
+/** Generate a year's quarterly periods: how many were made, or null when refused. */
+export async function generateQuarters(page: Page, year: string): Promise<number | null> {
+  await page.getByTestId('period-generate-quarters-year').fill(year);
+  const was = await shown(page.getByTestId('period-generated'));
+  await page.getByTestId('period-generate-quarters').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await page.getByTestId('period-generated').count()) > 0
+    && (await shown(page.getByTestId('period-generated'))) !== '' && ((await shown(page.getByTestId('period-generated'))) !== was || was === ''),
+    page.getByTestId('period-generate-error'), 'generate quarters');
+  return ok ? Number(await shown(page.getByTestId('period-generated'))) : null;
+}
+
+/** Paste opening balances: how many lines went through, or null when refused. */
+export async function importOpenings(page: Page, text: string): Promise<number | null> {
+  const cell = page.getByTestId('opening-import-done');
+  const was = await shown(cell);
+  await page.getByTestId('opening-import').fill(text);
+  await page.getByTestId('opening-import-submit').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await cell.count()) > 0 && (await shown(cell)) !== ''
+    && ((await shown(cell)) !== was || was === ''), page.getByTestId('opening-error'), 'import openings');
+  return ok ? Number(await shown(cell)) : null;
+}
+
+/** Void the selected claims together: how many were voided and how many refused. */
+export async function bulkVoid(page: Page, claimIds: string[], reason?: string): Promise<{ voided: number; refused: number }> {
+  for (const id of claimIds) await claimRow(page, id).getByTestId('claim-select').setChecked(true);
+  if (reason !== undefined) await page.getByTestId('bulk-void-reason').selectOption({ label: reason });
+  await page.getByTestId('bulk-void').click();
+  await expect(page.getByTestId('bulk-voided')).toBeVisible({ timeout: WAIT });
+  return {
+    voided: Number(await shown(page.getByTestId('bulk-voided'))),
+    refused: Number(await shown(page.getByTestId('bulk-void-refused'))),
+  };
+}
+
+/** Choose the signed-in user's locale. */
+export async function setLocale(page: Page, locale: string): Promise<void> {
+  await page.getByTestId('user-locale').selectOption(locale);
+  await page.getByTestId('user-locale-save').click();
+  await expect(page.getByTestId('user-locale-current')).toHaveText(locale, { timeout: WAIT });
+}
+
+/** Hide exactly these columns of the people list (every other column shown). */
+export async function setColumns(page: Page, off: string[]): Promise<void> {
+  const boxes = page.locator('[data-testid^="column-"]');
+  for (const h of await boxes.elementHandles()) {
+    const id = idOf(await h.getAttribute('data-testid'), 'column-');
+    const want = !off.includes(id);
+    if ((await h.isChecked()) !== want) await h.click();
+  }
+  await page.waitForTimeout(200);
+}
+
+/** The activity lines, in order. */
+export async function activity(page: Page): Promise<string[]> {
+  await page.getByTestId('activity-show').click();
+  await page.waitForTimeout(300);
+  return (await page.getByTestId('activity-line').allTextContents()).map((t) => t.trim());
+}
+
+/** The duplicate-claim lines, in order. */
+export async function dups(page: Page): Promise<string[]> {
+  await page.getByTestId('dups-show').click();
+  await page.waitForTimeout(300);
+  return (await page.getByTestId('dup-line').allTextContents()).map((t) => t.trim());
+}
+
+/** The claim's timeline: its lines are exactly `expected`, in order, each matched by its start. */
+export async function expectClaimTimeline(page: Page, claimId: string, expected: string[]): Promise<void> {
+  const c = claimRow(page, claimId);
+  await c.getByTestId('claim-timeline').click();
+  const lines = c.getByTestId('claim-timeline-line');
+  await expect.poll(() => lines.count(), { timeout: WAIT }).toBe(expected.length);
+  const texts = (await lines.allTextContents()).map((t) => t.trim());
+  texts.forEach((line, i) => {
+    const e = expected[i];
+    const ok = line === e || line.startsWith(e + ' ');
+    expect(ok, `timeline line ${i + 1}\n  expected: ${e}\n  actual:   ${line}`).toBe(true);
+  });
+}
+
+/** Compare two snapshot dates: the result lines in order. */
+export async function snapshotCompare(page: Page, from: string, to: string): Promise<string[]> {
+  await page.getByTestId('snapshot-from').fill(from);
+  await page.getByTestId('snapshot-to').fill(to);
+  await page.getByTestId('snapshot-compare').click();
+  await page.waitForTimeout(300);
+  return (await page.getByTestId('snapshot-line').allTextContents()).map((t) => t.trim());
+}
+
+/** Roll the year over: how many periods were made, or null when refused. */
+export async function rollover(page: Page, year: string): Promise<number | null> {
+  await page.getByTestId('rollover-year').fill(year);
+  const was = await shown(page.getByTestId('rollover-made'));
+  await page.getByTestId('rollover').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await page.getByTestId('rollover-made').count()) > 0
+    && (await shown(page.getByTestId('rollover-made'))) !== '' && ((await shown(page.getByTestId('rollover-made'))) !== was || was === ''),
+    page.getByTestId('rollover-error'), 'rollover');
+  return ok ? Number(await shown(page.getByTestId('rollover-made'))) : null;
+}
+
+/** Undo the last rollover: true once the screen shows it undone. */
+export async function rolloverUndo(page: Page): Promise<boolean> {
+  const all = page.locator('[data-testid^="period-row-"]');
+  const was = await all.count();
+  await page.getByTestId('rollover-undo').click();
+  return until(page, async () => (await all.count()) < was, page.getByTestId('rollover-error'), 'rollover undo');
+}
+
+/** Compare this sheet with another: the lines in order. */
+export async function compareSheet(page: Page, other: string): Promise<string[]> {
+  await page.getByTestId('compare-sheet').fill(other);
+  await page.getByTestId('compare').click();
+  await page.waitForTimeout(300);
+  return (await page.getByTestId('compare-line').allTextContents()).map((t) => t.trim());
+}
+
+/** Retire a grade: true once the screen shows it retired. */
+export async function retireGrade(page: Page, grade: string): Promise<boolean> {
+  const r = page.getByTestId(`grade-row-${grade}`);
+  const done = async () => (await r.count()) > 0 && (await shown(r.getByTestId('grade-retired'))) === 'yes';
+  const already = await done();
+  try {
+    await page.getByTestId('grade-retire-select').selectOption(grade, { timeout: 2000 });
+  } catch {
+    return false;
+  }
+  await page.getByTestId('grade-retire').click();
+  return until(page, done, page.getByTestId('grade-error'), 'retire grade', already);
+}
+
+/** Add a grade: true once its row shows. */
+export async function addGrade(page: Page, grade: string): Promise<boolean> {
+  const r = page.getByTestId(`grade-row-${grade.trim()}`);
+  const already = grade.trim() !== '' && (await r.count()) > 0;
+  await page.getByTestId('grade-add-code').fill(grade);
+  await page.getByTestId('grade-add').click();
+  return until(page, async () => grade.trim() !== '' && (await r.count()) > 0, page.getByTestId('grade-error'), 'add grade', already);
+}
+
+/** Merge a grade into another: true once the screen shows the merge done. */
+export async function mergeGrade(page: Page, from: string, into: string): Promise<boolean> {
+  const cell = page.getByTestId('grade-merged');
+  const was = await shown(cell);
+  try {
+    await page.getByTestId('grade-merge-from').selectOption(from, { timeout: 2000 });
+    await page.getByTestId('grade-merge-into').selectOption(into, { timeout: 2000 });
+  } catch {
+    return false;
+  }
+  await page.getByTestId('grade-merge').click();
+  await page.waitForTimeout(300);
+  return until(page, async () => (await shown(cell)) !== '' && ((await shown(cell)) !== was || was === ''),
+    page.getByTestId('grade-error'), 'merge grade');
+}
+
+/** Show the sheet as if today were a date (this user's screen only). */
+export async function setPreview(page: Page, date: string): Promise<void> {
+  await page.getByTestId('preview-date').fill(date);
+  await page.getByTestId('preview-set').click();
+  await expect(page.getByTestId('sheet-preview')).toHaveText(date, { timeout: LOAD_WAIT });
+}
+
+export async function clearPreview(page: Page): Promise<void> {
+  await page.getByTestId('preview-clear').click();
+  await expect(page.getByTestId('sheet-preview')).toHaveText('', { timeout: LOAD_WAIT });
+}
+
+/** Withdraw a rate's newest version: true once its row's version or presence changed. */
+export async function withdrawRate(page: Page, grade: string, from: string): Promise<boolean> {
+  const r = page.getByTestId(`rate-row-${grade}-${from}`);
+  const was = (await r.count()) > 0 ? `${await shown(r.getByTestId('rate-pct'))}|${await shown(r.getByTestId('rate-version'))}` : '';
+  if ((await r.count()) === 0) return false;
+  await r.getByTestId('rate-withdraw').click();
+  return until(page, async () => ((await r.count()) > 0 ? `${await shown(r.getByTestId('rate-pct'))}|${await shown(r.getByTestId('rate-version'))}` : '') !== was,
+    page.getByTestId('rate-form-error'), 'withdraw rate');
+}
+
+/** The policy version lines, in order. */
+export async function policyLines(page: Page): Promise<string[]> {
+  await page.getByTestId('policy-show').click();
+  await page.waitForTimeout(300);
+  return (await page.getByTestId('policy-line').allTextContents()).map((t) => t.trim());
+}
+
+async function downloadOf(page: Page, testid: string): Promise<string> {
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId(testid).click()]);
+  const path = await download.path();
+  if (!path) throw new Error('export produced no file');
+  return readFileSync(path, 'utf8');
+}
+
+export async function exportPeriods(page: Page): Promise<string> { return downloadOf(page, 'export-periods'); }
+export async function exportTree(page: Page): Promise<string> { return downloadOf(page, 'export-tree'); }
+export async function exportPolicy(page: Page): Promise<string> { return downloadOf(page, 'export-policy'); }
 
 export async function setRole(page: Page, user: string, role: string): Promise<boolean> {
   await page.getByTestId('role-form-user').fill(user);

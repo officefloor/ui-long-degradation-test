@@ -42,9 +42,9 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 
-COVERAGE = (1, 150)
+COVERAGE = (1, 250)
 GRADES = ("A", "B", "C")
-STATUSES = ("DRAFT", "OPEN", "PENDING", "SETTLED", "VOID")
+STATUSES = ("DRAFT", "OPEN", "PENDING", "SETTLED", "VOID", "REVIEW")
 
 # Rule name -> first checkpoint it is in force. Each is ablatable (an app that ignores it).
 RULES = {
@@ -186,6 +186,104 @@ RULES = {
     "claimed_no_corrections": 148,  # claimed leaves corrections out
     "period_cap": 149,   # a period caps open claims per person
     "tree_search": 150,  # a search over the tree
+    # ---- Act IV (cp151-200): rule versioning and legacy semantics
+    "rounding_mode": 151,  # a dated rounding mode replaces the policy date
+    "imported_open": 152,  # pasted claims arrive OPEN; a matching draft is updated
+    "rate_versions": 153,  # a rate kept as versions
+    "classic": 154,      # the classic summary: periods by current status, untrimmed total
+    "review": 155,       # REVIEW before OPEN above a threshold
+    "forward_only_rates": 156,  # a rate from today or later applies to claims created from then
+    "locale": 157,       # a user's locale formats the figures
+    "columns": 158,      # a user hides columns
+    "carried": 159,      # the open figure carried into a period from earlier ones
+    "carry_frozen": 160, # closing fixes the carried figures
+    "asof_tree": 160,    # the as-of view reconstructs the consolidated figures
+    "asof_export": 161,  # exports under as-of use the as-of figures
+    "claim_timeline": 162,  # the audit lines about a claim
+    "statement_history": 163,  # the person's statements listed
+    "correction_limit": 164,   # a correction cannot exceed what remains of its target
+    "escalate": 165,     # a second reminder on a later day escalates
+    "crews": 166,        # crews with a lead and a due-total
+    "crew_lead": 167,    # a lead's crew total in the header
+    "crews_pools": 168,  # a crew is a pool with equal shares
+    "person_terms_dated": 169,  # a person's terms from a date
+    "rate_calendar": 170,  # the rate in force per month
+    "review_sla": 171,   # a REVIEW claim late after the SLA
+    "pending_bound": 172,  # a PENDING claim is bound by a statement again
+    "opening_import": 173,  # opening balances pasted into carried figures
+    "waiver": 174,       # a steward waives the late charge
+    "transfer_undo": 175,  # a transfer undone on the day of arrival
+    "late_bound": 176,   # a statement binds the late charge too
+    "proof_kinds": 177,  # proofs by kind; required kinds
+    "dashboard": 178,    # a steward's counts
+    "flags": 179,        # a flagged person: only a steward opens
+    "terms_by_version": 180,  # terms by the version in force when the claim was created
+    "notes": 181,        # sheet notes
+    "claim_hold": 182,   # a claim can be held
+    "period_lock": 183,  # a locked period cannot be reopened
+    "hold_claimed": 184, # a hold leaves claimed alone
+    "partial_settle": 185,  # settle part of a claim
+    "quarters": 186,     # quarterly periods generated
+    "cut_history": 187,  # a member's cut as of each period's end
+    "clone_rates": 188,  # rate fallback to a clone's source
+    "default_grade": 189,  # the default grade for new people
+    "bulk_void": 190,    # selected claims voided together
+    "limit_grade": 191,  # a clerk limit per grade
+    "name_with_grade": 192,  # names shown with the grade
+    "sheet_age": 193,    # the sheet's age buckets
+    "settle_date": 194,  # a settle as of a date
+    "floor_first": 196,  # the floor before the late charge again
+    "activity": 197,     # counts of audit events per user
+    "dups": 198,         # duplicate claims listed
+    "approver": 199,     # a person's approver may approve their pending claims
+    "hold_except_cuts": 200,  # a hold leaves every total alone except the cuts
+    # ---- Act V (cp201-250): the squeeze
+    "consolidated_grades": 201,  # consolidated figures per grade and status
+    "snapshot_compare": 202,  # two snapshot dates compared per person
+    "plan_pause": 203,   # a paused plan skips its dates
+    "trim_consolidated": 204,  # the trim once over the tree; each name counted once
+    "plan_history": 205, # a plan's amount can change; the changes are listed
+    "restricted": 206,   # a restricted user sees only their crews' rows
+    "rollover": 207,     # the next fiscal year's periods and carried balances
+    "number_on_settle": 208,  # a claim is numbered when settled
+    "score": 209,        # a person's score
+    "bands": 210,        # score bands at thresholds
+    "score_snapshot": 211,  # SCORE lines on a today change while bands are set
+    "score_no_corrections": 212,  # the score leaves corrections out
+    "plan_tree": 213,    # a plan on a parent generates into a child
+    "max_open": 214,     # a cap on open claims per person
+    "compare": 215,      # two sheets compared per grade
+    "cuts_freeze": 216,  # closing fixes the cuts for the period
+    "shared": 217,       # a claim shared with holders
+    "review_assign": 218,  # a review assigned to a user
+    "rollover_undo": 219,  # a rollover undone the same day
+    "plan_retro": 220,   # a plan's amount change reaches its drafts
+    "watch_summary": 221,  # the watched people's due-total
+    "dash_tree": 222,    # the dashboard over the tree
+    "grade_retire": 223, # a retired grade
+    "cap_cuts": 224,     # the cap covers the cut total
+    "grade_merge": 225,  # a grade merged into another
+    "preview": 226,      # a preview date
+    "preview_export": 227,  # exports under the preview date
+    "rollover_soft": 228,  # the rollover soft-closes the old year
+    "grade_add": 229,    # grades can be added
+    "pending_sla": 230,  # PENDING claims late after the SLA
+    "merge_retro": 232,  # a grade merge rewrites the person's grade records
+    "due_by_override": 233,  # a steward sets a due-by
+    "bulk_hold": 235,    # selected people held together
+    "deferred_stated": 236,  # a bound deferred claim stays in the totals
+    "perm_today": 237,   # who may change the sheet's today
+    "merge_undo": 238,   # a merge undone the same day
+    "period_count": 239, # claims per period
+    "shared_per_holder": 240,  # a shared claim's due per holder
+    "asof_roles": 241,   # roles as of the date
+    "person_timeline": 242,  # every dated thing about a person
+    "trim_more": 244,    # the trim reaches settled, open and cut totals
+    "rate_withdraw": 245,  # a rate version withdrawn
+    "claim_count_cells": 246,  # claim counts per person per status
+    "reject_reason": 247,  # a rejection needs a reason
+    "policy": 248,       # the policy version in force by the claim's date
+    "policy_view": 249,  # the policy versions listed
 }
 
 # Feature -> first checkpoint it exists (screens, cells, audit fields). Not ablatable: what the
@@ -213,6 +311,18 @@ SINCE = {
     "export_claims": 129, "period_change": 130, "plans": 131, "person_tags": 133, "sort": 134,
     "export_pools": 135, "lines": 137, "inline_grade": 138, "plan_preview": 142, "fiscal": 143,
     "bulk_redate": 145, "snapshot_view": 147, "period_cap": 149, "tree_search": 150,
+    "rate_versions": 153, "classic": 154, "review": 155, "locale": 157, "columns": 158, "carried": 159,
+    "statement_history": 163, "claim_timeline": 162, "crews": 166, "person_terms_dated": 169, "rate_calendar": 170,
+    "review_sla": 171, "opening_import": 173, "waiver": 174, "transfer_undo": 175, "proof_kinds": 177,
+    "dashboard": 178, "flags": 179, "notes": 181, "claim_hold": 182, "period_lock": 183,
+    "partial_settle": 185, "quarters": 186, "cut_history": 187, "bulk_void": 190, "settle_date": 194,
+    "export_statement": 195, "activity": 197, "dups": 198, "approver": 199,
+    "snapshot_compare": 202, "plan_pause": 203, "plan_history": 205, "restricted": 206, "rollover": 207,
+    "score": 209, "bands": 210, "plan_tree": 213, "compare": 215, "shared": 217, "review_assign": 218,
+    "rollover_undo": 219, "watch_summary": 221, "grade_retire": 223, "grade_merge": 225, "preview": 226,
+    "grade_add": 229, "pending_sla": 230, "export_periods": 231, "due_by_override": 233, "export_tree": 234,
+    "bulk_hold": 235, "merge_undo": 238, "period_count": 239, "person_timeline": 242, "export_person": 243,
+    "rate_withdraw": 245, "claim_count_cells": 246, "policy": 248, "policy_view": 249, "export_policy": 250,
 }
 
 # Cell -> first checkpoint a spec may assert it (the generator asserts every cell in force).
@@ -232,6 +342,11 @@ CELL_SINCE = {
     "claim-tags": 89, "claim-comments": 91, "claim-batch": 98, "person-contact": 99,
     "person-aliases": 102, "person-clashing": 112, "person-cut-total": 119, "person-origin": 121,
     "person-retirement": 125, "person-tags": 133, "claim-lines": 137, "person-snapshot": 147,
+    "person-statement-line": 163, "claim-review-late": 171, "claim-waived": 174, "claim-proofs-receipt": 177,
+    "claim-proofs-photo": 177, "person-flag-shown": 179, "claim-held": 182, "person-approver": 199,
+    "person-score": 209, "person-band": 210, "claim-shares": 217, "claim-review-assigned": 218,
+    "claim-pending-late": 230, "person-timeline": 242, "person-claims-OPEN-count": 246,
+    "person-claims-SETTLED-count": 246, "claim-policy": 248,
 }
 
 # Sheet-level cell -> first checkpoint a spec may assert it (a spec written at n asserts only the
@@ -243,8 +358,14 @@ TOP_SINCE = [
     ("period-due-total", 17), ("period-closed", 18),
     ("sheet-archived", 62), ("sheet-asof", 74),
     ("summary-grade-*-active", 67), ("summary-void-", 90), ("summary-period-*-change", 130),
-    ("summary-", 31),
-    ("header-", 41),
+    ("summary-status-REVIEW-count", 155), ("summary-review-late-count", 171), ("summary-", 31),
+    ("header-claims-REVIEW-count", 155), ("header-", 41),
+    ("classic-", 154), ("rate-month-", 170), ("dash-", 178), ("rollup-aged-", 193), ("period-locked", 183),
+    ("my-crew-due-total", 167), ("crew-", 166),
+    ("consolidated-grade-", 201), ("consolidated-status-", 201), ("my-reviews-count", 218),
+    ("watched-due-total", 221), ("summary-pending-late-count", 230), ("period-claims-count", 239),
+    ("policy-version", 248), ("role-", 241), ("sheet-preview", 226), ("consolidated-settled-total", 244),
+    ("consolidated-open-total", 244), ("consolidated-cut-total", 244),
     ("rollup-settled-total", 82), ("rollup-open-total", 82), ("tag-", 89), ("month-", 97),
     ("bulk-settle-batch", 98),
     ("sheet-parent", 109), ("consolidated-", 110),
@@ -253,9 +374,10 @@ TOP_SINCE = [
 
 
 def top_since(tid: str) -> int:
-    """The checkpoint from which a sheet-level cell may be asserted (see TOP_SINCE)."""
+    """The checkpoint from which a sheet-level cell may be asserted (see TOP_SINCE); the longest
+    matching pattern decides."""
     import re as _re
-    for pat, since in TOP_SINCE:
+    for pat, since in sorted(TOP_SINCE, key=lambda ps: -len(ps[0])):
         if "*" in pat:
             rx = "^" + _re.escape(pat).replace(r"\*", ".+") + "$"
             if _re.match(rx, tid):
@@ -267,8 +389,9 @@ def top_since(tid: str) -> int:
 
 DEFAULT_FLOOR = Decimal("1.00")
 DEFAULT_TERMS = 14
-DATED_SETTINGS = ("floor", "late-pct", "terms", "clerk-limit", "cap", "proof-threshold", "note-threshold")
-DATED_PREFIXES = ("terms-", "grace-", "proof-threshold-")
+DATED_SETTINGS = ("floor", "late-pct", "terms", "clerk-limit", "cap", "proof-threshold", "note-threshold",
+                  "rounding", "review-threshold")
+DATED_PREFIXES = ("terms-", "grace-", "proof-threshold-", "clerk-limit-")
 SHEET_SETTINGS = ("parent",)   # settings whose value is a sheet id
 PERM_DEFAULT = {"open": ("clerk", "steward"), "settle": ("clerk", "steward"), "void": ("clerk", "steward"),
                 "close": ("clerk", "steward"), "reassign": ("steward",), "reopen": ("steward",)}
@@ -277,6 +400,14 @@ PERM_DEFAULT = {"open": ("clerk", "steward"), "settle": ("clerk", "steward"), "v
 # Writes one sheet makes on another's behalf (a transfer's arrival, a clone's filling): journaled
 # nowhere, since the write that caused them replays them.
 INNER_WRITES = {"receive_person", "receive_clone"}
+
+
+@dataclass
+class Crew:
+    name: str
+    lead: str                                        # person key
+    order: int
+    members: list = field(default_factory=list)      # person keys, lead not included
 
 
 class Refused(Exception):
@@ -325,6 +456,11 @@ class Person:
     tags: list = field(default_factory=list)         # cp133
     snapshots: list = field(default_factory=list)    # [(date, due-total text)] (cp147)
     alerted: bool = False                            # above the alert threshold since the last ALERT (cp146)
+    arrived_on: date | None = None                   # the sheet-day a transfer brought them (cp175)
+    terms_dated: list = field(default_factory=list)  # [(from, terms)] (cp169)
+    openings: dict = field(default_factory=dict)     # period name -> Decimal (cp173)
+    flag: tuple | None = None                        # (reason, until) (cp179)
+    approver: str = ""                               # cp199
     var: str = ""                                    # TS variable the renderer gives the row id
 
     def keys(self) -> set:
@@ -362,6 +498,14 @@ class Claim:
     lines: list = field(default_factory=list)        # [(label, qty, unit)] (cp137)
     plan: int | None = None                          # the plan that generated it (cp131)
     deleted_on: date | None = None                   # cp114
+    created_on: date | None = None                   # the sheet-day it was added (cp156, cp180)
+    reviewed_on: date | None = None                  # the sheet-day it went to REVIEW (cp171)
+    waived: bool = False                             # cp174
+    proof_kinds: dict = field(default_factory=dict)  # kind -> count (cp177)
+    held: bool = False                               # cp182
+    shares: list = field(default_factory=list)       # [(person key, share)] holders (cp217)
+    review_user: str = ""                            # cp218
+    due_by_set: bool = False                         # cp233
     var: str = ""
 
 
@@ -392,6 +536,9 @@ class Plan:
     day: int | None                                  # day of month (cp141)
     end: date
     generated: list = field(default_factory=list)    # dates a claim was made for
+    pauses: list = field(default_factory=list)       # [(from, to|None)] (cp203)
+    history: list = field(default_factory=list)      # [(date, text)] (cp205)
+    sheet: str | None = None                         # the sheet the claims go to (cp213)
     var: str = ""
 
 
@@ -401,6 +548,10 @@ class Period:
     start: date
     end: date
     cap: int | None = None                           # cp149
+    locked: bool = False                             # cp183
+    frozen_carried: dict = field(default_factory=dict)   # id(person) -> text (cp160)
+    frozen_cuts: dict | None = None                  # {pool: {(kind, key): text}} (cp216)
+    by_rollover: str = ""                            # the fiscal year a rollover made it for (cp219)
     closed: bool = False
     soft: bool = False
     frozen_total: str | None = None
@@ -502,6 +653,15 @@ class Model:
         self.plans: list[Plan] = []                      # cp131
         self.clone_of: str | None = None                 # cp126
         self.fy_counters: dict[str, int] = {}            # cp144
+        self.rate_versions: dict = {}                    # (grade, from) -> versions (cp153)
+        self.rate_history: dict = {}                     # (grade, from) -> earlier rows (cp245)
+        self.crews: dict[str, Crew] = {}                 # cp166
+        self.notes: list = []                            # [(date, user, text)] (cp181)
+        self.retired_grades: set = set()                 # cp223
+        self.grade_merges: list = []                     # [(from, into, day)] (cp225, cp232)
+        self.rollovers: list = []                        # [(fy, day, periods, openings)] (cp207, cp219)
+        self.merges: list = []                           # undo records (cp238)
+        self.policy_log: list = []                       # [(from, key, value)] (cp248)
         self._depth = 0
         self._replay = False
 
@@ -640,18 +800,29 @@ class Model:
                 D(value)
             except Exception:
                 raise Refused("settings-error")
+        if key == "rounding" and self.on("rounding_mode") and value not in ("", "half-up", "half-even"):
+            raise Refused("settings-error")
+        if key == "default-grade" and self.on("default_grade") and value and value not in self.grades:
+            raise Refused("settings-error")
         rows = self.settings.setdefault(key, [])
         if self.on("settings_dated") and self._dated_key(key):
             s = s or self.today          # the from-date defaults to the sheet's today
             rows[:] = [r for r in rows if r[0] != s] + [(s, value)]
         else:
             rows.append((None, value))
+        if self.on("policy") and key in self.policy_keys():
+            self.policy_log.append((s, key, value))
         self.audit_line("SETTING_CHANGED", ("key", key, 23), ("value", value, 23),
                         *([("from", start, 48)] if start else []))
 
     @write
     def set_today(self, d: str) -> None:
         new = day(d)
+        if self.on("perm_today") and not self._perm("today", True):
+            raise Refused("sheet-error")
+        if self.on("score_snapshot") and self.setting("score-log") == "on":
+            for p in sorted(self.people.values(), key=lambda x: x.order):
+                self.audit_line("SCORE", ("name", p.name, 211), ("score", self.score(p), 211))
         if self.on("snapshot"):
             for p in sorted(self.people.values(), key=lambda x: x.order):
                 v = self.due_total(p)
@@ -758,6 +929,25 @@ class Model:
             raise Refused("person-form-error")
         return int(raw)
 
+    def _record_terms(self, p: Person, fields: dict) -> None:
+        """cp169: terms saved with a from-date are recorded from it and kept; terms saved without
+        one apply from the beginning of time (replacing the undated record). The person's `terms`
+        stays the value in force today."""
+        t = self._terms_field(fields)
+        if self.on("person_terms_dated"):
+            start = day(fields["terms_from"]) if fields.get("terms_from") else None
+            p.terms_dated = [(d, x) for d, x in p.terms_dated if d != start] + [(start, t)]
+            p.terms = self.person_terms_now(p)
+        else:
+            p.terms = t
+
+    def person_terms_now(self, p: Person):
+        if self.on("person_terms_dated") and p.terms_dated:
+            rows = sorted(((d or date.min), t) for d, t in p.terms_dated)
+            inforce = [t for d, t in rows if d <= self.today]
+            return inforce[-1] if inforce else None
+        return p.terms
+
     def _contact_rules(self, raw, exclude: Person | None = None) -> str:
         """cp99: a contact is stored trimmed and lower-cased; one already on the sheet is refused."""
         c = (raw or "").strip().casefold()
@@ -777,7 +967,7 @@ class Model:
             contact_text = self._contact_rules(contact)
         except Refused:
             raise Refused(anchor)
-        if grade not in self.grades:
+        if not self.grade_choosable(grade):
             raise Refused(anchor)
         key = norm_name(name)
         if key in self.people and not self.on("names"):
@@ -785,7 +975,7 @@ class Model:
         # the first grade applies from the beginning of time (cp28), whatever the form's from-date
         p = Person(name=name, grades=[(None, grade)], order=len(self.people))
         if terms not in (None, "") and self.has("person_terms"):
-            p.terms = self._terms_field({"terms": terms})
+            self._record_terms(p, {"terms": terms})
         if contact_text and self.has("contact"):
             p.contact = contact_text
         if tags and self.on("person_tags"):
@@ -820,7 +1010,8 @@ class Model:
             raise Refused("person-form-error")
         grade = fields.get("grade")
         if grade is not None:
-            if grade not in self.grades:
+            if not self.grade_choosable(grade) and not (self.on("grade_merge") and grade in self.grades
+                                                        and self._depth > 1):
                 raise Refused("person-form-error")
             if self.on("grade_dated"):
                 start = day(fields["grade_from"]) if fields.get("grade_from") else self.today
@@ -829,7 +1020,7 @@ class Model:
                 p.grades = [(None, grade)]
         terms_given = "terms" in fields and self.has("person_terms")
         if terms_given:
-            p.terms = self._terms_field(fields)
+            self._record_terms(p, fields)
         contact_given = "contact" in fields and self.has("contact")
         if contact_given:
             p.contact = self._contact_rules(fields["contact"], exclude=p)
@@ -878,8 +1069,10 @@ class Model:
 
     def held_claim(self, c: Claim) -> bool:
         """A claim a hold keeps out of every live total."""
-        if not self.on("hold"):
+        if not self.on("hold") or self.on("hold_except_cuts"):
             return False
+        if self.on("claim_hold") and c.held and c.status in ("OPEN", "PENDING"):
+            return not (self.on("hold_stated") and self.stated_applies(c))
         p = self.people[c.person]
         if not p.holds or c.status not in ("OPEN", "PENDING"):
             return False
@@ -915,10 +1108,9 @@ class Model:
             raise Refused("person-error")
         key = self._key(p)
         mine = self.watching.setdefault(self.user, set())
-        if on == (key in mine):
-            # the row's watch control is ONE toggle: a click always flips the state, so a script
-            # asking for the state already held describes a click no screen can refuse
-            raise RuntimeError(f"watch {p.name} {'on' if on else 'off'}: already so; a toggle cannot refuse it")
+        # the row's watch control is ONE toggle: a click always flips the state, whatever a
+        # script asked for (a scenario rendered at a later checkpoint may find the state changed)
+        on = key not in mine
         if on:
             mine.add(key)
             p.watchers.append(self.user)
@@ -962,24 +1154,55 @@ class Model:
         e = day(end) if (end and self.has("rate_ended")) else None
         if e is not None and s is not None and e < s:
             raise Refused("rate-form-error")
+        old = [r for r in self.rates if r[0] == grade and r[1] == s]
         self.rates = [r for r in self.rates if not (r[0] == grade and r[1] == s)]
-        self.rates.append((grade, s, val, e))
+        self.rates.append((grade, s, val, e, self.today, len(self.claims)))
+        if self.on("rate_versions"):
+            self.rate_versions[(grade, s)] = self.rate_versions.get((grade, s), 0) + 1
+            if old:
+                self.rate_history.setdefault((grade, s), []).append(old[0])
         self.audit_line("RATE_SET", ("grade", grade, 7), ("rate", money(val), 7),
                         *([("from", start, 11)] if s else []), *([("to", end, 42)] if e else []))
 
-    def rate_at(self, grade: str, when: date) -> Decimal | None:
-        r = self._rate_at_own(grade, when)
+    def rate_at(self, grade: str, when: date, c: Claim | None = None) -> Decimal | None:
+        r = self._rate_at_own(grade, when, c)
         if r is None and self.on("parent"):
             m, depth = self.parent_sheet(), 0
             while m is not None and depth < 3 and r is None:
-                r = m._rate_at_own(grade, when)
+                r = m._rate_at_own(grade, when, c)
                 m, depth = m.parent_sheet(), depth + 1
-        if r is None and self.on_if("clone_rates") and self.clone_of and self.clone_of in self.family:
-            r = self.family[self.clone_of].rate_at(grade, when)
+        if r is None and self.on("clone_rates") and self.clone_of and self.clone_of in self.family:
+            r = self.family[self.clone_of].rate_at(grade, when, c)
         return r
 
-    def _rate_at_own(self, grade: str, when: date) -> Decimal | None:
+    @write
+    def withdraw_rate(self, grade: str, start: str | None = None) -> None:
+        """cp245: the newest version of a rate withdrawn; the previous version applies again."""
+        s = day(start) if start else None
+        if not self.on("rate_withdraw") or self.role() != "steward":
+            raise Refused("rate-form-error")
+        row = next((r for r in self.rates if r[0] == grade and r[1] == s), None)
+        if row is None:
+            raise Refused("rate-form-error")
+        self.rates.remove(row)
+        n = self.rate_versions.get((grade, s), 1)
+        if n > 1:
+            prev = self.rate_history[(grade, s)].pop()
+            self.rates.append(prev)
+            self.rate_versions[(grade, s)] = n - 1
+        else:
+            self.rate_versions.pop((grade, s), None)
+        self.audit_line("RATE_WITHDRAWN", ("grade", grade, 245), *([("from", start, 245)] if s else []))
+
+    def _forward_only(self, r: tuple) -> bool:
+        """cp156: a rate saved with a from-date on or after the sheet's today of the day it was
+        saved applies only to claims added after it was saved."""
+        return self.on("forward_only_rates") and r[1] is not None and len(r) > 5 and r[1] >= r[4]
+
+    def _rate_at_own(self, grade: str, when: date, c: Claim | None = None) -> Decimal | None:
         rows = [r for r in self.rates if r[0] == grade]
+        if c is not None:
+            rows = [r for r in rows if not (self._forward_only(r) and c.seq < r[5])]
         if not self.on("rate_dated"):
             rows = [r for r in rows if r[1] is None] or rows
             row = rows[-1] if rows else None
@@ -1062,8 +1285,11 @@ class Model:
 
     def _close(self, per: Period, auto: bool = False, soft: bool = False) -> None:
         per.closed, per.soft = (not soft), soft
+        if self.on("cuts_freeze"):
+            per.frozen_cuts = {pl.name: {k: money(v) for k, v in self.pool_cuts(pl).items()} for pl in self.all_pools()}
         per.frozen_total = self.period_total_text(per, live=True)
         per.frozen_people = {id(p): self.person_period_text(p, per, live=True) for p in self.people.values()}
+        per.frozen_carried = {id(p): self.carried_text(p, per, live=True) for p in self.people.values()}
         self.audit_line("PERIOD_SOFT_CLOSED" if soft else "PERIOD_CLOSED", ("period", per.name, 18),
                         ("total", per.frozen_total, 18), *([("auto", "yes", 55)] if auto else []))
 
@@ -1087,12 +1313,61 @@ class Model:
         ok = self.role() == "steward" if self.on("steward_reopen") else True
         if not (p.closed or (p.soft and self.on("soft_close"))) or not self._perm("reopen", ok):
             raise Refused("period-error")
-        p.closed, p.soft, p.frozen_total, p.frozen_people = False, False, None, {}
+        if self.on("period_lock") and p.locked:
+            raise Refused("period-error")
+        p.closed, p.soft, p.frozen_total, p.frozen_people, p.frozen_carried = False, False, None, {}, {}
+        p.frozen_cuts = None
         self.audit_line("PERIOD_REOPENED", ("period", name, 29))
 
     @write
+    def lock_period(self, name: str, on: bool) -> None:
+        """cp183: a steward locks or unlocks a period; a locked one cannot be reopened."""
+        p = self.periods[name]
+        if not self.on("period_lock") or self.role() != "steward" or p.locked == on:
+            raise Refused("period-error")
+        p.locked = on
+        self.audit_line("PERIOD_LOCKED" if on else "PERIOD_UNLOCKED", ("period", name, 183))
+
+    def generate_quarters(self, year: str) -> int:
+        """cp186: the four calendar quarters of a year as periods named <yyyy>-Q<n>."""
+        if not self.on("quarters") or not year.isdigit():
+            raise Refused("period-generate-error")
+        y, made = int(year), 0
+        for q in range(4):
+            first = date(y, 3 * q + 1, 1)
+            last = (date(y + (q == 3), (3 * q + 4) if q < 3 else 1, 1) - timedelta(days=1))
+            try:
+                self.add_period(f"{y}-Q{q + 1}", first.isoformat(), last.isoformat())
+                made += 1
+            except Refused:
+                pass
+        return made
+
+    def carried_text(self, p: Person, per: Period, live: bool = False) -> str:
+        """cp159: the due of the person's claims that count, placed in periods ending before
+        this one, still OPEN or PENDING at this period's end (by the status log under cp52),
+        plus (cp173) any opening balance pasted for the period; cp160: fixed at close."""
+        if self.on("carry_frozen") and self._fixed(per) and not live:
+            return per.frozen_carried.get(id(p), "0.00")
+        total = Decimal("0")
+        for c in self.person_claims(p):
+            cper = self.claim_period(c)
+            if cper is None or cper.end >= per.start or cper is per:
+                continue
+            st = self.status_at(c, per.end) if self.on("period_asof") else c.status
+            if st not in ("OPEN", "PENDING") or (st == "PENDING" and not self.on("pending")):
+                continue
+            if not self.counts(c):
+                continue
+            total += self.due(c) or Decimal("0")
+        if self.on("opening_import"):
+            total += p.openings.get(per.name, Decimal("0"))
+        return money(total)
+
+    @write
     def set_role(self, user: str, role: str) -> None:
-        if role not in ("clerk", "steward") and not (role == "viewer" and self.on("viewer")):
+        if role not in ("clerk", "steward") and not (role == "viewer" and self.on("viewer")) \
+                and not (role == "restricted" and self.on("restricted")):
             raise Refused("role-form-error")
         self.roles[user] = role
         self.audit_line("ROLE_SET", ("user", user, 23), ("role", role, 23))
@@ -1164,7 +1439,8 @@ class Model:
         ref, tags = self._extra_checks(extra)
         c = Claim(person=self._key(p), amount=a, date=dt, note=note, corrects=corrects,
                   idx=sum(1 for x in self.claims if x.person == self._key(p)), seq=len(self.claims))
-        c.terms_days = self.terms_for(p, dt)
+        c.created_on = self.today
+        c.terms_days = self.terms_for(p, dt, self.today)
         if self.on("overdue") and self.on("terms_fixed"):
             c.due_by = self.due_by_from(dt, c.terms_days)
         per = self.period_of(self.placing_date(p, dt))
@@ -1204,6 +1480,11 @@ class Model:
                            and c.status == "SETTLED"), None)
             if target is None:
                 raise Refused(anchor)
+            if self.on("correction_limit") and a < 0:
+                used = sum((-x.amount for x in self.claims if x.corrects == corrects and x.person == self._key(p)
+                            and x.status not in ("VOID", "DELETED")), Decimal("0"))
+                if -a > target.amount - used:
+                    raise Refused(anchor)
         c = self._new_claim(p, a, dt, note, corrects if target else None, extra)
         if twice and not self.on("conflict"):
             self._new_claim(p, a, dt, note)
@@ -1244,6 +1525,42 @@ class Model:
             raise Refused("paste-error")
         if not parsed:
             raise Refused("paste-error")
+        if self.on("imported_open"):
+            plan = []
+            for p, a, dt, note, ref in parsed:
+                match = next((c for c in self.person_claims(p) if c.date == dt and c.note == note
+                              and c.status not in ("VOID", "DELETED")), None)
+                if match is not None and match.status != "DRAFT":
+                    raise Refused("paste-error")
+                probe = match if match is not None else Claim(person=self._key(p), amount=a, date=dt, note=note,
+                                                               created_on=self.today, terms_days=self.terms_for(p, dt, self.today))
+                if match is None and self.on("overdue") and self.on("terms_fixed"):
+                    probe.due_by = self.due_by_from(dt, probe.terms_days)
+                saved = probe.amount
+                probe.amount = a
+                try:
+                    if not self._perm("open", True) or not self._note_ok(probe) or self.in_closed_claim(probe):
+                        raise Refused("paste-error")
+                    per = self.claim_period(probe)
+                    if self.on("period_cap") and per is not None and per.cap is not None:
+                        held = sum(1 for x in self.person_claims(p) if x.status in ("OPEN", "PENDING")
+                                   and self.claim_period(x) is per)
+                        if held >= per.cap:
+                            raise Refused("paste-error")
+                    if self.on("flags") and self.flag_in_force(p) and self.role() != "steward":
+                        raise Refused("paste-error")
+                finally:
+                    probe.amount = saved
+                plan.append((p, a, dt, note, ref, match))
+            for p, a, dt, note, ref, match in plan:
+                if match is None:
+                    c = self._paste_one(p.name, money(a), dt.isoformat(), note, ref)
+                else:
+                    c = match
+                    if c.amount != a:
+                        self.edit_claim(p.name, c.idx, {"amount": money(a)})
+                self.open_claim(p.name, c.idx)
+            return len(parsed)
         for p, a, dt, note, ref in parsed:
             self._paste_one(p.name, money(a), dt.isoformat(), note, ref)
         return len(parsed)
@@ -1362,9 +1679,35 @@ class Model:
                        if x.status in ("OPEN", "PENDING") and self.claim_period(x) is per)
             if held >= per.cap:
                 raise Refused("claim-error")
+        if self.on("flags") and self.flag_in_force(self.people[c.person]) and self.role() != "steward":
+            raise Refused("claim-error")
+        mx = self.setting("max-open") if self.on("max_open") else None
+        if mx and sum(1 for x in self.person_claims(self.people[c.person]) if x.status in ("OPEN", "PENDING")) >= int(mx):
+            raise Refused("claim-error")
+        if self.on("review"):
+            t = self.setting_at("review-threshold", c.date)
+            due = self.due(c)
+            if t and due is not None and due > D(t):
+                c.status, c.reviewed_on, c.opened_by = "REVIEW", self.today, self.user
+                c.history.append(("REVIEW", self.user, self.today, self.due_text(c)))
+                self.audit_line("CLAIM_REVIEW", *self._ident(c))
+                return c
+        return self._open(c)
+
+    @write
+    def review_claim(self, name: str, idx: int) -> Claim:
+        """cp155: a steward passes a REVIEW claim to OPEN, where it is numbered."""
+        c = self.claim(name, idx)
+        if not self.on("review") or c.status != "REVIEW" or self.role() != "steward" or self.in_closed_claim(c):
+            raise Refused("claim-error")
+        self.audit_line("CLAIM_REVIEWED", *self._ident(c))
+        return self._open(c)
+
+    def _open(self, c: Claim) -> Claim:
+        if c.opened_by is None or c.status != "REVIEW":
+            c.opened_by = self.user
         c.status = "OPEN"
-        c.opened_by = self.user
-        if self.on("number"):
+        if self.on("number") and not self.on("number_on_settle"):
             c.number = self._next_number(c)
         c.history.append(("OPEN", self.user, self.today, self.due_text(c)))
         self.audit_line("CLAIM_OPENED", *self._ident(c))
@@ -1379,13 +1722,29 @@ class Model:
         if not t:
             t = self.setting_at("proof-threshold", c.date)
         due = self.due(c)
-        return not (t and due is not None and due > D(t) and c.proofs == 0)
+        if not (t and due is not None and due > D(t)):
+            return True
+        if self.on("proof_kinds"):
+            kinds = [k.strip() for k in (self.setting("proof-kinds") or "").split(",") if k.strip()]
+            if kinds:
+                return all(c.proof_kinds.get(k, 0) > 0 for k in kinds)
+        return c.proofs > 0
 
     @write
-    def settle_claim(self, name: str, idx: int) -> Claim:
+    def settle_claim(self, name: str, idx: int, on: str | None = None) -> Claim:
         c = self.claim(name, idx)
         if c.status != "OPEN" or self.in_closed_claim(c) or self.is_deferred(c):
             raise Refused("claim-error")
+        on_info = None
+        if on and self.on("settle_date"):
+            d = day(on)
+            if d > self.today:
+                raise Refused("claim-error")
+            r = self.asof_model(d)
+            rc = next((x for x in r.claims if x.seq == c.seq), None)
+            if rc is None:
+                raise Refused("claim-error")
+            on_info = (d, r.due(rc))
         if not self._perm("settle", True):
             raise Refused("claim-error")
         if self.on("four_eyes") and c.opened_by == self.user:
@@ -1394,7 +1753,12 @@ class Model:
             raise Refused("claim-error")
         if not self._proofs_ok(c):
             raise Refused("claim-error")
-        limit = self.setting("clerk-limit")
+        when = c.date if self.on("policy") else self.today
+        limit = self.setting_at("clerk-limit", when)
+        if self.on("limit_grade"):
+            lg = self.setting_at(f"clerk-limit-{self.grade_at(self.people[c.person], c.date)}", when)
+            if lg:
+                limit = lg
         due = self.due(c)
         if self.on("clerk_limit") and limit and self.role() == "clerk" and due is not None \
                 and due > D(limit):
@@ -1404,18 +1768,36 @@ class Model:
                 self.audit_line("CLAIM_PENDING", *self._ident(c))
                 return c
             raise Refused("claim-error")
-        return self._settle(c, "CLAIM_SETTLED")
+        return self._settle(c, "CLAIM_SETTLED", on_info)
 
-    def _settle(self, c: Claim, event: str) -> Claim:
-        due = self.due(c)
+    def _settle(self, c: Claim, event: str, on: tuple | None = None) -> Claim:
+        due = on[1] if on else self.due(c)
         c.status = "SETTLED"
+        if self.on("number_on_settle") and self.on("number") and not c.number:
+            c.number = self._next_number(c)
         if self.on("freeze"):
             c.frozen = due
         c.history.append(("SETTLED", self.user, self.today, self.due_text(c)))
         extra = [("due", self.due_text(c), 10)] if self.has("freeze") else []
+        if on:
+            extra.append(("on", on[0].isoformat(), 194))
         self.audit_line(event, *self._ident(c), *extra)
         self._notify(c)
         return c
+
+    def settle_part(self, name: str, idx: int, amount: str) -> Claim:
+        """cp185: the part is split off as a new claim and settled at once, each by its rules."""
+        if not self.on("partial_settle"):
+            raise Refused("claim-error")
+        c = self.claim(name, idx)
+        if self._settle_refused(c):
+            raise Refused("claim-error")
+        n = self.split_claim(name, idx, amount)
+        try:
+            self.settle_claim(name, n.idx)
+        except Refused:
+            raise Refused("claim-error")
+        return n
 
     def _notify(self, c: Claim) -> None:
         if not self.on("notify"):
@@ -1427,7 +1809,9 @@ class Model:
     @write
     def approve_claim(self, name: str, idx: int) -> Claim:
         c = self.claim(name, idx)
-        if c.status != "PENDING" or self.role() != "steward" or self.in_closed_claim(c):
+        p = self.people[c.person]
+        may = self.role() == "steward" or (self.on("approver") and p.approver and p.approver == self.user)
+        if c.status != "PENDING" or not may or self.in_closed_claim(c):
             raise Refused("claim-error")
         if self.on("four_eyes") and c.opened_by == self.user:
             raise Refused("claim-error")
@@ -1440,7 +1824,11 @@ class Model:
     @write
     def reject_claim(self, name: str, idx: int, reason: str) -> Claim:
         c = self.claim(name, idx)
-        if c.status != "PENDING" or self.role() != "steward":
+        p = self.people[c.person]
+        may = self.role() == "steward" or (self.on("approver") and p.approver and p.approver == self.user)
+        if c.status != "PENDING" or not may:
+            raise Refused("claim-error")
+        if self.on("reject_reason") and not reason.strip():
             raise Refused("claim-error")
         c.status = "OPEN"
         c.history.append(("OPEN", self.user, self.today, self.due_text(c)))
@@ -1489,7 +1877,7 @@ class Model:
             if self.role() != "steward" or settled is None or (self.today - settled).days > 7:
                 raise Refused("claim-error")
             reversed_text = self.due_text(c)
-        elif c.status not in ("DRAFT", "OPEN", "PENDING"):
+        elif c.status not in ("DRAFT", "OPEN", "PENDING", "REVIEW"):
             raise Refused("claim-error")
         c.status = "VOID"
         if self.on("number") and not self.on("immutable"):
@@ -1533,15 +1921,23 @@ class Model:
         return c
 
     def is_deferred(self, c: Claim) -> bool:
+        if self.on("deferred_stated") and self.stated_applies(c):
+            return False
         return bool(self.on("deferred") and c.deferred_until and self.today < c.deferred_until)
 
     @write
-    def add_proof(self, name: str, idx: int) -> Claim:
+    def add_proof(self, name: str, idx: int, kind: str | None = None) -> Claim:
         c = self.claim(name, idx)
-        if not self.on("proofs") or c.status in ("SETTLED", "VOID"):
+        if not self.on("proofs") or c.status in ("SETTLED", "VOID", "DELETED"):
+            raise Refused("claim-error")
+        chosen = kind
+        kind = kind or "receipt"
+        if self.on("proof_kinds") and kind not in ("receipt", "photo"):
             raise Refused("claim-error")
         c.proofs += 1
-        self.audit_line("CLAIM_PROOF_ADDED", *self._ident(c), ("proofs", c.proofs, 51))
+        c.proof_kinds[kind] = c.proof_kinds.get(kind, 0) + 1
+        self.audit_line("CLAIM_PROOF_ADDED", *self._ident(c), ("proofs", c.proofs, 51),
+                        *([("kind", kind, 177)] if (chosen and self.has("proof_kinds")) else []))
         return c
 
     @write
@@ -1559,11 +1955,12 @@ class Model:
         n = Claim(person=c.person, amount=a, date=c.date, note=c.note, status="OPEN", opened_by=self.user,
                   idx=sum(1 for x in self.claims if x.person == c.person), seq=len(self.claims),
                   split_from=c.number or "", late_entry=c.late_entry)
-        n.terms_days = self.terms_for(p, c.date)
+        n.created_on = self.today
+        n.terms_days = self.terms_for(p, c.date, self.today)
         if self.on("overdue") and self.on("terms_fixed"):
             n.due_by = self.due_by_from(c.date, n.terms_days)
         self.claims.append(n)
-        if self.on("number"):
+        if self.on("number") and not self.on("number_on_settle"):
             n.number = self._next_number(n)
         n.history.append(("OPEN", self.user, self.today, self.due_text(n)))
         self.audit_line("CLAIM_SPLIT", *self._ident(c), ("into", n.number or "", 57))
@@ -1587,7 +1984,7 @@ class Model:
         if self.in_closed_claim(c):
             c.date = old
             raise Refused("claim-error")
-        if self.on("number") and self._numbering_per_period() and self.claim_period(c) is not old_per:
+        if self.on("number") and c.number and self._numbering_per_period() and self.claim_period(c) is not old_per:
             c.number = self._next_number(c)
         self.audit_line("CLAIM_REDATED", *self._ident(c), ("old", old.isoformat(), 66), ("new", new, 66))
         return c
@@ -1670,8 +2067,13 @@ class Model:
         if not self.on("remind") or c.status not in ("OPEN", "PENDING") \
                 or (c.reminded and c.reminded[-1] == self.today):
             raise Refused("claim-error")
+        last = c.reminded[-1] if c.reminded else None
         c.reminded.append(self.today)
         self.audit_line("REMIND", *self._ident(c))
+        gap = self.setting("escalate-after") if self.on("escalate") else None
+        if gap and last is not None and (self.today - last).days >= int(gap) and not getattr(c, "escalated", False):
+            c.escalated = True
+            self.audit_line("ESCALATE", *self._ident(c))
         return c
 
     @write
@@ -1685,7 +2087,7 @@ class Model:
         self.audit_line("HOLIDAY_ADDED", ("date", d, 83))
         if self.on("holidays_redate"):
             for c in self.claims:
-                if c.status not in ("SETTLED", "VOID") and c.due_by is not None and c.due_by >= when:
+                if c.status not in ("SETTLED", "VOID") and c.due_by is not None and c.due_by >= when and not c.due_by_set:
                     c.due_by = self.due_by_from(c.date, c.terms_days if c.terms_days is not None
                                                 else self.terms_for(self.people[c.person], c.date))
 
@@ -1749,7 +2151,47 @@ class Model:
 
     # ---- Act III: identity, hierarchy, cross-sheet --------------------------------------------
     def default_grade(self) -> str:
-        return "A"
+        g = self.setting("default-grade") if self.on("default_grade") else None
+        return g if g in self.grades and g not in self.retired_grades else "A"
+
+    def grade_choosable(self, g: str) -> bool:
+        """cp223: a retired grade cannot be chosen for a person."""
+        return g in self.grades and not (self.on("grade_retire") and g in self.retired_grades)
+
+    @write
+    def retire_grade(self, g: str) -> None:
+        if not self.on("grade_retire") or g not in self.grades or g in self.retired_grades:
+            raise Refused("grade-error")
+        self.retired_grades.add(g)
+        self.audit_line("GRADE_RETIRED", ("grade", g, 223))
+
+    @write
+    def add_grade(self, g: str) -> None:
+        g = g.strip()
+        if not self.on("grade_add") or not (1 <= len(g) <= 3) or not g.isalpha() or not g.isupper() or g in self.grades:
+            raise Refused("grade-error")
+        self.grades.append(g)
+        self.audit_line("GRADE_ADDED", ("grade", g, 229))
+
+    @write
+    def merge_grade(self, src: str, into: str) -> None:
+        """cp225: every person on `src` today gets `into` from today; cp232 keeps the old grade's
+        rates for claims dated before the merge."""
+        if not self.on("grade_merge") or src not in self.grades or into not in self.grades or src == into \
+                or self.role() != "steward":
+            raise Refused("grade-error")
+        self.grade_merges.append((src, into, self.today))
+        self.audit_line("GRADE_MERGED", ("from", src, 225), ("into", into, 225))
+        for p in self.listed():
+            if self.grade_now(p) == src:
+                self.edit_open(p.name)
+                self.edit_save({"grade": into})
+                if self.on("merge_retro"):
+                    p.grades = [(d, into if g == src else g) for d, g in p.grades]
+
+    def rate_grade_for(self, p: Person, c: Claim) -> str:
+        """The grade whose rate a claim uses: the grade in force on its date."""
+        return self.grade_at(p, c.date)
 
     def audit_view(self, filt: str = "", upto: int | None = None) -> list[str]:
         """cp101: the sheet's audit lines newest first; with a filter, only the lines naming that
@@ -1782,6 +2224,30 @@ class Model:
                     out += lines_of(self.family[p.origin], key)
         return out
 
+    def claim_timeline(self, c: Claim, upto: int | None = None) -> list[str]:
+        """cp162: the audit lines about a claim, newest first: those carrying its number, or for an
+        unnumbered claim those naming its person, amount and date together."""
+        if not self.on("claim_timeline"):
+            return []
+        p = self.people[c.person]
+        out = []
+        for event, user, fields in self.audit:
+            f = {a: b for a, b, _ in fields}
+            if c.number:
+                hit = f.get("number") == c.number
+            else:
+                hit = (f.get("person") == p.name and f.get("amount") == money(c.amount)
+                       and f.get("date") == c.date.isoformat() and "number" not in f)
+            if not hit:
+                continue
+            parts = [event, f"sheet={self.sheet}", f"by={user}"]
+            for a, b, since in fields:
+                if upto is not None and since > upto:
+                    break
+                parts.append(f"{a}={b}")
+            out.append(" ".join(parts))
+        return list(reversed(out))
+
     @write
     def add_alias(self, name: str, alias: str) -> None:
         """cp102: an alias, unique among names and aliases."""
@@ -1812,7 +2278,7 @@ class Model:
     @write
     def add_pool(self, name: str) -> None:
         n = name.strip()
-        if not self.on("pools") or not n or n in self.pools:
+        if not self.on("pools") or not n or n in self.pools or (self.on("crews_pools") and n in self.crews):
             raise Refused("pool-form-error")
         self.pools[n] = Pool(n, order=len(self.pools))
         self.audit_line("POOL_ADDED", ("name", n, 105))
@@ -1834,6 +2300,9 @@ class Model:
 
     def pool_parent(self, pool: Pool) -> Pool | None:
         return next((q for q in self.pools.values() if any(m.kind == "pool" and m.key == pool.name for m in q.members)), None)
+
+    def pool_named(self, name: str) -> Pool | None:
+        return next((pl for pl in self.all_pools() if pl.name == name), None)
 
     @write
     def add_pool_member(self, pool: str, who: str, share: str, start: str | None = None,
@@ -1878,6 +2347,11 @@ class Model:
         if not self.on("hold_pools") or m.kind != "person":
             return False
         p = self.people[m.key]
+        if not self.on("hold_interval"):
+            return bool(p.holds)
+        return any(s <= self.today and (e is None or self.today <= e) for s, e in p.holds)
+
+    def hold_in_force(self, p: Person) -> bool:
         if not self.on("hold_interval"):
             return bool(p.holds)
         return any(s <= self.today and (e is None or self.today <= e) for s, e in p.holds)
@@ -1944,13 +2418,17 @@ class Model:
 
     def cut_total(self, p: Person) -> Decimal:
         key = self._key(p)
-        return sum((self.pool_cuts(pl).get(("person", key), Decimal("0")) for pl in self.pools.values()), Decimal("0"))
+        return sum((self.pool_cuts(pl).get(("person", key), Decimal("0")) for pl in self.all_pools()), Decimal("0"))
 
     def pools_view(self) -> dict:
         out = {}
         if not self.has("pools"):
             return out
-        for pl in sorted(self.pools.values(), key=lambda x: x.order):
+        history = []
+        if self.on("cut_history"):
+            history = [per for per in self.periods.values() if per.end <= self.today]
+        past = {per.name: self.asof_model(per.end) for per in history}
+        for pl in self.all_pools():
             cells = {"pool-total-share": money(self.pool_total(pl)),
                      "pool-balanced": "yes" if self.pool_balanced(pl) else "no"}
             cuts = self.pool_cuts(pl)
@@ -1960,6 +2438,14 @@ class Model:
                 if self.has("cuts"):
                     v = cuts.get((m.kind, m.key))
                     mc["pool-cut"] = "" if v is None else money(v)
+                for per in history:
+                    if self.on("cuts_freeze") and self._fixed(per) and per.frozen_cuts is not None:
+                        mc[f"pool-cut-{per.name}"] = per.frozen_cuts.get(pl.name, {}).get((m.kind, m.key), "")
+                        continue
+                    r = past[per.name]
+                    rp = next((x for x in r.all_pools() if x.name == pl.name), None)
+                    rv = r.pool_cuts(rp).get((m.kind, m.key)) if rp is not None else None
+                    mc[f"pool-cut-{per.name}"] = "" if rv is None else money(rv)
                 members.append((m, mc))
             out[pl.name] = (cells, members)
         return out
@@ -2025,6 +2511,8 @@ class Model:
             a.statements += b.statements
             if a.stated_total is None and b.stated_total is not None:
                 a.stated_total, a.stated_on = b.stated_total, b.stated_on
+        self.merges.append({"into": a, "person": b, "day": self.today, "claims": {n.seq for _c, n in moved},
+                            "aliases": {norm_name(b.name)} | {norm_name(x) for x in b.aliases}})
         del self.people[bkey]
         self.plans = [pl for pl in self.plans if pl.person != bkey]
         self.audit_line("PERSON_MERGED", ("from", b.name, 107), ("into", a.name, 107))
@@ -2068,7 +2556,8 @@ class Model:
         keep = self.on("bindings_follow")
         if existing is None:
             q = Person(name=p.name, grades=list(p.grades), order=len(self.people), terms=p.terms,
-                       contact=p.contact, aliases=list(p.aliases), tags=list(p.tags), origin=src.sheet)
+                       contact=p.contact, aliases=list(p.aliases), tags=list(p.tags), origin=src.sheet,
+                       arrived_on=self.today, terms_dated=list(p.terms_dated))
             if keep:
                 q.statements, q.stated_total, q.stated_on = p.statements, p.stated_total, p.stated_on
             self.people[norm_name(p.name)] = q
@@ -2115,7 +2604,7 @@ class Model:
         for k, p in sorted(src.people.items(), key=lambda kv: kv[1].order):
             q = Person(name=p.name, grades=list(p.grades), order=len(self.people), retired_from=p.retired_from,
                        holds=list(p.holds), terms=p.terms, contact=p.contact, aliases=list(p.aliases),
-                       tags=list(p.tags), retirements=list(p.retirements))
+                       tags=list(p.tags), retirements=list(p.retirements), terms_dated=list(p.terms_dated))
             self.people[k] = q
             keymap[k] = q
         for k, q in keymap.items():
@@ -2143,6 +2632,8 @@ class Model:
             parts = [x.strip() for x in line.split(",")]
             name = parts[0]
             grade = parts[1] if len(parts) > 1 else ""
+            if not grade and self.on("default_grade"):
+                grade = self.default_grade()
             terms = parts[2] if len(parts) > 2 else ""
             contact = parts[3] if len(parts) > 3 else ""
             key = norm_name(name)
@@ -2284,11 +2775,17 @@ class Model:
 
     # -- plans (cp131, cp141, cp142)
     @write
-    def add_plan(self, name: str, amount: str, start: str, every: str, end: str) -> Plan:
-        """A plan every N days (`every` a number) or (cp141) monthly on a day (`every` = "m<day>")."""
+    def add_plan(self, name: str, amount: str, start: str, every: str, end: str, sheet: str | None = None) -> Plan:
+        """A plan every N days (`every` a number) or (cp141) monthly on a day (`every` = "m<day>");
+        cp213: on a parent sheet, into a child sheet's person of the same name."""
         p = self.person(name)
         if not self.on("plans"):
             raise Refused("plan-error")
+        if sheet and self.on("plan_tree"):
+            if sheet not in self.family or self.family[sheet] not in self.descendants():
+                raise Refused("plan-error")
+        else:
+            sheet = None
         a = self._amount(amount, None)
         s, e = day(start), day(end)
         if e < s:
@@ -2302,10 +2799,11 @@ class Model:
             if not str(every).isdigit() or int(every) < 1:
                 raise Refused("plan-error")
             n = int(every)
-        pl = Plan(len(self.plans) + 1, self._key(p), a, s, n, dom, e)
+        pl = Plan(len(self.plans) + 1, self._key(p), a, s, n, dom, e, sheet=sheet)
         self.plans.append(pl)
         self.audit_line("PLAN_ADDED", ("name", p.name, 131), ("amount", money(a), 131), ("start", start, 131),
-                        *([("every", n, 131)] if n is not None else [("day", dom, 141)]), ("end", end, 131))
+                        *([("every", n, 131)] if n is not None else [("day", dom, 141)]), ("end", end, 131),
+                        *([("sheet", sheet, 213)] if sheet else []))
         return pl
 
     def plan_dates(self, pl: Plan, upto: date | None, limit: int | None = None) -> list:
@@ -2352,11 +2850,17 @@ class Model:
             p = self.people.get(pl.person)
             if p is None:
                 continue
+            target = self
+            if pl.sheet and self.on("plan_tree"):
+                target = self.family.get(pl.sheet)
+                if target is None or target.find_person(p.name) is None:
+                    continue
             for d in self.plan_dates(pl, self.today):
-                if d in pl.generated:
+                if d in pl.generated or self.plan_paused_on(pl, d):
                     continue
                 try:
-                    c = self.add_claim(p.name, money(pl.amount), d.isoformat(), "")
+                    target.user = self.user
+                    c = target.add_claim(p.name, money(pl.amount), d.isoformat(), "")
                 except Refused:
                     continue
                 c.plan = pl.pid
@@ -2442,10 +2946,48 @@ class Model:
         if not self.on("consolidated"):
             return {}
         tree = [self] + self.descendants()
-        due = sum((m.sheet_due() for m in tree), Decimal("0"))
-        over = sum((m.overdue_total() for m in tree), Decimal("0"))
-        return {"consolidated-people-count": str(sum(len(m.people) for m in tree)),
-                "consolidated-due-total": money(due), "consolidated-overdue-total": money(over)}
+        if self.on("trim_consolidated"):
+            dues = [v for m in tree for v in (m.due_total(p) for p in m.people.values()) if v is not None]
+            overs = [m.overdue_total(p) for m in tree for p in m.people.values()]
+            due, over = self._trimmed(dues), self._trimmed(overs)
+            names = set()
+            for m in tree:
+                for p in m.people.values():
+                    names |= p.keys()
+            count = len({norm_name(p.name) for m in tree for p in m.people.values()})
+            # a name counted once: people sharing a name or alias across the tree are one
+            groups: list = []
+            for m in tree:
+                for p in m.people.values():
+                    hit = next((g for g in groups if g & p.keys()), None)
+                    if hit is None:
+                        groups.append(set(p.keys()))
+                    else:
+                        hit |= p.keys()
+            count = len(groups)
+        else:
+            due = sum((m.sheet_due() for m in tree), Decimal("0"))
+            over = sum((m.overdue_total() for m in tree), Decimal("0"))
+            count = sum(len(m.people) for m in tree)
+        out = {"consolidated-people-count": str(count),
+               "consolidated-due-total": money(due), "consolidated-overdue-total": money(over)}
+        if self.on("consolidated_grades"):
+            grades = []
+            for m in tree:
+                for g in m.grades:
+                    if g not in grades:
+                        grades.append(g)
+            for g in grades:
+                vals = [v for m in tree for v in (m.due_total(p) for p in m.people.values()
+                                                  if m.grade_now(p) == g and not p.retired_from) if v is not None]
+                out[f"consolidated-grade-{g}-due-total"] = money(sum(vals, Decimal("0")))
+            for st in STATUSES:
+                out[f"consolidated-status-{st}-count"] = str(sum(1 for m in tree for c in m.claims if c.status == st))
+        if self.on("trim_more"):
+            out["consolidated-settled-total"] = money(self._trimmed([m.settled_total(p) for m in tree for p in m.people.values()]))
+            out["consolidated-open-total"] = money(self._trimmed([m.open_total(p) for m in tree for p in m.people.values()]))
+            out["consolidated-cut-total"] = money(self._trimmed([m.cut_total(p) for m in tree for p in m.people.values()]))
+        return out
 
     def search(self, text: str) -> list:
         """cp150: `<sheet> <name> <due-total>` for every person of the tree whose name or an alias
@@ -2459,8 +3001,351 @@ class Model:
             for p in m.listed():
                 if any(t in k for k in p.keys()):
                     v = m.due_total(p)
-                    out.append(f"{m.sheet} {p.name} {'n/a' if v is None else money(v)}")
+                    out.append(f"{m.sheet} {m.shown_name(p)} {'n/a' if v is None else money(v)}")
         return out
+
+    # ---- Act V: the squeeze --------------------------------------------------------------------
+    def snapshot_compare(self, start: str, end: str | None) -> list:
+        """cp202: `<name> <then> <now>` per person in list order: the SNAPSHOT due-total written
+        on leaving `start` (empty when none), and the one written on leaving `end`, or the
+        due-total now when `end` is blank."""
+        if not self.on("snapshot_compare"):
+            return []
+        s = day(start)
+        e = day(end) if end else None
+        out = []
+        for p in self.listed():
+            then = next((t for d, t in p.snapshots if d == s), "")
+            if e is None:
+                v = self.due_total(p)
+                now = "n/a" if v is None else money(v)
+            else:
+                now = next((t for d, t in p.snapshots if d == e), "")
+            out.append(f"{p.name} {then} {now}")
+        return out
+
+    def plan_of(self, name: str, idx: int) -> Plan:
+        key = self._key(self.person(name))
+        mine = [pl for pl in self.plans if pl.person == key]
+        if idx >= len(mine):
+            raise KeyError(f"plan {idx} of {name}")       # refused earlier: a scenario drops the step
+        return mine[idx]
+
+    @write
+    def pause_plan(self, name: str, idx: int, on: bool) -> Plan:
+        """cp203: pause or resume a plan; dates on or after the pause day and before the resume
+        day are skipped."""
+        pl = self.plan_of(name, idx)
+        paused = bool(pl.pauses and pl.pauses[-1][1] is None)
+        if not self.on("plan_pause") or paused == on:
+            raise Refused("plan-error")
+        if on:
+            pl.pauses.append((self.today, None))
+        else:
+            a, _b = pl.pauses.pop()
+            pl.pauses.append((a, self.today))
+        p = self.people[pl.person]
+        self.audit_line("PLAN_PAUSED" if on else "PLAN_RESUMED", ("name", p.name, 203), ("start", pl.start.isoformat(), 203))
+        return pl
+
+    def plan_paused_on(self, pl: Plan, d: date) -> bool:
+        return self.on("plan_pause") and any(a <= d and (b is None or d < b) for a, b in pl.pauses)
+
+    @write
+    def change_plan_amount(self, name: str, idx: int, amount: str) -> Plan:
+        """cp205: the plan's amount changes for claims generated from now; cp220: its DRAFT claims
+        follow too."""
+        pl = self.plan_of(name, idx)
+        if not self.on("plan_history"):
+            raise Refused("plan-error")
+        a = self._amount(amount, None)
+        pl.amount = a
+        pl.history.append((self.today, f"amount={money(a)}"))
+        p = self.people[pl.person]
+        self.audit_line("PLAN_CHANGED", ("name", p.name, 205), ("start", pl.start.isoformat(), 205), ("amount", money(a), 205))
+        if self.on("plan_retro"):
+            for c in self.person_claims(p):
+                if c.plan == pl.pid and c.status == "DRAFT" and c.amount != a:
+                    self.edit_claim(p.name, c.idx, {"amount": money(a)})
+        return pl
+
+    def score(self, p: Person) -> str:
+        """cp209: settled-total / 100 minus 5 per overdue claim, half to even to a whole number;
+        cp212: the settled-total leaves corrections out."""
+        cs = [c for c in self.person_claims(p) if c.status == "SETTLED" and self.counts(c)]
+        if self.on("score_no_corrections"):
+            cs = [c for c in cs if not c.corrects]
+        settled = sum((self.due(c) or Decimal("0") for c in cs), Decimal("0"))
+        v = settled / 100 - 5 * len(self.overdue_claims(p))
+        return str(int(v.quantize(Decimal("1"), rounding=ROUND_HALF_EVEN)))
+
+    def band(self, p: Person) -> str:
+        mid, high = self.setting("score-mid"), self.setting("score-high")
+        if not (self.on("bands") and mid and high):
+            return ""
+        sc = int(self.score(p))
+        return "HIGH" if sc >= int(high) else "MID" if sc >= int(mid) else "LOW"
+
+    def fy_periods(self, fy: str) -> list:
+        return sorted((per for per in self.periods.values() if self.fy_of(per.start) == fy), key=lambda x: x.start)
+
+    def rollover(self, year: str) -> int:
+        """cp207: the next fiscal year's periods, and every person's open figure at the end of the
+        old year's last period carried into the new year's first period; cp228 soft-closes the
+        old year's periods."""
+        if not self.on("rollover") or not year.isdigit() or self.role() != "steward":
+            raise Refused("rollover-error")
+        old = self.fy_periods(f"FY{year}")
+        if not old:
+            raise Refused("rollover-error")
+        before = set(self.periods)
+        made = self.generate_fy(str(int(year) + 1))
+        new = [per for n, per in self.periods.items() if n not in before]
+        for per in new:
+            per.by_rollover = f"FY{int(year) + 1}"
+        last = old[-1]
+        openings = []
+        if new:
+            first = min(new, key=lambda x: x.start)
+            for p in self.listed():
+                total = Decimal("0")
+                for c in self.person_claims(p):
+                    cper = self.claim_period(c)
+                    if cper is None or cper not in old:
+                        continue
+                    st = self.status_at(c, last.end) if self.on("period_asof") else c.status
+                    if st in ("OPEN", "PENDING") and self.counts(c):
+                        total += self.due(c) or Decimal("0")
+                if total:
+                    self._set_opening(p.name, first.name, money(total))
+                    openings.append((p.name, first.name, total))
+        self._rollover_line(f"FY{year}", made)
+        if self.on("rollover_soft"):
+            for per in old:
+                if not per.closed and not per.soft:
+                    self.soft_close_period(per.name)
+        self.rollovers.append((f"FY{year}", self.today, [per.name for per in new], openings))
+        return made
+
+    @write
+    def _rollover_line(self, fy: str, made: int) -> None:
+        self.audit_line("ROLLOVER", ("fy", fy, 207), ("periods", made, 207))
+
+    @write
+    def rollover_undo(self) -> None:
+        """cp219: the last rollover undone on the same sheet-day: its periods removed (refused when
+        any claim belongs to one) and its opening balances taken back."""
+        if not self.on("rollover_undo") or self.role() != "steward" or not self.rollovers:
+            raise Refused("rollover-error")
+        fy, d, names, openings = self.rollovers[-1]
+        if d != self.today:
+            raise Refused("rollover-error")
+        for n in names:
+            per = self.periods.get(n)
+            if per is not None and any(self.claim_period(c) is per for c in self.claims):
+                raise Refused("rollover-error")
+        for n in names:
+            self.periods.pop(n, None)
+        for name, per, total in openings:
+            p = self.find_person(name)
+            if p is not None:
+                p.openings[per] = p.openings.get(per, Decimal("0")) - total
+        self.rollovers.pop()
+        self.audit_line("ROLLOVER_UNDONE", ("fy", fy, 219))
+
+    def compare_sheet(self, other: str) -> list:
+        """cp215: `<grade> <this due-total> <other due-total>` per grade of this sheet."""
+        if not self.on("compare") or other not in self.family:
+            return []
+        o = self.family[other]
+        out = []
+        for g in self.grades:
+            mine = self.summary().get(f"summary-grade-{g}-due-total", "0.00")
+            theirs = o.summary().get(f"summary-grade-{g}-due-total", "0.00")
+            out.append(f"{g} {mine} {theirs}")
+        return out
+
+    @write
+    def share_claim(self, name: str, idx: int, who: str, share: str) -> Claim:
+        """cp217: a holder's share of the claim."""
+        c = self.claim(name, idx)
+        q = self.person(who)
+        try:
+            sh = D(share)
+        except Exception:
+            raise Refused("claim-error")
+        if not self.on("shared") or c.status not in ("DRAFT", "OPEN", "PENDING") or self._key(q) == c.person \
+                or any(k == self._key(q) for k, _s in c.shares) or sh <= 0 or sh != sh.quantize(Decimal("0.01")) \
+                or sum((s for _k, s in c.shares), Decimal("0")) + sh > 100:
+            raise Refused("claim-error")
+        c.shares.append((self._key(q), sh))
+        self.audit_line("CLAIM_SHARED", *self._ident(c), ("with", q.name, 217), ("share", money(sh), 217))
+        return c
+
+    @write
+    def assign_review(self, name: str, idx: int, user: str) -> Claim:
+        c = self.claim(name, idx)
+        if not self.on("review_assign") or c.status != "REVIEW" or self.role() != "steward" or not user.strip():
+            raise Refused("claim-error")
+        c.review_user = user.strip()
+        self.audit_line("REVIEW_ASSIGNED", *self._ident(c), ("user", c.review_user, 218))
+        return c
+
+    def watched_total(self) -> Decimal:
+        keys = self.watching.get(self.user, set())
+        return sum((v for v in (self.due_total(self.people[k]) for k in keys if k in self.people) if v is not None),
+                   Decimal("0"))
+
+    def set_preview(self, d: str | None) -> None:
+        if d is None:
+            self.screen["preview"].pop(self.user, None)
+        elif self.on("preview"):
+            self.screen["preview"][self.user] = day(d)
+
+    def preview_model(self, d: date) -> "Model":
+        """cp226: the sheet as it is, with `d` as the sheet's today for every figure."""
+        import copy as _copy
+        fam: dict = {}
+        screen = dict(self.screen, asof={}, preview={})
+        for sid, live in self.family.items():
+            r = _copy.copy(live)
+            r.family, r.screen = fam, screen
+            r.people = {k: _copy.copy(p) for k, p in live.people.items()}
+            r.claims = [_copy.copy(c) for c in live.claims]
+            r.today = d
+            fam[sid] = r
+        return fam[self.sheet]
+
+    @write
+    def set_due_by(self, name: str, idx: int, new: str) -> Claim:
+        c = self.claim(name, idx)
+        if not self.on("due_by_override") or self.role() != "steward" or c.status not in ("OPEN", "PENDING", "DRAFT"):
+            raise Refused("claim-error")
+        old = self.due_by(c)
+        c.due_by, c.due_by_set = day(new), True
+        self.audit_line("CLAIM_DUE_BY_SET", *self._ident(c), ("old", old.isoformat() if old else "", 233), ("new", new, 233))
+        return c
+
+    def bulk_hold(self, names: list, start: str | None, end: str | None) -> int:
+        if not self.on("bulk_hold"):
+            return 0
+        done = 0
+        for p in sorted((self.person(n) for n in names), key=lambda p: p.order):
+            try:
+                self.hold(p.name, start, end)
+                done += 1
+            except Refused:
+                pass
+        return done
+
+    @write
+    def merge_undo(self, name: str) -> Person:
+        """cp238: the last merge into this person undone on the same sheet-day: the merged person
+        is back with the claims that came from them and their aliases; patron and pool changes stay."""
+        a = self.person(name)
+        rec = next((r for r in reversed(self.merges) if r["into"] is a), None)
+        if not self.on("merge_undo") or self.role() != "steward" or rec is None or rec["day"] != self.today:
+            raise Refused("person-error")
+        b = rec["person"]
+        b.order = len(self.people)
+        self.people[norm_name(b.name)] = b
+        a.aliases = [x for x in a.aliases if norm_name(x) not in rec["aliases"]]
+        for c in self.claims:
+            if c.seq in rec["claims"]:
+                c.person = norm_name(b.name)
+        for i, c in enumerate(sorted((c for c in self.claims if c.person == norm_name(b.name)), key=lambda c: c.seq)):
+            c.idx = i
+        self.merges.remove(rec)
+        self.audit_line("PERSON_MERGE_UNDONE", ("name", b.name, 238), ("from", a.name, 238))
+        return b
+
+    def person_timeline(self, p: Person) -> list:
+        """cp242: every dated thing about the person in date order: claims by date, holds, grade
+        changes, retirements, unretirements."""
+        if not self.on("person_timeline"):
+            return []
+        items = []
+        for c in self.person_claims(p):
+            items.append((c.date, 1, f"claim {money(c.amount)} {c.status}"))
+        for s, e in p.holds:
+            items.append((s or date.min, 2, f"hold{' to ' + e.isoformat() if e else ''}"))
+        for s, g in p.grades:
+            if s is not None:
+                items.append((s, 0, f"grade {g}"))
+        if p.retired_from:
+            items.append((p.retired_from, 3, "retired"))
+        for a, b in p.retirements:
+            items.append((a, 3, "retired"))
+            items.append((b, 4, "unretired"))
+        return [f"{d.isoformat()} {t}" for d, _o, t in sorted(items, key=lambda x: (x[0], x[1], x[2]))]
+
+    def policy_keys(self) -> tuple:
+        return ("rounding", "floor", "cap", "terms", "late-pct", "clerk-limit")
+
+    def policy_versions(self) -> list:
+        """cp248: every change to a policy setting, in the order made, as (from, key, value)."""
+        return list(self.policy_log)
+
+    def policy_for(self, when: date) -> int:
+        """The policy version in force on a date: the count of versions from on or before it."""
+        return sum(1 for f, _k, _v in self.policy_log if f is None or f <= when)
+
+    def policy_lines(self) -> list:
+        """cp249: `<n> <from> <key>=<value> <claims>` per version."""
+        if not self.on("policy_view"):
+            return []
+        out = []
+        for i, (f, k, v) in enumerate(self.policy_log, 1):
+            n = sum(1 for c in self.claims if self.policy_for(c.date) == i)
+            out.append(f"{i} {f.isoformat() if f else 'start'} {k}={v} {n}")
+        return out
+
+    def export_periods_csv(self) -> str:
+        """cp231: person,period,figure,carried per person and period."""
+        buf = io.StringIO()
+        w = csv.writer(buf, lineterminator="\n")
+        w.writerow(["person", "period", "figure", "carried"])
+        for p in self.listed():
+            for per in self.periods.values():
+                w.writerow([p.name, per.name, self.person_period_text(p, per),
+                            self.carried_text(p, per) if self.on("carried") else ""])
+        return buf.getvalue()
+
+    def export_tree_csv(self) -> str:
+        """cp234: sheet,name,grade,due-total over the tree in sheet order."""
+        buf = io.StringIO()
+        w = csv.writer(buf, lineterminator="\n")
+        w.writerow(["sheet", "name", "grade", "due-total"])
+        for m in [self] + sorted((x for x in self.tree() if x is not self), key=lambda x: x.sheet):
+            for p in m.listed():
+                v = m.due_total(p)
+                w.writerow([m.sheet, p.name, m.grade_now(p), "n/a" if v is None else money(v)])
+        return buf.getvalue()
+
+    PERSON_EXPORT_CELLS = ("person-name", "person-grade", "person-claimed", "person-due-total",
+                           "person-statement-count", "person-overdue-total", "person-hold", "person-retired",
+                           "person-aliases", "person-score")
+
+    def export_person_csv(self, p: Person) -> str:
+        """cp243: cell,value for the row's name, grade, claimed, due-total, statement count,
+        overdue-total, hold, retired, aliases and score."""
+        buf = io.StringIO()
+        w = csv.writer(buf, lineterminator="\n")
+        w.writerow(["cell", "value"])
+        cells = self.person_cells(p)
+        for k in self.PERSON_EXPORT_CELLS:
+            w.writerow([k, cells.get(k, "")])
+        return buf.getvalue()
+
+    def export_policy_csv(self) -> str:
+        buf = io.StringIO()
+        w = csv.writer(buf, lineterminator="\n")
+        w.writerow(["version", "from", "key", "value", "claims", "due-total"])
+        for i, (f, k, v) in enumerate(self.policy_log, 1):
+            cs = [c for c in self.claims if self.policy_for(c.date) == i]
+            w.writerow([i, f.isoformat() if f else "start", k, v, len(cs),
+                        money(sum((self.due(c) or Decimal("0") for c in cs if self.counts(c)), Decimal("0")))])
+        return buf.getvalue()
 
     # ---- statements (cp15) -----------------------------------------------------------------
     def statement_figure(self, c: Claim) -> Decimal | None:
@@ -2468,7 +3353,9 @@ class Model:
         floor-last rule (cp64) the rate figure alone."""
         if c.status == "SETTLED" and self.on("freeze") and c.frozen is not None:
             return c.frozen
-        if self.on("floor_last"):
+        if self.on("late_bound"):
+            return self.due(c)
+        if self.floor_last():
             if self.stated_applies(c):
                 return None if c.stated == "n/a" else c.stated
             return self.rate_due(c)
@@ -2552,12 +3439,19 @@ class Model:
     def stated_applies(self, c: Claim) -> bool:
         if not self.on("statement") or c.stated is None:
             return False
-        if c.status == "PENDING" and self.on("pending_live"):
+        if c.status == "PENDING" and self.on("pending_live") and not self.on("pending_bound"):
             return False
         return True
 
+    def floor_last(self) -> bool:
+        return self.on("floor_last") and not self.on("floor_first")
+
     # ---- figures --------------------------------------------------------------------------
     def rounding(self, when: date):
+        if self.on("rounding_mode"):
+            mode = self.setting_at("rounding", when)
+            if mode:
+                return ROUND_HALF_UP if mode == "half-up" else ROUND_HALF_EVEN
         if self.on("policy_date"):
             policy = self.setting("policy-date")
             pd = day(policy) if policy else self.today
@@ -2567,15 +3461,24 @@ class Model:
     def _round(self, x: Decimal, when: date) -> Decimal:
         return x.quantize(Decimal("0.01"), rounding=self.rounding(when))
 
-    def terms_for(self, p: Person, when: date) -> int:
-        if self.on("person_terms") and p.terms is not None:
-            return p.terms
+    def terms_for(self, p: Person, when: date, created_on: date | None = None) -> int:
+        """The terms for a claim dated `when`: the person's own, their grade's, the sheet's, each
+        as in force on the claim's date, or (cp180) on the day the claim was created."""
+        lookup = created_on if (self.on("terms_by_version") and created_on is not None) else when
+        if self.on("person_terms"):
+            if self.on("person_terms_dated") and p.terms_dated:
+                rows = sorted(((d or date.min), t) for d, t in p.terms_dated)
+                inforce = [t for d, t in rows if d <= lookup]
+                if inforce and inforce[-1] is not None:
+                    return inforce[-1]
+            elif p.terms is not None:
+                return p.terms
         if self.on("terms_fixed"):
             g = self.grade_at(p, when)
-            t = self.setting_at(f"terms-{g}", when)
+            t = self.setting_at(f"terms-{g}", lookup)
             if t:
                 return int(t)
-        t = self.setting_at("terms", when)
+        t = self.setting_at("terms", lookup)
         return int(t) if t else DEFAULT_TERMS
 
     def due_by_from(self, dt: date, terms: int) -> date:
@@ -2630,7 +3533,7 @@ class Model:
 
     def rate_due(self, c: Claim) -> Decimal | None:
         p = self.people[c.person]
-        rate = self.rate_at(self.grade_at(p, c.date), c.date)
+        rate = self.rate_at(self.rate_grade_for(p, c), c.date, c)
         if rate is None:
             return None
         return self._round(c.amount * rate / 100, self.rounding_date(c))
@@ -2648,12 +3551,12 @@ class Model:
         base = self.rate_due(c)
         if base is None or c.corrects:
             return base
-        if self.on("floor") and not self.on("floor_last"):
+        if self.on("floor") and not self.floor_last():
             base = max(base, self.floor_at(c))
         return base
 
     def late_charge(self, c: Claim, base: Decimal) -> Decimal:
-        if not self.on("late") or not self.overdue(c):
+        if not self.on("late") or not self.overdue(c) or (self.on("waiver") and c.waived):
             return Decimal("0")
         start = self.overdue_from(c)
         n30 = (self.today - start).days // 30
@@ -2681,8 +3584,10 @@ class Model:
             return base
         if c.corrects:
             return base
+        if self.on("late_bound") and self.stated_applies(c):
+            return base
         v = base + self.late_charge(c, base)
-        if self.on("floor") and self.on("floor_last"):
+        if self.on("floor") and self.floor_last():
             v = max(v, self.floor_at(c))
         return v
 
@@ -2722,9 +3627,57 @@ class Model:
         key = self._key(p)
         return [c for c in self.claims if c.person == key]
 
+    def counts_amount(self, c: Claim) -> bool:
+        """Whether a claim's amount is in claimed: as counts(), except (cp184) a hold leaves it."""
+        if self.on("hold_claimed") and self.held_claim(c):
+            if self.on("status") and c.status not in ("OPEN", "SETTLED", "PENDING"):
+                return False
+            return not (self.is_deferred(c) or self.retire_excluded(c))
+        return self.counts(c)
+
     def claimed(self, p: Person) -> Decimal:
         return sum((c.amount for c in self.person_claims(p)
-                    if self.counts(c) and not (c.corrects and self.on("claimed_no_corrections"))), Decimal("0"))
+                    if self.counts_amount(c) and not (c.corrects and self.on("claimed_no_corrections"))), Decimal("0"))
+
+    def holder_figure(self, c: Claim, key: str) -> Decimal | None:
+        """cp217: a holder's part of a shared claim's due: their share, rounded half to even, the
+        owner keeping the remainder; cp240: each holder's part is worked out with that holder's
+        grade's rate on the claim's date, rounded separately, the remainder to the owner."""
+        if not c.shares:
+            return self.due(c) if key == c.person else Decimal("0")
+        if self.on("shared_per_holder") and c.status != "SETTLED":
+            if key == c.person:
+                total = self.due(c)
+                if total is None:
+                    return None
+                return total - sum((self._holder_part(c, k, sh) or Decimal("0") for k, sh in c.shares), Decimal("0"))
+            sh = next((sh for k, sh in c.shares if k == key), None)
+            return self._holder_part(c, key, sh) if sh is not None else Decimal("0")
+        total = self.due(c)
+        if total is None:
+            return None
+        parts = {k: (total * sh / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_EVEN) for k, sh in c.shares}
+        if key == c.person:
+            return total - sum(parts.values(), Decimal("0"))
+        return parts.get(key, Decimal("0"))
+
+    def _holder_part(self, c: Claim, key: str, share: Decimal) -> Decimal | None:
+        q = self.people[key]
+        rate = self.rate_at(self.grade_at(q, c.date), c.date, c)
+        if rate is None:
+            return Decimal("0")
+        return self._round(c.amount * share / 100 * rate / 100, self.rounding_date(c))
+
+    def shared_in(self, p: Person) -> Decimal:
+        """What a person holds of other people's claims that count (cp217)."""
+        if not self.on("shared"):
+            return Decimal("0")
+        key = self._key(p)
+        total = Decimal("0")
+        for c in self.claims:
+            if c.person != key and any(k == key for k, _sh in c.shares) and self.counts(c):
+                total += self.holder_figure(c, key) or Decimal("0")
+        return total
 
     def raw_due_total(self, p: Person) -> Decimal | None:
         cs = [c for c in self.person_claims(p) if self.counts(c)]
@@ -2736,24 +3689,44 @@ class Model:
             if rate is None:
                 return None       # cp7: no rate today, n/a, whether or not anything counts
             return self._round(sum((c.amount for c in cs), Decimal("0")) * rate / 100, self.today)
-        vals = [v for v in (self.due(c) for c in cs) if v is not None]
-        if not vals and self.rate_at(self.grade_now(p), self.today) is None:
+        key = self._key(p)
+        vals = [v for v in ((self.holder_figure(c, key) if (self.on("shared") and c.shares) else self.due(c))
+                            for c in cs) if v is not None]
+        extra = self.shared_in(p)
+        if not vals and not extra and self.rate_at(self.grade_now(p), self.today) is None:
             return None               # cp7's rule stands: no rate today and no figure to add
-        return sum(vals, Decimal("0"))
+        return sum(vals, Decimal("0")) + extra
+
+    def _cap_room(self, p: Person) -> Decimal | None:
+        """The cap a person's due-total is held to: the cap, less (cp224) their cut total; cp248:
+        the cap in force on the date of the person's latest claim that counts."""
+        cap = None
+        if self.on("cap"):
+            when = self.today
+            if self.on("policy"):
+                dates = [c.date for c in self.person_claims(p) if self.counts(c)]
+                when = max(dates) if dates else self.today
+            cap = self.setting_at("cap", when)
+        if not cap:
+            return None
+        room = D(cap)
+        if self.on("cap_cuts"):
+            room = max(Decimal("0"), room - self.cut_total(p))
+        return room
 
     def due_total(self, p: Person) -> Decimal | None:
         v = self.raw_due_total(p)
-        if v is None or not self.on("cap"):
+        if v is None:
             return v
-        cap = self.setting("cap")
-        return min(v, D(cap)) if cap else v
+        room = self._cap_room(p)
+        return min(v, room) if room is not None else v
 
     def excess(self, p: Person) -> Decimal:
         v = self.raw_due_total(p)
-        cap = self.setting("cap") if self.on("cap") else None
-        if v is None or not cap or v <= D(cap):
+        room = self._cap_room(p)
+        if v is None or room is None or v <= room:
             return Decimal("0")
-        return v - D(cap)
+        return v - room
 
     def _trimmed(self, vals: list[Decimal]) -> Decimal:
         total = sum(vals, Decimal("0"))
@@ -2886,7 +3859,18 @@ class Model:
         (self.show_retired.add if on else self.show_retired.discard)(self.user)
 
     def visible(self, p: Person) -> bool:
-        return not (self.on("retire") and p.retired_from and self.user not in self.show_retired)
+        if self.on("retire") and p.retired_from and self.user not in self.show_retired:
+            return False
+        if self.on("restricted") and self.roles.get(self.user) == "restricted":
+            me = self.find_person(self.user or "")
+            if me is None:
+                return False
+            mine = {self._key(me)}
+            for cr in self.crews.values():
+                if self._key(me) == cr.lead or self._key(me) in cr.members:
+                    mine |= {cr.lead} | set(cr.members)
+            return self._key(p) in mine
+        return True
 
     def claim_cells(self, c: Claim) -> dict:
         cells = {"claim-amount": money(c.amount), "claim-date": c.date.isoformat(),
@@ -2932,10 +3916,32 @@ class Model:
             cells["claim-batch"] = c.batch
         if self.has("lines"):
             cells["claim-lines"] = [f"{l} {q} x {money(u)}" for l, q, u in c.lines]
+        if self.on("review_sla"):
+            sla = self.setting("review-sla")
+            late = bool(c.status == "REVIEW" and sla and c.reviewed_on and c.reviewed_on + timedelta(days=int(sla)) < self.today)
+            cells["claim-review-late"] = "yes" if late else "no"
+        if self.has("waiver"):
+            cells["claim-waived"] = "yes" if c.waived else "no"
+        if self.on("proof_kinds"):
+            cells["claim-proofs-receipt"] = str(c.proof_kinds.get("receipt", 0))
+            cells["claim-proofs-photo"] = str(c.proof_kinds.get("photo", 0))
+        if self.has("claim_hold"):
+            cells["claim-held"] = "yes" if c.held else "no"
+        if self.has("shared"):
+            cells["claim-shares"] = ", ".join(f"{self.people[k].name} {money(sh)}" for k, sh in c.shares)
+        if self.has("review_assign"):
+            cells["claim-review-assigned"] = c.review_user
+        if self.on("pending_sla"):
+            sla = self.setting("pending-sla")
+            pend = next((d for st, _u, d, _v in reversed(c.history) if st == "PENDING"), None)
+            late = bool(c.status == "PENDING" and sla and pend and pend + timedelta(days=int(sla)) < self.today)
+            cells["claim-pending-late"] = "yes" if late else "no"
+        if self.on("policy"):
+            cells["claim-policy"] = str(self.policy_for(c.date))
         return cells
 
     def person_cells(self, p: Person) -> dict:
-        cells = {"person-name": p.name, "person-grade": self.grade_now(p)}
+        cells = {"person-name": self.shown_name(p), "person-grade": self.grade_now(p)}
         if self.has("claims"):
             cells["person-claimed"] = money(self.claimed(p))
         if self.has("due"):
@@ -2956,17 +3962,19 @@ class Model:
         if self.on("backing"):
             if self.on("patron_shares"):
                 shares = {q: sh for q, sh in self.patron_shares(p)}
-                cells["person-patrons"] = ", ".join(f"{self.people[q].name} {money(shares[q])}"
+                cells["person-patrons"] = ", ".join(f"{self.shown_name(self.people[q])} {money(shares[q])}"
                                                     for q in sorted(p.patrons, key=lambda q: self.people[q].name))
             else:
-                cells["person-patrons"] = ", ".join(sorted(self.people[q].name for q in p.patrons))
+                cells["person-patrons"] = ", ".join(self.shown_name(self.people[q])
+                                                    for q in sorted(p.patrons, key=lambda q: self.people[q].name))
             cells["person-backing"] = money(self.backing(p))
         if self.has("cap"):
             cells["person-excess"] = money(self.excess(p))
         if self.has("notify"):
             cells["person-watched"] = "yes" if self.user in p.watchers else "no"
         if self.has("person_terms"):
-            cells["person-terms"] = "" if p.terms is None else str(p.terms)
+            t = self.person_terms_now(p)
+            cells["person-terms"] = "" if t is None else str(t)
         if self.has("active"):
             cells["person-active"] = "yes" if self.active(p) else "no"
         if self.has("age"):
@@ -2992,6 +4000,21 @@ class Model:
             cells["person-tags"] = ", ".join(p.tags)
         if self.on("snapshot_view"):
             cells["person-snapshot"] = [f"{d.isoformat()} {t}" for d, t in p.snapshots]
+        if self.on("statement_history"):
+            cells["person-statement-line"] = [f"{d.isoformat()} {t}" for t, d, _s in p.statement_log]
+        if self.has("flags"):
+            cells["person-flag-shown"] = p.flag[0] if self.flag_in_force(p) else ""
+        if self.has("approver"):
+            cells["person-approver"] = p.approver
+        if self.on("score"):
+            cells["person-score"] = self.score(p)
+        if self.on("bands"):
+            cells["person-band"] = self.band(p)
+        if self.on("person_timeline"):
+            cells["person-timeline"] = self.person_timeline(p)
+        if self.on("claim_count_cells"):
+            for st in ("OPEN", "SETTLED"):
+                cells[f"person-claims-{st}-count"] = str(sum(1 for c in self.person_claims(p) if c.status == st))
         return cells
 
     def rollups(self) -> dict:
@@ -3004,12 +4027,18 @@ class Model:
             out["rollup-overdue-count"] = str(len(self.overdue_claims()))
             out["rollup-overdue-total"] = money(self.overdue_total())
         if self.on("split_totals"):
-            out["rollup-settled-total"] = money(self.settled_total())
-            out["rollup-open-total"] = money(self.open_total())
+            if self.on("trim_more"):
+                out["rollup-settled-total"] = money(self._trimmed([self.settled_total(p) for p in self.people.values()]))
+                out["rollup-open-total"] = money(self._trimmed([self.open_total(p) for p in self.people.values()]))
+            else:
+                out["rollup-settled-total"] = money(self.settled_total())
+                out["rollup-open-total"] = money(self.open_total())
         if self.on("batch"):
             out["bulk-settle-batch"] = self.last_batch
         if self.on("cut_rows"):
-            out["rollup-cut-total"] = money(sum((self.cut_total(p) for p in self.people.values()), Decimal("0")))
+            vals = [self.cut_total(p) for p in self.people.values()]
+            out["rollup-cut-total"] = money(self._trimmed(vals) if self.on("trim_more") else sum(vals, Decimal("0")))
+        out.update(self.sheet_aged())
         return out
 
     def header(self) -> dict:
@@ -3026,6 +4055,16 @@ class Model:
             v = self.due_total(me) if me is not None else None
             out["my-due-total"] = "" if me is None else ("n/a" if v is None else money(v))
             out["my-overdue-total"] = "" if me is None else money(self.overdue_total(me))
+        if self.on("crew_lead"):
+            me = self.find_person(self.user or "")
+            led = [cr for cr in self.crews.values() if me is not None and cr.lead == self._key(me)]
+            out["my-crew-due-total"] = money(sum((self.crew_total(cr) for cr in led), Decimal("0"))) if led else ""
+        if self.on("review_assign"):
+            out["my-reviews-count"] = str(sum(1 for c in self.claims if c.status == "REVIEW" and c.review_user == self.user))
+        if self.on("watch_summary"):
+            out["watched-due-total"] = money(self.watched_total())
+        if self.on("policy"):
+            out["policy-version"] = str(len(self.policy_log))
         return out
 
     def sheet_cells(self) -> dict:
@@ -3065,9 +4104,34 @@ class Model:
             for r in self.void_reasons:
                 out[f"summary-void-{r}-count"] = str(sum(1 for c in self.claims
                                                          if c.status == "VOID" and c.void_reason == r))
+        if self.on("review_sla"):
+            sla = self.setting("review-sla")
+            out["summary-review-late-count"] = str(sum(
+                1 for c in self.claims if c.status == "REVIEW" and sla and c.reviewed_on
+                and c.reviewed_on + timedelta(days=int(sla)) < self.today))
+        if self.on("pending_sla"):
+            sla = self.setting("pending-sla")
+            n = 0
+            for c in self.claims:
+                pend = next((d for st, _u, d, _v in reversed(c.history) if st == "PENDING"), None)
+                if c.status == "PENDING" and sla and pend and pend + timedelta(days=int(sla)) < self.today:
+                    n += 1
+            out["summary-pending-late-count"] = str(n)
+        out.update(self.classic_cells())
         return out
 
+    def _export_src(self) -> "Model":
+        d = self.asof.get(self.user) if self.has("asof") else None
+        if d and self.on("asof") and self.on("asof_export"):
+            return self.asof_model(d)
+        pv = self.screen["preview"].get(self.user) if self.on("preview") else None
+        if pv and self.on("preview_export"):
+            return self.preview_model(pv)
+        return self
+
     def export_csv(self) -> str:
+        if self._export_src() is not self:
+            return self._export_src().export_csv()
         buf = io.StringIO()
         w = csv.writer(buf, lineterminator="\n")
         w.writerow(["name", "grade", "retired-from", "due-total"])
@@ -3077,8 +4141,269 @@ class Model:
                         "n/a" if v is None else money(v)])
         return buf.getvalue()
 
+    def classic_cells(self) -> dict:
+        """cp154: the period figures by current status (a closed period fixed as it was), and the
+        sheet's due-total untrimmed."""
+        if not self.on("classic"):
+            return {}
+        out = {}
+        for per in self.periods.values():
+            if self._fixed(per) and per.frozen_total is not None:
+                out[f"classic-period-{per.name}-due-total"] = per.frozen_total
+            else:
+                out[f"classic-period-{per.name}-due-total"] = money(sum(
+                    (self.due(c) or Decimal("0") for c in self.claims
+                     if self.claim_period(c) is per and self.counts(c)), Decimal("0")))
+        out["classic-due-total"] = money(sum((v for v in (self.due_total(p) for p in self.people.values())
+                                              if v is not None), Decimal("0")))
+        return out
+
+    @write
+    def add_crew(self, name: str, lead: str) -> None:
+        n = name.strip()
+        if not self.on("crews") or not n or n in self.crews or (self.on("crews_pools") and n in self.pools):
+            raise Refused("crew-form-error")
+        p = self.person(lead)
+        self.crews[n] = Crew(n, self._key(p), len(self.crews))
+        self.audit_line("CREW_ADDED", ("name", n, 166), ("lead", p.name, 166))
+
+    @write
+    def add_crew_member(self, crew: str, who: str) -> None:
+        if not self.on("crews") or crew not in self.crews:
+            raise Refused("crew-error")
+        cr = self.crews[crew]
+        p = self.person(who)
+        key = self._key(p)
+        if key == cr.lead or key in cr.members:
+            raise Refused("crew-error")
+        cr.members.append(key)
+        self.audit_line("CREW_MEMBER_ADDED", ("crew", crew, 166), ("name", p.name, 166))
+
+    def crew_people(self, cr: Crew) -> list:
+        return [self.people[k] for k in [cr.lead] + cr.members if k in self.people]
+
+    def crew_total(self, cr: Crew) -> Decimal:
+        return sum((v for v in (self.due_total(p) for p in self.crew_people(cr)) if v is not None), Decimal("0"))
+
+    def crews_view(self) -> dict:
+        if not self.has("crews"):
+            return {}
+        out = {}
+        for cr in sorted(self.crews.values(), key=lambda x: x.order):
+            lead = self.people.get(cr.lead)
+            out[cr.name] = {"crew-lead": self.shown_name(lead) if lead else "",
+                            "crew-due-total": money(self.crew_total(cr))}
+        return out
+
+    def crew_pool(self, cr: Crew) -> Pool:
+        """cp168: the crew as a pool: equal shares over the lead and members, as patron shares."""
+        keys = [k for k in [cr.lead] + cr.members if k in self.people]
+        pl = Pool(cr.name, 1000 + cr.order)
+        n = len(keys)
+        if n:
+            base = (Decimal("100") / n).quantize(Decimal("0.01"), rounding=ROUND_HALF_EVEN)
+            shares = [base] * n
+            shares[0] += Decimal("100") - base * n
+            pl.members = [Member("person", k, sh, i) for i, (k, sh) in enumerate(zip(keys, shares))]
+        return pl
+
+    def all_pools(self) -> list:
+        pools = sorted(self.pools.values(), key=lambda x: x.order)
+        if self.on("crews_pools"):
+            pools += [self.crew_pool(cr) for cr in sorted(self.crews.values(), key=lambda x: x.order)]
+        return pools
+
+    def rate_calendar(self) -> dict:
+        """cp170: per grade, the rate in force on the first of each month of today's year."""
+        if not self.on("rate_calendar"):
+            return {}
+        out = {}
+        for g in self.grades:
+            for m in range(1, 13):
+                r = self.rate_at(g, date(self.today.year, m, 1))
+                out[f"rate-month-{g}-{self.today.year}-{m:02d}"] = "n/a" if r is None else money(r)
+        return out
+
+    @write
+    def add_note(self, text: str) -> None:
+        if not self.on("notes") or not text.strip():
+            raise Refused("note-error")
+        self.notes.append((self.today, self.user, text.strip()))
+        self.audit_line("NOTE_ADDED", ("text", text.strip(), 181))
+
+    def notes_view(self) -> list:
+        return [f"{d.isoformat()} {u}: {t}" for d, u, t in reversed(self.notes)]
+
+    @write
+    def hold_claim(self, name: str, idx: int) -> Claim:
+        """cp182: hold or release a claim."""
+        c = self.claim(name, idx)
+        if not self.on("claim_hold") or c.status not in ("OPEN", "PENDING"):
+            raise Refused("claim-error")
+        c.held = not c.held
+        self.audit_line("CLAIM_HELD" if c.held else "CLAIM_RELEASED", *self._ident(c))
+        return c
+
+    @write
+    def waive(self, name: str, idx: int) -> Claim:
+        c = self.claim(name, idx)
+        if not self.on("waiver") or self.role() != "steward" or c.status not in ("OPEN", "PENDING") or c.waived:
+            raise Refused("claim-error")
+        c.waived = True
+        self.audit_line("CLAIM_WAIVED", *self._ident(c))
+        return c
+
+    @write
+    def flag(self, name: str, reason: str, until: str) -> None:
+        p = self.person(name)
+        if not self.on("flags") or not reason.strip() or self.role() != "steward":
+            raise Refused("person-error")
+        p.flag = (reason.strip(), day(until))
+        self.audit_line("PERSON_FLAGGED", ("name", p.name, 179), ("reason", reason.strip(), 179), ("until", until, 179))
+
+    def flag_in_force(self, p: Person) -> bool:
+        return bool(self.on("flags") and p.flag and self.today <= p.flag[1])
+
+    @write
+    def set_approver(self, name: str, user: str) -> None:
+        p = self.person(name)
+        if not self.on("approver"):
+            raise Refused("person-error")
+        p.approver = user.strip()
+        self.audit_line("APPROVER_SET", ("name", p.name, 199), ("user", p.approver, 199))
+
+    def import_openings(self, lines: list) -> int:
+        """cp173: all-or-nothing lines of name,period,amount added to the person's carried figure
+        for that period."""
+        if not self.on("opening_import"):
+            raise Refused("opening-error")
+        parsed = []
+        for line in lines:
+            if not line.strip():
+                continue
+            parts = [x.strip() for x in line.split(",")]
+            if len(parts) != 3 or parts[1] not in self.periods:
+                raise Refused("opening-error")
+            p = self.find_person(parts[0])
+            if p is None:
+                raise Refused("opening-error")
+            try:
+                a = D(parts[2])
+            except Exception:
+                raise Refused("opening-error")
+            if a != a.quantize(Decimal("0.01")) or a < 0:
+                raise Refused("opening-error")
+            parsed.append((p, parts[1], a))
+        if not parsed:
+            raise Refused("opening-error")
+        for p, per, a in parsed:
+            self._set_opening(p.name, per, money(a))
+        return len(parsed)
+
+    @write
+    def _set_opening(self, name: str, per: str, amount: str) -> None:
+        p = self.person(name)
+        p.openings[per] = p.openings.get(per, Decimal("0")) + D(amount)
+        self.audit_line("OPENING_SET", ("name", p.name, 173), ("period", per, 173), ("amount", amount, 173))
+
+    @write
+    def transfer_undo(self, name: str) -> Person:
+        """cp175: a transferred person sent back on the day they arrived, as a transfer would."""
+        p = self.person(name)
+        if not self.on("transfer_undo") or self.role() != "steward" or not p.origin \
+                or p.arrived_on != self.today or p.origin not in self.family:
+            raise Refused("person-error")
+        origin = p.origin
+        p.origin = ""
+        try:
+            self.transfer(name, origin)
+        except Refused:
+            p.origin = origin
+            raise
+        self.audit_line("PERSON_TRANSFER_UNDONE", ("name", p.name, 175), ("to", origin, 175))
+        return p
+
+    def bulk_void(self, items: list, reason: str | None = None) -> list:
+        out = []
+        for name, idx in self._list_order(items):
+            try:
+                if not self.on("bulk_void"):
+                    raise Refused("claim-error")
+                self.void_claim(name, idx, *((reason,) if reason else ()))
+                out.append(True)
+            except Refused:
+                out.append(False)
+        return out
+
+    def shown_name(self, p: Person) -> str:
+        """cp192: a person's name as every surface shows it: with the grade in force today."""
+        return f"{p.name} ({self.grade_now(p)})" if self.on("name_with_grade") else p.name
+
+    def activity(self) -> list:
+        """cp197: `<user> <EVENT> <count>` over this sheet's audit, by user then event."""
+        if not self.on("activity"):
+            return []
+        counts: dict = {}
+        for event, user, _f in self.audit:
+            counts[(user, event)] = counts.get((user, event), 0) + 1
+        return [f"{u} {e} {n}" for (u, e), n in sorted(counts.items())]
+
+    def dups(self) -> list:
+        """cp198: `<name> <date> <amount> x<n>` for every person, date and amount with two or
+        more claims (void and deleted left out), people in list order, then date, then amount."""
+        if not self.on("dups"):
+            return []
+        out = []
+        for p in self.listed():
+            groups: dict = {}
+            for c in self.person_claims(p):
+                if c.status in ("VOID", "DELETED"):
+                    continue
+                groups[(c.date, c.amount)] = groups.get((c.date, c.amount), 0) + 1
+            for (d, a), n in sorted(groups.items()):
+                if n >= 2:
+                    out.append(f"{p.name} {d.isoformat()} {money(a)} x{n}")
+        return out
+
+    def dashboard(self) -> dict:
+        if not self.on("dashboard"):
+            return {}
+        if self.role() != "steward":
+            return {"dash-pending-count": "", "dash-review-count": "", "dash-overdue-count": ""}
+        sheets = [self] + self.descendants() if self.on("dash_tree") else [self]
+        return {"dash-pending-count": str(sum(1 for m in sheets for c in m.claims if c.status == "PENDING")),
+                "dash-review-count": str(sum(1 for m in sheets for c in m.claims if c.status == "REVIEW")),
+                "dash-overdue-count": str(sum(len(m.overdue_claims()) for m in sheets))}
+
+    def sheet_aged(self) -> dict:
+        if not self.on("sheet_age"):
+            return {}
+        tot = {"0-30": Decimal("0"), "31-60": Decimal("0"), "61": Decimal("0")}
+        for p in self.people.values():
+            for k, v in self.aged(p).items():
+                tot[k] += v
+        return {"rollup-aged-0-30": money(tot["0-30"]), "rollup-aged-31-60": money(tot["31-60"]),
+                "rollup-aged-61": money(tot["61"])}
+
+    def export_statement_csv(self, p: Person) -> str:
+        """cp195: number,date,amount,figure,status of the claims the last statement bound."""
+        if self._export_src() is not self:
+            src = self._export_src()
+            q = src.people.get(self._key(p))
+            return src.export_statement_csv(q) if q is not None else "number,date,amount,figure,status\n"
+        buf = io.StringIO()
+        w = csv.writer(buf, lineterminator="\n")
+        w.writerow(["number", "date", "amount", "figure", "status"])
+        for c in sorted(self.person_claims(p), key=lambda c: c.idx):
+            if c.stated is not None:
+                w.writerow([c.number or "", c.date.isoformat(), money(c.amount),
+                            "n/a" if c.stated == "n/a" else money(c.stated), c.status])
+        return buf.getvalue()
+
     def export_claims_csv(self) -> str:
         """cp129: person,number,date,amount,due,status,period in list order, oldest claim first."""
+        if self._export_src() is not self:
+            return self._export_src().export_claims_csv()
         buf = io.StringIO()
         w = csv.writer(buf, lineterminator="\n")
         w.writerow(["person", "number", "date", "amount", "due", "status", "period"])
@@ -3091,10 +4416,12 @@ class Model:
 
     def export_pools_csv(self) -> str:
         """cp135: pool,member,share,cut per member in pool and member order."""
+        if self._export_src() is not self:
+            return self._export_src().export_pools_csv()
         buf = io.StringIO()
         w = csv.writer(buf, lineterminator="\n")
         w.writerow(["pool", "member", "share", "cut"])
-        for pl in sorted(self.pools.values(), key=lambda x: x.order):
+        for pl in self.all_pools():
             cuts = self.pool_cuts(pl)
             for m in pl.members:
                 v = cuts.get((m.kind, m.key))
@@ -3132,6 +4459,9 @@ class Model:
         d = self.asof.get(self.user) if self.has("asof") else None
         if d and self.on("asof"):
             src = self.asof_model(d)
+        pv = self.screen["preview"].get(self.user) if self.on("preview") else None
+        if pv and src is self:
+            src = self.preview_model(pv)
         vars_p = {p.order: p.var for p in self.people.values()}
         vars_c = {c.seq: c.var for c in self.claims}
         people = {}
@@ -3141,6 +4471,7 @@ class Model:
             people[key] = {"var": vars_p.get(p.order, ""), "visible": src.visible(p),
                            "cells": src.person_cells(p),
                            "periods": {n: src.person_period_text(p, per) for n, per in src.periods.items()},
+                           "carried": {n: src.carried_text(p, per) for n, per in src.periods.items()} if src.on("carried") else {},
                            "claims": [(vars_c.get(c.seq, ""), src.claim_cells(c)) for c in claims]}
         periods = {}
         for n, per in src.periods.items():
@@ -3151,23 +4482,85 @@ class Model:
                 periods[n]["period-fy"] = src.fy_of(per.start)
             if src.has("period_cap"):
                 periods[n]["period-cap"] = "" if per.cap is None else str(per.cap)
+            if src.has("period_lock"):
+                periods[n]["period-locked"] = "yes" if per.locked else "no"
+            if src.on("period_count"):
+                periods[n]["period-claims-count"] = str(sum(1 for c in src.claims if src.claim_period(c) is per
+                                                            and c.status not in ("VOID", "DELETED")))
         plans = {}
         for pl in src.plans:
             if pl.var:
                 cells = {"plan-generated": str(len(pl.generated))}
                 if src.on("plan_preview"):
                     cells["plan-next-dates"] = ", ".join(d.isoformat() for d in src.plan_next(pl))
+                if src.on("plan_pause"):
+                    cells["plan-paused"] = "yes" if (pl.pauses and pl.pauses[-1][1] is None) else "no"
+                if src.on("plan_history"):
+                    cells["plan-history"] = [f"{d.isoformat()} {t}" for d, t in pl.history]
                 plans[pl.var] = cells
         rates = {}
         for g in src.grades:
             r = src.rate_at(g, src.today)
             rates[g] = "n/a" if r is None else money(r)
-        return {"user": self.user, "sheet": self.sheet, "today": self.today.isoformat(),
+        rate_rows = {}
+        if src.on("rate_versions"):
+            for row in src.rates:
+                key = f"rate-row-{row[0]}-{row[1].isoformat() if row[1] else 'start'}"
+                rate_rows[key] = {"rate-pct": money(row[2]),
+                                  "rate-version": str(src.rate_versions.get((row[0], row[1]), 1))}
+        sheet_cells = self.sheet_cells()
+        if self.on("asof_tree") and src is not self:
+            sheet_cells.update(src.consolidated())
+        roles = {}
+        if self.on("asof_roles"):
+            roles = {f"role-row-{u}": r for u, r in sorted(src.roles.items())}
+        if self.has("preview"):
+            sheet_cells["sheet-preview"] = pv.isoformat() if pv else ""
+        view = {"user": self.user, "sheet": self.sheet, "today": self.today.isoformat(),
                 "people": people, "rollups": src.rollups(), "header": src.header(), "periods": periods,
-                "rates": rates, "summary": src.summary(), "sheet_cells": self.sheet_cells(),
+                "rates": rates, "summary": src.summary(), "sheet_cells": sheet_cells,
                 "tags": src.tag_totals(), "months": src.month_totals(),
-                "pools": src.pools_view(), "plans": plans,
+                "pools": src.pools_view(), "plans": plans, "crews": src.crews_view(),
+                "calendar": src.rate_calendar(), "dash": src.dashboard(), "notes": src.notes_view(),
+                "rate_rows": rate_rows, "roles": roles,
+                "hidden": sorted(self.screen["columns"].get(self.user, set())) if self.on("columns") else [],
                 "audit": list(self.audit)}
+        return self._localised(view)
+
+    def _localised(self, view: dict) -> dict:
+        """cp157: under the user's `de` locale every cell whose whole text is a figure shows it as
+        1.234,56; nothing else changes."""
+        if not self.on("locale") or self.screen["locale"].get(self.user) != "de":
+            return view
+        import re as _re
+        rx = _re.compile(r"^-?\d+\.\d\d$")
+
+        def fmt(v):
+            if isinstance(v, str) and rx.match(v):
+                sign = "-" if v.startswith("-") else ""
+                whole, frac = v.lstrip("-").split(".")
+                groups = []
+                while whole:
+                    groups.insert(0, whole[-3:])
+                    whole = whole[:-3]
+                return f"{sign}{'.'.join(groups)},{frac}"
+            if isinstance(v, dict):
+                return {k: fmt(x) for k, x in v.items()}
+            if isinstance(v, list):
+                return [fmt(x) for x in v]
+            if isinstance(v, tuple):
+                return tuple(fmt(x) for x in v)
+            return v
+        keep = {"audit", "user", "sheet", "today", "hidden", "notes"}
+        return {k: (v if k in keep else fmt(v)) for k, v in view.items()}
+
+    def set_locale(self, locale: str) -> None:
+        if self.on("locale") and locale in ("en", "de"):
+            self.screen["locale"][self.user] = locale
+
+    def set_columns(self, hidden: list) -> None:
+        if self.on("columns"):
+            self.screen["columns"][self.user] = set(hidden)
 
     def audit_text(self, n: int) -> list[str]:
         """The audit lines as a spec written at checkpoint n knows them: the longest run of
@@ -3229,6 +4622,34 @@ SLUG = {
     141: "monthly-plans", 142: "plan-preview", 143: "fiscal-year", 144: "numbering-per-fiscal-year",
     145: "bulk-redate", 146: "over-threshold-alert", 147: "snapshot-lines", 148: "claimed-without-corrections",
     149: "period-claim-cap", 150: "tree-search",
+    # ---- Act IV
+    151: "rounding-mode", 152: "imported-claims-open", 153: "rate-versions", 154: "classic-summary",
+    155: "review-state", 156: "forward-only-rates", 157: "user-locale", 158: "column-chooser",
+    159: "carried-figures", 160: "frozen-carried-and-as-of-tree", 161: "as-of-exports", 162: "claim-timeline",
+    163: "statement-lines", 164: "correction-limit", 165: "escalate", 166: "crews",
+    167: "crew-lead-total", 168: "crews-are-pools", 169: "person-terms-dated", 170: "rate-calendar",
+    171: "review-sla", 172: "pending-bound", 173: "opening-balances", 174: "late-charge-waiver",
+    175: "transfer-undo", 176: "statement-binds-late-charge", 177: "proof-kinds", 178: "steward-dashboard",
+    179: "flags", 180: "terms-by-version", 181: "sheet-notes", 182: "claim-hold",
+    183: "period-lock", 184: "hold-leaves-claimed", 185: "partial-settle", 186: "quarterly-periods",
+    187: "cut-history", 188: "clone-source-rates", 189: "default-grade", 190: "bulk-void",
+    191: "clerk-limit-per-grade", 192: "name-with-grade", 193: "sheet-age-buckets", 194: "settle-as-of-date",
+    195: "statement-export", 196: "floor-before-late-charge", 197: "activity-counts", 198: "duplicate-claims",
+    199: "approvers", 200: "hold-counts-except-cuts",
+    # ---- Act V
+    201: "consolidated-grades", 202: "snapshot-comparison", 203: "plan-pause", 204: "trim-at-consolidation",
+    205: "plan-history", 206: "restricted-role", 207: "year-end-rollover", 208: "number-on-settle",
+    209: "score", 210: "score-bands", 211: "score-lines", 212: "score-without-corrections",
+    213: "parent-plans", 214: "max-open-claims", 215: "sheet-comparison", 216: "cuts-frozen-at-close",
+    217: "shared-claims", 218: "review-assignment", 219: "rollover-undo", 220: "plan-amount-reaches-drafts",
+    221: "watched-total", 222: "dashboard-over-tree", 223: "grade-retire", 224: "cap-includes-cuts",
+    225: "grade-merge", 226: "preview-date", 227: "preview-exports", 228: "rollover-soft-closes",
+    229: "grades-editable", 230: "pending-sla", 231: "period-export", 232: "grade-merge-retroactive",
+    233: "due-by-override", 234: "tree-export", 235: "bulk-hold", 236: "deferred-bound-counts",
+    237: "today-permission", 238: "merge-undo", 239: "period-claim-counts", 240: "shared-due-per-holder",
+    241: "as-of-roles", 242: "person-timeline", 243: "person-export", 244: "trim-reaches-more-totals",
+    245: "rate-withdraw", 246: "claim-counts-per-person", 247: "reject-reason-required", 248: "policy-versions",
+    249: "policy-viewer", 250: "policy-export",
 }
 AREA = {n: "calc" for n in range(1, COVERAGE[1] + 1)}
 AREA.update({1: "entity", 2: "entity", 3: "entity", 5: "entity", 6: "audit", 16: "audit",
@@ -3245,7 +4666,20 @@ AREA.update({1: "entity", 2: "entity", 3: "entity", 5: "entity", 6: "audit", 16:
              126: "entity", 127: "view", 129: "view", 130: "view", 131: "entity", 133: "entity",
              134: "view", 135: "view", 137: "entity", 138: "entity", 139: "audit", 141: "entity",
              142: "view", 143: "entity", 145: "entity", 146: "audit", 147: "view", 149: "entity",
-             150: "view"})
+             150: "view",
+             152: "entity", 153: "entity", 154: "view", 155: "entity", 157: "view", 158: "view",
+             159: "view", 161: "view", 162: "view", 163: "view", 165: "audit", 166: "relation",
+             167: "view", 170: "view", 171: "view", 173: "entity", 174: "entity", 175: "entity",
+             177: "entity", 178: "view", 179: "entity", 181: "entity", 182: "entity", 183: "entity",
+             185: "entity", 186: "entity", 187: "view", 189: "entity", 190: "entity", 192: "view",
+             193: "view", 194: "entity", 195: "view", 197: "view", 198: "view", 199: "entity",
+             201: "view", 202: "view", 203: "entity", 205: "entity", 206: "entity", 207: "entity",
+             209: "view", 210: "view", 211: "audit", 213: "entity", 214: "entity", 215: "view",
+             217: "relation", 218: "entity", 219: "entity", 221: "view", 222: "view", 223: "entity",
+             225: "entity", 226: "view", 227: "view", 229: "entity", 230: "view", 231: "view",
+             233: "entity", 234: "view", 235: "entity", 237: "entity", 238: "entity", 239: "view",
+             241: "view", 242: "view", 243: "view", 245: "entity", 246: "view", 247: "entity",
+             249: "view", 250: "view"})
 
 REQUESTS = {
     1: """Anyone using the app first signs in by typing a name; there is no password. The signed-in
@@ -3989,6 +5423,363 @@ has that many OPEN or PENDING claims in it.""",
 whose name or an alias contains the typed text (case ignored), one line per person as
 <sheet id> <name> <due-total>, this sheet's people first in list order, then the other sheets' by
 sheet id.""",
+    # ---- Act IV
+    151: """The sheet gains a rounding mode (settings, dated like the floor; SETTING_CHANGED key=rounding
+value=<half-up or half-even>; anything else is refused with an error on the settings; blank means
+none). A claim whose date has a rounding mode in force rounds every live figure by that mode; a
+claim with none in force on its date rounds by the policy date as before.""",
+    152: """Pasted claims now arrive OPEN: after the lines are checked, each claim is added and then opened
+by the signed-in user exactly as the open button would (numbered in paste order, writing
+CLAIM_ADDED then CLAIM_OPENED with the rollup lines, going to REVIEW when that applies later), and
+any refusal the open button would give (a note required, a period's cap, a flag, a permission)
+refuses the whole paste. A line naming a person, date and note that match one of their claims
+updates that claim instead of adding one: a DRAFT is edited to the line's amount (CLAIM_EDITED when
+it changes) and opened; a claim in any other status matching the line is an error for the paste.
+Show how many lines went through.""",
+    153: """A rate is now kept as versions: setting a rate for a grade and from-date that already exist
+keeps the value it replaces as an older version and adds a new one, and the rate row shows its version count. The rate in force is always the newest version; everything else is as before.""",
+    154: """Add a classic summary beside the summary: per period, the due-total counting each claim by its
+status now (OPEN, SETTLED and PENDING count; a closed period shows the figure fixed when it closed),
+and the sheet's due-total with no trimming (everyone's due-total added up). Both summaries show at
+once and both must be right.""",
+    155: """The sheet gains a review threshold (settings, dated like the floor; SETTING_CHANGED
+key=review-threshold value=<amount>; blank means none). A claim whose due is above the threshold in
+force on its date goes to REVIEW when opened instead of OPEN (CLAIM_REVIEW naming the claim, no
+number yet), recording who opened it. A steward's review button on it makes it OPEN (CLAIM_REVIEWED
+then CLAIM_OPENED, with its number then); anyone else is refused. A REVIEW claim counts in no total,
+cannot be edited, settled or split, and can be voided; it is counted in the header and summary
+status counts as REVIEW. The bulk open button counts a claim that went to REVIEW as opened.""",
+    156: """A rate saved with a from-date on or after the sheet's today is forward-only: it applies only to
+claims added after it was saved (by any path), and claims already on the sheet keep using the rates
+that applied to them. A rate with no from-date, or with a from-date before the sheet's today when it
+is saved, applies to every claim as before. The rates panel, the rate preview and the rate calendar
+show the rate in force without regard to this.""",
+    157: """Each user has a locale (a select on the screen, en unless chosen, saved per user, no audit line).
+Under de, every figure the screen shows that user (amounts, due figures, totals, rates, shares,
+cuts: any cell whose whole text is a number with two decimals) is shown as 1.234,56 (a dot every
+three digits, a comma before the decimals); under en as before. Entries are typed with a dot as
+before, and exports and audit lines are unchanged.""",
+    158: """Each user can choose which columns of the people list their screen shows: a checkbox per column
+(claimed, due-total, statement-count, stated-total, statement-date, overdue-count, overdue-total,
+patrons, backing, hold, retired, terms, contact, aliases), per user's screen. A column switched off has no cell on the screen at all; totals, the header, the summary and every other figure are
+unaffected.""",
+    159: """Each person's row shows, for every period, a carried figure: the due of their claims that count
+which belong to a period ending before this period starts and were still OPEN or
+PENDING at the end of this period (by the status log, as the period figures count). A period with
+nothing carried shows 0.00.""",
+    160: """Closing or soft-closing a period now fixes every person's carried figure for it, as it fixes
+their period figures, and reopening makes them live again. And while an as-of date is set, the
+consolidated figures over the tree are shown as of that date too: every sheet of the tree as it
+stood at the end of that day, with that date as the sheet's today.""",
+    161: """The people, claims and pools exports taken while an as-of date is set use the as-of figures.""",
+    162: """Each claim can show its timeline: a button on the claim lists the audit lines about it, newest
+first, each as the file holds it: the lines carrying its number (number=<its number>), and for a
+claim with no number the lines naming its person, amount and date together.""",
+    163: """Show on each person their statements, one line per statement still standing (a cancelled one
+is gone), oldest first, as <statement date> <due-total>.""",
+    164: """A correction may not exceed what remains of the claim it corrects: the target's amount less the
+amounts of the corrections already made against it (VOID or DELETED ones left out). A larger
+correction is refused with an error on the form.""",
+    165: """The sheet gains an escalation gap (settings, a number of days, blank means off, not dated;
+SETTING_CHANGED key=escalate-after value=<days>). Reminding a claim whose previous reminder was at
+least that many days before the sheet's today escalates it: ESCALATE naming the claim is written
+after the REMIND line, once per claim ever.""",
+    166: """The sheet has crews: a name (unique, not blank) and a lead chosen from the people, from a form
+(CREW_ADDED name=<name> lead=<person>); members added from the crew's row (CREW_MEMBER_ADDED
+crew=<crew> name=<person>; the lead, or a person already in the crew, is refused with an error on
+the crew). Show for each crew its lead and its due-total: the lead's and the members' due-totals
+added up, n/a skipped.""",
+    167: """The header shows the signed-in user's crew total when a person with the user's name leads a
+crew: the due-totals of the crews they lead, added up; nothing otherwise.""",
+    168: """A crew is now also a pool: it appears among the pools under its name, with the lead and the
+members as its members at equal shares (100.00 split as patrons' shares are, the remainder on the
+lead), and receives cuts like any pool. A pool cannot be added with a crew's name nor a crew with a
+pool's name. Crew totals stay as they are.""",
+    169: """A person's own terms can be dated: the person form gains a terms from-date. A save with terms and
+a from-date records those terms from that date, keeping the ones already recorded (a save for a
+from-date already recorded replaces it); a save with terms and no from-date records them, or clears
+them when blank, from the beginning of time, as before. A claim's due-by uses the person's terms in
+force on the claim's date (the latest from-date on or before it; none in force means the grade's or
+the sheet's terms); the row shows the terms in force on the sheet's today.""",
+    170: """Show a rate calendar: for each grade and each month of the sheet's today's calendar year, the
+rate in force on the first day of that month (n/a when none).""",
+    171: """The sheet has a review SLA (settings, days, not dated; SETTING_CHANGED key=review-sla
+value=<days>; blank means none). A REVIEW claim whose review day (the sheet's today when it went to
+REVIEW) plus the SLA days is before the sheet's today shows review-late yes; the summary counts
+such claims.""",
+    172: """A PENDING claim is now bound by a statement like any other claim that counts: while a statement
+binds it, it shows and totals the bound figure.""",
+    173: """Opening balances can be pasted as lines of name,period,amount (a person on the sheet by name or
+alias, a period on the sheet, an amount of two decimals, 0.00 or more). All lines are checked
+first; any error refuses the whole paste. Each line adds its amount to the person's carried figure
+for that period (OPENING_SET name=<name> period=<period> amount=<amount>). Show how many lines went
+through.""",
+    174: """A steward can waive a claim's late charge (a button on an OPEN or PENDING claim; CLAIM_WAIVED
+naming the claim; anyone else, any other status, or a claim already waived is refused with an error
+on the claim). A waived claim bears no late charge from then on, whatever its overdue state; show
+waived yes/no on the claim.""",
+    175: """On the sheet a transfer brought a person to, a steward can undo it on the same sheet-today they
+arrived (a button on the row; any later day, anyone else, or a person who did not arrive by transfer
+is refused with an error on the row): the person is transferred back to the sheet they came from by
+exactly the transfer rules and lines, and this sheet then writes PERSON_TRANSFER_UNDONE name=<name>
+to=<sheet id>.""",
+    176: """A statement now binds a claim's due as shown, late charge included: while bound, the claim shows
+and totals that figure and its late charge no longer follows the sheet's today. The next statement
+binds the figure as shown then (so a bound figure stays as it is until the statement is cancelled).
+A settled claim's frozen figure is unaffected.""",
+    177: """A proof has a kind, receipt or photo, chosen when it is added (receipt when none is chosen);
+CLAIM_PROOF_ADDED gains kind=<kind> at its end when a kind was chosen, and the claim shows a count
+per kind beside the total. The sheet gains proof kinds (settings, a comma separated list of kinds, not dated;
+SETTING_CHANGED key=proof-kinds value=<list>): while set, a claim above the proof threshold needs
+at least one proof of each listed kind before it can be settled or approved.""",
+    178: """The screen shows a steward's dashboard: the count of PENDING claims, of REVIEW claims and of
+overdue claims that count, over the sheet. A user who is not a steward sees the three cells
+empty.""",
+    179: """A steward can flag a person with a reason and an until date (entries and a button on the row;
+PERSON_FLAGGED name=<name> reason=<reason> until=<date>; anyone else or a blank reason is refused
+with an error on the row). While the sheet's today is on or before the until date the row shows the
+reason, and only a steward may open a claim of that person (alone, by the bulk button, or by a
+paste); after the date the flag shows nothing and has no effect.""",
+    180: """The terms that fix a claim's due-by are now the terms in force on the day the claim was created
+(the sheet's today then), not on the claim's date: the person's own terms, their grade's and the
+sheet's are each looked up on that day. Every due-by on the sheet is worked out this way.""",
+    181: """The sheet has notes: a text and an add button (NOTE_ADDED text=<text>; a blank note is refused
+with an error beside the entry). Show the notes newest first as <sheet's today when added>
+<user>: <text>.""",
+    182: """An OPEN or PENDING claim can be held and released with a toggle on the claim (CLAIM_HELD and
+CLAIM_RELEASED naming the claim; any other status is refused with an error on the claim). A held
+claim leaves every live total exactly as a held person's claims do (a figure bound by a statement
+stays in). Show held yes/no on the claim.""",
+    183: """A steward can lock and unlock a period (buttons on the period; PERIOD_LOCKED and PERIOD_UNLOCKED
+period=<name>; anyone else, or locking a locked period, is refused with an error on the period).
+A locked period cannot be reopened. Show locked yes/no.""",
+    184: """A hold (a person's or a claim's) no longer takes a claim out of claimed: claimed, the claimed-total
+and the ROLLUP and TOTALS lines count a held claim's amount; only the due figures leave the totals
+while held.""",
+    185: """An OPEN claim can be part-settled: an amount and a button on the claim. The amount is split off
+exactly as the split button does, and the new claim is settled at once by the signed-in user
+exactly as the settle button does (going to PENDING when the clerk limit says so); a split or a
+settle that would be refused refuses the whole action with an error on the claim and changes
+nothing.""",
+    186: """A year entry and a button generate the four calendar quarters of that year as periods named
+<yyyy>-Q1 to <yyyy>-Q4, each as the period form would add it (a quarter that exists or overlaps is
+left out); show how many were made.""",
+    187: """For every period whose to-date is on or before the sheet's today, each pool member's line shows
+the member's cut as it stood at the end of that period (the pool, its members, the pot and the
+holds as they were then, with that day as the sheet's today), empty when there was none.""",
+    188: """When a grade has no rate in force on a date on a sheet nor on its parents, a sheet that was
+cloned uses the rate of the sheet it was cloned from (and so on up that sheet's parents and
+source).""",
+    189: """The sheet has a default grade (settings, one of the grades, blank means A, not dated;
+SETTING_CHANGED key=default-grade value=<grade>; anything else is refused). The quick-add bar gives
+a new person that grade, and an import line with a blank grade uses it. Changing it changes no
+one.""",
+    190: """Selected claims can be voided together: a reason select (when the sheet has void reasons) and a
+button beside the bulk buttons; each selected claim is voided in list order exactly as the row's
+void does (with its CLAIM_VOIDED and rollup lines); show how many were voided and how many
+refused.""",
+    191: """The clerk limit can be set per grade (settings, SETTING_CHANGED key=clerk-limit-<grade>
+value=<amount>, dated like the floor; blank means none): for a claim, the limit in force is its
+person's grade's limit on the sheet's today when one is set, else the sheet's.""",
+    192: """Every place the screen shows a person's name now shows <name> (<grade in force today>): the
+row's name cell, the patrons, the crew lead, the search lines. Exports, audit lines, the import and
+paste boxes and the selects of names are unchanged (a select lists the plain name).""",
+    193: """Show for the sheet the due of OPEN and PENDING claims that count by age, as the people's age
+buckets added up (0 to 30, 31 to 60, 61 or more days), not trimmed.""",
+    194: """A claim can be settled as of a date: a date entry beside the settle button. With a date on or
+before the sheet's today, the frozen figure is the claim's due as it stood at the end of that day
+(every change made while the sheet's today was on or before that date, with that date as today, as
+the as-of view works it out), and CLAIM_SETTLED gains on=<date> at its end; a date after today, or
+a claim that did not exist then, is refused with an error on the claim.""",
+    195: """A button on each person's row downloads their statement as a CSV file: a header line
+number,date,amount,figure,status then one line per claim of theirs bound by their last statement,
+oldest first, with the bound figure as the claim shows it.""",
+    196: """The floor is applied before the late charge again: a claim's live due is its floored rate figure
+plus the late charge worked out on that floored figure, and a statement binds the floored figure.
+Settled figures stay frozen; corrections are unchanged.""",
+    197: """Show the activity of the sheet: for every user and every event in the sheet's audit file, one
+line <user> <EVENT> <count>, sorted by user then event.""",
+    198: """Show the duplicate claims: for each person, date and amount with two or more claims (VOID and
+DELETED claims left out), one line <name> <date> <amount> x<count>, people in list order, then by
+date, then by amount.""",
+    199: """A person may have an approver: a user name on the row (an entry and a button; APPROVER_SET
+name=<name> user=<user>). That user may approve or reject the person's PENDING claims as a steward
+may (the opener and the last editor still may not approve their own).""",
+    200: """A held person's claims, and held claims, now count in every total again: claimed, due-totals,
+overdue, the period figures, backing, the rollup lines. The only thing a hold still does is in the
+pools: a held person gets no cut and their share is spread over the others, as before.""",
+    # ---- Act V
+    201: """The consolidated figures gain, per grade on any sheet of the tree, the due-totals of the people on
+that grade (retired people left out) added up over the tree, and per status the count of claims in
+that status over the tree.""",
+    202: """Two snapshot dates can be compared: a from-date, a to-date and a button list, per person in list
+order, <name> <then> <now>: `then` is the due-total of the SNAPSHOT written when the sheet's today
+was changed away from the from-date (empty when there is none), `now` is likewise the snapshot for
+the to-date, or the person's due-total now when the to-date is blank.""",
+    203: """A plan can be paused and resumed (buttons on the plan; PLAN_PAUSED and PLAN_RESUMED
+name=<person> start=<plan start>; pausing a paused plan or resuming a running one is refused).
+A plan date on or after the day it was paused and before the day it was resumed is skipped, not
+postponed. Show paused yes/no on the plan.""",
+    204: """The trim rule now applies once over the whole tree: the consolidated due-total and overdue-total
+leave out the single highest and the single lowest person's figure over all people of the tree
+when three or more have one, instead of adding up each sheet's trimmed total. The consolidated
+people count counts each person once across the tree: people whose names or aliases match (as names
+are compared) are one person.""",
+    205: """A plan's amount can be changed (an entry and a save button on the plan; PLAN_CHANGED
+name=<person> start=<plan start> amount=<new amount>; a bad amount is refused). The new amount
+applies to the claims generated from then on; claims already generated keep theirs. Each plan lists
+its changes, oldest first, as <date> amount=<amount>.""",
+    206: """A fourth role, restricted, can be assigned. A restricted user sees on the people list only the
+people of the crews they lead or belong to (by a person with the user's name) and that person
+themselves: no other row is on the screen. Every other figure (the totals row, the header, the
+summary, the periods, the pools) is still over everyone on the sheet.""",
+    207: """A steward can roll the year over: a year entry and a button. It generates the next fiscal year's
+twelve periods exactly as the fiscal year generator does, and for each person their open figure at
+the end of the old year's last period (the due of their claims that count, belonging to a period of
+the old year, OPEN or PENDING at that period's end) is added to their carried figure for the new
+year's first period as OPENING_SET lines; then ROLLOVER fy=<old FY> periods=<made> is written. A year
+with no periods, anyone but a steward, or a bad year is refused with an error.""",
+    208: """A claim now receives its number when it is settled or approved rather than when it is opened:
+an OPEN, PENDING or REVIEW claim shows no number, and the next number in its sequence (sheet-wide,
+per fiscal year or per period, by the date that places it then) is given at settlement. A claim
+split off, moved or re-dated before settlement has no number to keep; a settled claim's number is
+kept by a void as before. Claims already numbered keep their numbers.""",
+    209: """Show on each person their score: their settled figures (the due of their SETTLED claims that
+count) divided by 100, minus 5 for every overdue claim of theirs that counts, rounded half to even
+to a whole number (shown with no decimals, a minus sign when negative).""",
+    210: """The sheet has score thresholds (settings, whole numbers, not dated; SETTING_CHANGED key=score-mid
+and key=score-high). While both are set, each person shows a band: HIGH when the score is at or
+above the high threshold, MID when at or above the mid one, else LOW; nothing while either is
+blank.""",
+    211: """The sheet gains a score log switch (settings, on or blank, not dated; SETTING_CHANGED key=score-log value=on). While it is on, changing the sheet's today writes, before the SNAPSHOT
+lines, one line SCORE name=<name> score=<score> per person in list order, with the score as it
+stood on the day being left.""",
+    212: """The score's settled figures now leave out corrections: only SETTLED claims that correct nothing
+count toward it.""",
+    213: """A plan on a sheet may name one of the sheet's descendants (a sheet id on the plan form; PLAN_ADDED
+gains sheet=<id> at its end; a sheet that is not a descendant is refused). Its claims are then
+generated for the person of the same name on that sheet (none when there is no such person), by
+that sheet's rules and written in that sheet's audit; the plan still counts what it made.""",
+    214: """The sheet has a maximum of open claims per person (settings, a whole number, blank means none, not
+dated; SETTING_CHANGED key=max-open value=<n>). Opening a claim, alone or by the bulk button or a
+paste, is refused when the person already has that many OPEN or PENDING claims.""",
+    215: """A sheet id entry and a button compare this sheet with another: one line per grade of this sheet,
+<grade> <this sheet's summary due-total for the grade> <the other sheet's>, 0.00 for a grade the
+other sheet has no one on; a sheet that does not exist gives no lines.""",
+    216: """Closing or soft-closing a period now fixes every pool member's cut for that period as it stood at
+that moment (the per-period cut cell shows the fixed figure from then on, even when the period
+closed after its to-date), and reopening makes it live again.""",
+    217: """A claim can be shared with other people on the sheet: a person select, a share percent (two
+decimals, more than 0.00) and a button on the claim (CLAIM_SHARED naming the claim, ending
+with=<person> share=<share>; the claim's own person, a person already holding a share, or shares
+totalling more than 100.00 are refused; a SETTLED, VOID or DELETED claim cannot be shared). Each
+holder's due-total includes their part: the claim's due times their share divided by 100, rounded
+half to even; the claim's own person's due-total counts the claim's due less the holders' parts.
+Show the holders on the claim as <name> <share>, comma and space separated.""",
+    218: """A steward can assign a REVIEW claim to a user (an entry and a button on the claim;
+REVIEW_ASSIGNED naming the claim and ending user=<user>; a blank user, any other status or anyone
+else is refused). The claim shows the assigned user, and the header shows the signed-in user the
+count of REVIEW claims assigned to them.""",
+    219: """A steward can undo the last rollover on the same sheet-today it was made (a button;
+ROLLOVER_UNDONE fy=<old FY>): the periods it generated are removed and the opening balances it set
+are taken back. A later day, anyone else, or a generated period that a claim now belongs to is
+refused with an error.""",
+    220: """Changing a plan's amount now also changes the amount of the claims it generated that are still
+DRAFT (each as the claim form would edit it, writing CLAIM_EDITED); claims in any other status keep
+theirs.""",
+    221: """The header shows the signed-in user the due-totals of the people they watch, added up (0.00 when
+watching no one).""",
+    222: """The steward's dashboard counts are now over the sheet and all its descendants.""",
+    223: """A grade can be retired (a select and a button; GRADE_RETIRED grade=<grade>; a retired grade is
+refused). People on a retired grade keep it, but it cannot be chosen for a new person or in an
+edit, by the form, the quick-add bar (the default grade falling back to A) or an import.""",
+    224: """The cap now covers a person's due-total plus their cut total: their due-total is held to the cap
+less their cut total (not below 0.00), and the excess is what the figures exceed that by.""",
+    225: """A steward can merge a grade into another (two selects and a button; GRADE_MERGED from=<grade>
+into=<grade>; the same grade twice, or anyone else, is refused): every person whose grade in force
+today is the merged grade is given the other from the sheet's today, each exactly as the person
+form would (PERSON_EDITED and the rollup lines, in list order).""",
+    226: """A user can set a preview date on their screen (an entry, a set button and a clear button; show
+it, or nothing). While it is set, every figure on the screen for that user is shown as if the
+sheet's today were that date (overdue, late charges, holds, deferrals, retirements, the grade and
+rate in force), over the sheet's current records; every change still uses the sheet's real today,
+and nothing that a change of today does (snapshots, scores, auto-closing) happens. The preview
+belongs to the signed-in user's screen.""",
+    227: """Exports taken while a preview date is set use the preview figures.""",
+    228: """The rollover now also soft-closes every period of the old fiscal year that is still open, in
+start-date order, each as a soft close would (PERIOD_SOFT_CLOSED), after the ROLLOVER line.""",
+    229: """Grades can be added (an entry and a button; GRADE_ADDED grade=<grade>): a code of one to three
+capital letters not yet a grade; anything else is refused. A new grade appears in every grade
+select, the summary, the rates and the rate calendar.""",
+    230: """The sheet has a pending SLA (settings, days, not dated; SETTING_CHANGED key=pending-sla
+value=<days>; blank means none). A PENDING claim whose pending day (the sheet's today when it went
+to PENDING, the latest time) plus the SLA is before the sheet's today shows pending-late yes; the
+summary counts such claims.""",
+    231: """A button downloads the period figures as a CSV file: a header line person,period,figure,carried
+then one line per person and period, people in list order and periods in the order added, with the
+figures as the rows show them.""",
+    232: """A grade merge is now retroactive: for every person it moves, every grade record of theirs on the
+merged grade becomes the other grade, so all their claims, whatever their date, use the other
+grade's rates (and its terms and thresholds) from then on. Frozen figures and figures bound by a
+statement are unchanged.""",
+    233: """A steward can set a claim's due-by directly (a date entry and a button on a DRAFT, OPEN or PENDING
+claim; CLAIM_DUE_BY_SET naming the claim and ending old=<old due-by> new=<new>; anyone else or any
+other status is refused). A due-by set this way stays as set: a holiday added later does not move
+it. Overdue, the late charge, grace and the period the claim belongs to follow the set date.""",
+    234: """A button downloads the people of the whole tree as a CSV file: a header line
+sheet,name,grade,due-total then one line per person, this sheet first in list order, then the
+other sheets of the tree by sheet id.""",
+    235: """Selected people can be held together: a from-date, a to-date and a button beside the bulk
+buttons; each selected person gets the hold in list order exactly as the row's hold does; show how
+many were held.""",
+    236: """A claim that a statement has bound and that is then deferred stays in the totals, counts and
+can be settled while bound: the deferral takes effect only once the binding ends (the statement is
+cancelled, or the next statement leaves the claim unbound).""",
+    237: """The permission matrix gains today: which roles may change the sheet's today (SETTING_CHANGED
+key=perm-today value=<roles>; blank keeps the standing rule, anyone but a viewer). A change by a
+role not allowed is refused with the sheet's error.""",
+    238: """A steward can undo the last merge into a person on the same sheet-today it was made (a button on
+the row; PERSON_MERGE_UNDONE name=<the person restored> from=<the person merged into>): the merged
+person is back at the end of the list with the claims that came from them (their numbers and
+status as they are now) and their own aliases, which leave the other's; patron and pool changes
+stay. Any later day, anyone else, or a person with no merge to undo is refused with an error.""",
+    239: """Show on each period the count of claims belonging to it (VOID and DELETED claims left out).""",
+    240: """A shared claim's parts are now worked out per holder: each holder's part is the claim's amount
+times their share divided by 100, times the rate of the holder's own grade in force on the claim's
+date, divided by 100, rounded like the claim (0.00 when their grade has no rate); the claim's own
+person counts the claim's due less those parts. A settled claim keeps its parts as frozen.""",
+    241: """While an as-of date is set, the roles shown on the screen are those in force at the end of that
+day.""",
+    242: """Show on each person their timeline: one line per dated thing about them in date order (a date's
+grade changes, then claims, then holds, then retirements, then unretirements), as
+<date> claim <amount> <status>, <date> grade <grade>, <date> hold [to <date>], <date> retired,
+<date> unretired.""",
+    243: """A button on each person's row downloads their row as a CSV file: a header line cell,value then one
+line per cell for person-name, person-grade, person-claimed, person-due-total, person-statement-count,
+person-overdue-total, person-hold, person-retired, person-aliases and person-score, in that order,
+each with the value as the row shows it.""",
+    244: """The trim rule now also applies to the sheet's settled-total, open-total and cut total (the single
+highest and lowest person's figure left out when three or more have one), and the consolidated
+figures gain a settled-total, an open-total and a cut total trimmed once over the tree.""",
+    245: """A steward can withdraw a rate (a button on the rate row; RATE_WITHDRAWN grade=<grade> from=<date
+when one>): the newest version of that grade and from-date is removed and the version before it, when there is one, applies again; with no version before it the rate is gone. Anyone else is
+refused.""",
+    246: """Show on each person the count of their OPEN claims and of their SETTLED claims.""",
+    247: """Rejecting a pending claim now needs a reason: a blank reason is refused with an error on the
+claim.""",
+    248: """The policy settings (the rounding mode, the floor, the cap, the terms, the late percent and the
+clerk limit) are now versioned together: every change to one of them is a new policy version,
+numbered from 1 in the order made; the screen shows the current version number, and each claim
+shows the version in force on its date (the number of versions whose from-date is on or before
+the claim's date; a version with no from-date counts always). The cap and the clerk limit are now
+the values in force on the claim's date rather than on the sheet's today: a person's cap is the
+one in force on the date of their latest claim that counts, and a claim's clerk limit the one on its
+own date.""",
+    249: """Show the policy versions: one line per version, oldest first, as <version> <from or start>
+<key>=<value> <count of claims whose policy version it is>.""",
+    250: """A button downloads the policy versions as a CSV file: a header line
+version,from,key,value,claims,due-total then one line per version with its claims' count and the
+due of those that count, added up.""",
 }
 
 ALGORITHM = {4: "normalised-uniqueness", 8: "workflow-counting", 12: "half-even-sum-of-rounded",
@@ -4003,4 +5794,9 @@ ALGORITHM = {4: "normalised-uniqueness", 8: "workflow-counting", 12: "half-even-
              100: "batch-all-or-nothing",
              106: "penny-allocation", 108: "equal-share-allocation", 115: "nested-allocation",
              120: "share-reallocation", 131: "plan-date-generation", 140: "remainder-to-smallest",
-             141: "month-end-clamp", 144: "fiscal-year-numbering"}
+             141: "month-end-clamp", 144: "fiscal-year-numbering",
+             156: "rate-version-resolution", 159: "carried-balance", 164: "correction-remaining",
+             176: "bound-late-charge", 180: "terms-by-version", 187: "cut-as-of-period-end",
+             194: "settle-as-of-date",
+             204: "trim-once-over-the-tree", 207: "year-end-carry-forward", 208: "number-on-settle",
+             209: "score", 217: "share-allocation", 240: "share-per-holder-rate", 248: "policy-version-resolution"}

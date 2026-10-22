@@ -120,7 +120,10 @@ def apply(m: hell.Model, st: tuple) -> None:
         elif op == "unretire":
             m.unretire(a[0])
         elif op == "plan":
-            m.add_plan(*a)
+            if len(a) > 5:
+                m.add_plan(*a[:5], hell_sheet_id(a[5]) if m.k >= hell.RULES["plan_tree"] else None)
+            else:
+                m.add_plan(*a)
         elif op == "generate":
             m.generate_plans()
         elif op == "line":
@@ -131,7 +134,7 @@ def apply(m: hell.Model, st: tuple) -> None:
             m.bulk_redate(*a)
         elif op == "generate_fy":
             m.generate_fy(a[0])
-        elif op in ("search", "order", "export_claims", "export_pools"):
+        elif op in ("search", "order", "export_claims", "export_pools", "timeline"):
             pass
         elif op == "claim2":
             m.add_claim(a[0], a[1], a[2], a[3], twice=True)
@@ -146,12 +149,71 @@ def apply(m: hell.Model, st: tuple) -> None:
             m.claim_edit_cancel(*a)
         elif op == "void":
             m.void_claim(a[0], a[1], *(a[2:] if m.has("void_reasons") else ()))
-        elif op in ("open", "settle", "approve", "resettle", "defer", "redate"):
+        elif op in ("open", "settle", "approve", "resettle", "defer", "redate", "review"):
+            if op == "settle" and len(a) > 2 and not m.has("settle_date"):
+                a = a[:2]
             getattr(m, op + "_claim")(*a)
+        elif op == "waive":
+            m.waive(*a)
+        elif op == "claim_hold":
+            m.hold_claim(*a)
+        elif op == "settle_part":
+            m.settle_part(*a)
+        elif op == "flag":
+            m.flag(*a)
+        elif op == "approver":
+            m.set_approver(*a)
+        elif op == "note":
+            m.add_note(a[0])
+        elif op == "crew":
+            m.add_crew(*a)
+        elif op == "crew_member":
+            m.add_crew_member(*a)
+        elif op == "lock":
+            m.lock_period(*a)
+        elif op == "generate_quarters":
+            m.generate_quarters(a[0])
+        elif op == "import_openings":
+            m.import_openings(a[0])
+        elif op == "transfer_undo":
+            m.transfer_undo(a[0])
+        elif op == "bulk_void":
+            m.bulk_void(*a)
+        elif op in ("activity", "dups", "export_statement", "locale", "columns", "snapshot_compare", "compare",
+                    "policy", "export_periods", "export_tree", "export_person", "export_policy", "preview_clear"):
+            pass
+        elif op == "plan_pause":
+            m.pause_plan(*a)
+        elif op == "plan_amount":
+            m.change_plan_amount(*a)
+        elif op == "rollover":
+            m.rollover(a[0])
+        elif op == "rollover_undo":
+            m.rollover_undo()
+        elif op == "share":
+            m.share_claim(*a)
+        elif op == "assign_review":
+            m.assign_review(*a)
+        elif op == "grade_retire":
+            m.retire_grade(a[0])
+        elif op == "grade_add":
+            m.add_grade(a[0])
+        elif op == "grade_merge":
+            m.merge_grade(*a)
+        elif op == "preview":
+            m.set_preview(a[0])
+        elif op == "set_due_by":
+            m.set_due_by(*a)
+        elif op == "bulk_hold":
+            m.bulk_hold(*a)
+        elif op == "merge_undo":
+            m.merge_undo(a[0])
+        elif op == "withdraw_rate":
+            m.withdraw_rate(*a)
         elif op == "reject":
             m.reject_claim(*a)
         elif op == "proof":
-            m.add_proof(*a)
+            m.add_proof(a[0], a[1], *(a[2:] if m.has("proof_kinds") else ()))
         elif op == "split":
             m.split_claim(*a)
         elif op == "rate":
@@ -218,6 +280,10 @@ ROW_OPS = {"claim": (0,), "claim2": (0,), "claim_edit": (0,), "claim_edit_open":
            "inline": (0,), "remind": (0,), "comment": (0,),
            "alias": (0,), "claim_template": (0,), "merge": (0, 1), "transfer": (0,), "delete": (0,),
            "restore": (0,), "move": (0,), "unretire": (0,), "plan": (0,), "line": (0,), "inline_grade": (0,),
+           "review": (0,), "waive": (0,), "claim_hold": (0,), "settle_part": (0,), "flag": (0,), "approver": (0,),
+           "transfer_undo": (0,), "export_statement": (0,), "timeline": (0,),
+           "plan_pause": (0,), "plan_amount": (0,), "share": (0, 2), "assign_review": (0,), "set_due_by": (0,),
+           "merge_undo": (0,), "export_person": (0,),
            "edit": (0,), "hold": (0,), "patron": (0,), "statement": (0,), "unstate": (0,), "watch": (0,),
            "retire": (0,), "reassign": (0, 2)}
 
@@ -225,9 +291,9 @@ ROW_OPS = {"claim": (0,), "claim2": (0,), "claim_edit": (0,), "claim_edit_open":
 def row_targets(st: tuple) -> list[str]:
     """The people whose row on the screen a step works through (a retired one must be shown first)."""
     op, a = st[0], st[1:]
-    if op in ("bulk_open", "bulk_settle", "bulk_reassign", "bulk_redate"):
+    if op in ("bulk_open", "bulk_settle", "bulk_reassign", "bulk_redate", "bulk_void"):
         return [name for name, _ in a[0]] + ([a[1]] if op == "bulk_reassign" else [])
-    if op in ("bulk_grade", "bulk_retire"):
+    if op in ("bulk_grade", "bulk_retire", "bulk_hold"):
         return list(a[0])
     if op == "pool_member" and not a[1].startswith("pool:"):
         return [a[1]]
@@ -257,6 +323,16 @@ def full_check(n: int) -> dict:
         spec["sheet"] = True
     if n >= SINCE["pools"]:
         spec["pools"] = True
+    if n >= SINCE["crews"]:
+        spec["crews"] = True
+    if n >= hell.RULES["rate_calendar"]:
+        spec["calendar"] = True
+    if n >= SINCE["dashboard"]:
+        spec["dash"] = True
+    if n >= SINCE["notes"]:
+        spec["notes"] = True
+    if n >= hell.RULES["asof_roles"]:
+        spec["roles"] = True
     if n >= SINCE["plans"]:
         spec["plans"] = True
     if n >= SINCE["tags"]:
@@ -392,6 +468,35 @@ class _Gen:
             do(("setting", "fiscal-start-month", rnd.choice(("4", "7"))))
         if n >= hell.RULES["alert"] and rnd.random() < 0.4:
             do(("setting", "alert-threshold", rnd.choice(("1.00", "3.00"))))
+        if n >= hell.RULES["rounding_mode"] and rnd.random() < 0.4:
+            do(("setting", "rounding", rnd.choice(("half-up", "half-even")), rnd.choice(("2026-03-01", "2026-03-10"))))
+        if n >= hell.RULES["review"] and rnd.random() < 0.4:
+            do(("setting", "review-threshold", rnd.choice(("1.50", "4.00"))))
+        if n >= hell.RULES["review_sla"] and rnd.random() < 0.4:
+            do(("setting", "review-sla", rnd.choice(("1", "5"))))
+        if n >= hell.RULES["escalate"] and rnd.random() < 0.3:
+            do(("setting", "escalate-after", rnd.choice(("1", "7"))))
+        if n >= hell.RULES["proof_kinds"] and rnd.random() < 0.3:
+            do(("setting", "proof-kinds", rnd.choice(("receipt", "receipt,photo"))))
+        if n >= hell.RULES["default_grade"] and rnd.random() < 0.3:
+            do(("setting", "default-grade", rnd.choice(GRADES)))
+        if n >= hell.RULES["limit_grade"] and rnd.random() < 0.3:
+            do(("setting", f"clerk-limit-{rnd.choice(GRADES)}", rnd.choice(("0.50", "9.00"))))
+        if n >= hell.RULES["bands"] and rnd.random() < 0.4:
+            do(("setting", "score-mid", "0"))
+            do(("setting", "score-high", rnd.choice(("1", "5"))))
+        if n >= hell.RULES["score_snapshot"] and rnd.random() < 0.3:
+            do(("setting", "score-log", "on"))
+        if n >= hell.RULES["max_open"] and rnd.random() < 0.3:
+            do(("setting", "max-open", rnd.choice(("1", "3"))))
+        if n >= hell.RULES["pending_sla"] and rnd.random() < 0.3:
+            do(("setting", "pending-sla", rnd.choice(("1", "4"))))
+        if n >= hell.RULES["restricted"] and rnd.random() < 0.25:
+            do(("role", self.other_user(self.steward, "uma"), "restricted"))
+        if n >= hell.RULES["grade_add"] and rnd.random() < 0.3:
+            do(("grade_add", "D"))
+        if n >= hell.RULES["perm_today"] and rnd.random() < 0.2:
+            do(("setting", "perm-today", rnd.choice(("steward", "clerk"))))
         if self.has("due"):
             for g in GRADES:
                 if g != "C" or rnd.random() < 0.5:
@@ -433,6 +538,14 @@ class _Gen:
                 do(("pool", "P2"))
                 do(("pool_member", "P2", ps[0].name, "100.00"))
                 do(("pool_member", "P1", "pool:P2", "10.00"))
+        if self.has("crews") and len(self.people()) >= 2 and rnd.random() < 0.4:
+            ps = self.people()
+            do(("crew", "C1", ps[0].name))
+            for p in ps[1:]:
+                if rnd.random() < 0.7:
+                    do(("crew_member", "C1", p.name))
+        if self.has("person_terms_dated") and rnd.random() < 0.3 and self.people():
+            do(("edit", rnd.choice(self.people()).name, {"terms": rnd.choice(("3", "20")), "terms_from": rnd.choice(("2026-03-01", "2026-03-12"))}))
         if self.has("plans") and rnd.random() < 0.4 and self.people():
             p = rnd.choice(self.people())
             every = rnd.choice(("7", "10"))
@@ -510,7 +623,11 @@ class _Gen:
         if self.has("due") and figure_moves_ok:
             st = ("rate", rnd.choice(GRADES), rnd.choice(RATES))
             if self.has("rate_dated") and rnd.random() < 0.4:
-                st = st + (rnd.choice(("2026-03-01", "2026-03-10", "2026-03-16")),)
+                froms = ("2026-03-01", "2026-03-10", "2026-03-16")
+                if n >= hell.RULES["forward_only_rates"]:
+                    # a from-date after today: forward-only once cp156 is in force (one draw either way)
+                    froms = froms + ((m.today + timedelta(days=15)).isoformat(),)
+                st = st + (rnd.choice(froms),)
                 if self.has("rate_ended") and rnd.random() < 0.4:
                     st = st + (rnd.choice(("2026-03-12", "2026-03-25")),)
             out.append((2.0, [st]))
@@ -733,6 +850,107 @@ class _Gen:
             out.append((0.3, [("generate_fy", "2026")]))
         if self.has("tree_search"):
             out.append((0.4, [("search", rnd.choice(("a", "e", "zz")))]))
+        # ---- Act IV actions
+        review = self.claims("REVIEW")
+        if self.has("review") and review and self.steward:
+            name, idx, _ = rnd.choice(review)
+            out.append((2.0, [("as", self.steward), ("review", name, idx)]))
+        if self.has("review") and review:
+            name, idx, _ = rnd.choice(review)
+            out.append((0.5, [("void", name, idx) + ((rnd.choice(m.void_reasons),) if m.void_reasons else ())]))
+        if self.has("waiver") and self.steward and (opens or pending):
+            name, idx, _ = rnd.choice(opens + pending)
+            out.append((0.8, [("as", self.steward), ("waive", name, idx)]))
+        if self.has("claim_hold") and (opens or pending):
+            name, idx, _ = rnd.choice(opens + pending)
+            out.append((1.0, [("claim_hold", name, idx)]))
+        if self.has("partial_settle") and opens:
+            name, idx, c = rnd.choice(opens)
+            steps = []
+            if m.user == c.opened_by:
+                steps.append(("as", self.other_user(c.opened_by)))
+            out.append((1.0, steps + [("settle_part", name, idx, rnd.choice(("0.01", "1.00", "4.00")))]))
+        if self.has("settle_date") and opens:
+            name, idx, c = rnd.choice(opens)
+            steps = []
+            if m.user == c.opened_by:
+                steps.append(("as", self.other_user(c.opened_by)))
+            out.append((0.8, steps + [("settle", name, idx, self.past_date())]))
+        if self.has("flags") and self.steward and names:
+            out.append((0.6, [("as", self.steward), ("flag", rnd.choice(names), rnd.choice(("late", "check")), rnd.choice(("2026-03-12", "2026-04-30")))]))
+        if self.has("approver") and names:
+            out.append((0.5, [("approver", rnd.choice(names), rnd.choice(USERS))]))
+        if self.has("notes"):
+            out.append((0.4, [("note", rnd.choice(("hi", "", "x")))]))
+        if self.has("period_lock") and self.steward and closed_periods:
+            out.append((0.6, [("as", self.steward), ("lock", rnd.choice(closed_periods).name, True)]))
+        if self.has("quarters") and rnd.random() < 0.3:
+            out.append((0.3, [("generate_quarters", "2026")]))
+        if self.has("opening_import") and m.periods and names:
+            out.append((0.6, [("import_openings", [f"{rnd.choice(names)},{rnd.choice(list(m.periods))},{rnd.choice(('1.00', '5.50', 'x'))}"])]))
+        if self.has("bulk_void") and len(drafts + opens) >= 2:
+            items = [(nm, i) for nm, i, _ in rnd.sample(drafts + opens, 2)]
+            st = ("bulk_void", items) + ((rnd.choice(m.void_reasons),) if m.void_reasons else ())
+            out.append((0.5, [st]))
+        if self.has("proofs") and self.has("proof_kinds") and (drafts or opens or pending):
+            name, idx, _ = rnd.choice(drafts + opens + pending)
+            out.append((0.8, [("proof", name, idx, rnd.choice(("receipt", "photo")))]))
+        if self.has("activity"):
+            out.append((0.3, [("activity",)]))
+        if self.has("claim_timeline") and (drafts or opens or pending):
+            name, idx, _ = rnd.choice(drafts + opens + pending)
+            out.append((0.4, [("timeline", name, idx)]))
+        # ---- Act V actions
+        if self.has("snapshot_compare"):
+            out.append((0.4, [("snapshot_compare", rnd.choice(TODAYS), rnd.choice(TODAYS + ("",)))]))
+        own_plans = [(p.name, i) for p in people for i, _pl in enumerate([x for x in m.plans if x.person == m._key(p)])]
+        if self.has("plan_pause") and own_plans:
+            name, i = rnd.choice(own_plans)
+            out.append((0.6, [("plan_pause", name, i, rnd.random() < 0.6)]))
+        if self.has("plan_history") and own_plans:
+            name, i = rnd.choice(own_plans)
+            out.append((0.6, [("plan_amount", name, i, rnd.choice(AMOUNTS))]))
+        if self.has("rollover") and self.steward and m.periods:
+            out.append((0.3, [("as", self.steward), ("rollover", "2026")]))
+        if self.has("rollover_undo") and self.steward and m.rollovers:
+            out.append((0.4, [("as", self.steward), ("rollover_undo",)]))
+        if self.has("compare"):
+            out.append((0.3, [("compare", rnd.choice(("p", "")))]))
+        if self.has("shared") and (drafts or opens) and len(names) >= 2:
+            name, idx, _ = rnd.choice(drafts + opens)
+            out.append((0.8, [("share", name, idx, rnd.choice([x for x in names if x != name]), rnd.choice(("50.00", "25.00", "100.00")))]))
+        if self.has("review_assign") and self.steward and review:
+            name, idx, _ = rnd.choice(review)
+            out.append((0.6, [("as", self.steward), ("assign_review", name, idx, rnd.choice(USERS))]))
+        if self.has("grade_retire") and rnd.random() < 0.3:
+            out.append((0.3, [("grade_retire", rnd.choice(GRADES))]))
+        if self.has("grade_merge") and self.steward:
+            a, b = rnd.sample(GRADES, 2)
+            out.append((0.3, [("as", self.steward), ("grade_merge", a, b)]))
+        if self.has("preview") and rnd.random() < 0.5:
+            later = m.today + timedelta(days=rnd.randint(5, 40))
+            out.append((0.5, [("preview", later.isoformat()), ("check", mid_check(n)), ("preview_clear",)]))
+        if self.has("due_by_override") and self.steward and (opens or pending):
+            name, idx, _ = rnd.choice(opens + pending)
+            out.append((0.6, [("as", self.steward), ("set_due_by", name, idx, rnd.choice(DATES))]))
+        if self.has("bulk_hold") and len(names) >= 2:
+            chosen = rnd.sample(names, 2)
+            a, b = sorted(rnd.sample(DATES, 2))
+            out.append((0.4, [("bulk_hold", chosen, a, b)]))
+        if self.has("merge_undo") and self.steward and m.merges:
+            rec = m.merges[-1]
+            out.append((0.6, [("as", self.steward), ("merge_undo", rec["into"].name)]))
+        if self.has("rate_withdraw") and self.steward and m.rates:
+            row = rnd.choice(m.rates)
+            out.append((0.4, [("as", self.steward), ("withdraw_rate", row[0], row[1].isoformat() if row[1] else None)]))
+        if self.has("policy_view"):
+            out.append((0.3, [("policy",)]))
+        if self.has("export_periods") and rnd.random() < 0.2:
+            out.append((0.2, [("export_periods",)]))
+        if self.has("dups"):
+            out.append((0.3, [("dups",)]))
+        if self.has("export_statement") and names and rnd.random() < 0.3:
+            out.append((0.3, [("export_statement", rnd.choice(names))]))
         out.append((0.8, [("as", self.other_user(m.user))]))
         return out
 

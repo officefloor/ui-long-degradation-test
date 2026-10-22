@@ -49,7 +49,15 @@ and arranges through `support/ui.ts`); cadence 3:1 (mutative when `n % 4 == 0`),
 derived by the builder, an additive checkpoint may change no prior spec; every rule a
 checkpoint introduces must bite in its own spec, and every ripple copy must exercise one of them.
 
-## 2. The eighty checkpoints
+## 2. The checkpoints
+
+The stream is 250 checkpoints in five acts of fifty (docs/PLAN.md §4): Act I cp1-50 and Act II
+cp51-100 are the two tables below, unchanged from the stream built on 2026-10-18 and 2026-10-19;
+Acts III (identity, hierarchy, cross-sheet), IV (rule versioning and legacy semantics) and V (the
+squeeze) are listed with every rule they introduce in [docs/STREAM_ACTS.md](../docs/STREAM_ACTS.md),
+with the decisions taken while building them.
+
+### 2.1 The first eighty
 
 | cp | type | what it loads onto the figure |
 |---|---|---|
@@ -111,6 +119,8 @@ changes what every prior spec expects.
    (`check`). Make the rule bite with the fixture, and compose with at least two priors.
 3. Teach the generator the new action (`hell_gen.py`: `apply` and `candidates`), with any
    future-proofing a later additive rule needs (the module docstring lists the constraints).
-4. `.venv/bin/python -m harness.stream_build --config config.yaml --check` (about two minutes
-   with the density metric; `--no-density` for a quick pass), then without `--check` to write;
-   then `harness.checkpoint_lint`. Read the new rule's degree in `DENSITY.md`.
+4. `.venv/bin/python -m harness.stream_build --config config.yaml --stories` (seconds: every
+   story rendered at every later checkpoint, so a later rule that refuses a story's arrangement
+   shows at once), then `--check --no-density --jobs 8` (about half an hour for 250 checkpoints;
+   `--to N` for a prefix), then `--check` with the density metric, then without `--check` to
+   write; then `harness.checkpoint_lint`. Read the new rule's degree in `DENSITY.md`.
