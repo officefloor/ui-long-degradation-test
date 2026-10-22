@@ -212,6 +212,11 @@ PERM_DEFAULT = {"open": ("clerk", "steward"), "settle": ("clerk", "steward"), "v
                 "close": ("clerk", "steward"), "reassign": ("steward",), "reopen": ("steward",)}
 
 
+# Writes one sheet makes on another's behalf (a transfer's arrival, a clone's filling): journaled
+# nowhere, since the write that caused them replays them.
+INNER_WRITES = {"receive_person", "receive_clone"}
+
+
 class Refused(Exception):
     """The screen refuses the action; `anchor` is the error element that shows."""
 
@@ -362,7 +367,7 @@ class Model:
         self.family: dict = family if family is not None else {}
         self.family[sheet] = self
         self.screen: dict = screen if screen is not None else {
-            "show_retired": set(), "asof": {}, "locale": {}, "columns": {}, "preview": {}}
+            "show_retired": set(), "asof": {}, "locale": {}, "columns": {}, "preview": {}, "seq": [0]}
         self.grades: list[str] = list(GRADES)
         self.user: str | None = None
         self.today: date = date(2026, 1, 1)
@@ -414,8 +419,11 @@ class Model:
         return self.k >= SINCE[feature]
 
     def _journal(self, name: str, a: tuple, kw: dict, today_before: date) -> None:
-        if self._depth == 0:
-            self.journal.append((self.user, today_before, name, a, kw))
+        """Journal a top-level write for the as-of replay; a write in INNER_WRITES is one sheet's
+        part of another sheet's write (a transfer's arrival) and is replayed through that write."""
+        if self._depth == 0 and name not in INNER_WRITES:
+            self.screen["seq"][0] += 1
+            self.journal.append((self.screen["seq"][0], self.user, today_before, name, a, kw))
 
     def delegator(self, user: str | None = None) -> str | None:
         """The steward whose role `user` holds today by delegation (the latest one in force)."""
@@ -596,7 +604,8 @@ class Model:
         p = self.person(name)
         self.editing[self.user] = (self._key(p), p.version)
         if self._depth == 0:
-            self.journal.append((self.user, self.today, "edit_open", (name,), {}))
+            self.screen["seq"][0] += 1
+            self.journal.append((self.screen["seq"][0], self.user, self.today, "edit_open", (name,), {}))
 
     def _key(self, p: Person) -> str:
         return next(k for k, v in self.people.items() if v is p)
@@ -2056,18 +2065,21 @@ class Model:
         successful write journaled while the sheet's today was on or before `d`, replayed in
         order, with `d` as today for every figure."""
         fam: dict = {}
-        screen = dict(self.screen, asof={}, preview={})
-        for sid, live in self.family.items():
+        screen = dict(self.screen, asof={}, preview={}, seq=[0])
+        for sid in self.family:
             r = Model(self.k, sid, self.off, family=fam, screen=screen)
             r._replay = True
-            for user, today, name, a, kw in live.journal:
-                if today > d:
-                    continue
-                r.user = user
-                try:
-                    getattr(r, name)(*a, **kw)
-                except (Refused, KeyError, StopIteration, ValueError):
-                    pass
+        entries = sorted((e, sid) for sid, live in self.family.items() for e in live.journal)
+        for (_seq, user, today, name, a, kw), sid in entries:
+            if today > d:
+                continue
+            r = fam[sid]
+            r.user = user
+            try:
+                getattr(r, name)(*a, **kw)
+            except (Refused, KeyError, StopIteration, ValueError):
+                pass
+        for r in fam.values():
             r.today = d
             r.user = self.user
         return fam[self.sheet]

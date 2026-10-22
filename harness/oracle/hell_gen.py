@@ -33,6 +33,11 @@ DATES = ("2026-02-10", "2026-02-25", "2026-03-01", "2026-03-05", "2026-03-09", "
 TODAYS = ("2026-03-10", "2026-03-20", "2026-04-05")
 
 GEN_FROM = 5          # the first checkpoint that carries generated scenarios
+SHEET_TOKEN = "__SHEET__"
+
+
+def hell_sheet_id(suffix: str) -> str:
+    return SHEET_TOKEN + (f"-{suffix}" if suffix else "")
 COUNT = 3             # generated scenarios per checkpoint
 
 
@@ -216,12 +221,16 @@ def mid_check(n: int) -> dict:
 class _Gen:
     def __init__(self, n: int, i: int):
         self.n, self.rnd = n, random.Random(n * 7919 + i * 104729 + 17)
-        self.m = hell.Model(n)
+        self.m = hell.Model(n, sheet=SHEET_TOKEN)
         self.steps: list[tuple] = []
         self.steward: str | None = None
         self.settled = False
 
     def do(self, st: tuple) -> None:
+        if st[0] == "sheet":
+            self.steps.append(st)
+            self.m = self.m.sibling(hell_sheet_id(st[1] if len(st) > 1 else ""))
+            return
         # a retired person's row is only on the screen while this user's "show retired" is on
         if st[0] != "show_retired" and any(
                 (p := self.m.people.get(hell.norm_name(nm))) is not None and not self.m.visible(p)

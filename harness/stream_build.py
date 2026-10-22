@@ -89,7 +89,10 @@ class Renderer:
 
     def __init__(self, n: int, k: int, off=()):
         self.n, self.k = n, k
-        self.m = Model(k, sheet=SHEET_TOKEN, off=off)
+        self.main = Model(k, sheet=SHEET_TOKEN, off=off)
+        self.m = self.main                      # the sheet the current user's page shows
+        self.page_sheet: dict[str, str] = {}    # user -> the sheet id their page shows
+        self.gone: dict[tuple, str] = {}        # (sheet id, person key) -> var of a row that left
         self.lines: list[str] = []
         self.pages: dict[str, str] = {}
         self.raced: dict[str, list[str]] = {}   # claim var -> the numbers a concurrent open may give it
@@ -124,6 +127,29 @@ class Renderer:
     def expect_ok(self, call: str, ok: bool) -> None:
         self.emit(f"expect(await {call}).toBe({'true' if ok else 'false'});")
 
+    @staticmethod
+    def sheet_expr(sid: str) -> str:
+        """The TS expression for a sheet id: the test's own `sheet`, or a sibling's id built on it."""
+        return "sheet" if sid == SHEET_TOKEN else tpl(sid)
+
+    def sid_arg(self, sid: str) -> str:
+        return self.sheet_expr(sid)
+
+    def bind_rows(self) -> None:
+        """Give a TS variable to every visible row of the current sheet that has none yet (a
+        person who arrived by transfer, a clone's rows, claims a plan generated): the test finds
+        the person by name and the claim by its place under the person."""
+        for p in sorted(self.m.people.values(), key=lambda x: x.order):
+            if not self.m.visible(p):
+                continue
+            if not p.var:
+                p.var = self.var("p_" + slugify(p.name))
+                self.emit(f"const {p.var} = await ui.personId({self.pg}, {ts(p.name)});")
+            for c in self.m.person_claims(p):
+                if not c.var:
+                    c.var = self.var(f"c_{slugify(p.name)}_{c.idx}")
+                    self.emit(f"const {c.var} = await ui.claimAt({self.pg}, {p.var}, {c.idx});")
+
     # -- steps
     def step(self, st: tuple) -> None:
         op, args = st[0], st[1:]
@@ -135,6 +161,8 @@ class Renderer:
         getattr(self, "s_" + op)(*args)
 
     def s_as(self, user: str) -> None:
+        sid = self.page_sheet.setdefault(user, SHEET_TOKEN)
+        self.m = self.main.sibling(sid)
         self.m.user = user
         if user not in self.pages:
             self.pages[user] = f"pg_{user}"
@@ -144,6 +172,14 @@ class Renderer:
             # with an editor open keeps it (the stale-edit test needs exactly that)
             self.emit(f"await ui.refresh(pg_{user});")
         self.pg = self.pages[user]
+
+    def s_sheet(self, suffix: str = "") -> None:
+        """The current user's page loads another sheet of the family (`""` is the test's own)."""
+        sid = SHEET_TOKEN + (f"-{suffix}" if suffix else "")
+        self.emit(f"await ui.loadSheet({self.pg}, {self.sheet_expr(sid)});")
+        self.page_sheet[self.m.user] = sid
+        self.m = self.main.sibling(sid)
+        self.bind_rows()
 
     def s_today(self, d: str) -> None:
         if self.attempt(self.m.set_today, d):
@@ -517,6 +553,12 @@ class Renderer:
         self.emit(f"await ui.clearAsOf({self.pg});")
 
     def s_setting(self, key, value, start=None) -> None:
+        if SHEET_TOKEN in value:
+            if self.attempt(self.m.set_setting, key, value):
+                self.emit(f"await ui.setSetting({self.pg}, {ts(key)}, {tpl(value)});")
+            else:
+                self.expect_ok(f"ui.setSettingTry({self.pg}, {ts(key)}, {tpl(value)})", False)
+            return
         if start and self.m.has("settings_dated"):
             ok = self.attempt(self.m.set_setting, key, value, start)
             shows = self.m.setting(key) or ""
@@ -554,7 +596,9 @@ class Renderer:
         self.emit(f"expect(await ui.exportCsv({self.pg})).toBe({ts(self.m.export_csv())});")
 
     def s_hidden(self, name) -> None:
-        self.emit(f"await expect({self.pg}.getByTestId(\"person-row-\" + {self.pvar(name)})).toHaveCount(0);")
+        p = self.m.people.get(hell.norm_name(name))
+        pv = p.var if p is not None else self.gone[(self.m.sheet, hell.norm_name(name))]
+        self.emit(f"await expect({self.pg}.getByTestId(\"person-row-\" + {pv})).toHaveCount(0);")
 
     def s_check(self, spec: dict) -> None:
         pg = self.pg
@@ -563,7 +607,7 @@ class Renderer:
             self.emit(f"await ui.refresh({pg});")
         if spec.get("header"):
             self.emit(f"await expect({pg}.getByTestId(\"current-user\")).toHaveText({ts(v['user'])});")
-            self.emit(f"await expect({pg}.getByTestId(\"sheet-current-id\")).toHaveText(sheet);")
+            self.emit(f"await expect({pg}.getByTestId(\"sheet-current-id\")).toHaveText({self.sheet_expr(self.m.sheet)});")
         if spec.get("today") and self.n >= 2:
             self.emit(f"await expect({pg}.getByTestId(\"sheet-today\")).toHaveText({ts(v['today'])});")
         if spec.get("sheet"):
@@ -634,7 +678,7 @@ class Renderer:
                         self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("audit") and self.n >= 6:
             body = ",\n      ".join(tpl(line) for line in self.m.audit_text(self.n))
-            self.emit(f"await ui.expectAudit(sheet, [\n      {body}\n    ]);")
+            self.emit(f"await ui.expectAudit({self.sheet_expr(self.m.sheet)}, [\n      {body}\n    ]);")
 
 
 def render_test(n: int, k: int, script: list, off=(), lenient: bool = False) -> list[str] | None:
