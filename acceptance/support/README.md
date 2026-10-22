@@ -32,6 +32,18 @@ Everything is on the one screen at `/`. Introduced by the checkpoint in brackets
   `person-aged-61` (cp78); `person-statement-asof` (a date entry beside `person-statement`, cp73)
 - paste box: `paste-claims`, `paste-submit`, `paste-added`, `paste-error` (cp49)
 - `person-settled-total`, `person-open-total` (cp82); `person-form-contact`, `person-contact` (cp99)
+- `person-alias-input`, `person-alias-add`, `person-aliases` (cp102); `claim-template-select`,
+  `claim-template-add` (cp103); `person-merge-into` (select), `person-merge` (cp107);
+  `person-transfer-to`, `person-transfer` (cp111); `person-clashing` (cp112); `person-cut-total`
+  (cp119); `person-origin` (cp121); `person-unretire`, `person-retirement-line` (one per past
+  retirement, cp125); `plan-form-amount`, `plan-form-start`, `plan-form-every`, `plan-form-end`,
+  `plan-form-submit`, `plan-error`, `plan-row-<id>` with `plan-generated` (cp131), `plan-form-day`
+  (cp141), `plan-next-dates` (cp142); `person-form-tags`, `person-tags` (cp133);
+  `person-inline-grade` (select), `person-inline-grade-save` (cp138); `person-snapshot-line` (one
+  per snapshot, cp147); `person-move-up`, `person-move-down` (cp117); `bulk-retire-date`,
+  `bulk-retire`, `bulk-retired` (cp123)
+- import box: `import-people`, `import-submit`, `import-added`, `import-error` (cp113),
+  `import-updated` (cp116)
 
 ### Claims (inside the person's row, newest first)
 - form `claim-form-amount`, `claim-form-date`, `claim-form-note`, `claim-form-corrects` (cp30),
@@ -48,6 +60,9 @@ Everything is on the one screen at `/`. Introduced by the checkpoint in brackets
   comment, cp91); `claim-batch` (cp98)
 - `bulk-open`, `bulk-opened`, `bulk-refused` (cp34); `bulk-reassign-to` (select), `bulk-reassign`,
   `bulk-reassigned`, `bulk-reassign-refused` (cp93); `bulk-settle-batch` (cp98)
+- `claim-delete`, `claim-restore` (cp114); `claim-line-label`, `claim-line-qty`, `claim-line-unit`,
+  `claim-line-add`, `claim-lines-line` (one per line, cp137); `bulk-redate-date`, `bulk-redate`,
+  `bulk-redated`, `bulk-redate-refused` (cp145)
 - `bulk-settle`, `bulk-settled`, `bulk-settle-refused` (cp45); `claim-resettle` (cp46);
   `claim-defer-date`, `claim-defer`, `claim-deferred`, `claim-deferred-until` (cp50);
   `claim-proof`, `claim-proofs` (cp51); `claim-split-amount`, `claim-split`, `claim-split-from`
@@ -84,6 +99,25 @@ Everything is on the one screen at `/`. Introduced by the checkpoint in brackets
   `void-reason-text`, `void-reason-add`, `void-reason-row-<reason>`, `void-reason-error` (cp90);
   `rate-preview-grade`, `rate-preview-pct`, `rate-preview`, `rate-preview-count`,
   `rate-preview-diff`, `rate-preview-error` (cp95); `month-<yyyy-mm>-due-total` (cp97)
+- audit viewer: `audit-filter`, `audit-show`, `audit-line` (one per line, cp101)
+- templates: `template-form-name`, `template-form-amount`, `template-form-note`,
+  `template-form-submit`, `template-form-error`, `template-row-<name>` with `template-amount`,
+  `template-note` (cp103)
+- pools: `pool-form-name`, `pool-form-submit`, `pool-form-error`; `pool-row-<name>` with
+  `pool-total-share`, `pool-balanced`, `pool-member-select` (people, and `pool:<name>` entries from
+  cp115), `pool-member-share`, `pool-member-add`, `pool-error`; `pool-member-<pool>-<person id>` and
+  `pool-member-<pool>-pool-<name>` with `pool-share` (cp105), `pool-cut` (cp106);
+  `pool-member-from`, `pool-member-to` (cp122); `setting-pot` (cp106, not dated);
+  `rollup-cut-total` (cp119); export `export-pools` (cp135)
+- the tree: `setting-parent`, `sheet-parent` (cp109); `consolidated-people-count`,
+  `consolidated-due-total`, `consolidated-overdue-total` (cp110); `sheet-clone-to`, `sheet-clone`,
+  `sheet-cloned-to` (cp126); `search-name`, `search`, `search-count`, `search-line` (cp150)
+- `import-rates`, `import-rates-submit`, `import-rates-set`, `import-rates-error` (cp118);
+  `my-due-total`, `my-overdue-total` (cp127); export `export-claims` (cp129);
+  `summary-period-<name>-change` (cp130); `plan-generate`, `plan-generated-count`,
+  `plan-generate-error` (cp131); `sort-by` (select: added, name, grade, due-total; cp134);
+  `setting-fiscal-start-month`, `period-fy`, `period-generate-fy-year`, `period-generate-fy` (cp143);
+  `setting-alert-threshold` (cp146); `period-form-cap`, `period-cap` (cp149)
 
 ### Values
 Amounts, rates and totals show two decimals with a dot and no grouping; `n/a` when undefined.
@@ -103,7 +137,11 @@ SHEET_ARCHIVED (cp62); CLAIM_REDATED (cp66); PERIOD_SOFT_CLOSED, LATE_ENTRY (cp7
 STATEMENT_CANCELLED (cp71); STATEMENT asof= at the end (cp73); SNAPSHOT (cp76); REMIND (cp81);
 HOLIDAY_ADDED (cp83); CLAIM_ADDED ref= (cp87) and tags= (cp89) at the end; VOID_REASON_ADDED,
 CLAIM_VOIDED reason= at the end (cp90); COMMENT_ADDED (cp91); PERSON_ADDED and PERSON_EDITED
-contact= at the end (cp99); BATCH_SETTLED (cp100).
+contact= at the end (cp99); BATCH_SETTLED (cp100); PERSON_ALIAS_ADDED (cp102); TEMPLATE_SAVED
+(cp103); POOL_ADDED, POOL_MEMBER_ADDED (cp105; from= to= at the end cp122); PERSON_MERGED (cp107);
+PERSON_TRANSFERRED (cp111); CLAIM_DELETED, CLAIM_RESTORED (cp114); PERSON_MOVED (cp117);
+PERSON_UNRETIRED (cp125); SHEET_CLONE_MADE, SHEET_CLONED (cp126); PLAN_ADDED (cp131; day= cp141);
+CLAIM_LINE_ADDED (cp137); ALERT (cp146); PERIOD_ADDED cap= at the end (cp149).
 
 ## Errors and timing
 A refused action shows its error element (`<thing>-error`) with a message; submitting the next

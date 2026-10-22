@@ -64,6 +64,9 @@ def apply(m: hell.Model, st: tuple) -> None:
             m.edit_open(a[0])
             m.edit_save(a[1])
         elif op == "claim":
+            a = list(a)
+            if len(a) > 4 and isinstance(a[4], tuple):
+                a[4] = m.claim(a[4][1], a[4][2]).number or ""
             if len(a) > 5:
                 m.add_claim(*a[:5], extra=a[5])
             else:
@@ -81,6 +84,54 @@ def apply(m: hell.Model, st: tuple) -> None:
         elif op == "bulk_reassign":
             m.bulk_reassign(*a)
         elif op == "rate_preview":
+            pass
+        elif op == "sheet":
+            pass
+        elif op == "audit_view":
+            pass
+        elif op == "alias":
+            m.add_alias(*a)
+        elif op == "template":
+            m.save_template(*a)
+        elif op == "claim_template":
+            m.claim_from_template(*a)
+        elif op == "pool":
+            m.add_pool(a[0])
+        elif op == "pool_member":
+            m.add_pool_member(*a)
+        elif op == "merge":
+            m.merge(*a)
+        elif op == "transfer":
+            m.transfer(a[0], hell_sheet_id(a[1]))
+        elif op == "clone":
+            m.clone_sheet(hell_sheet_id(a[0]))
+        elif op == "import_people":
+            m.import_people(a[0])
+        elif op == "import_rates":
+            m.import_rates(a[0])
+        elif op in ("delete", "restore"):
+            getattr(m, op + "_claim")(*a)
+        elif op == "move":
+            m.move_person(*a)
+        elif op == "sort":
+            m.set_sort(a[0])
+        elif op == "bulk_retire":
+            m.bulk_retire(*a)
+        elif op == "unretire":
+            m.unretire(a[0])
+        elif op == "plan":
+            m.add_plan(*a)
+        elif op == "generate":
+            m.generate_plans()
+        elif op == "line":
+            m.add_line(*a)
+        elif op == "inline_grade":
+            m.inline_grade(*a)
+        elif op == "bulk_redate":
+            m.bulk_redate(*a)
+        elif op == "generate_fy":
+            m.generate_fy(a[0])
+        elif op in ("search", "order", "export_claims", "export_pools"):
             pass
         elif op == "claim2":
             m.add_claim(a[0], a[1], a[2], a[3], twice=True)
@@ -165,6 +216,8 @@ ROW_OPS = {"claim": (0,), "claim2": (0,), "claim_edit": (0,), "claim_edit_open":
            "claim_edit_cancel": (0,), "open": (0,), "settle": (0,), "void": (0,), "approve": (0,), "reject": (0,),
            "resettle": (0,), "defer": (0,), "proof": (0,), "redate": (0,), "split": (0,),
            "inline": (0,), "remind": (0,), "comment": (0,),
+           "alias": (0,), "claim_template": (0,), "merge": (0, 1), "transfer": (0,), "delete": (0,),
+           "restore": (0,), "move": (0,), "unretire": (0,), "plan": (0,), "line": (0,), "inline_grade": (0,),
            "edit": (0,), "hold": (0,), "patron": (0,), "statement": (0,), "unstate": (0,), "watch": (0,),
            "retire": (0,), "reassign": (0, 2)}
 
@@ -172,10 +225,12 @@ ROW_OPS = {"claim": (0,), "claim2": (0,), "claim_edit": (0,), "claim_edit_open":
 def row_targets(st: tuple) -> list[str]:
     """The people whose row on the screen a step works through (a retired one must be shown first)."""
     op, a = st[0], st[1:]
-    if op in ("bulk_open", "bulk_settle", "bulk_reassign"):
+    if op in ("bulk_open", "bulk_settle", "bulk_reassign", "bulk_redate"):
         return [name for name, _ in a[0]] + ([a[1]] if op == "bulk_reassign" else [])
-    if op == "bulk_grade":
+    if op in ("bulk_grade", "bulk_retire"):
         return list(a[0])
+    if op == "pool_member" and not a[1].startswith("pool:"):
+        return [a[1]]
     if op == "paste":
         # the claims a paste makes are read back through their person's row (claimAt)
         return [line.split(",", 1)[0].strip() for line in a[0] if line.strip()]
@@ -200,6 +255,10 @@ def full_check(n: int) -> dict:
         spec["person_periods"] = True
     if n >= SINCE["archive"]:
         spec["sheet"] = True
+    if n >= SINCE["pools"]:
+        spec["pools"] = True
+    if n >= SINCE["plans"]:
+        spec["plans"] = True
     if n >= SINCE["tags"]:
         spec["tags"] = True
     if n >= SINCE["monthly"]:
@@ -313,6 +372,26 @@ class _Gen:
         if self.has("void_reasons") and rnd.random() < 0.4:
             for r in rnd.sample(("dup", "error", "late"), rnd.choice((1, 2))):
                 do(("void_reason", r))
+        if self.has("parent") and rnd.random() < 0.35:
+            do(("sheet", "p"))
+            for g in GRADES:
+                do(("rate", g, rnd.choice(RATES)))
+            pnames = rnd.sample(NAMES, rnd.choice((1, 2)))
+            for name in pnames:
+                do(("person", name, rnd.choice(GRADES)))
+            if rnd.random() < 0.5:
+                do(("claim", pnames[0], rnd.choice(AMOUNTS)))
+                do(("open", pnames[0], 0))
+            do(("sheet", ""))
+            do(("setting", "parent", hell_sheet_id("p")))
+        if self.has("templates_claim") and rnd.random() < 0.4:
+            do(("template", "T1", rnd.choice(AMOUNTS), rnd.choice(("", "tpl"))))
+        if self.has("cuts") and rnd.random() < 0.5:
+            do(("setting", "pot", rnd.choice(("100.00", "33.33", "7.77"))))
+        if self.has("fiscal") and rnd.random() < 0.3:
+            do(("setting", "fiscal-start-month", rnd.choice(("4", "7"))))
+        if n >= hell.RULES["alert"] and rnd.random() < 0.4:
+            do(("setting", "alert-threshold", rnd.choice(("1.00", "3.00"))))
         if self.has("due"):
             for g in GRADES:
                 if g != "C" or rnd.random() < 0.5:
@@ -333,9 +412,33 @@ class _Gen:
             st = ("person", name, rnd.choice(GRADES))
             if self.has("person_terms") and rnd.random() < 0.3:
                 st = st + (None, rnd.choice(("3", "20")))
+            extra = {}
             if self.has("contact") and rnd.random() < 0.4:
-                st = st + (None,) * (5 - len(st)) + ({"contact": rnd.choice((" Ada@x ", "ben@x", "ADA@X"))},)
+                extra["contact"] = rnd.choice((" Ada@x ", "ben@x", "ADA@X"))
+            if self.has("person_tags") and rnd.random() < 0.3:
+                extra["tags"] = rnd.choice(("a", "b, a", "c"))
+            if extra:
+                st = st + (None,) * (5 - len(st)) + (extra,)
             do(st)
+        if self.has("pools") and len(self.people()) >= 2 and rnd.random() < 0.5:
+            do(("pool", "P1"))
+            ps = self.people()
+            shares = rnd.choice((("50.00", "50.00"), ("33.33", "33.33", "33.34"), ("60.00", "40.00"), ("70.00", "20.00")))
+            for p, sh in zip(ps, shares):
+                st = ("pool_member", "P1", p.name, sh)
+                if self.has("pools") and n >= hell.RULES["pool_dated"] and rnd.random() < 0.3:
+                    st = st + ("2026-03-01", rnd.choice(("2026-03-15", "2026-04-30")))
+                do(st)
+            if n >= hell.RULES["nested_pools"] and rnd.random() < 0.4:
+                do(("pool", "P2"))
+                do(("pool_member", "P2", ps[0].name, "100.00"))
+                do(("pool_member", "P1", "pool:P2", "10.00"))
+        if self.has("plans") and rnd.random() < 0.4 and self.people():
+            p = rnd.choice(self.people())
+            every = rnd.choice(("7", "10"))
+            if n >= hell.RULES["monthly_plans"] and rnd.random() < 0.5:
+                every = rnd.choice(("m1", "m31", "m15"))
+            do(("plan", p.name, rnd.choice(AMOUNTS), rnd.choice(("2026-02-20", "2026-03-01", "2026-03-09")), every, "2026-04-30"))
         body = rnd.randint(16, 22)
         for step_no in range(body):
             cands = self.candidates()
@@ -353,7 +456,7 @@ class _Gen:
             do(("asof", self.past_date()))
             do(("check", full_check(n)))
             do(("asof_clear",))
-        if self.has("archive") and self.steward and rnd.random() < 0.2:
+        if self.has("archive") and self.steward and rnd.random() < 0.2 and self.people():
             do(("as", self.steward))
             do(("archive",))
             do(("claim", rnd.choice([p.name for p in self.people()]), rnd.choice(AMOUNTS)))
@@ -365,6 +468,9 @@ class _Gen:
         out: list[tuple[float, list[tuple]]] = []
         people = self.people()
         names = [p.name for p in people]
+        if not names:
+            # a merge or a transfer emptied the sheet: the only move is to add someone
+            return [(1.0, [("person", rnd.choice(("Dot", "Eve", "Fay")), rnd.choice(GRADES))])]
         figure_moves_ok = not (n < SINCE["freeze"] and self.settled)
 
         if self.has("claims"):
@@ -448,7 +554,7 @@ class _Gen:
         settled = [(nm, i, c) for nm, i, c in self.claims("SETTLED") if c.number]
         if self.has("correction") and settled:
             name, idx, c = rnd.choice(settled)
-            out.append((1.5, [("claim", name, "-" + rnd.choice(("1.00", "4.00", "10.25")), None, "", c.number)]))
+            out.append((1.5, [("claim", name, "-" + rnd.choice(("1.00", "4.00", "10.25")), None, "", ("number", name, idx))]))
         if self.has("bulk") and len(drafts) >= 2:
             items = [(nm, i) for nm, i, _ in rnd.sample(drafts, min(len(drafts), rnd.choice((2, 3))))]
             out.append((1.0, [("bulk_open", items)]))
@@ -577,6 +683,56 @@ class _Gen:
             out.append((0.8, [("as", self.steward), ("bulk_reassign", items, rnd.choice(names))]))
         if self.has("rate_preview"):
             out.append((0.8, [("rate_preview", rnd.choice(GRADES), rnd.choice(RATES))]))
+        # ---- Act III actions
+        if self.has("audit_view"):
+            out.append((0.5, [("audit_view", rnd.choice(names + [""]))]))
+        if self.has("aliases"):
+            out.append((0.8, [("alias", rnd.choice(names), rnd.choice(("Al", " ada ", "Bee", "")))]))
+        if self.has("templates_claim") and m.templates:
+            out.append((1.0, [("claim_template", rnd.choice(names), "T1")]))
+        if self.has("merge") and self.steward and len(names) >= 2:
+            b, a = rnd.sample(names, 2)
+            out.append((0.4, [("as", self.steward), ("merge", b, a)]))
+        if self.has("transfer") and self.steward and names:
+            out.append((0.4, [("as", self.steward), ("transfer", rnd.choice(names), "t")]))
+        if self.has("import_people"):
+            lines = [f"{rnd.choice(('Dot', 'Eve', names[0]))},{rnd.choice(GRADES)}"]
+            if rnd.random() < 0.5:
+                lines.append(f"Fay,{rnd.choice(GRADES)},{rnd.choice(('3', ''))},{rnd.choice(('fay@x', ''))}")
+            out.append((0.7, [("import_people", lines)]))
+        if self.has("delete_draft") and drafts:
+            name, idx, _ = rnd.choice(drafts)
+            steps = [("delete", name, idx)]
+            if rnd.random() < 0.5:
+                steps.append(("restore", name, idx))
+            out.append((0.8, steps))
+        if self.has("position") and len(names) >= 2:
+            out.append((0.6, [("move", rnd.choice(names), rnd.choice(("up", "down")))]))
+        if self.has("import_rates"):
+            out.append((0.5, [("import_rates", [f"{rnd.choice(GRADES)},{rnd.choice(RATES)}",
+                                                f"{rnd.choice(GRADES)},{rnd.choice(RATES)},2026-03-05"])]))
+        if self.has("bulk_retire") and len(unretired) >= 2:
+            chosen = rnd.sample(unretired, 2)
+            out.append((0.4, [("bulk_retire", chosen, rnd.choice(DATES)), ("show_retired", True)]))
+        retired_names = [p.name for p in people if p.retired_from]
+        if self.has("unretire") and retired_names:
+            out.append((0.8, [("show_retired", True), ("unretire", rnd.choice(retired_names))]))
+        if self.has("plans") and m.plans:
+            out.append((1.2, [("generate",)]))
+        if self.has("sort"):
+            out.append((0.4, [("sort", rnd.choice(("name", "grade", "due-total", "added")))]))
+        if self.has("lines") and drafts:
+            name, idx, _ = rnd.choice(drafts)
+            out.append((0.8, [("line", name, idx, rnd.choice(("x", "y")), rnd.choice(("1", "3")), rnd.choice(("2.50", "0.01", "4.00")))]))
+        if self.has("inline_grade") and names:
+            out.append((0.8, [("inline_grade", rnd.choice(names), rnd.choice(GRADES))]))
+        if self.has("bulk_redate") and self.steward and len(opens) >= 2:
+            items = [(nm, i) for nm, i, _ in rnd.sample(opens, 2)]
+            out.append((0.5, [("as", self.steward), ("bulk_redate", items, rnd.choice(DATES))]))
+        if self.has("fiscal") and rnd.random() < 0.3:
+            out.append((0.3, [("generate_fy", "2026")]))
+        if self.has("tree_search"):
+            out.append((0.4, [("search", rnd.choice(("a", "e", "zz")))]))
         out.append((0.8, [("as", self.other_user(m.user))]))
         return out
 

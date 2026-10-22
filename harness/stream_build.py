@@ -210,9 +210,12 @@ class Renderer:
         extra = extra or {}
         if "contact" in extra and self.m.has("contact"):
             fields["contact"] = extra["contact"]
+        if "tags" in extra and self.m.has("person_tags"):
+            fields["tags"] = extra["tags"]
         call = f"ui.addPerson({self.pg}, {ts(fields)})"
         try:
-            p = self.m.add_person(name, grade, grade_from, terms=terms, contact=extra.get("contact"))
+            p = self.m.add_person(name, grade, grade_from, terms=terms, contact=extra.get("contact"),
+                                  tags=extra.get("tags"))
         except Refused:
             self.emit(f"expect(await {call}).toBeNull();")
             return
@@ -235,6 +238,9 @@ class Renderer:
             elif key == "contact":
                 if self.m.has("contact"):
                     out["contact"] = val
+            elif key == "tags":
+                if self.m.has("person_tags"):
+                    out["tags"] = val
             else:
                 out[key] = val
         return out
@@ -270,6 +276,13 @@ class Renderer:
             f["from"] = start
         self.emit(f"expect(await ui.bulkGrade({self.pg}, [{', '.join(pvs)}], {ts(f)})).toBe({done});")
 
+    def number_of(self, ref):
+        """A claim number in a script: literal, or ("number", person, idx) for the number that
+        claim has now (so a later change of numbering leaves the story valid)."""
+        if isinstance(ref, tuple):
+            return self.m.claim(ref[1], ref[2]).number or ""
+        return ref
+
     def _claim_fields(self, amount, when, note, corrects, extra=None) -> dict:
         f = {"amount": amount}
         if when:
@@ -277,7 +290,7 @@ class Renderer:
         if note:
             f["note"] = note
         if corrects and self.m.has("correction"):
-            f["corrects"] = corrects
+            f["corrects"] = self.number_of(corrects)
         extra = extra or {}
         if "ref" in extra and self.m.has("ref"):
             f["ref"] = extra["ref"]
@@ -287,6 +300,7 @@ class Renderer:
 
     def s_claim(self, name, amount, when=None, note="", corrects=None, extra=None) -> None:
         pv = self.pvar(name)
+        corrects = self.number_of(corrects) if corrects else corrects
         call = f"ui.addClaim({self.pg}, {pv}, {ts(self._claim_fields(amount, when, note, corrects, extra))})"
         try:
             c = self.m.add_claim(name, amount, when, note, corrects, extra=extra)
@@ -397,6 +411,182 @@ class Renderer:
     def s_open(self, name, idx):
         self._action(name, idx, "open", self.m.open_claim)
 
+    def s_delete(self, name, idx):
+        self._action(name, idx, "delete", self.m.delete_claim)
+
+    def s_restore(self, name, idx):
+        self._action(name, idx, "restore", self.m.restore_claim)
+
+    # ---- Act III steps
+    def s_audit_view(self, filt: str = "") -> None:
+        lines = self.m.audit_view(filt, upto=self.n)
+        body = ",\n      ".join(tpl(line) for line in lines)
+        self.emit(f"await ui.expectAuditView({self.pg}, {ts(filt)}, [\n      {body}\n    ]);")
+
+    def s_alias(self, name, alias) -> None:
+        ok = self.attempt(self.m.add_alias, name, alias)
+        self.expect_ok(f"ui.addAlias({self.pg}, {self.pvar(name)}, {ts(alias)})", ok)
+
+    def s_template(self, name, amount, note) -> None:
+        ok = self.attempt(self.m.save_template, name, amount, note)
+        self.expect_ok(f"ui.saveTemplate({self.pg}, {ts({'name': name, 'amount': amount, 'note': note})})", ok)
+
+    def s_claim_template(self, name, template) -> None:
+        pv = self.pvar(name)
+        call = f"ui.claimFromTemplate({self.pg}, {pv}, {ts(template)})"
+        try:
+            c = self.m.claim_from_template(name, template)
+        except Refused:
+            self.emit(f"expect(await {call}).toBeNull();")
+            return
+        c.var = self.var(f"c_{slugify(name)}_{c.idx}")
+        self.emit(f"const {c.var} = ui.must(await {call});")
+
+    def s_pool(self, name) -> None:
+        ok = self.attempt(self.m.add_pool, name)
+        self.expect_ok(f"ui.addPool({self.pg}, {ts(name)})", ok)
+
+    def s_pool_member(self, pool, who, share, start=None, end=None) -> None:
+        ok = self.attempt(self.m.add_pool_member, pool, who, share, start, end)
+        f = {"member": who if who.startswith("pool:") else self.m.find_person(who).name if self.m.find_person(who) else who,
+             "share": share}
+        if self.m.k >= RULES["pool_dated"]:
+            if start:
+                f["from"] = start
+            if end:
+                f["to"] = end
+        self.expect_ok(f"ui.addPoolMember({self.pg}, {ts(pool)}, {ts(f)})", ok)
+
+    def s_merge(self, b, a) -> None:
+        pb = self.m.find_person(b)
+        bkey, bvar = (self.m._key(pb), pb.var) if pb is not None else (hell.norm_name(b), "")
+        ok = self.attempt(self.m.merge, b, a)
+        self.expect_ok(f"ui.merge({self.pg}, {bvar or self.pvar(b)}, {ts(self.m.person(a).name)})", ok)
+        if ok:
+            self.gone[(self.m.sheet, bkey)] = bvar
+            self.bind_rows()
+
+    def s_transfer(self, name, suffix) -> None:
+        sid = SHEET_TOKEN + (f"-{suffix}" if suffix else "")
+        p = self.m.person(name)
+        key, var = self.m._key(p), p.var
+        ok = self.attempt(self.m.transfer, name, sid)
+        self.expect_ok(f"ui.transfer({self.pg}, {var}, {self.sheet_expr(sid)})", ok)
+        if ok:
+            self.gone[(self.m.sheet, key)] = var
+
+    def s_clone(self, suffix) -> None:
+        sid = SHEET_TOKEN + f"-{suffix}"
+        ok = self.attempt(self.m.clone_sheet, sid)
+        self.expect_ok(f"ui.cloneSheet({self.pg}, {self.sheet_expr(sid)})", ok)
+
+    def s_import_people(self, lines) -> None:
+        text = "\n".join(lines)
+        call = f"ui.importPeople({self.pg}, {ts(text)})"
+        try:
+            added, updated = self.m.import_people(lines)
+        except Refused:
+            self.emit(f"expect(await {call}).toBeNull();")
+            return
+        exp = {"added": added}
+        if self.m.on("import_upsert"):
+            exp["updated"] = updated
+        self.emit(f"expect(await {call}).toMatchObject({ts(exp)});")
+        self.bind_rows()
+
+    def s_import_rates(self, lines) -> None:
+        text = "\n".join(lines)
+        call = f"ui.importRates({self.pg}, {ts(text)})"
+        try:
+            n = self.m.import_rates(lines)
+        except Refused:
+            self.emit(f"expect(await {call}).toBeNull();")
+            return
+        self.emit(f"expect(await {call}).toBe({n});")
+
+    def s_move(self, name, direction) -> None:
+        ok = self.attempt(self.m.move_person, name, direction)
+        self.expect_ok(f"ui.movePerson({self.pg}, {self.pvar(name)}, {ts(direction)})", ok)
+
+    def s_order(self) -> None:
+        vs = [p.var for p in self.m.displayed() if p.var and self.m.visible(p)]
+        self.emit(f"expect(await ui.personOrder({self.pg})).toEqual([{', '.join(vs)}]);")
+
+    def s_sort(self, key) -> None:
+        self.m.set_sort(key)
+        self.emit(f"await ui.sortBy({self.pg}, {ts(key)});")
+
+    def s_bulk_retire(self, names, when) -> None:
+        pvs = [self.pvar(n) for n in names]
+        done = self.m.bulk_retire(names, when)
+        self.emit(f"expect(await ui.bulkRetire({self.pg}, [{', '.join(pvs)}], {ts(when)})).toBe({done});")
+
+    def s_unretire(self, name) -> None:
+        ok = self.attempt(self.m.unretire, name)
+        self.expect_ok(f"ui.unretire({self.pg}, {self.pvar(name)})", ok)
+
+    def s_plan(self, name, amount, start, every, end) -> None:
+        pv = self.pvar(name)
+        f = {"amount": amount, "start": start, "end": end}
+        if str(every).startswith("m") and self.m.k >= RULES["monthly_plans"]:
+            f["day"] = every[1:]
+        else:
+            f["every"] = str(every)
+        call = f"ui.addPlan({self.pg}, {pv}, {ts(f)})"
+        try:
+            pl = self.m.add_plan(name, amount, start, every, end)
+        except Refused:
+            self.emit(f"expect(await {call}).toBeNull();")
+            return
+        pl.var = self.var(f"pl_{slugify(name)}_{pl.pid}")
+        self.emit(f"const {pl.var} = ui.must(await {call});")
+
+    def s_generate(self) -> None:
+        call = f"ui.generatePlans({self.pg})"
+        try:
+            n = self.m.generate_plans()
+        except Refused:
+            self.emit(f"expect(await {call}).toBeNull();")
+            return
+        self.emit(f"expect(await {call}).toBe({n});")
+        self.bind_rows()
+
+    def s_line(self, name, idx, label, qty, unit) -> None:
+        cv = self.cvar(name, idx)
+        ok = self.attempt(self.m.add_line, name, idx, label, qty, unit)
+        self.expect_ok(f"ui.addLine({self.pg}, {cv}, {ts({'label': label, 'qty': qty, 'unit': unit})})", ok)
+
+    def s_inline_grade(self, name, grade) -> None:
+        ok = self.attempt(self.m.inline_grade, name, grade)
+        self.expect_ok(f"ui.inlineGrade({self.pg}, {self.pvar(name)}, {ts(grade)})", ok)
+
+    def s_bulk_redate(self, items, new) -> None:
+        cvs = [self.cvar(n, i) for n, i in items]
+        res = self.m.bulk_redate(items, new)
+        done = sum(1 for r in res if r)
+        self.emit(f"expect(await ui.bulkRedate({self.pg}, [{', '.join(cvs)}], {ts(new)})).toEqual("
+                  f"{{ redated: {done}, refused: {len(res) - done} }});")
+
+    def s_generate_fy(self, year) -> None:
+        call = f"ui.generateFy({self.pg}, {ts(year)})"
+        try:
+            n = self.m.generate_fy(year)
+        except Refused:
+            self.emit(f"expect(await {call}).toBeNull();")
+            return
+        self.emit(f"expect(await {call}).toBe({n});")
+
+    def s_search(self, text) -> None:
+        lines = self.m.search(text)
+        body = ", ".join(tpl(x) for x in lines)
+        self.emit(f"expect(await ui.search({self.pg}, {ts(text)})).toEqual([{body}]);")
+
+    def s_export_claims(self) -> None:
+        self.emit(f"expect(await ui.exportClaims({self.pg})).toBe({ts(self.m.export_claims_csv())});")
+
+    def s_export_pools(self) -> None:
+        self.emit(f"expect(await ui.exportPools({self.pg})).toBe({ts(self.m.export_pools_csv())});")
+
     def s_settle(self, name, idx):
         self._action(name, idx, "settle", self.m.settle_claim)
 
@@ -471,9 +661,12 @@ class Renderer:
         ok = self.attempt(self.m.set_rate, grade, pct, start, end)
         self.expect_ok(f"ui.setRate({self.pg}, {ts(f)})", ok)
 
-    def s_period(self, name, start, end) -> None:
-        ok = self.attempt(self.m.add_period, name, start, end)
-        self.expect_ok(f"ui.addPeriod({self.pg}, {ts({'name': name, 'from': start, 'to': end})})", ok)
+    def s_period(self, name, start, end, cap=None) -> None:
+        ok = self.attempt(self.m.add_period, name, start, end, cap)
+        f = {'name': name, 'from': start, 'to': end}
+        if cap is not None and self.m.has("period_cap"):
+            f["cap"] = cap
+        self.expect_ok(f"ui.addPeriod({self.pg}, {ts(f)})", ok)
 
     def s_generate_periods(self, start, end) -> None:
         call = f"ui.generatePeriods({self.pg}, {ts(start)}, {ts(end)})"
@@ -626,7 +819,11 @@ class Renderer:
             for cell in spec.get("people") or []:
                 tid = f"person-{cell}"
                 if tid in row["cells"]:
-                    self.emit(f"await expect({rv}.getByTestId({ts(tid)})).toHaveText({ts(row['cells'][tid])});")
+                    val = row["cells"][tid]
+                    if isinstance(val, list):
+                        self.emit(f"await expect({rv}.getByTestId({ts(tid + '-line')})).toHaveText({ts(val)});")
+                    else:
+                        self.emit(f"await expect({rv}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
             if spec.get("person_periods") and self.n >= PERSON_PERIOD_SINCE:
                 for name, val in row["periods"].items():
                     tid = f"person-period-{name}-due-total"
@@ -676,6 +873,30 @@ class Renderer:
                 for tid, val in v[key].items():
                     if top_since(tid) <= self.n:
                         self.emit(f"await expect({pg}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
+        if spec.get("pools") and self.n >= hell.SINCE["pools"]:
+            for name, (cells, members) in v["pools"].items():
+                prow = f"{pg}.getByTestId({ts('pool-row-' + name)})"
+                for tid, val in cells.items():
+                    self.emit(f"await expect({prow}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
+                for m, mc in members:
+                    if m.kind == "person":
+                        pv = self.m.people[m.key].var
+                        if not pv:
+                            continue
+                        mrow = f"{pg}.getByTestId({ts('pool-member-' + name + '-')} + {pv})"
+                    else:
+                        mrow = f"{pg}.getByTestId({ts('pool-member-' + name + '-pool-' + m.key)})"
+                    for tid, val in mc.items():
+                        if tid == "pool-cut" and self.n < hell.SINCE["cuts"]:
+                            continue
+                        self.emit(f"await expect({mrow}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
+        if spec.get("plans") and self.n >= hell.SINCE["plans"]:
+            for var, cells in v["plans"].items():
+                prow = f"{pg}.getByTestId(\"plan-row-\" + {var})"
+                for tid, val in cells.items():
+                    if tid == "plan-next-dates" and self.n < hell.SINCE["plan_preview"]:
+                        continue
+                    self.emit(f"await expect({prow}.getByTestId({ts(tid)})).toHaveText({ts(val)});")
         if spec.get("audit") and self.n >= 6:
             body = ",\n      ".join(tpl(line) for line in self.m.audit_text(self.n))
             self.emit(f"await ui.expectAudit({self.sheet_expr(self.m.sheet)}, [\n      {body}\n    ]);")
@@ -744,19 +965,22 @@ def cells(tests: tuple) -> dict:
     for ti, (title, body) in enumerate(tests):
         if body is None:
             continue
-        in_audit = False
+        in_audit = in_view = False
         for line in (ln for chunk in body for ln in chunk.split("\n")):
             line = line.strip()
-            if in_audit:
+            if in_audit or in_view:
                 if line.startswith("]);"):
-                    in_audit = False
+                    in_audit = in_view = False
                     continue
-                key = f"{ti}:audit:{line.rstrip(',')}"
+                key = f"{ti}:{'audit' if in_audit else 'view'}:{line.rstrip(',')}"
                 seen[key] = seen.get(key, 0) + 1
                 out[f"{key}#{seen[key]}"] = "present"
                 continue
             if line.startswith("await ui.expectAudit("):
                 in_audit = True
+                continue
+            if line.startswith("await ui.expectAuditView("):
+                in_view = True
                 continue
             m = _VALUE.match(line)
             if m:

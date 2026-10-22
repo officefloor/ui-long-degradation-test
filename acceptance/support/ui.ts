@@ -88,6 +88,12 @@ async function addedClaim(scope: Locator, before: string[], f: ClaimFields): Pro
   return hit ? hit.id : null;
 }
 
+/** The id of the first claim row under `scope` new since `before`, or null when none shows yet. */
+async function addedAnyClaim(scope: Locator, before: string[]): Promise<string | null> {
+  const hit = (await freshRows(claimRows(scope), 'claim-row-', before, []))[0];
+  return hit ? hit.id : null;
+}
+
 function idOf(testid: string | null, prefix: string): string {
   if (!testid || !testid.startsWith(prefix)) throw new Error(`no ${prefix}* id on ${testid}`);
   return testid.slice(prefix.length);
@@ -259,7 +265,7 @@ export async function personId(page: Page, name: string): Promise<string> {
   return idOf(await r.getAttribute('data-testid'), 'person-row-');
 }
 
-type PersonFields = { name?: string; grade?: string; gradeFrom?: string; terms?: string; contact?: string };
+type PersonFields = { name?: string; grade?: string; gradeFrom?: string; terms?: string; contact?: string; tags?: string };
 
 async function fillPersonForm(page: Page, f: PersonFields) {
   if (f.name !== undefined) await page.getByTestId('person-form-name').fill(f.name);
@@ -267,6 +273,7 @@ async function fillPersonForm(page: Page, f: PersonFields) {
   if (f.gradeFrom !== undefined) await page.getByTestId('person-form-grade-from').fill(f.gradeFrom);
   if (f.terms !== undefined) await page.getByTestId('person-form-terms').fill(f.terms);
   if (f.contact !== undefined) await page.getByTestId('person-form-contact').fill(f.contact);
+  if (f.tags !== undefined) await page.getByTestId('person-form-tags').fill(f.tags);
 }
 
 /** Add a person through the form. The new row's id, or null when the form refused. */
@@ -389,6 +396,133 @@ export async function addPatron(page: Page, personId: string, patronName: string
   return until(page, async () => (await names()) > before, r.getByTestId('person-patron-error'), 'add patron');
 }
 
+/** Add an alias to the person: true once the row's aliases cell changed. */
+export async function addAlias(page: Page, personId: string, alias: string): Promise<boolean> {
+  const r = row(page, personId);
+  const was = await shown(r.getByTestId('person-aliases'));
+  await r.getByTestId('person-alias-input').fill(alias);
+  await r.getByTestId('person-alias-add').click();
+  return until(page, async () => (await shown(r.getByTestId('person-aliases'))) !== was,
+    r.getByTestId('person-error'), 'add alias');
+}
+
+/** Merge the person into another (chosen by name): true once the merged person's row is gone. */
+export async function merge(page: Page, personId: string, intoName: string): Promise<boolean> {
+  const r = row(page, personId);
+  try {
+    await r.getByTestId('person-merge-into').selectOption({ label: intoName }, { timeout: 2000 });
+  } catch {
+    return false;
+  }
+  await r.getByTestId('person-merge').click();
+  return until(page, async () => (await r.count()) === 0, r.getByTestId('person-error'), 'merge');
+}
+
+/** Transfer the person to another sheet by id: true once the row is gone from this sheet. */
+export async function transfer(page: Page, personId: string, toSheet: string): Promise<boolean> {
+  const r = row(page, personId);
+  await r.getByTestId('person-transfer-to').fill(toSheet);
+  await r.getByTestId('person-transfer').click();
+  return until(page, async () => (await r.count()) === 0, r.getByTestId('person-error'), 'transfer');
+}
+
+/** Clone the sheet to another id: true once the screen shows that id as the last clone made. */
+export async function cloneSheet(page: Page, toSheet: string): Promise<boolean> {
+  const done = async () => (await shown(page.getByTestId('sheet-cloned-to'))) === toSheet;
+  const already = await done();
+  await page.getByTestId('sheet-clone-to').fill(toSheet);
+  await page.getByTestId('sheet-clone').click();
+  return until(page, done, page.getByTestId('sheet-error'), 'clone', already);
+}
+
+/** The ids of the person rows in screen order. */
+export async function personOrder(page: Page): Promise<string[]> {
+  return ids(rows(page), 'person-row-');
+}
+
+/** Move the person up or down the list: true once their place in the list changed. */
+export async function movePerson(page: Page, personId: string, direction: string): Promise<boolean> {
+  const was = (await personOrder(page)).indexOf(personId);
+  const r = row(page, personId);
+  await r.getByTestId(`person-move-${direction}`).click();
+  return until(page, async () => (await personOrder(page)).indexOf(personId) !== was,
+    r.getByTestId('person-error'), 'move person');
+}
+
+export async function sortBy(page: Page, key: string): Promise<void> {
+  await page.getByTestId('sort-by').selectOption(key);
+  await page.waitForTimeout(200);
+}
+
+/** Unretire the person: true once the row shows retired no. */
+export async function unretire(page: Page, personId: string): Promise<boolean> {
+  const r = row(page, personId);
+  const done = async () => (await shown(r.getByTestId('person-retired'))) === 'no';
+  const already = await done();
+  await r.getByTestId('person-unretire').click();
+  return until(page, done, r.getByTestId('person-error'), 'unretire', already);
+}
+
+/** Set the grade from the row's own select: true once the row shows it. */
+export async function inlineGrade(page: Page, personId: string, grade: string): Promise<boolean> {
+  const r = row(page, personId);
+  const done = async () => (await shown(r.getByTestId('person-grade'))) === grade;
+  const already = await done();
+  try {
+    await r.getByTestId('person-inline-grade').selectOption(grade, { timeout: 2000 });
+  } catch {
+    return false;
+  }
+  await r.getByTestId('person-inline-grade-save').click();
+  return until(page, done, r.getByTestId('person-error'), 'inline grade', already);
+}
+
+/** Retire the selected people together from a date: how many were retired. */
+export async function bulkRetire(page: Page, personIds: string[], date: string): Promise<number | null> {
+  for (const id of personIds) await row(page, id).getByTestId('person-select').setChecked(true);
+  await page.getByTestId('bulk-retire-date').fill(date);
+  const was = await shown(page.getByTestId('bulk-retired'));
+  await page.getByTestId('bulk-retire').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await page.getByTestId('bulk-retired').count()) > 0
+    && (await shown(page.getByTestId('bulk-retired'))) !== '' && ((await shown(page.getByTestId('bulk-retired'))) !== was || was === ''),
+    page.getByTestId('person-error'), 'bulk retire');
+  return ok ? Number(await shown(page.getByTestId('bulk-retired'))) : null;
+}
+
+type PlanFields = { amount: string; start: string; every?: string; day?: string; end: string };
+
+/** Add a plan on the person's row: the new plan row's id, or null when refused. */
+export async function addPlan(page: Page, personId: string, f: PlanFields): Promise<string | null> {
+  const r = row(page, personId);
+  const plans = r.locator('[data-testid^="plan-row-"]');
+  const before = await ids(plans, 'plan-row-');
+  await r.getByTestId('plan-form-amount').fill(f.amount);
+  await r.getByTestId('plan-form-start').fill(f.start);
+  if (f.every !== undefined) await r.getByTestId('plan-form-every').fill(f.every);
+  if (f.day !== undefined) await r.getByTestId('plan-form-day').fill(f.day);
+  await r.getByTestId('plan-form-end').fill(f.end);
+  await r.getByTestId('plan-form-submit').click();
+  let added: string | null = null;
+  const ok = await until(page, async () => {
+    const now = (await freshRows(plans, 'plan-row-', before, []))[0];
+    added = now ? now.id : null;
+    return added !== null;
+  }, r.getByTestId('plan-error'), 'add plan');
+  return ok ? added : null;
+}
+
+/** Generate the plans' claims: how many were made, or null when refused. */
+export async function generatePlans(page: Page): Promise<number | null> {
+  const cell = page.getByTestId('plan-generated-count');
+  const was = await shown(cell);
+  await page.getByTestId('plan-generate').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await cell.count()) > 0 && (await shown(cell)) !== ''
+    && ((await shown(cell)) !== was || was === ''), page.getByTestId('plan-generate-error'), 'generate plans');
+  return ok ? Number(await shown(cell)) : null;
+}
+
 /** Give the selected people a grade together: how many were changed. */
 export async function bulkGrade(page: Page, personIds: string[], f: { grade: string; from?: string }): Promise<number | null> {
   for (const id of personIds) await row(page, id).getByTestId('person-select').setChecked(true);
@@ -464,6 +598,46 @@ export async function addClaimTwice(page: Page, personId: string, f: ClaimFields
     r.getByTestId('claim-form-error'), 'add claim twice');
   await page.waitForTimeout(500);          // let a second record land, if the app stores one
   return ok ? addedClaim(r, before, f) : null;
+}
+
+/** Add a claim from a template: the new claim's id, or null when refused. */
+export async function claimFromTemplate(page: Page, personId: string, template: string): Promise<string | null> {
+  const r = row(page, personId);
+  const before = await ids(claimRows(r), 'claim-row-');
+  try {
+    await r.getByTestId('claim-template-select').selectOption({ label: template }, { timeout: 2000 });
+  } catch {
+    return null;
+  }
+  await r.getByTestId('claim-template-add').click();
+  let added: string | null = null;
+  const ok = await until(page, async () => (added = await addedAnyClaim(r, before)) !== null,
+    r.getByTestId('claim-form-error'), 'claim from template');
+  return ok ? added : null;
+}
+
+/** Add a line to a draft claim: true once the claim shows one more line. */
+export async function addLine(page: Page, claimId: string, f: { label: string; qty: string; unit: string }): Promise<boolean> {
+  const c = claimRow(page, claimId);
+  const lines = c.getByTestId('claim-lines-line');
+  const was = await lines.count();
+  await c.getByTestId('claim-line-label').fill(f.label);
+  await c.getByTestId('claim-line-qty').fill(f.qty);
+  await c.getByTestId('claim-line-unit').fill(f.unit);
+  await c.getByTestId('claim-line-add').click();
+  return until(page, async () => (await lines.count()) > was, c.getByTestId('claim-error'), 'add line');
+}
+
+/** Re-date the selected claims together: how many were re-dated and how many refused. */
+export async function bulkRedate(page: Page, claimIds: string[], date: string): Promise<{ redated: number; refused: number }> {
+  for (const id of claimIds) await claimRow(page, id).getByTestId('claim-select').setChecked(true);
+  await page.getByTestId('bulk-redate-date').fill(date);
+  await page.getByTestId('bulk-redate').click();
+  await expect(page.getByTestId('bulk-redated')).toBeVisible({ timeout: WAIT });
+  return {
+    redated: Number(await shown(page.getByTestId('bulk-redated'))),
+    refused: Number(await shown(page.getByTestId('bulk-redate-refused'))),
+  };
 }
 
 /** Paste lines of claims into the paste box: how many were added, or null when refused. */
@@ -749,12 +923,13 @@ export async function setRate(page: Page, f: { grade: string; pct: string; from?
   return until(page, done, page.getByTestId('rate-form-error'), 'set rate', already);
 }
 
-export async function addPeriod(page: Page, f: { name: string; from: string; to: string }): Promise<boolean> {
+export async function addPeriod(page: Page, f: { name: string; from: string; to: string; cap?: string }): Promise<boolean> {
   const all = page.locator('[data-testid^="period-row-"]');
   const before = await all.count();
   await page.getByTestId('period-form-name').fill(f.name);
   await page.getByTestId('period-form-from').fill(f.from);
   await page.getByTestId('period-form-to').fill(f.to);
+  if (f.cap !== undefined) await page.getByTestId('period-form-cap').fill(f.cap);
   await page.getByTestId('period-form-submit').click();
   return until(page, async () => (await all.count()) > before, page.getByTestId('period-form-error'), 'add period');
 }
@@ -808,6 +983,126 @@ export async function setSettingDated(page: Page, key: string, value: string, fr
   const ok = await until(page, done, page.getByTestId('settings-error'), 'save dated setting', already);
   if (ok) await page.waitForTimeout(300);     // the value may already have shown; let the save land
   return ok;
+}
+
+/** Save a claim template: true once its row shows the amount and note. */
+export async function saveTemplate(page: Page, f: { name: string; amount: string; note: string }): Promise<boolean> {
+  const r = page.getByTestId(`template-row-${f.name.trim()}`);
+  const done = async () => f.name.trim() !== '' && (await r.count()) > 0
+    && (await shown(r.getByTestId('template-amount'))) === money(f.amount) && (await shown(r.getByTestId('template-note'))) === f.note;
+  const already = await done();
+  await page.getByTestId('template-form-name').fill(f.name);
+  await page.getByTestId('template-form-amount').fill(f.amount);
+  await page.getByTestId('template-form-note').fill(f.note);
+  await page.getByTestId('template-form-submit').click();
+  return until(page, done, page.getByTestId('template-form-error'), 'save template', already);
+}
+
+/** Add a pool: true once its row shows. */
+export async function addPool(page: Page, name: string): Promise<boolean> {
+  const r = page.getByTestId(`pool-row-${name.trim()}`);
+  const already = name.trim() !== '' && (await r.count()) > 0;
+  await page.getByTestId('pool-form-name').fill(name);
+  await page.getByTestId('pool-form-submit').click();
+  return until(page, async () => name.trim() !== '' && (await r.count()) > 0, page.getByTestId('pool-form-error'), 'add pool', already);
+}
+
+/** Add a member (a person's name, or pool:<name>) to a pool: true once the pool shows one more member. */
+export async function addPoolMember(page: Page, pool: string, f: { member: string; share: string; from?: string; to?: string }): Promise<boolean> {
+  const r = page.getByTestId(`pool-row-${pool}`);
+  const members = page.locator(`[data-testid^="pool-member-${pool}-"]`);
+  const was = await members.count();
+  try {
+    await r.getByTestId('pool-member-select').selectOption({ label: f.member }, { timeout: 2000 });
+  } catch {
+    return false;
+  }
+  await r.getByTestId('pool-member-share').fill(f.share);
+  if (f.from !== undefined) await r.getByTestId('pool-member-from').fill(f.from);
+  if (f.to !== undefined) await r.getByTestId('pool-member-to').fill(f.to);
+  await r.getByTestId('pool-member-add').click();
+  return until(page, async () => (await members.count()) > was, r.getByTestId('pool-error'), 'add pool member');
+}
+
+/** Paste people into the import box: {added, updated?}, or null when refused. */
+export async function importPeople(page: Page, text: string): Promise<{ added: number; updated?: number } | null> {
+  const cell = page.getByTestId('import-added');
+  const was = await shown(cell);
+  await page.getByTestId('import-people').fill(text);
+  await page.getByTestId('import-submit').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await cell.count()) > 0 && (await shown(cell)) !== ''
+    && ((await shown(cell)) !== was || was === ''), page.getByTestId('import-error'), 'import people');
+  if (!ok) return null;
+  const out: { added: number; updated?: number } = { added: Number(await shown(cell)) };
+  const upd = page.getByTestId('import-updated');
+  if ((await upd.count()) > 0) out.updated = Number(await shown(upd));
+  return out;
+}
+
+/** Paste rates into the rate import box: how many were set, or null when refused. */
+export async function importRates(page: Page, text: string): Promise<number | null> {
+  const cell = page.getByTestId('import-rates-set');
+  const was = await shown(cell);
+  await page.getByTestId('import-rates').fill(text);
+  await page.getByTestId('import-rates-submit').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await cell.count()) > 0 && (await shown(cell)) !== ''
+    && ((await shown(cell)) !== was || was === ''), page.getByTestId('import-rates-error'), 'import rates');
+  return ok ? Number(await shown(cell)) : null;
+}
+
+/** Generate a fiscal year's monthly periods: how many were made, or null when refused. */
+export async function generateFy(page: Page, year: string): Promise<number | null> {
+  await page.getByTestId('period-generate-fy-year').fill(year);
+  const was = await shown(page.getByTestId('period-generated'));
+  await page.getByTestId('period-generate-fy').click();
+  await page.waitForTimeout(300);
+  const ok = await until(page, async () => (await page.getByTestId('period-generated').count()) > 0
+    && (await shown(page.getByTestId('period-generated'))) !== '' && ((await shown(page.getByTestId('period-generated'))) !== was || was === ''),
+    page.getByTestId('period-generate-error'), 'generate fiscal year');
+  return ok ? Number(await shown(page.getByTestId('period-generated'))) : null;
+}
+
+/** Search the tree: the result lines in order, once the screen says how many there are. */
+export async function search(page: Page, text: string): Promise<string[]> {
+  await page.getByTestId('search-name').fill(text);
+  await page.getByTestId('search').click();
+  const count = page.getByTestId('search-count');
+  await expect.poll(async () => {
+    const n = await shown(count);
+    return n !== '' && Number(n) === (await page.getByTestId('search-line').count());
+  }, { timeout: WAIT }).toBe(true);
+  return (await page.getByTestId('search-line').allTextContents()).map((t) => t.trim());
+}
+
+export async function exportClaims(page: Page): Promise<string> {
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export-claims').click()]);
+  const path = await download.path();
+  if (!path) throw new Error('export produced no file');
+  return readFileSync(path, 'utf8');
+}
+
+export async function exportPools(page: Page): Promise<string> {
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('export-pools').click()]);
+  const path = await download.path();
+  if (!path) throw new Error('export produced no file');
+  return readFileSync(path, 'utf8');
+}
+
+/** The audit viewer, filtered: its lines are exactly `expected`, in order, each matched by its
+ *  start (a line may carry further fields after the expected ones, as the file's lines may). */
+export async function expectAuditView(page: Page, filter: string, expected: string[]): Promise<void> {
+  await page.getByTestId('audit-filter').fill(filter);
+  await page.getByTestId('audit-show').click();
+  const lines = page.getByTestId('audit-line');
+  await expect.poll(() => lines.count(), { timeout: WAIT }).toBe(expected.length);
+  const texts = (await lines.allTextContents()).map((t) => t.trim());
+  texts.forEach((line, i) => {
+    const e = expected[i];
+    const ok = line === e || line.startsWith(e + ' ');
+    expect(ok, `audit view line ${i + 1}\n  expected: ${e}\n  actual:   ${line}`).toBe(true);
+  });
 }
 
 export async function setRole(page: Page, user: string, role: string): Promise<boolean> {

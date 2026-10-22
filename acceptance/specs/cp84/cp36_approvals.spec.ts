@@ -386,7 +386,7 @@ test.describe("approvals", () => {
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
     await ui.refresh(pg_vic);
     expect(await ui.claimAction(pg_vic, c_cam_0, "settle")).toBe(true);
-    expect(await ui.addClaim(pg_vic, p_ada, {"amount": "-10.25", "corrects": "P1-1"})).toBeNull();
+    const c_ada_2 = ui.must(await ui.addClaim(pg_vic, p_ada, {"amount": "-10.25", "corrects": "P2-1"}));
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("0.00");
@@ -400,6 +400,9 @@ test.describe("approvals", () => {
     await expect(pg_uma.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-stated")).toHaveText("yes");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("10.25");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-due")).toHaveText("-1.03");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-status")).toHaveText("DRAFT");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-due")).toHaveText("2.00");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-status")).toHaveText("DRAFT");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-stated")).toHaveText("no");
@@ -410,11 +413,13 @@ test.describe("approvals", () => {
     await expect(pg_uma.getByTestId("rollup-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("0.00");
+    expect(await ui.bulkOpen(pg_uma, [c_ada_2, c_ada_1])).toEqual({ opened: 2, refused: 0 });
     await ui.refresh(pg_vic);
-    expect(await ui.claimAction(pg_vic, c_ada_1, "settle")).toBe(false);
+    expect(await ui.claimAction(pg_vic, c_ada_1, "settle")).toBe(true);
     await ui.setToday(pg_vic, "2026-04-04");
     expect(await ui.addPatron(pg_vic, p_cam, "Ada")).toBe(true);
     await ui.setToday(pg_vic, "2026-05-06");
+    expect(await ui.claimAction(pg_vic, c_ada_2, "void")).toBe(true);
     expect(await ui.editPerson(pg_vic, p_ada, {"grade": "C"})).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");
@@ -427,16 +432,19 @@ test.describe("approvals", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-due")).toHaveText("2.00");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-status")).toHaveText("SETTLED");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-stated")).toHaveText("yes");
-    await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("10.25");
-    await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("20.50");
+    await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("2.00");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-due")).toHaveText("-1.03");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-status")).toHaveText("VOID");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-due")).toHaveText("2.00");
-    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-status")).toHaveText("DRAFT");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-status")).toHaveText("SETTLED");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-due")).toHaveText("n/a");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-status")).toHaveText("SETTLED");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-stated")).toHaveText("no");
-    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("20.50");
-    await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("30.75");
+    await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("2.00");
     await expect(pg_vic.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("rollup-overdue-total")).toHaveText("0.00");
     await ui.refresh(pg_vic);
@@ -479,7 +487,7 @@ test.describe("approvals", () => {
     await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-overdue-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-overdue-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-patrons")).toHaveText("Ada");
-    await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-backing")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-backing")).toHaveText("2.00");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-amount")).toHaveText("10.25");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-date")).toHaveText("2026-03-28");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-note")).toHaveText("");
@@ -494,8 +502,8 @@ test.describe("approvals", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-corrects")).toHaveText("");
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-name")).toHaveText("Ada");
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-grade")).toHaveText("C");
-    await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("10.25");
-    await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("20.50");
+    await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("2.00");
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-statement-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-stated-total")).toHaveText("");
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-statement-date")).toHaveText("");
@@ -506,13 +514,25 @@ test.describe("approvals", () => {
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-overdue-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-patrons")).toHaveText("");
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-backing")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-amount")).toHaveText("-10.25");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-date")).toHaveText("2026-03-26");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-note")).toHaveText("");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-due")).toHaveText("-1.03");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-status")).toHaveText("VOID");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-number")).toHaveText("X-2");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-opened-by")).toHaveText("uma");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-stated")).toHaveText("no");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-period")).toHaveText("");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-due-by")).toHaveText("2026-04-15");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-overdue")).toHaveText("no");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-corrects")).toHaveText("P2-1");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-amount")).toHaveText("10.25");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-date")).toHaveText("2026-03-26");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-note")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-due")).toHaveText("2.00");
-    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-status")).toHaveText("DRAFT");
-    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-number")).toHaveText("");
-    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-opened-by")).toHaveText("");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-status")).toHaveText("SETTLED");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-number")).toHaveText("X-3");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-opened-by")).toHaveText("uma");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-period")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-due-by")).toHaveText("2026-04-15");
@@ -530,8 +550,8 @@ test.describe("approvals", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-due-by")).toHaveText("2026-03-27");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-overdue")).toHaveText("no");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-corrects")).toHaveText("");
-    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("20.50");
-    await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("30.75");
+    await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("2.00");
     await expect(pg_vic.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("rollup-overdue-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("period-row-P1").getByTestId("period-due-total")).toHaveText("0.00");
@@ -546,14 +566,14 @@ test.describe("approvals", () => {
     await expect(pg_vic.getByTestId("summary-grade-B-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("summary-grade-B-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("summary-grade-C-count")).toHaveText("2");
-    await expect(pg_vic.getByTestId("summary-grade-C-due-total")).toHaveText("2.00");
+    await expect(pg_vic.getByTestId("summary-grade-C-due-total")).toHaveText("4.00");
     await expect(pg_vic.getByTestId("summary-period-P1-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("summary-period-P2-due-total")).toHaveText("0.00");
-    await expect(pg_vic.getByTestId("summary-status-DRAFT-count")).toHaveText("1");
+    await expect(pg_vic.getByTestId("summary-status-DRAFT-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("summary-status-OPEN-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("summary-status-PENDING-count")).toHaveText("0");
-    await expect(pg_vic.getByTestId("summary-status-SETTLED-count")).toHaveText("2");
-    await expect(pg_vic.getByTestId("summary-status-VOID-count")).toHaveText("1");
+    await expect(pg_vic.getByTestId("summary-status-SETTLED-count")).toHaveText("3");
+    await expect(pg_vic.getByTestId("summary-status-VOID-count")).toHaveText("2");
     await ui.expectAudit(sheet, [
       `ROLE_SET sheet=${sheet} by=uma user=vic role=steward`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit value=3.00`,
@@ -587,6 +607,14 @@ test.describe("approvals", () => {
       `TOTALS sheet=${sheet} by=uma claimed-total=20.50 due-total=0.00`,
       `STATEMENT sheet=${sheet} by=uma name=Cam due-total=2.00 claims=1`,
       `CLAIM_SETTLED sheet=${sheet} by=vic person=Cam amount=10.25 date=2026-03-28 number=X-1 due=2.00`,
+      `CLAIM_ADDED sheet=${sheet} by=vic person=Ada amount=-10.25 date=2026-03-26`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=-10.25 date=2026-03-26 number=X-2`,
+      `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=-1.03`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=10.25 due-total=0.00`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=10.25 date=2026-03-26 number=X-3`,
+      `ROLLUP sheet=${sheet} by=uma person=Ada claimed=10.25 due-total=0.97`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=20.50 due-total=0.97`,
+      `CLAIM_SETTLED sheet=${sheet} by=vic person=Ada amount=10.25 date=2026-03-26 number=X-3 due=2.00`,
       `SNAPSHOT sheet=${sheet} by=vic`,
       `SNAPSHOT sheet=${sheet} by=vic`,
       `SNAPSHOT sheet=${sheet} by=vic`,
@@ -594,6 +622,10 @@ test.describe("approvals", () => {
       `SNAPSHOT sheet=${sheet} by=vic`,
       `SNAPSHOT sheet=${sheet} by=vic`,
       `SNAPSHOT sheet=${sheet} by=vic`,
+      `ROLLUP sheet=${sheet} by=vic person=Ada claimed=10.25 due-total=0.97`,
+      `CLAIM_VOIDED sheet=${sheet} by=vic person=Ada amount=-10.25 date=2026-03-26 number=X-2`,
+      `ROLLUP sheet=${sheet} by=vic person=Ada claimed=20.50 due-total=2.00`,
+      `TOTALS sheet=${sheet} by=vic claimed-total=30.75 due-total=2.00`,
       `PERSON_EDITED sheet=${sheet} by=vic name=Ada grade=C`
     ]);
   });
