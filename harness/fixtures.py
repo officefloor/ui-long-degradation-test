@@ -82,7 +82,7 @@ _NAV = re.compile(r"""getByTestId\(\s*(['"`])nav-""")
 
 def screen_violations(checkpoints: list[dict], harness_root: str) -> list[str]:
     """Own specs that leave the one screen: open any URL other than '/' or click a nav-* entry
-    (acceptance/WORKSPACE.md §3). Hidden copies are checked too, since they replay the same UI."""
+    (docs/STREAM.md §5). Hidden copies are checked too, since they replay the same UI."""
     out = []
     for cp in checkpoints:
         for e in spec_entries(cp, harness_root):

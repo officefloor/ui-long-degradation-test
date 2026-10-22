@@ -1,26 +1,26 @@
 """Static audit of the checkpoint stream, run BEFORE a run spends anything.
 
-The stream is designed to concentrate complexity on one screen and three entities
-(acceptance/WORKSPACE.md). This lint refuses a stream that does not hold to that design:
+The stream is designed to concentrate complexity on one screen and one figure (docs/STREAM.md
+§5). This lint refuses a stream that does not hold to that design:
 
-  1. CADENCE — checkpoint n is mutative exactly when n % 4 == 0 (three additions, one mutation)
-     through --tighten-after, then on the tighter 1:1 rhythm (n % --tighten-period == 0) beyond it
-     (Act VI runs 1:1), and every mutation names the earlier checkpoints it changes (`mutates:`).
+  1. CADENCE — checkpoint n is mutative exactly when n % 4 == 0 (three additions, one mutation),
+     and every mutation names the earlier checkpoints it changes (`mutates:`). The --tighten-after
+     and --tighten-period options allow a tighter rhythm beyond a given checkpoint; the stream on
+     main does not use them.
   2. ONE SCREEN — every checkpoint's own (agent-visible) spec opens only `/` and clicks no
      navigation (`nav-*`): no request may add a page.
   3. ALGORITHMS — each act of --act-size checkpoints carries at least --min-algorithms
      checkpoints with an `algorithm:` field.
-  4. TEST DATA — no hidden copy seeds a field no visible spec has seeded yet.
-  5. VISIBLE SPECS — an own spec never describes the hidden suite (copies, mutates).
-  6. COVERAGE — a copy drops an earlier test only when the checkpoint lists it under `retires:`,
+  4. VISIBLE SPECS — an own spec never describes the hidden suite (copies, mutates).
+  5. COVERAGE — a copy drops an earlier test only when the checkpoint lists it under `retires:`,
      and only for a checkpoint it mutates.
-  7. YAML — no mapping repeats a key (safe_load would silently keep the last).
+  6. YAML — no mapping repeats a key (safe_load would silently keep the last).
+  7. FRAMING — nothing the agent reads (AGENTS.md, the helper, the prompts, a request) frames the
+     work as a test run or one step of a sequence.
   8. IMPORTS — every relative import in a spec resolves from the folder it is installed into
      (copies go in by basename beside the own specs, so `../../` from a copy breaks the gate).
   9. ANCHORS — a hidden copy asserts only test ids the agent can know: named in its own spec,
      asserted by a test still in force, or declared under `keeps_anchors:` as surviving a retirement.
- 10. STANDING HOLD — from cp77, every test asserting a sheet-wide or patron/follow figure seeds a held
-     person, so the hold rule (cp73-76) keeps being exercised for the rest of the run.
 
     .venv/bin/python -m harness.checkpoint_lint --config config.yaml
 

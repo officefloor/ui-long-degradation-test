@@ -1,12 +1,12 @@
 # The plan: do additive architectures keep concentration spread by restricting sinews?
 
 _Written 2026-10-22 from the experiment design as the author stated it, the companion studies, and
-what the runs to date have taught. This supersedes DESIGN.md §12 ("Open decisions and next steps")
-as the statement of where the repository is going. DESIGN.md stays the record of the harness's
-mechanics and of the decisions behind them; docs/REFACTOR_HELL_STREAM.md stays the catalogue of
-erosion engines and the request material; docs/LONG_HORIZON_DESIGN.md stays the enforced
-properties and the lint. This document says what is being tested, with what, in which order, and
-how each act of the stream keeps the pressure on._
+what the runs to date have taught. This supersedes DESIGN.md §12 ("Open decisions and next steps") as the statement of where the
+repository is going. DESIGN.md stays the record of the harness's mechanics and of the decisions
+behind them; docs/STREAM.md is the stream as built: the engines of erosion, the world, the enforced
+properties, every act checkpoint by checkpoint, the catalogue of gotchas and the authoring loop.
+This document says what is being tested, with what, in which order, and how each act of the stream
+keeps the pressure on._
 
 ## 1. Hypothesis and lineage
 
@@ -162,7 +162,7 @@ series: an architecture that costs the agent more per change is also a finding.
 
 ### 4.1 Principles
 
-1. **Every request stands on the five engines** of docs/REFACTOR_HELL_STREAM.md §2: many write
+1. **Every request stands on the five engines** of docs/STREAM.md §2: many write
    paths for one rule; many read surfaces for one figure; live, frozen and as-of computations that
    must agree; rules in force at a date; server-only observables (the audit file, two users, gapless
    numbering, exports, the sheet's today).
@@ -179,13 +179,13 @@ series: an architecture that costs the agent more per change is also a finding.
 4. **Each act adds at least one new write path, one new read surface and one new reconstruction
    demand**, so no single screen component or service can absorb an act by growing: the pressure
    keeps arriving from a new direction.
-5. **One screen, one concept spine** (docs/LONG_HORIZON_DESIGN.md §3 and §4). Concentration is
+5. **One screen, one concept spine** (docs/STREAM.md §5). Concentration is
    enforced by the world, so the architecture has to spread it; the stream does not spread it for
    the architecture.
 6. **Exact figures, hand-verified oracles, generated multi-user scenarios** beside every story,
    and the interaction-density metric per checkpoint, so every rule provably bites (oracle
    ablation) and the stream carries no stub.
-7. **Every gotcha of real systems** from the catalogue (docs/REFACTOR_HELL_STREAM.md §4 and §4.1):
+7. **Every gotcha of real systems** from the catalogue (docs/STREAM.md §8):
    uniqueness with normalisation, rounding policies, half-even ties, effective-dated reference
    data, gapless numbering under concurrency, four-eyes, edit conflicts, freezing on settle and on
    close, precedence between exceptions, retirement and holds that remove rows from some totals and
@@ -198,10 +198,9 @@ series: an architecture that costs the agent more per change is also a finding.
 
 ### 4.2 The acts
 
-The current stream (cp1-80, two acts of forty, built from `harness/oracle/` by
-`harness.stream_build`) is the material; it is re-cut to five acts of fifty with the engines pulled
-forward. Request material for Acts III to V is in docs/REFACTOR_HELL_STREAM.md §6, which was
-written for the earlier world and is re-cut onto the restarted one as Act II was.
+The stream of cp1-80 (two acts of forty, built from `harness/oracle/` by `harness.stream_build`)
+was the material; the five acts of fifty are built (docs/STREAM.md §6), Acts III to V re-cut from
+the request material of the earlier world (in git history) onto the restarted one as Act II was.
 
 **Act I (cp1-50), foundation under load.** The spine (sheet today, people, claims, statuses and
 the workflow, rates, due, periods) lands with the engines already on it: statements that bind the
@@ -311,8 +310,9 @@ defined (the coupling-divergence measure, a data-flow coupling metric, signature
 computed later over the same commits.
 
 _Status 2026-10-22: step 3 below is built: five acts of fifty, cp1-250, from the oracle, lint
-clean, every own spec compiling; the decisions taken are in docs/STREAM_ACTS.md §1. The dry gate of
-each act against a real build is the next thing to do. Step 2, the control stack, is not started._
+clean, every own spec compiling; the decisions taken are in docs/STREAM.md §7 (notably that cp1-80
+were kept as Acts I and II, leaving the re-cut of Act I to the cp50 gate). The dry gate of each act
+against a real build is the next thing to do. Step 2, the control stack, is not started._
 
 ## 7. Order of work and decision gates
 

@@ -692,7 +692,8 @@ def _confine_config(cfg: dict, sandbox: str) -> dict | None:
     # sequence). Neither is in the allowlist, so both should already be denied.
     sentinels = [os.path.join(HARNESS_ROOT, "acceptance", "specs"),
                  os.path.join(HARNESS_ROOT, "acceptance", "reference"),
-                 os.path.join(HARNESS_ROOT, "acceptance", "WORKSPACE.md"),
+                 os.path.join(HARNESS_ROOT, "docs", "STREAM.md"),
+                 os.path.join(HARNESS_ROOT, "harness", "oracle"),
                  os.path.join(HARNESS_ROOT, "checkpoints.yaml"),
                  "/tmp"]      # the machine's shared scratch: the run has its own (per_run_dirs)
     for key in ("work_root", "run_dir"):   # the worktrees; this run's own directory beside the sandbox

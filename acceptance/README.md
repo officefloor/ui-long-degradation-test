@@ -1,8 +1,8 @@
 # acceptance/ — the Playwright specs (the living spec; DESIGN.md §3, §7)
 
-- The stream every checkpoint is generated from is described in [WORKSPACE.md](./WORKSPACE.md):
-  one screen at `/`, people with claims and one figure (`due`) that eighty checkpoints keep loading,
-  every fourth checkpoint mutative. The stable `data-testid` contract is in
+- The stream every checkpoint is generated from is described in [docs/STREAM.md](../docs/STREAM.md):
+  one screen at `/`, people with claims and one figure (`due`) that 250 checkpoints in five acts
+  keep loading, every fourth checkpoint mutative. The stable `data-testid` contract is in
   [support/README.md](./support/README.md). The agent never sees any of this.
 - Specs are GENERATED: `harness.stream_build` renders each checkpoint's script
   (`harness/oracle/hell_scripts.py`) through the reference model (`harness/oracle/hell.py`) and

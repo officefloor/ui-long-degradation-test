@@ -5,7 +5,8 @@
 > language or framework that can satisfy §2–§5.
 
 The harness (`~/ui-long-degradation-test`) grows **one application** from a near-empty base over
-~60 English change requests, modelling the OfficeHQ loop (DESIGN.md §1, §2, §14). It treats the
+250 plain-English change requests in five acts (docs/PLAN.md, docs/STREAM.md; DESIGN.md §1, §2,
+§14). It treats the
 app repo (`app.repo` in `config.yaml`) as an external folder it only reads at `base_ref`, mirrors
 into an isolated sandbox for the agent turn, then builds and runs whole for the gate. For that to
 work without the harness knowing the app's internals, the repo must honour this contract.
@@ -17,8 +18,9 @@ test contract (§4).
 ## 1. It is a git repo starting from a near-empty base
 
 - The folder is a git repository with a `base_ref` (e.g. `base-empty`) that contains: the base
-  front-end shell, Spring with the OfficeFloor plugin, Flyway wired against an **empty in-memory
-  H2 (no tables)**, and the scaffolding scripts (§3).
+  front-end shell, the server framework, migrations wired against an **empty data store (no
+  tables)**, and the scaffolding scripts (§3). The reference stacks are Spring Boot or OfficeFloor
+  with Flyway and in-memory H2; the control stack (PLAN.md §2.3) is Javalin with JDBC against H2.
 - The harness branches every run off `base_ref` and never writes to it. cp01 creates the first
   tables/entities/UI.
 
