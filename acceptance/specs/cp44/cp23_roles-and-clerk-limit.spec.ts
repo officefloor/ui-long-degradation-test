@@ -84,7 +84,7 @@ test.describe("roles and clerk limit", () => {
     expect(await ui.hold(pg_uma, p_ada, {})).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "A", "pct": "5.00", "from": "2026-03-10"})).toBe(true);
     await ui.setSetting(pg_uma, "clerk-limit", "1.50");
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "0.40"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "0.40"}, p_ada));
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");
@@ -236,7 +236,7 @@ test.describe("roles and clerk limit", () => {
     expect(await ui.retire(pg_uma, p_cam, "2026-03-20")).toBe(true);
     await ui.showRetired(pg_uma, true);
     expect(await ui.setRate(pg_uma, {"grade": "B", "pct": "7.50"})).toBe(true);
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "25.00"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "25.00"}, p_ada));
     expect(await ui.addClaim(pg_uma, p_cam, {"amount": "1.00"})).toBeNull();
     expect(await ui.periodAction(pg_uma, "P2", "close")).toBe(true);
     expect(await ui.periodAction(pg_uma, "P1", "close")).toBe(true);
@@ -275,7 +275,7 @@ test.describe("roles and clerk limit", () => {
     await expect(pg_uma.getByTestId("rollup-due-total")).toHaveText("0.00");
     expect(await ui.editPerson(pg_uma, p_dot, {"grade": "B"})).toBe(true);
     await ui.setSetting(pg_uma, "clerk-limit", "3.00");
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "25.00"}));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "25.00"}, p_ada));
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-name")).toHaveText("Cam");

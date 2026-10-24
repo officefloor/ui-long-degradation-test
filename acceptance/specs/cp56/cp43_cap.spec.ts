@@ -162,7 +162,7 @@ test.describe("cap", () => {
     expect(await ui.statement(pg_wes, p_cam)).toBe(true);
     expect(await ui.statement(pg_wes, p_cam)).toBe(true);
     expect(await ui.editPerson(pg_wes, p_cam, {"grade": "A"})).toBe(true);
-    expect(await ui.editPerson(pg_wes, p_cam, {"grade": "C", "gradeFrom": "2026-03-15"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_wes, p_cam, {"grade": "C", "gradeFrom": "2026-03-15"}, {"grade": "A"})).toBe(true);
     expect(await ui.statement(pg_wes, p_cam)).toBe(true);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");

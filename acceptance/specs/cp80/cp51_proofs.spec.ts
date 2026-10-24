@@ -404,7 +404,7 @@ test.describe("proofs", () => {
     await ui.refresh(pg_uma);
     expect(await ui.hold(pg_uma, p_ada, {"from": "2026-03-15"})).toBe(true);
     const c_ada_1 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "0.04", "date": "2026-02-25"}));
-    const c_dot_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "1.00"}));
+    const c_dot_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "1.00"}, p_dot));
     await ui.setToday(pg_uma, "2026-04-10");
     const c_ada_2 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "3.33"}));
     await ui.refresh(pg_uma);
@@ -446,7 +446,7 @@ test.describe("proofs", () => {
     await ui.refresh(pg_vic);
     const c_ada_3 = ui.must(await ui.addClaim(pg_vic, p_ada, {"amount": "20.00", "date": "2026-03-15"}));
     const c_ada_4 = ui.must(await ui.addClaim(pg_vic, p_ada, {"amount": "10.35"}));
-    const c_ada_5 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "7.77"}));
+    const c_ada_5 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "7.77"}, p_ada));
     expect(await ui.defer(pg_vic, c_ada_0, "2026-05-05")).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");

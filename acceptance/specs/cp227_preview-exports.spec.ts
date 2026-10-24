@@ -152,7 +152,7 @@ test.describe("preview exports", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -449,7 +449,7 @@ test.describe("preview exports", () => {
       `PERSON_RETIRED sheet=${sheet} by=uma name=Ben from=2026-03-28`,
       `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C`,
       `PERSON_UNRETIRED sheet=${sheet} by=uma name=Ben on=2026-03-10`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C terms=`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C`,
       `STATEMENT sheet=${sheet} by=uma name=Ben due-total=0.00 claims=0`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=99.95 date=2026-04-02`,
       `PERIOD_CLOSED sheet=${sheet} by=uma period=2026-02 total=0.00`,
@@ -536,7 +536,7 @@ test.describe("preview exports", () => {
     await expect(pg_uma.getByTestId("watched-due-total")).toHaveText("0.00");
     expect(await ui.retire(pg_uma, p_cam, "2026-03-15")).toBe(true);
     await ui.showRetired(pg_uma, true);
-    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "A", "gradeFrom": "2026-03-28"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "A", "gradeFrom": "2026-03-28"}, {"grade": "B"})).toBe(true);
     expect(await ui.claimAction(pg_uma, c_cam_1, "open")).toBe(true);
     expect(await ui.addPatron(pg_uma, p_cam, "Ada")).toBe(true);
     expect(await ui.addClaimTwice(pg_uma, p_ada, {"amount": "7.77", "date": "2026-03-05"})).toBeNull();
@@ -586,7 +586,7 @@ test.describe("preview exports", () => {
     expect(await ui.claimEditOpen(pg_vic, c_cam_0)).toBe(false);
     await ui.refresh(pg_uma);
     expect(await ui.claimEditSave(pg_uma, c_cam_0, {"amount": "3.33"})).toBe(false);
-    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-02-10"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-02-10"}, {"grade": "B"})).toBe(true);
     await ui.setAsOf(pg_uma, "2026-03-15");
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
@@ -1104,7 +1104,7 @@ test.describe("preview exports", () => {
     await ui.showRetired(pg_vic, true);
     expect(await ui.claimAction(pg_vic, c_ben_0, "settle")).toBe(true);
     expect(await ui.statementAsOf(pg_vic, p_ben, "2026-03-20")).toBe(false);
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Cam", "amount": "3.33"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Cam", "amount": "3.33"}, p_cam));
     expect(await ui.claimAction(pg_vic, c_cam_0, "settle")).toBe(true);
     await ui.setToday(pg_vic, "2026-05-04");
     await ui.refresh(pg_vic);

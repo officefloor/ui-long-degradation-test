@@ -141,36 +141,39 @@ test.describe("score", () => {
     await expect(pg_uma.getByTestId("my-crew-due-total")).toHaveText("");
     expect(await ui.claimAction(pg_uma, c_ada_0, "void")).toBe(false);
     expect(await ui.search(pg_uma, "e")).toEqual([`${sheet} Ben (A) 0.00`]);
-    expect(await ui.addClaim(pg_uma, p_ben, {"amount": "3.33", "date": "2026-03-01", "note": "n", "tags": "b,a,a"})).toBeNull();
-    expect(await ui.importOpenings(pg_uma, "Ben,P2,5.50")).toBe(1);
-    expect(await ui.movePerson(pg_uma, p_ada, "up")).toBe(false);
-    expect(await ui.statement(pg_uma, p_ben)).toBe(true);
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "25.00"}));
+    const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "3.33", "date": "2026-03-01", "note": "n", "tags": "b,a,a"}));
+    expect(await ui.editInline(pg_uma, c_ada_0, "1.00")).toBe(false);
+    expect(await ui.addPatron(pg_uma, p_ada, "Ben")).toBe(true);
+    expect(await ui.bulkOpen(pg_uma, [c_ada_0, c_ben_0])).toEqual({ opened: 1, refused: 1 });
+    expect(await ui.importPeople(pg_uma, "Ada,A\nFay,B,3,")).toMatchObject({"added": 1, "updated": 1});
+    const p_fay = await ui.personId(pg_uma, "Fay");
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");
-    await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("n/a");
+    await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-due")).toHaveText("n/a");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-status")).toHaveText("DRAFT");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-stated")).toHaveText("no");
-    await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");
-    await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("0.00");
-    await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-due")).toHaveText("8.33");
-    await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-status")).toHaveText("DRAFT");
+    await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("3.33");
+    await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("1.11");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-due")).toHaveText("1.11");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-status")).toHaveText("OPEN");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-stated")).toHaveText("no");
-    await expect(pg_uma.getByTestId("rollup-claimed-total")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("person-row-" + p_fay).getByTestId("person-claimed")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("person-row-" + p_fay).getByTestId("person-due-total")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("rollup-claimed-total")).toHaveText("3.33");
     await expect(pg_uma.getByTestId("rollup-due-total")).toHaveText("0.00");
-    await expect(pg_uma.getByTestId("rollup-overdue-count")).toHaveText("0");
+    await expect(pg_uma.getByTestId("rollup-overdue-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("rollup-settled-total")).toHaveText("0.00");
-    await expect(pg_uma.getByTestId("rollup-open-total")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("rollup-open-total")).toHaveText("1.11");
     await expect(pg_uma.getByTestId("bulk-settle-batch")).toHaveText("");
     await expect(pg_uma.getByTestId("rollup-cut-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("rollup-aged-0-30")).toHaveText("0.00");
-    await expect(pg_uma.getByTestId("rollup-aged-31-60")).toHaveText("0.00");
+    await expect(pg_uma.getByTestId("rollup-aged-31-60")).toHaveText("1.11");
     await expect(pg_uma.getByTestId("rollup-aged-61")).toHaveText("0.00");
-    await expect(pg_uma.getByTestId("header-people-count")).toHaveText("2");
-    await expect(pg_uma.getByTestId("header-claims-DRAFT-count")).toHaveText("2");
-    await expect(pg_uma.getByTestId("header-claims-OPEN-count")).toHaveText("0");
+    await expect(pg_uma.getByTestId("header-people-count")).toHaveText("3");
+    await expect(pg_uma.getByTestId("header-claims-DRAFT-count")).toHaveText("1");
+    await expect(pg_uma.getByTestId("header-claims-OPEN-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("header-claims-PENDING-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("header-claims-SETTLED-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("header-claims-VOID-count")).toHaveText("0");
@@ -180,314 +183,112 @@ test.describe("score", () => {
     await expect(pg_uma.getByTestId("my-due-total")).toHaveText("");
     await expect(pg_uma.getByTestId("my-overdue-total")).toHaveText("");
     await expect(pg_uma.getByTestId("my-crew-due-total")).toHaveText("");
-    expect(await ui.setRate(pg_uma, {"grade": "B", "pct": "5.00"})).toBe(true);
-    const pg_wes = await ui.userPage(browser, "wes", sheet);
-    const c_ada_1 = ui.must(await ui.addClaim(pg_wes, p_ada, {"amount": "20.00", "note": "n"}));
-    expect(await ui.watch(pg_wes, p_ada, true)).toBe(true);
-    expect(await ui.hold(pg_wes, p_ada, {"from": "2026-03-09", "to": "2026-04-02"})).toBe(true);
-    await ui.refresh(pg_wes);
-    await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
-    await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("");
-    await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("2");
-    await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("consolidated-grade-A-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("consolidated-grade-B-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("consolidated-grade-C-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("consolidated-status-DRAFT-count")).toHaveText("3");
-    await expect(pg_wes.getByTestId("consolidated-status-OPEN-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("consolidated-status-PENDING-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("consolidated-status-SETTLED-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("consolidated-status-VOID-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("consolidated-status-REVIEW-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-name")).toHaveText("Ada (C)");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-grade")).toHaveText("C");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-statement-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-stated-total")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-statement-date")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-retired")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-retired-from")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-hold")).toHaveText("yes");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-overdue-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-overdue-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-patrons")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-backing")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-excess")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-watched")).toHaveText("yes");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-terms")).toHaveText("3");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-active")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-aged-0-30")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-aged-31-60")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-aged-61")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-settled-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-open-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-contact")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-aliases")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-clashing")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-cut-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-origin")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-retirement-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-tags")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-snapshot-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-statement-line-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-flag-shown")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-approver")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-score")).toHaveText("0");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-period-P1-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-period-P2-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-period-P1-carried")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-period-P2-carried")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-amount")).toHaveText("20.00");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-date")).toHaveText("2026-04-05");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-note")).toHaveText("n");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-due")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-status")).toHaveText("DRAFT");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-number")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-opened-by")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-stated")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-period")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-due-by")).toHaveText("2026-04-08");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-overdue")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-corrects")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-log-line")).toHaveText(["DRAFT by wes on 2026-04-05 due=n/a"]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-deferred")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-deferred-until")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-proofs")).toHaveText("0");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-late-entry")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-reminded")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-ref")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-tags")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-comments-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-batch")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-lines-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-review-late")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-waived")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-proofs-receipt")).toHaveText("0");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-proofs-photo")).toHaveText("0");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-held")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-amount")).toHaveText("0.40");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-date")).toHaveText("2026-03-09");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-note")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-due")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-status")).toHaveText("DRAFT");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-number")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-opened-by")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-stated")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-period")).toHaveText("P1");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-due-by")).toHaveText("2026-03-12");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-overdue")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-corrects")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-log-line")).toHaveText(["DRAFT by uma on 2026-04-05 due=n/a"]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-deferred")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-deferred-until")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-proofs")).toHaveText("1");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-late-entry")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-reminded")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-ref")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-tags")).toHaveText("a");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-comments-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-batch")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-lines-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-review-late")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-waived")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-proofs-receipt")).toHaveText("0");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-proofs-photo")).toHaveText("1");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-held")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-name")).toHaveText("Ben (A)");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-grade")).toHaveText("A");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-statement-count")).toHaveText("1");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-stated-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-statement-date")).toHaveText("2026-04-05");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-retired")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-retired-from")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-hold")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-overdue-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-overdue-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-patrons")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-backing")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-excess")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-watched")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-terms")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-active")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-aged-0-30")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-aged-31-60")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-aged-61")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-settled-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-open-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-contact")).toHaveText("ada@x");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-aliases")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-clashing")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-cut-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-origin")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-retirement-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-tags")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-snapshot-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-statement-line-line")).toHaveText(["2026-04-05 0.00"]);
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-flag-shown")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-approver")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-score")).toHaveText("0");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-period-P1-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-period-P2-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-period-P1-carried")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-period-P2-carried")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-amount")).toHaveText("25.00");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-date")).toHaveText("2026-04-05");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-note")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-due")).toHaveText("8.33");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-status")).toHaveText("DRAFT");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-number")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-opened-by")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-stated")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-period")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-due-by")).toHaveText("2026-05-01");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-overdue")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-corrects")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-log-line")).toHaveText(["DRAFT by uma on 2026-04-05 due=8.33"]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-deferred")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-deferred-until")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-proofs")).toHaveText("0");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-late-entry")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-reminded")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-ref")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-tags")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-comments-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-batch")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-lines-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-review-late")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-waived")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-proofs-receipt")).toHaveText("0");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-proofs-photo")).toHaveText("0");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-held")).toHaveText("no");
-    await expect(pg_wes.getByTestId("rollup-claimed-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("rollup-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("rollup-overdue-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("rollup-overdue-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("rollup-settled-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("rollup-open-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("bulk-settle-batch")).toHaveText("");
-    await expect(pg_wes.getByTestId("rollup-cut-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("rollup-aged-0-30")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("rollup-aged-31-60")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("rollup-aged-61")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("header-people-count")).toHaveText("2");
-    await expect(pg_wes.getByTestId("header-claims-DRAFT-count")).toHaveText("3");
-    await expect(pg_wes.getByTestId("header-claims-OPEN-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("header-claims-PENDING-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("header-claims-SETTLED-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("header-claims-VOID-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("header-claims-REVIEW-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("header-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("header-overdue-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("my-due-total")).toHaveText("");
-    await expect(pg_wes.getByTestId("my-overdue-total")).toHaveText("");
-    await expect(pg_wes.getByTestId("my-crew-due-total")).toHaveText("");
-    await expect(pg_wes.getByTestId("period-row-P1").getByTestId("period-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("period-row-P1").getByTestId("period-closed")).toHaveText("yes");
-    await expect(pg_wes.getByTestId("period-row-P1").getByTestId("period-fy")).toHaveText("FY2025");
-    await expect(pg_wes.getByTestId("period-row-P1").getByTestId("period-cap")).toHaveText("");
-    await expect(pg_wes.getByTestId("period-row-P1").getByTestId("period-locked")).toHaveText("no");
-    await expect(pg_wes.getByTestId("period-row-P2").getByTestId("period-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("period-row-P2").getByTestId("period-closed")).toHaveText("soft");
-    await expect(pg_wes.getByTestId("period-row-P2").getByTestId("period-fy")).toHaveText("FY2025");
-    await expect(pg_wes.getByTestId("period-row-P2").getByTestId("period-cap")).toHaveText("");
-    await expect(pg_wes.getByTestId("period-row-P2").getByTestId("period-locked")).toHaveText("no");
-    await expect(pg_wes.getByTestId("rate-current-A")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-current-B")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-current-C")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("summary-grade-A-count")).toHaveText("1");
-    await expect(pg_wes.getByTestId("summary-grade-A-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("summary-grade-A-active")).toHaveText("0");
-    await expect(pg_wes.getByTestId("summary-grade-B-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("summary-grade-B-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("summary-grade-B-active")).toHaveText("0");
-    await expect(pg_wes.getByTestId("summary-grade-C-count")).toHaveText("1");
-    await expect(pg_wes.getByTestId("summary-grade-C-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("summary-grade-C-active")).toHaveText("0");
-    await expect(pg_wes.getByTestId("summary-period-P1-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("summary-period-P2-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("summary-period-P1-change")).toHaveText("");
-    await expect(pg_wes.getByTestId("summary-period-P2-change")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("summary-status-DRAFT-count")).toHaveText("3");
-    await expect(pg_wes.getByTestId("summary-status-OPEN-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("summary-status-PENDING-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("summary-status-SETTLED-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("summary-status-VOID-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("summary-status-REVIEW-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("summary-review-late-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("classic-period-P1-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("classic-period-P2-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("classic-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("tag-a-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("month-2026-03-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("month-2026-04-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("pool-row-P1").getByTestId("pool-total-share")).toHaveText("76.66");
-    await expect(pg_wes.getByTestId("pool-row-P1").getByTestId("pool-balanced")).toHaveText("no");
-    await expect(pg_wes.getByTestId("pool-member-P1-" + p_ada).getByTestId("pool-share")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("pool-member-P1-" + p_ada).getByTestId("pool-cut")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-member-P1-" + p_ada).getByTestId("pool-cut-P1")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-member-P1-" + p_ada).getByTestId("pool-cut-P2")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-member-P1-" + p_ben).getByTestId("pool-share")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("pool-member-P1-" + p_ben).getByTestId("pool-cut")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-member-P1-" + p_ben).getByTestId("pool-cut-P1")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-member-P1-" + p_ben).getByTestId("pool-cut-P2")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-member-P1-pool-P2").getByTestId("pool-share")).toHaveText("10.00");
-    await expect(pg_wes.getByTestId("pool-member-P1-pool-P2").getByTestId("pool-cut")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-member-P1-pool-P2").getByTestId("pool-cut-P1")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-member-P1-pool-P2").getByTestId("pool-cut-P2")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-row-P2").getByTestId("pool-total-share")).toHaveText("100.00");
-    await expect(pg_wes.getByTestId("pool-row-P2").getByTestId("pool-balanced")).toHaveText("yes");
-    await expect(pg_wes.getByTestId("pool-member-P2-" + p_ada).getByTestId("pool-share")).toHaveText("100.00");
-    await expect(pg_wes.getByTestId("pool-member-P2-" + p_ada).getByTestId("pool-cut")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-member-P2-" + p_ada).getByTestId("pool-cut-P1")).toHaveText("");
-    await expect(pg_wes.getByTestId("pool-member-P2-" + p_ada).getByTestId("pool-cut-P2")).toHaveText("");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-01")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-02")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-03")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-04")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-05")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-06")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-07")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-08")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-09")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-10")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-11")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-A-2026-12")).toHaveText("33.33");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-01")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-02")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-03")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-04")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-05")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-06")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-07")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-08")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-09")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-10")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-11")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-B-2026-12")).toHaveText("5.00");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-01")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-02")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-03")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-04")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-05")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-06")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-07")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-08")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-09")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-10")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-11")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("rate-month-C-2026-12")).toHaveText("n/a");
-    await expect(pg_wes.getByTestId("dash-pending-count")).toHaveText("");
-    await expect(pg_wes.getByTestId("dash-review-count")).toHaveText("");
-    await expect(pg_wes.getByTestId("dash-overdue-count")).toHaveText("");
-    await expect(pg_wes.getByTestId("note-line")).toHaveText([]);
+    const pg_vic = await ui.userPage(browser, "vic", sheet);
+    await ui.showRetired(pg_vic, true);
+    await ui.showRetired(pg_vic, true);
+    expect(await ui.importRates(pg_vic, "B,33.33\nC,5.00,2026-03-05")).toBe(2);
+    await ui.showRetired(pg_vic, true);
+    await ui.showRetired(pg_vic, true);
+    await ui.setAsOf(pg_vic, "2026-03-15");
+    await ui.refresh(pg_vic);
+    await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
+    await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("2026-03-15");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("");
+    await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("consolidated-grade-A-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("consolidated-grade-B-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("consolidated-grade-C-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("consolidated-status-DRAFT-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("consolidated-status-OPEN-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("consolidated-status-PENDING-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("consolidated-status-SETTLED-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("consolidated-status-VOID-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("consolidated-status-REVIEW-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-overdue-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("rollup-overdue-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-settled-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-open-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("bulk-settle-batch")).toHaveText("");
+    await expect(pg_vic.getByTestId("rollup-cut-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-aged-0-30")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-aged-31-60")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-aged-61")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("header-people-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-claims-DRAFT-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-claims-OPEN-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-claims-PENDING-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-claims-SETTLED-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-claims-VOID-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-claims-REVIEW-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("header-overdue-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("my-due-total")).toHaveText("");
+    await expect(pg_vic.getByTestId("my-overdue-total")).toHaveText("");
+    await expect(pg_vic.getByTestId("my-crew-due-total")).toHaveText("");
+    await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("summary-grade-A-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-grade-A-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("summary-grade-A-active")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-grade-B-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-grade-B-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("summary-grade-B-active")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-grade-C-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-grade-C-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("summary-grade-C-active")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-status-DRAFT-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-status-OPEN-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-status-PENDING-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-status-SETTLED-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-status-VOID-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-status-REVIEW-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-review-late-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("classic-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-01")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-02")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-03")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-04")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-05")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-06")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-07")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-08")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-09")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-10")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-11")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-12")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-01")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-02")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-03")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-04")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-05")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-06")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-07")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-08")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-09")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-10")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-11")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-12")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-01")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-02")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-03")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-04")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-05")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-06")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-07")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-08")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-09")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-10")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-11")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-12")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("dash-pending-count")).toHaveText("");
+    await expect(pg_vic.getByTestId("dash-review-count")).toHaveText("");
+    await expect(pg_vic.getByTestId("dash-overdue-count")).toHaveText("");
+    await expect(pg_vic.getByTestId("note-line")).toHaveText([]);
     await ui.expectAudit(sheet, [
       `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=0.50`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=7`,
@@ -519,13 +320,206 @@ test.describe("score", () => {
       `RATE_SET sheet=${sheet} by=uma grade=B rate=10.00`,
       `SETTING_CHANGED sheet=${sheet} by=uma key=policy-date value=2026-03-05`,
       `PERIOD_CLOSED sheet=${sheet} by=uma period=P1 total=0.00`,
-      `OPENING_SET sheet=${sheet} by=uma name=Ben period=P2 amount=5.50`,
-      `STATEMENT sheet=${sheet} by=uma name=Ben due-total=0.00 claims=0`,
-      `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=25.00 date=2026-04-05`,
+      `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-03-01 tags=a,b`,
+      `LATE_ENTRY sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-03-01`,
+      `PATRON_ADDED sheet=${sheet} by=uma name=Ada patron=Ben`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-03-01`,
+      `ROLLUP sheet=${sheet} by=uma person=Ben claimed=3.33 due-total=1.11 overdue-total=1.11`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=3.33 due-total=1.11 overdue-total=1.11`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ada grade=A`,
+      `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=0.00 overdue-total=0.00`,
+      `PERSON_ADDED sheet=${sheet} by=uma name=Fay grade=B terms=3`,
+      `ROLLUP sheet=${sheet} by=uma person=Fay claimed=0.00 due-total=0.00 overdue-total=0.00`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=3.33 due-total=0.00 overdue-total=0.00`,
+      `RATE_SET sheet=${sheet} by=vic grade=B rate=33.33`,
+      `RATE_SET sheet=${sheet} by=vic grade=C rate=5.00 from=2026-03-05`
+    ]);
+    await ui.clearAsOf(pg_vic);
+    await ui.refresh(pg_vic);
+    await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
+    await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("");
+    await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("3");
+    await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("consolidated-grade-A-due-total")).toHaveText("1.11");
+    await expect(pg_vic.getByTestId("consolidated-grade-B-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("consolidated-grade-C-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("consolidated-status-DRAFT-count")).toHaveText("1");
+    await expect(pg_vic.getByTestId("consolidated-status-OPEN-count")).toHaveText("1");
+    await expect(pg_vic.getByTestId("consolidated-status-PENDING-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("consolidated-status-SETTLED-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("consolidated-status-VOID-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("consolidated-status-REVIEW-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("person-row-" + p_ada)).toHaveCount(0);
+    await expect(pg_vic.getByTestId("person-row-" + p_ben)).toHaveCount(0);
+    await expect(pg_vic.getByTestId("person-row-" + p_fay)).toHaveCount(0);
+    await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("3.33");
+    await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-overdue-count")).toHaveText("1");
+    await expect(pg_vic.getByTestId("rollup-overdue-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-settled-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-open-total")).toHaveText("1.11");
+    await expect(pg_vic.getByTestId("bulk-settle-batch")).toHaveText("");
+    await expect(pg_vic.getByTestId("rollup-cut-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-aged-0-30")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("rollup-aged-31-60")).toHaveText("1.11");
+    await expect(pg_vic.getByTestId("rollup-aged-61")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("header-people-count")).toHaveText("3");
+    await expect(pg_vic.getByTestId("header-claims-DRAFT-count")).toHaveText("1");
+    await expect(pg_vic.getByTestId("header-claims-OPEN-count")).toHaveText("1");
+    await expect(pg_vic.getByTestId("header-claims-PENDING-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-claims-SETTLED-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-claims-VOID-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-claims-REVIEW-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("header-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("header-overdue-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("my-due-total")).toHaveText("");
+    await expect(pg_vic.getByTestId("my-overdue-total")).toHaveText("");
+    await expect(pg_vic.getByTestId("my-crew-due-total")).toHaveText("");
+    await expect(pg_vic.getByTestId("period-row-P1").getByTestId("period-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("period-row-P1").getByTestId("period-closed")).toHaveText("yes");
+    await expect(pg_vic.getByTestId("period-row-P1").getByTestId("period-fy")).toHaveText("FY2025");
+    await expect(pg_vic.getByTestId("period-row-P1").getByTestId("period-cap")).toHaveText("");
+    await expect(pg_vic.getByTestId("period-row-P1").getByTestId("period-locked")).toHaveText("no");
+    await expect(pg_vic.getByTestId("period-row-P2").getByTestId("period-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("period-row-P2").getByTestId("period-closed")).toHaveText("soft");
+    await expect(pg_vic.getByTestId("period-row-P2").getByTestId("period-fy")).toHaveText("FY2025");
+    await expect(pg_vic.getByTestId("period-row-P2").getByTestId("period-cap")).toHaveText("");
+    await expect(pg_vic.getByTestId("period-row-P2").getByTestId("period-locked")).toHaveText("no");
+    await expect(pg_vic.getByTestId("rate-current-A")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-current-B")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-current-C")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("summary-grade-A-count")).toHaveText("2");
+    await expect(pg_vic.getByTestId("summary-grade-A-due-total")).toHaveText("1.11");
+    await expect(pg_vic.getByTestId("summary-grade-A-active")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-grade-B-count")).toHaveText("1");
+    await expect(pg_vic.getByTestId("summary-grade-B-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("summary-grade-B-active")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-grade-C-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-grade-C-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("summary-grade-C-active")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-period-P1-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("summary-period-P2-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("summary-period-P1-change")).toHaveText("");
+    await expect(pg_vic.getByTestId("summary-period-P2-change")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("summary-status-DRAFT-count")).toHaveText("1");
+    await expect(pg_vic.getByTestId("summary-status-OPEN-count")).toHaveText("1");
+    await expect(pg_vic.getByTestId("summary-status-PENDING-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-status-SETTLED-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-status-VOID-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-status-REVIEW-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("summary-review-late-count")).toHaveText("0");
+    await expect(pg_vic.getByTestId("classic-period-P1-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("classic-period-P2-due-total")).toHaveText("0.00");
+    await expect(pg_vic.getByTestId("classic-due-total")).toHaveText("1.11");
+    await expect(pg_vic.getByTestId("tag-a-due-total")).toHaveText("1.11");
+    await expect(pg_vic.getByTestId("tag-b-due-total")).toHaveText("1.11");
+    await expect(pg_vic.getByTestId("month-2026-03-due-total")).toHaveText("1.11");
+    await expect(pg_vic.getByTestId("pool-row-P1").getByTestId("pool-total-share")).toHaveText("76.66");
+    await expect(pg_vic.getByTestId("pool-row-P1").getByTestId("pool-balanced")).toHaveText("no");
+    await expect(pg_vic.getByTestId("pool-member-P1-" + p_ada).getByTestId("pool-share")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("pool-member-P1-" + p_ada).getByTestId("pool-cut")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-member-P1-" + p_ada).getByTestId("pool-cut-P1")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-member-P1-" + p_ada).getByTestId("pool-cut-P2")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-member-P1-" + p_ben).getByTestId("pool-share")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("pool-member-P1-" + p_ben).getByTestId("pool-cut")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-member-P1-" + p_ben).getByTestId("pool-cut-P1")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-member-P1-" + p_ben).getByTestId("pool-cut-P2")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-member-P1-pool-P2").getByTestId("pool-share")).toHaveText("10.00");
+    await expect(pg_vic.getByTestId("pool-member-P1-pool-P2").getByTestId("pool-cut")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-member-P1-pool-P2").getByTestId("pool-cut-P1")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-member-P1-pool-P2").getByTestId("pool-cut-P2")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-row-P2").getByTestId("pool-total-share")).toHaveText("100.00");
+    await expect(pg_vic.getByTestId("pool-row-P2").getByTestId("pool-balanced")).toHaveText("yes");
+    await expect(pg_vic.getByTestId("pool-member-P2-" + p_ada).getByTestId("pool-share")).toHaveText("100.00");
+    await expect(pg_vic.getByTestId("pool-member-P2-" + p_ada).getByTestId("pool-cut")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-member-P2-" + p_ada).getByTestId("pool-cut-P1")).toHaveText("");
+    await expect(pg_vic.getByTestId("pool-member-P2-" + p_ada).getByTestId("pool-cut-P2")).toHaveText("");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-01")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-02")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-03")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-04")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-05")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-06")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-07")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-08")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-09")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-10")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-11")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-A-2026-12")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-01")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-02")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-03")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-04")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-05")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-06")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-07")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-08")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-09")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-10")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-11")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-B-2026-12")).toHaveText("33.33");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-01")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-02")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-03")).toHaveText("n/a");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-04")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-05")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-06")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-07")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-08")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-09")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-10")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-11")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("rate-month-C-2026-12")).toHaveText("5.00");
+    await expect(pg_vic.getByTestId("dash-pending-count")).toHaveText("");
+    await expect(pg_vic.getByTestId("dash-review-count")).toHaveText("");
+    await expect(pg_vic.getByTestId("dash-overdue-count")).toHaveText("");
+    await expect(pg_vic.getByTestId("note-line")).toHaveText([]);
+    await ui.expectAudit(sheet, [
+      `SETTING_CHANGED sheet=${sheet} by=uma key=floor value=0.50`,
+      `SETTING_CHANGED sheet=${sheet} by=uma key=terms value=7`,
+      `SETTING_CHANGED sheet=${sheet} by=uma key=terms-A value=20`,
+      `SETTING_CHANGED sheet=${sheet} by=uma key=proof-threshold value=3.00`,
+      `SETTING_CHANGED sheet=${sheet} by=uma key=grace-C value=5`,
+      `SETTING_CHANGED sheet=${sheet} by=uma key=pot value=7.77`,
+      `SETTING_CHANGED sheet=${sheet} by=uma key=fiscal-start-month value=7`,
+      `SETTING_CHANGED sheet=${sheet} by=uma key=review-sla value=1`,
+      `SETTING_CHANGED sheet=${sheet} by=uma key=clerk-limit-C value=9.00`,
+      `ROLE_SET sheet=${sheet} by=uma user=vic role=restricted`,
+      `RATE_SET sheet=${sheet} by=uma grade=A rate=33.33`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=5.00`,
-      `CLAIM_ADDED sheet=${sheet} by=wes person=Ada amount=20.00 date=2026-04-05`,
-      `PERSON_WATCHED sheet=${sheet} by=wes name=Ada`,
-      `PERSON_HELD sheet=${sheet} by=wes name=Ada from=2026-03-09`
+      `PERIOD_ADDED sheet=${sheet} by=uma period=P1 from=2026-03-01 to=2026-03-15`,
+      `PERIOD_ADDED sheet=${sheet} by=uma period=P2 from=2026-03-16 to=2026-03-31`,
+      `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=C terms=3`,
+      `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=n/a overdue-total=0.00`,
+      `PERSON_ADDED sheet=${sheet} by=uma name=Ben grade=A contact=ada@x`,
+      `ROLLUP sheet=${sheet} by=uma person=Ben claimed=0.00 due-total=0.00 overdue-total=0.00`,
+      `POOL_ADDED sheet=${sheet} by=uma name=P1`,
+      `POOL_MEMBER_ADDED sheet=${sheet} by=uma pool=P1 name=Ada share=33.33 from=2026-03-01 to=2026-04-30`,
+      `POOL_MEMBER_ADDED sheet=${sheet} by=uma pool=P1 name=Ben share=33.33`,
+      `POOL_ADDED sheet=${sheet} by=uma name=P2`,
+      `POOL_MEMBER_ADDED sheet=${sheet} by=uma pool=P2 name=Ada share=100.00`,
+      `POOL_MEMBER_ADDED sheet=${sheet} by=uma pool=P1 name=P2 share=10.00`,
+      `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=0.40 date=2026-03-09 tags=a`,
+      `PERIOD_SOFT_CLOSED sheet=${sheet} by=uma period=P2 total=0.00`,
+      `CLAIM_PROOF_ADDED sheet=${sheet} by=uma person=Ada amount=0.40 date=2026-03-09 proofs=1 kind=photo`,
+      `RATE_SET sheet=${sheet} by=uma grade=B rate=10.00`,
+      `SETTING_CHANGED sheet=${sheet} by=uma key=policy-date value=2026-03-05`,
+      `PERIOD_CLOSED sheet=${sheet} by=uma period=P1 total=0.00`,
+      `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-03-01 tags=a,b`,
+      `LATE_ENTRY sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-03-01`,
+      `PATRON_ADDED sheet=${sheet} by=uma name=Ada patron=Ben`,
+      `CLAIM_OPENED sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-03-01`,
+      `ROLLUP sheet=${sheet} by=uma person=Ben claimed=3.33 due-total=1.11 overdue-total=1.11`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=3.33 due-total=1.11 overdue-total=1.11`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ada grade=A`,
+      `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=0.00 overdue-total=0.00`,
+      `PERSON_ADDED sheet=${sheet} by=uma name=Fay grade=B terms=3`,
+      `ROLLUP sheet=${sheet} by=uma person=Fay claimed=0.00 due-total=0.00 overdue-total=0.00`,
+      `TOTALS sheet=${sheet} by=uma claimed-total=3.33 due-total=0.00 overdue-total=0.00`,
+      `RATE_SET sheet=${sheet} by=vic grade=B rate=33.33`,
+      `RATE_SET sheet=${sheet} by=vic grade=C rate=5.00 from=2026-03-05`
     ]);
   });
   test("score scenario 2", { tag: '@functionality' }, async ({ browser }) => {
@@ -1111,7 +1105,7 @@ test.describe("score", () => {
     await expect(pg_wes.getByTestId("my-overdue-total")).toHaveText("");
     await expect(pg_wes.getByTestId("my-crew-due-total")).toHaveText("");
     const pg_vic = await ui.userPage(browser, "vic", sheet);
-    expect(await ui.flag(pg_vic, p_dot, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_vic, p_dot, "late", "2026-03-12", "")).toBe(true);
     await ui.refresh(pg_vic);
     expect(await ui.statement(pg_vic, p_ben)).toBe(true);
     expect(await ui.addHoliday(pg_vic, "2026-03-11")).toBe(true);
@@ -1188,7 +1182,7 @@ test.describe("score", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

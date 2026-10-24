@@ -208,7 +208,7 @@ test.describe("settle as of date", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -541,7 +541,7 @@ test.describe("settle as of date", () => {
     expect(await ui.editInline(pg_uma, c_ada_1, "99.95")).toBe(false);
     expect(await ui.setRate(pg_uma, {"grade": "A", "pct": "20.00"})).toBe(true);
     expect(await ui.addClaim(pg_uma, p_ada, {"amount": "3.33", "tags": "a, B"})).toBeNull();
-    expect(await ui.claimEditOpen(pg_uma, c_ada_0)).toBe(true);
+    expect(await ui.claimEditOpen(pg_uma, c_ada_0)).toBe(false);
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.claimEditOpen(pg_wes, c_ada_0)).toBe(false);
     await ui.refresh(pg_uma);
@@ -587,7 +587,7 @@ test.describe("settle as of date", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("2026-02-10");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -716,7 +716,7 @@ test.describe("settle as of date", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1099,7 +1099,7 @@ test.describe("settle as of date", () => {
     expect(await ui.claimEditOpen(pg_vic, c_ben_4)).toBe(false);
     await ui.refresh(pg_wes);
     await ui.claimEditCancel(pg_wes, c_ben_4);
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ada", "amount": "1.00"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ada", "amount": "1.00"}, p_ada));
     expect(await ui.editClaim(pg_wes, c_ben_5, {"date": "2026-03-15"})).toBe(true);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");

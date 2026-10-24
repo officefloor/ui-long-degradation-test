@@ -714,6 +714,21 @@ def _confine_config(cfg: dict, sandbox: str) -> dict | None:
             "sentinels": sents}
 
 
+def _free_agent_port(cfg: dict, when: str) -> None:
+    """Kill whatever still listens on the run's agent port. An agent that starts the app by hand
+    (bin/start, or bin/e2e cut short) can leave a JVM serving $PORT; the next agent's bin/e2e then
+    tests that stale app and sees every spec fail, or spends its turn hunting for a free port.
+    The calibration run showed both. Logged when something was there."""
+    port = int(cfg["app"]["port"])
+    try:
+        r = subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, text=True)
+    except FileNotFoundError:
+        return
+    pids = r.stdout.strip()
+    if pids:
+        print(f"    port   : killed pid(s) {pids} still serving {port} {when}", flush=True)
+
+
 def _run_agent_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, prompt: str,
                     cap_dir: str, stream_file: str) -> tuple[object, list[dict]]:
     """One agent turn in the fresh, history-less sandbox (rebuilt each attempt). Retries on
@@ -726,10 +741,12 @@ def _run_agent_turn(cfg: dict, wt: str, sandbox: str, cp: dict, model: str, prom
     while True:
         mirror_source(wt, sandbox)
         install_agent_view(sandbox, cfg, cp)
+        _free_agent_port(cfg, "before the agent turn")
         ar = agent.run_agent(prompt, cwd=sandbox, model=model,
                              timeout=cfg.get("agent_timeout", 3600),
                              capture_path=os.path.join(cap_dir, stream_file),
                              confine=_confine_config(cfg, sandbox), tmp_dir=cfg["paths"]["tmp"])
+        _free_agent_port(cfg, "after the agent turn")
         log.append({"ok": ar.ok, "limit_reached": ar.limit_reached, "retryable": ar.retryable,
                     "timed_out": ar.timed_out, "cost_usd": ar.cost_usd, "num_turns": ar.num_turns,
                     "duration_ms": ar.duration_ms, "duration_api_ms": ar.duration_api_ms,

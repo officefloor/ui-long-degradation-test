@@ -323,7 +323,7 @@ test.describe("settled and open totals", () => {
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_3).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_3).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_3).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_3).getByTestId("claim-late-entry")).toHaveText("no");
+    await expect(pg_wes.getByTestId("claim-row-" + c_ada_3).getByTestId("claim-late-entry")).toHaveText("yes");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_3).getByTestId("claim-reminded")).toHaveText("");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-amount")).toHaveText("3.33");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-date")).toHaveText("2026-03-20");
@@ -497,6 +497,7 @@ test.describe("settled and open totals", () => {
       `SETTING_CHANGED sheet=${sheet} by=wes key=cap value=2.00`,
       `RATE_SET sheet=${sheet} by=wes grade=A rate=33.33`,
       `CLAIM_ADDED sheet=${sheet} by=wes person=Ada amount=10.35 date=2026-02-10`,
+      `LATE_ENTRY sheet=${sheet} by=wes person=Ada amount=10.35 date=2026-02-10`,
       `CLAIM_DEFERRED sheet=${sheet} by=wes person=Ada amount=7.77 date=2026-03-20 number=1 until=2026-04-13`,
       `PERSON_ADDED sheet=${sheet} by=wes name=Dot grade=A`,
       `ROLLUP sheet=${sheet} by=wes person=Dot claimed=0.00 due-total=0.00 overdue-total=0.00`,
@@ -519,7 +520,7 @@ test.describe("settled and open totals", () => {
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "A"}));
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "B", "terms": "3"}));
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "B", "terms": "3"}));
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "3.33"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "3.33"}, p_ada));
     expect(await ui.watch(pg_uma, p_ada, true)).toBe(true);
     expect(await ui.hold(pg_uma, p_ada, {"from": "2026-03-09", "to": "2026-03-15"})).toBe(true);
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
@@ -1035,7 +1036,7 @@ test.describe("settled and open totals", () => {
     expect(await ui.pasteClaims(pg_uma, "Cam,0.04,,a, b")).toBe(1);
     const c_cam_0 = await ui.claimAt(pg_uma, p_cam, 0);
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(true);
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "10.25"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "10.25"}, p_cam));
     expect(await ui.statementAsOf(pg_uma, p_cam, "2026-03-28")).toBe(false);
     expect(await ui.watch(pg_uma, p_ben, true)).toBe(true);
     const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "99.95", "date": "2026-03-15", "note": "n"}));

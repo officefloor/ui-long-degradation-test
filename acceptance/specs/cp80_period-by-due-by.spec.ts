@@ -728,7 +728,7 @@ test.describe("period by due by", () => {
     expect(await ui.setRate(pg_uma, {"grade": "C", "pct": "5.00", "from": "2026-03-16", "to": "2026-03-25"})).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "C", "pct": "5.00"})).toBe(true);
     await ui.setSetting(pg_uma, "proof-threshold", "1.00");
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "12.50"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "12.50"}, p_ada));
     await ui.setSetting(pg_uma, "entry-date", "");
     const c_cam_0 = ui.must(await ui.addClaimTwice(pg_uma, p_cam, {"amount": "4.00", "date": "2026-02-10"}));
     expect(await ui.claimCount(pg_uma, p_cam)).toBe(1);
@@ -1183,7 +1183,7 @@ test.describe("period by due by", () => {
     await expect(pg_uma.getByTestId("header-claims-VOID-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("header-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("header-overdue-total")).toHaveText("0.00");
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "0.04"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "0.04"}, p_ada));
     expect(await ui.bulkOpen(pg_uma, [c_ben_0, c_ada_0, c_cam_0])).toEqual({ opened: 3, refused: 0 });
     expect(await ui.pasteClaims(pg_uma, "Ada,10.25,,a, b")).toBe(1);
     const c_ada_1 = await ui.claimAt(pg_uma, p_ada, 1);

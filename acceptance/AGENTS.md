@@ -42,7 +42,15 @@ screens, and it relies on the behaviour below.
   refusal must show the error, and an action that succeeds must not leave an old error showing:
   an error is removed as soon as the form it belongs to is changed or submitted again, or the next
   action on that row is taken. A refused change writes nothing to the store and nothing to the
-  audit file.
+  audit file. A refused save of a claim's editor leaves the editor open; the test cancels it
+  (the cancel button) before its next action on that person.
+- **The test fills every field of a form it submits**, clearing the ones it leaves out, so a value
+  typed for a refused submission never carries into the next one; a field left blank
+  takes its default (a claim's date is the sheet's today, a from-date is the sheet's today).
+- **A result count is cleared when its button is pressed again.** A button that reports how many
+  it added, opened, made or set (an import, a paste, a bulk action, a generate) shows the new
+  count once the action is done; while the action runs, the old count is gone. Two presses with
+  the same result must still be told apart.
 - **A screen that does neither fails the test.** If after an action neither the expected result nor
   the error element appears within a few seconds, the test fails on that step.
 - **Two users at once.** A test may open a second browser context, sign in as another name, and act

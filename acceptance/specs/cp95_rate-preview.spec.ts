@@ -103,7 +103,7 @@ test.describe("rate preview", () => {
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "C"}));
     await ui.setToday(pg_uma, "2026-05-09");
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "99.95", "date": "2026-02-25", "note": "n", "ref": " r-1 "}));
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "12.50"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "12.50"}, p_cam));
     expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(true);
     expect(await ui.editPerson(pg_uma, p_ada, {"terms": ""})).toBe(true);
     const c_ada_1 = ui.must(await ui.split(pg_uma, p_ada, c_ada_0, "1.00"));
@@ -247,7 +247,7 @@ test.describe("rate preview", () => {
       `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=99.95 date=2026-02-25 number=P2-1`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=99.95 due-total=13.74 overdue-total=13.74`,
       `TOTALS sheet=${sheet} by=uma claimed-total=99.95 due-total=13.74 overdue-total=0.00`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ada grade=B terms=`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ada grade=B`,
       `CLAIM_SPLIT sheet=${sheet} by=uma person=Ada amount=98.95 date=2026-02-25 number=P2-1 into=P2-2`,
       `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=1.00 date=2026-02-25 number=P2-2`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=99.95 due-total=14.61 overdue-total=14.61`,
@@ -507,7 +507,7 @@ test.describe("rate preview", () => {
       `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=99.95 date=2026-02-25 number=P2-1`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=99.95 due-total=13.74 overdue-total=13.74`,
       `TOTALS sheet=${sheet} by=uma claimed-total=99.95 due-total=13.74 overdue-total=0.00`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ada grade=B terms=`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ada grade=B`,
       `CLAIM_SPLIT sheet=${sheet} by=uma person=Ada amount=98.95 date=2026-02-25 number=P2-1 into=P2-2`,
       `CLAIM_OPENED sheet=${sheet} by=uma person=Ada amount=1.00 date=2026-02-25 number=P2-2`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=99.95 due-total=14.61 overdue-total=14.61`,
@@ -857,9 +857,9 @@ test.describe("rate preview", () => {
     await ui.refresh(pg_uma);
     expect(await ui.statementAsOf(pg_uma, p_ben, "2026-03-01")).toBe(false);
     expect(await ui.addPatron(pg_uma, p_cam, "Ben")).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "B", "gradeFrom": "2026-04-02"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "B", "gradeFrom": "2026-04-02"}, {"grade": "C"})).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "B", "pct": "12.50"})).toBe(true);
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "10.35"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "10.35"}, p_ben));
     expect(await ui.claimAction(pg_uma, c_ben_0, "open")).toBe(true);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("10.35");

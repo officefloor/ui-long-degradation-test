@@ -711,7 +711,7 @@ test.describe("rate withdraw", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("3.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1254,7 +1254,7 @@ test.describe("rate withdraw", () => {
     expect(await ui.bulkRedate(pg_vic, [c_ben_0, c_cam_0], "2026-03-20")).toEqual({ redated: 2, refused: 0 });
     expect(await ui.claimAction(pg_vic, c_ben_1, "open")).toBe(false);
     await ui.refresh(pg_vic);
-    expect(await ui.flag(pg_vic, p_cam, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_vic, p_cam, "late", "2026-03-12", "")).toBe(true);
     expect(await ui.setSettingDated(pg_vic, "note-threshold", "", "2026-03-01", "")).toBe(true);
     await ui.setSetting(pg_vic, "policy-date", "");
     await ui.refresh(pg_vic);

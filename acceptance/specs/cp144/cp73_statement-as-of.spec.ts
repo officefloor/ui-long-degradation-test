@@ -264,7 +264,7 @@ test.describe("statement as of", () => {
     expect(await ui.periodAction(pg_uma, "P1", "close")).toBe(true);
     expect(await ui.periodAction(pg_uma, "P2", "soft-close")).toBe(true);
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "25.00"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "25.00"}, p_ben));
     expect(await ui.statementAsOf(pg_uma, p_ben, "2026-03-05")).toBe(false);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");
@@ -716,7 +716,7 @@ test.describe("statement as of", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-late-entry")).toHaveText("yes");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-late-entry")).toHaveText("no");
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-amount")).toHaveText("10.35");
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-date")).toHaveText("2026-03-09");
     await expect(pg_vic.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-note")).toHaveText("");
@@ -819,7 +819,6 @@ test.describe("statement as of", () => {
       `CLAIM_REASSIGNED sheet=${sheet} by=vic person=Ada amount=10.35 date=2026-03-09 from=Ben to=Ada`,
       `CLAIM_EDITED sheet=${sheet} by=vic person=Ben amount=20.00 date=2026-03-01`,
       `CLAIM_ADDED sheet=${sheet} by=vic person=Ada amount=99.95 date=2026-03-01`,
-      `LATE_ENTRY sheet=${sheet} by=vic person=Ada amount=99.95 date=2026-03-01`,
       `CLAIM_ADDED sheet=${sheet} by=vic person=Ada amount=3.33 date=2026-03-20`,
       `PERSON_RETIRED sheet=${sheet} by=vic name=Ben from=2026-02-25`,
       `CLAIM_ADDED sheet=${sheet} by=vic person=Ada amount=4.00 date=2026-03-20`,
@@ -873,7 +872,7 @@ test.describe("statement as of", () => {
     await expect(pg_vic.getByTestId("header-claims-VOID-count")).toHaveText("1");
     await expect(pg_vic.getByTestId("header-due-total")).toHaveText("1.00");
     await expect(pg_vic.getByTestId("header-overdue-total")).toHaveText("0.00");
-    expect(await ui.editPerson(pg_vic, p_ada, {"grade": "C", "gradeFrom": "2026-04-02"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_vic, p_ada, {"grade": "C", "gradeFrom": "2026-04-02"}, {"grade": "B"})).toBe(true);
     const c_cam_2 = ui.must(await ui.addClaim(pg_vic, p_cam, {"amount": "10.35"}));
     expect(await ui.claimEditOpen(pg_vic, c_cam_2)).toBe(true);
     await ui.refresh(pg_wes);

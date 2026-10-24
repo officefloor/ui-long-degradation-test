@@ -258,7 +258,7 @@ test.describe("consolidated grades", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("10.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("10.00");
@@ -1210,7 +1210,7 @@ test.describe("consolidated grades", () => {
       `SNAPSHOT sheet=${sheet} by=uma name=Ada due-total=0.00`,
       `SNAPSHOT sheet=${sheet} by=uma name=Ben due-total=0.00`,
       `PLAN_ADDED sheet=${sheet} by=uma name=Ben amount=3.33 start=2026-03-09 day=31 end=2026-04-30`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Cam grade=B terms=20`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Cam grade=B`,
       `CREW_MEMBER_ADDED sheet=${sheet} by=uma crew=C1 name=Cam`,
       `CREW_MEMBER_ADDED sheet=${sheet} by=uma crew=C1 name=Ada`,
       `CREW_ADDED sheet=${sheet} by=uma name=C1 lead=Ben`,
@@ -1625,7 +1625,7 @@ test.describe("consolidated grades", () => {
       `CREW_ADDED sheet=${sheet} by=uma name=C1 lead=Ben`,
       `CREW_MEMBER_ADDED sheet=${sheet} by=uma crew=C1 name=Ada`,
       `CREW_MEMBER_ADDED sheet=${sheet} by=uma crew=C1 name=Cam`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Cam grade=B terms=20`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Cam grade=B`,
       `PLAN_ADDED sheet=${sheet} by=uma name=Ben amount=3.33 start=2026-03-09 day=31 end=2026-04-30`,
       `SNAPSHOT sheet=${sheet} by=uma name=Ben due-total=0.00`,
       `SNAPSHOT sheet=${sheet} by=uma name=Ada due-total=0.00`,

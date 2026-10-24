@@ -407,7 +407,7 @@ test.describe("claim lock", () => {
     expect(await ui.addPeriod(pg_uma, {"name": "P1", "from": "2026-03-01", "to": "2026-03-15"})).toBe(true);
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "B", "terms": "3"}));
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "B"}));
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C", "gradeFrom": "2026-03-28"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C", "gradeFrom": "2026-03-28"}, {"grade": "B"})).toBe(true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.statement(pg_vic, p_ben)).toBe(true);
     expect(await ui.pasteClaims(pg_vic, "Ada,20.00,2026-03-09,")).toBe(1);

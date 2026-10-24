@@ -19,7 +19,7 @@ test.describe("flags", () => {
     expect(await ui.flag(pg_uma, p_ada, "late", "2026-03-12")).toBe(false);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.flag(pg_vic, p_ada, "", "2026-03-12")).toBe(false);
-    expect(await ui.flag(pg_vic, p_ada, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_vic, p_ada, "late", "2026-03-12", "late")).toBe(true);
     await ui.refresh(pg_uma);
     expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(false);
     expect(await ui.bulkOpen(pg_uma, [c_ada_1, c_ben_0])).toEqual({ opened: 1, refused: 1 });
@@ -120,7 +120,7 @@ test.describe("flags", () => {
       `PERSON_RETIRED sheet=${sheet} by=uma name=Ben from=2026-03-09`,
       `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=A`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=25.00 date=2026-02-10 ref=R-2`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C terms=20`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C`,
       `ROLLUP sheet=${sheet} by=uma person=Ben claimed=0.00 due-total=0.00 overdue-total=0.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ben grade=C terms=20`
     ]);
@@ -184,15 +184,15 @@ test.describe("flags", () => {
     await expect(pg_uma.getByTestId("my-due-total")).toHaveText("");
     await expect(pg_uma.getByTestId("my-overdue-total")).toHaveText("");
     await expect(pg_uma.getByTestId("my-crew-due-total")).toHaveText("");
-    expect(await ui.editPerson(pg_uma, p_ben, {"terms": ""})).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_ben, {"terms": ""})).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ben, {"terms": ""}, {"terms": "20"})).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ben, {"terms": ""}, {"terms": "20"})).toBe(true);
     expect(await ui.editPerson(pg_uma, p_ben, {"grade": "A"})).toBe(true);
     expect(await ui.setSettingDated(pg_uma, "note-threshold", "1.00", "2026-03-01", "1.00")).toBe(true);
     await ui.setAsOf(pg_uma, "2026-02-10");
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("2026-02-10");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -298,7 +298,7 @@ test.describe("flags", () => {
       `PERIOD_ADDED sheet=${sheet} by=uma period=P2 from=2026-03-16 to=2026-03-31`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ben grade=C terms=20`,
       `ROLLUP sheet=${sheet} by=uma person=Ben claimed=0.00 due-total=0.00 overdue-total=0.00`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C terms=20`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=25.00 date=2026-02-10 ref=R-2`,
       `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=A`,
       `PERSON_RETIRED sheet=${sheet} by=uma name=Ben from=2026-03-09`,
@@ -320,7 +320,7 @@ test.describe("flags", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("yes");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -508,7 +508,7 @@ test.describe("flags", () => {
       `PERIOD_ADDED sheet=${sheet} by=uma period=P2 from=2026-03-16 to=2026-03-31`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ben grade=C terms=20`,
       `ROLLUP sheet=${sheet} by=uma person=Ben claimed=0.00 due-total=0.00 overdue-total=0.00`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C terms=20`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=25.00 date=2026-02-10 ref=R-2`,
       `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=A`,
       `PERSON_RETIRED sheet=${sheet} by=uma name=Ben from=2026-03-09`,
@@ -1062,7 +1062,7 @@ test.describe("flags", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("2026-04-02");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("4");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1357,7 +1357,7 @@ test.describe("flags", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("4");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

@@ -149,7 +149,7 @@ test.describe("proof threshold per grade", () => {
     const c_ben_1 = await ui.claimAt(pg_wes, p_ben, 1);
     expect(await ui.pasteClaims(pg_wes, "Ada,12.50,2026-03-15,\nCam,7.77,2026-04-02,a, b")).toBe(2);
     const c_ada_1 = await ui.claimAt(pg_wes, p_ada, 1);
-    const c_cam_1_2 = await ui.claimAt(pg_wes, p_cam, 1);
+    const c_cam_2 = await ui.claimAt(pg_wes, p_cam, 1);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("0.00");
@@ -169,12 +169,12 @@ test.describe("proof threshold per grade", () => {
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-due-total")).toHaveText("0.00");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-due")).toHaveText("2.00");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-status")).toHaveText("DRAFT");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-due")).toHaveText("1.03");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-status")).toHaveText("DRAFT");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-stated")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-due")).toHaveText("2.00");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-status")).toHaveText("DRAFT");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_wes.getByTestId("rollup-claimed-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("rollup-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("rollup-overdue-count")).toHaveText("0");
@@ -222,12 +222,12 @@ test.describe("proof threshold per grade", () => {
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-due-total")).toHaveText("0.00");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-due")).toHaveText("2.00");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-status")).toHaveText("DRAFT");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-due")).toHaveText("1.03");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-status")).toHaveText("DRAFT");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-stated")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-due")).toHaveText("2.00");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-status")).toHaveText("DRAFT");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_wes.getByTestId("rollup-claimed-total")).toHaveText("12.50");
     await expect(pg_wes.getByTestId("rollup-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("rollup-overdue-count")).toHaveText("1");
@@ -455,6 +455,28 @@ test.describe("proof threshold per grade", () => {
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-period-2026-02-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-period-2026-03-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-period-2026-04-due-total")).toHaveText("0.00");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-amount")).toHaveText("7.77");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-date")).toHaveText("2026-04-02");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-note")).toHaveText("a, b");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-due")).toHaveText("2.00");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-status")).toHaveText("DRAFT");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-number")).toHaveText("");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-opened-by")).toHaveText("");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-stated")).toHaveText("no");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-period")).toHaveText("2026-04");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-due-by")).toHaveText("2026-04-16");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-overdue")).toHaveText("no");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-corrects")).toHaveText("");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-log-line")).toHaveText(["DRAFT by wes on 2026-03-20 due=2.00"]);
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-deferred")).toHaveText("no");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-deferred-until")).toHaveText("");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-proofs")).toHaveText("0");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-split-from")).toHaveText("");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-late-entry")).toHaveText("no");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-reminded")).toHaveText("");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-ref")).toHaveText("");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-tags")).toHaveText("");
+    await expect(pg_wes.getByTestId("claim-row-" + c_cam_2).getByTestId("claim-comments-line")).toHaveText([]);
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-amount")).toHaveText("10.25");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-date")).toHaveText("2026-02-25");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-note")).toHaveText("");
@@ -477,28 +499,6 @@ test.describe("proof threshold per grade", () => {
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-ref")).toHaveText("");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-tags")).toHaveText("");
     await expect(pg_wes.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-comments-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-amount")).toHaveText("7.77");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-date")).toHaveText("2026-04-02");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-note")).toHaveText("a, b");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-due")).toHaveText("2.00");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-status")).toHaveText("DRAFT");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-number")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-opened-by")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-stated")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-period")).toHaveText("2026-04");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-due-by")).toHaveText("2026-04-16");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-overdue")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-corrects")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-log-line")).toHaveText(["DRAFT by wes on 2026-03-20 due=2.00"]);
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-deferred")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-deferred-until")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-proofs")).toHaveText("0");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-late-entry")).toHaveText("no");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-reminded")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-ref")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-tags")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_cam_1_2).getByTestId("claim-comments-line")).toHaveText([]);
     await expect(pg_wes.getByTestId("rollup-claimed-total")).toHaveText("12.50");
     await expect(pg_wes.getByTestId("rollup-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("rollup-overdue-count")).toHaveText("1");
@@ -1126,7 +1126,6 @@ test.describe("proof threshold per grade", () => {
       `SNAPSHOT sheet=${sheet} by=uma name=Ben due-total=0.00`,
       `PATRON_ADDED sheet=${sheet} by=uma name=Ben patron=Ada`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Cam amount=1.00 date=2026-03-15 ref=R-2 tags=a,b`,
-      `LATE_ENTRY sheet=${sheet} by=uma person=Cam amount=1.00 date=2026-03-15`,
       `STATEMENT sheet=${sheet} by=uma name=Cam due-total=0.00 claims=0`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=20.00 date=2026-05-12`,
       `STATEMENT sheet=${sheet} by=uma name=Ada due-total=0.00 claims=0`,
@@ -1230,7 +1229,7 @@ test.describe("proof threshold per grade", () => {
     await expect(pg_uma.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_uma.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_uma.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-late-entry")).toHaveText("yes");
+    await expect(pg_uma.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-late-entry")).toHaveText("no");
     await expect(pg_uma.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-reminded")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-ref")).toHaveText("R-2");
     await expect(pg_uma.getByTestId("claim-row-" + c_cam_1).getByTestId("claim-tags")).toHaveText("a, b");
@@ -1432,7 +1431,6 @@ test.describe("proof threshold per grade", () => {
       `SNAPSHOT sheet=${sheet} by=uma name=Ben due-total=0.00`,
       `PATRON_ADDED sheet=${sheet} by=uma name=Ben patron=Ada`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Cam amount=1.00 date=2026-03-15 ref=R-2 tags=a,b`,
-      `LATE_ENTRY sheet=${sheet} by=uma person=Cam amount=1.00 date=2026-03-15`,
       `STATEMENT sheet=${sheet} by=uma name=Cam due-total=0.00 claims=0`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=20.00 date=2026-05-12`,
       `STATEMENT sheet=${sheet} by=uma name=Ada due-total=0.00 claims=0`,

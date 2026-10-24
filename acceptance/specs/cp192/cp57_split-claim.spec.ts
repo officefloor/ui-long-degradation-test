@@ -173,7 +173,7 @@ test.describe("split claim", () => {
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "A"}));
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "A"}));
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "A"}));
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "0.40"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "0.40"}, p_ben));
     const c_ben_1 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "7.77", "date": "2026-02-10"}));
     const c_ben_2 = ui.must(await ui.addClaimTwice(pg_uma, p_ben, {"amount": "3.33", "date": "2026-02-10"}));
     expect(await ui.claimCount(pg_uma, p_ben)).toBe(3);
@@ -251,8 +251,8 @@ test.describe("split claim", () => {
     await expect(pg_uma.getByTestId("header-claims-VOID-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("header-due-total")).toHaveText("2.07");
     await expect(pg_uma.getByTestId("header-overdue-total")).toHaveText("0.00");
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "12.50"}));
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "7.77"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "12.50"}, p_ada));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "7.77"}, p_ada));
     await ui.setToday(pg_uma, "2026-04-13");
     expect(await ui.addClaim(pg_uma, p_cam, {"amount": "1.00", "date": "2026-04-02"})).toBeNull();
     expect(await ui.setRate(pg_uma, {"grade": "B", "pct": "10.00", "from": "2026-03-01"})).toBe(true);

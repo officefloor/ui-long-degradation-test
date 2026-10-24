@@ -18,20 +18,20 @@ test.describe("aliases", () => {
     expect(await ui.addAlias(pg_uma, p_ben, "Benny")).toBe(true);
     expect(await ui.addPerson(pg_uma, {"name": "benny", "grade": "C"})).toBeNull();
     expect(await ui.editPerson(pg_uma, p_ben, {"name": "Addie"})).toBe(false);
-    const c_addie_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "ADDIE", "amount": "5.00"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "ADDIE", "amount": "5.00"}, p_ada));
     expect(await ui.pasteClaims(pg_uma, "benny,2.50,,")).toBe(1);
     const c_ben_0 = await ui.claimAt(pg_uma, p_ben, 0);
     const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "1.00"}));
     const p_cam = await ui.personId(pg_uma, "Cam");
-    expect(await ui.claimAction(pg_uma, c_addie_0, "open")).toBe(true);
+    expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(true);
     expect(await ui.claimAction(pg_uma, c_ben_0, "open")).toBe(false);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-name")).toHaveText("Ada");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-aliases")).toHaveText("Addie");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("5.00");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("1.00");
-    await expect(pg_uma.getByTestId("claim-row-" + c_addie_0).getByTestId("claim-amount")).toHaveText("5.00");
-    await expect(pg_uma.getByTestId("claim-row-" + c_addie_0).getByTestId("claim-status")).toHaveText("OPEN");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-amount")).toHaveText("5.00");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-status")).toHaveText("OPEN");
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-name")).toHaveText("Ben");
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-aliases")).toHaveText("Benny");
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("2.50");
@@ -233,6 +233,7 @@ test.describe("aliases", () => {
       `PERIOD_SOFT_CLOSED sheet=${sheet} by=uma period=P1 total=0.00`,
       `PERSON_WATCHED sheet=${sheet} by=uma name=Cam`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-02-10`,
+      `LATE_ENTRY sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-02-10`,
       `PATRON_ADDED sheet=${sheet} by=uma name=Cam patron=Ben`,
       `PERSON_HELD sheet=${sheet} by=uma name=Ben from=2026-03-09`,
       `CLAIM_OPENED sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-02-10 number=P1-1`,
@@ -397,6 +398,7 @@ test.describe("aliases", () => {
       `PERIOD_SOFT_CLOSED sheet=${sheet} by=uma period=P1 total=0.00`,
       `PERSON_WATCHED sheet=${sheet} by=uma name=Cam`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-02-10`,
+      `LATE_ENTRY sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-02-10`,
       `PATRON_ADDED sheet=${sheet} by=uma name=Cam patron=Ben`,
       `PERSON_HELD sheet=${sheet} by=uma name=Ben from=2026-03-09`,
       `CLAIM_OPENED sheet=${sheet} by=uma person=Ben amount=3.33 date=2026-02-10 number=P1-1`,
@@ -469,7 +471,7 @@ test.describe("aliases", () => {
     expect(await ui.periodAction(pg_uma, "P1", "close")).toBe(true);
     expect(await ui.bulkGrade(pg_uma, [p_cam, p_ben], {"grade": "B"})).toBe(2);
     expect(await ui.claimAction(pg_uma, c_ben_0, "void")).toBe(false);
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "1.00"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "1.00"}, p_cam));
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.unstate(pg_vic, p_cam)).toBe(true);
     expect(await ui.claimAction(pg_vic, c_cam_0, "void")).toBe(false);

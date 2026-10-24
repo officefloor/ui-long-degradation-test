@@ -278,7 +278,7 @@ test.describe("list positions", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_4).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_4).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_4).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_vic.getByTestId("claim-row-" + c_cam_4).getByTestId("claim-late-entry")).toHaveText("yes");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_4).getByTestId("claim-late-entry")).toHaveText("no");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_4).getByTestId("claim-reminded")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_4).getByTestId("claim-ref")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_4).getByTestId("claim-tags")).toHaveText("");
@@ -530,7 +530,6 @@ test.describe("list positions", () => {
       `CLAIM_EDITED sheet=${sheet} by=wes person=Cam amount=10.25 date=2026-02-10`,
       `CLAIM_VOIDED sheet=${sheet} by=wes person=Cam amount=0.40 date=2026-03-15 reason=error`,
       `CLAIM_ADDED sheet=${sheet} by=wes person=Cam amount=3.33 date=2026-02-25`,
-      `LATE_ENTRY sheet=${sheet} by=wes person=Cam amount=3.33 date=2026-02-25`,
       `PERSON_HELD sheet=${sheet} by=wes name=Ben from=2026-03-09`,
       `CLAIM_OPENED sheet=${sheet} by=wes person=Cam amount=0.40 date=2026-03-09 number=FY2026-3`,
       `ROLLUP sheet=${sheet} by=wes person=Cam claimed=10.75 due-total=n/a overdue-total=0.00`,
@@ -985,7 +984,7 @@ test.describe("list positions", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("2026-02-25");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1059,7 +1058,7 @@ test.describe("list positions", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

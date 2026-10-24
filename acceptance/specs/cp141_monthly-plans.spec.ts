@@ -850,7 +850,7 @@ test.describe("monthly plans", () => {
     await ui.sortBy(pg_wes, "grade");
     await ui.expectAuditView(pg_wes, "Eve", [
       `PERSON_HELD sheet=${sheet} by=wes name=Eve from=2026-03-01`,
-      `PERSON_EDITED sheet=${sheet} by=wes name=Eve grade=A terms=20`,
+      `PERSON_EDITED sheet=${sheet} by=wes name=Eve grade=A`,
       `STATEMENT sheet=${sheet} by=wes name=Eve due-total=0.00 claims=0 asof=2026-04-02`,
       `STATEMENT sheet=${sheet} by=wes name=Eve due-total=0.00 claims=0`,
       `PERSON_EDITED sheet=${sheet} by=wes name=Eve grade=A terms=20`,
@@ -866,7 +866,7 @@ test.describe("monthly plans", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1003,7 +1003,7 @@ test.describe("monthly plans", () => {
       `PERSON_EDITED sheet=${sheet} by=wes name=Eve grade=A terms=20`,
       `STATEMENT sheet=${sheet} by=wes name=Eve due-total=0.00 claims=0`,
       `STATEMENT sheet=${sheet} by=wes name=Eve due-total=0.00 claims=0 asof=2026-04-02`,
-      `PERSON_EDITED sheet=${sheet} by=wes name=Eve grade=A terms=20`,
+      `PERSON_EDITED sheet=${sheet} by=wes name=Eve grade=A`,
       `PERSON_HELD sheet=${sheet} by=wes name=Eve from=2026-03-01`
     ]);
   });
@@ -1073,7 +1073,7 @@ test.describe("monthly plans", () => {
     await expect(pg_uma.getByTestId("header-overdue-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("my-due-total")).toHaveText("");
     await expect(pg_uma.getByTestId("my-overdue-total")).toHaveText("");
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "4.00"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "4.00"}, p_cam));
     expect(await ui.claimAction(pg_uma, c_ben_0, "open")).toBe(true);
     const c_cam_2 = ui.must(await ui.addClaimTwice(pg_uma, p_cam, {"amount": "0.40", "date": "2026-04-02"}));
     expect(await ui.claimCount(pg_uma, p_cam)).toBe(3);

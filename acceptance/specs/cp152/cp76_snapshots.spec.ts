@@ -103,7 +103,7 @@ test.describe("snapshots", () => {
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "7.77", "date": "2026-02-25"}));
     expect(await ui.periodAction(pg_uma, "P1", "soft-close")).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "C", "pct": "12.50"})).toBe(true);
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "0.40"}));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "0.40"}, p_ada));
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("0.00");
@@ -292,7 +292,7 @@ test.describe("snapshots", () => {
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-late-entry")).toHaveText("yes");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-late-entry")).toHaveText("no");
     await expect(pg_uma.getByTestId("person-row-" + p_dot).getByTestId("person-name")).toHaveText("Dot");
     await expect(pg_uma.getByTestId("person-row-" + p_dot).getByTestId("person-grade")).toHaveText("A");
     await expect(pg_uma.getByTestId("person-row-" + p_dot).getByTestId("person-claimed")).toHaveText("0.00");
@@ -402,8 +402,7 @@ test.describe("snapshots", () => {
       `RATE_SET sheet=${sheet} by=uma grade=A rate=12.50`,
       `CLAIM_EDITED sheet=${sheet} by=uma person=Ada amount=3.33 date=2026-02-25`,
       `RATE_SET sheet=${sheet} by=uma grade=C rate=33.33 from=2026-03-16`,
-      `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=7.77 date=2026-03-01`,
-      `LATE_ENTRY sheet=${sheet} by=uma person=Ben amount=7.77 date=2026-03-01`
+      `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=7.77 date=2026-03-01`
     ]);
   });
   test("snapshots scenario 2", { tag: '@functionality' }, async ({ browser }) => {
@@ -820,7 +819,7 @@ test.describe("snapshots", () => {
     expect(await ui.addPatron(pg_uma, p_ben, "Ada")).toBe(true);
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.claimAction(pg_wes, c_ada_1, "open")).toBe(true);
-    expect(await ui.editPerson(pg_wes, p_ben, {"grade": "C", "gradeFrom": "2026-03-09"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_wes, p_ben, {"grade": "C", "gradeFrom": "2026-03-09"}, {"grade": "B"})).toBe(true);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("0.00");
@@ -852,7 +851,7 @@ test.describe("snapshots", () => {
     expect(await ui.claimAction(pg_wes, c_ben_0, "open")).toBe(true);
     await ui.setToday(pg_wes, "2026-03-19");
     expect(await ui.editClaim(pg_wes, c_ada_0, {"date": "2026-03-28"})).toBe(true);
-    const c_ada_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ada", "amount": "10.35"}));
+    const c_ada_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ada", "amount": "10.35"}, p_ada));
     expect(await ui.statement(pg_wes, p_ada)).toBe(true);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("99.95");

@@ -148,7 +148,7 @@ test.describe("shared claims", () => {
     expect(await ui.addPoolMember(pg_uma, "P2", {"member": "Cam", "share": "100.00"})).toBe(true);
     expect(await ui.addPoolMember(pg_uma, "P1", {"member": "pool:P2", "share": "10.00"})).toBe(true);
     const pg_wes = await ui.userPage(browser, "wes", sheet);
-    expect(await ui.flag(pg_wes, p_ben, "check", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_wes, p_ben, "check", "2026-03-12", "check")).toBe(true);
     await ui.refresh(pg_wes);
     expect(await ui.delegate(pg_wes, {"user": "vic", "from": "2026-03-09", "to": "2026-03-28"})).toBe(true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
@@ -250,7 +250,7 @@ test.describe("shared claims", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("2026-03-05");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -397,7 +397,7 @@ test.describe("shared claims", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -789,7 +789,7 @@ test.describe("shared claims", () => {
     expect(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "A", "contact": "ben@x"})).toBeNull();
     expect(await ui.addCrew(pg_uma, "C1", "Cam")).toBe(true);
     expect(await ui.addCrewMember(pg_uma, "C1", "Ada")).toBe(true);
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.40"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.40"}, p_cam));
     await ui.setToday(pg_uma, "2026-04-24");
     expect(await ui.claimEditOpen(pg_uma, c_cam_0)).toBe(true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
@@ -885,7 +885,7 @@ test.describe("shared claims", () => {
     await ui.refresh(pg_vic);
     expect(await ui.claimEditSave(pg_vic, c_cam_1, {"amount": "0.04"})).toBe(false);
     expect(await ui.setRate(pg_vic, {"grade": "C", "pct": "12.50"})).toBe(false);
-    expect(await ui.snapshotCompare(pg_vic, "2026-04-05", "2026-03-20")).toEqual(["Ada 0.00 ", "Cam 0.00 "]);
+    expect(await ui.snapshotCompare(pg_vic, "2026-04-05", "2026-03-20")).toEqual(["Ada 0.00", "Cam 0.00"]);
     await ui.refresh(pg_wes);
     expect(await ui.claimAction(pg_wes, c_cam_1, "open")).toBe(true);
     expect(await ui.hold(pg_wes, p_cam, {"from": "2026-03-15", "to": "2026-03-20"})).toBe(true);

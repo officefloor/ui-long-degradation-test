@@ -1127,7 +1127,7 @@ test.describe("review state", () => {
       `CLAIM_OPENED sheet=${sheet} by=vic person=Ada amount=99.95 date=2026-02-28 for=wes`,
       `ROLLUP sheet=${sheet} by=vic person=Ada claimed=99.95 due-total=5.00 overdue-total=0.00`,
       `TOTALS sheet=${sheet} by=vic claimed-total=99.95 due-total=5.00 overdue-total=0.00`,
-      `ALERT sheet=${sheet} by=vic name=Ada due-total=5.00 for=wes`,
+      `ALERT sheet=${sheet} by=vic name=Ada due-total=5.00`,
       `PERSON_ADDED sheet=${sheet} by=vic name=Eve grade=A for=wes`,
       `ROLLUP sheet=${sheet} by=vic person=Eve claimed=0.00 due-total=0.00 overdue-total=0.00`,
       `TOTALS sheet=${sheet} by=vic claimed-total=99.95 due-total=0.00 overdue-total=0.00`,

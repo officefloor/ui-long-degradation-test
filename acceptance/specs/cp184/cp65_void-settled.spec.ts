@@ -120,7 +120,7 @@ test.describe("void settled", () => {
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.delegate(pg_vic, {"user": "uma", "from": "2026-03-09", "to": "2026-03-15"})).toBe(true);
     await ui.refresh(pg_uma);
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "20.00"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "20.00"}, p_cam));
     expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C"})).toBe(true);
     expect(await ui.addProof(pg_uma, c_cam_0)).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "B", "pct": "10.00"})).toBe(true);

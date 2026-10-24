@@ -187,7 +187,7 @@ test.describe("soft close", () => {
     const c_ben_1 = ui.must(await ui.addClaim(pg_vic, p_ben, {"amount": "0.40", "date": "2026-04-02"}));
     await ui.refresh(pg_vic);
     expect(await ui.reassign(pg_vic, c_ben_0, "Ben")).toBe(true);
-    const c_ben_3 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ben", "amount": "1.00"}));
+    const c_ben_3 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ben", "amount": "1.00"}, p_ben));
     await ui.setToday(pg_vic, "2026-05-20");
     expect(await ui.claimAction(pg_vic, c_ben_1, "open")).toBe(true);
     await ui.refresh(pg_vic);
@@ -403,7 +403,7 @@ test.describe("soft close", () => {
     expect(await ui.setRate(pg_uma, {"grade": "C", "pct": "12.50"})).toBe(true);
     await ui.setSetting(pg_uma, "policy-date", "2026-03-15");
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "25.00", "date": "2026-03-20"}));
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "4.00"}));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "4.00"}, p_ada));
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("0.00");

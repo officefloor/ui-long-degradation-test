@@ -162,7 +162,7 @@ test.describe("escalate", () => {
     await expect(pg_wes.getByTestId("header-overdue-total")).toHaveText("3.28");
     await expect(pg_wes.getByTestId("my-due-total")).toHaveText("");
     await expect(pg_wes.getByTestId("my-overdue-total")).toHaveText("");
-    const c_ben_4 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "1.00"}));
+    const c_ben_4 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "1.00"}, p_ben));
     await ui.refresh(pg_wes);
     expect(await ui.delegate(pg_wes, {"user": "vic", "from": "2026-03-01", "to": "2026-03-28"})).toBe(true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
@@ -537,7 +537,7 @@ test.describe("escalate", () => {
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "7.77"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "7.77"}, p_ben));
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.merge(pg_vic, p_ada, "Cam")).toBe(true);
     await ui.refresh(pg_vic);
@@ -790,7 +790,7 @@ test.describe("escalate", () => {
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-retirement-line")).toHaveText([]);
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-tags")).toHaveText("");
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-snapshot-line")).toHaveText([]);
-    await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-statement-line-line")).toHaveText(["2026-04-05 0.00"]);
+    await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-statement-line-line")).toHaveText(["2026-04-05 0.00", "2026-04-05 0.00"]);
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-period-P1-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-period-P2-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-period-P1-carried")).toHaveText("0.00");
@@ -966,7 +966,7 @@ test.describe("escalate", () => {
     await ui.showRetired(pg_vic, true);
     const c_cam_0 = ui.must(await ui.addClaim(pg_vic, p_cam, {"amount": "4.00"}));
     expect(await ui.setRate(pg_vic, {"grade": "A", "pct": "7.50"})).toBe(true);
-    expect(await ui.editPerson(pg_vic, p_cam, {"grade": "A", "gradeFrom": "2026-03-09"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_vic, p_cam, {"grade": "A", "gradeFrom": "2026-03-09"}, {"grade": "C"})).toBe(true);
     await ui.refresh(pg_uma);
     await ui.showRetired(pg_uma, true);
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(true);

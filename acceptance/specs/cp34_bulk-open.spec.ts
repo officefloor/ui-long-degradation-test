@@ -353,7 +353,7 @@ test.describe("bulk open", () => {
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("1.05");
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
     expect(await ui.periodAction(pg_uma, "P1", "close")).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-02-10"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-02-10"}, {"grade": "B"})).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "C", "pct": "5.00"})).toBe(true);
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
     expect(await ui.addClaim(pg_uma, p_cam, {"amount": "20.00", "date": "2026-03-05"})).toBeNull();

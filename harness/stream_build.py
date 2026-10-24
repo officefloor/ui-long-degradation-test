@@ -101,8 +101,22 @@ class Renderer:
         self.vars: set[str] = set()
 
     # -- helpers
+    _TOKEN_LITERAL = re.compile(r'"((?:[^"\\]|\\.)*__SHEET__(?:[^"\\]|\\.)*)"')
+
     def emit(self, s: str) -> None:
+        # a cell or field whose value is a sheet id (sheet-parent, person-origin, an export line)
+        # is rendered through ts() like any other text; the token must still become the test's
+        # own `${sheet}`, never the literal placeholder (which no app can show)
+        if SHEET_TOKEN in s:
+            s = self._TOKEN_LITERAL.sub(lambda m: tpl(json.loads('"' + m.group(1) + '"')), s)
         self.lines.append("    " + s)
+
+    def claim_pos(self, c) -> int:
+        """The claim's position under its person counted from the oldest row (what ui.claimAt
+        takes): its rank among the person's claims by idx. idx itself is an identity that keeps
+        gaps once a claim moved away (reassign, merge, transfer), so it is not a position."""
+        p = self.m.people[c.person]
+        return sorted(x.idx for x in self.m.person_claims(p)).index(c.idx)
 
     def var(self, base: str) -> str:
         v, n = base, 2
@@ -127,7 +141,7 @@ class Renderer:
         if not c.var:
             pv = self.pvar(name)
             c.var = self.var(f"c_{slugify(self.m.people[c.person].name)}_{c.idx}")
-            self.emit(f"const {c.var} = await ui.claimAt({self.pg}, {pv}, {c.idx});")
+            self.emit(f"const {c.var} = await ui.claimAt({self.pg}, {pv}, {self.claim_pos(c)});")
         return c.var
 
     def attempt(self, fn, *a, **kw):
@@ -162,7 +176,7 @@ class Renderer:
             for c in self.m.person_claims(p):
                 if not c.var:
                     c.var = self.var(f"c_{slugify(p.name)}_{c.idx}")
-                    self.emit(f"const {c.var} = await ui.claimAt({self.pg}, {p.var}, {c.idx});")
+                    self.emit(f"const {c.var} = await ui.claimAt({self.pg}, {p.var}, {self.claim_pos(c)});")
 
     # -- steps
     def step(self, st: tuple) -> None:
@@ -270,9 +284,15 @@ class Renderer:
         except Refused:
             self.m.editing.pop(self.m.user, None)
             return False, ""
-        shows = ""
+        out = {}
         if fields.get("grade") is not None and self.m.grade_now(p) != fields["grade"]:
-            shows = f", {ts(self.m.grade_now(p))}"
+            out["grade"] = self.m.grade_now(p)
+        if "terms" in fields and self.m.has("person_terms"):
+            now = self.m.person_terms_now(p)
+            now_text = "" if now is None else str(now)
+            if now_text != str(fields["terms"]):
+                out["terms"] = now_text
+        shows = f", {ts(out)}" if out else ""
         return True, shows
 
     def s_edit_save(self, fields: dict) -> None:
@@ -353,7 +373,7 @@ class Renderer:
         for c in self.m.claims:
             if not c.var:
                 c.var = self.var(f"c_{slugify(self.m.people[c.person].name)}_{c.idx}")
-                self.emit(f"const {c.var} = await ui.claimAt({self.pg}, {self.m.people[c.person].var}, {c.idx});")
+                self.emit(f"const {c.var} = await ui.claimAt({self.pg}, {self.m.people[c.person].var}, {self.claim_pos(c)});")
 
     def _edit_fields(self, fields: dict) -> dict:
         return {k: v for k, v in fields.items()
@@ -442,7 +462,7 @@ class Renderer:
 
     # ---- Act V steps
     def s_snapshot_compare(self, start, end=None) -> None:
-        lines = self.m.snapshot_compare(start, end)
+        lines = [x.strip() for x in self.m.snapshot_compare(start, end)]
         self.emit(f"expect(await ui.snapshotCompare({self.pg}, {ts(start)}, {ts(end or '')})).toEqual({ts(lines)});")
 
     def _plan_var(self, name, idx) -> str:
@@ -473,7 +493,7 @@ class Renderer:
 
     def s_compare(self, suffix) -> None:
         sid = SHEET_TOKEN + (f"-{suffix}" if suffix else "")
-        lines = self.m.compare_sheet(sid)
+        lines = [x.strip() for x in self.m.compare_sheet(sid)]
         self.emit(f"expect(await ui.compareSheet({self.pg}, {self.sheet_expr(sid)})).toEqual({ts(lines)});")
 
     def s_share(self, name, idx, who, share) -> None:
@@ -714,7 +734,7 @@ class Renderer:
         self.emit(f"expect(await {call}).toBe({n});")
 
     def s_search(self, text) -> None:
-        lines = self.m.search(text)
+        lines = [x.strip() for x in self.m.search(text)]
         body = ", ".join(tpl(x) for x in lines)
         self.emit(f"expect(await ui.search({self.pg}, {ts(text)})).toEqual([{body}]);")
 
@@ -755,7 +775,11 @@ class Renderer:
 
     def s_flag(self, name, reason, until) -> None:
         ok = self.attempt(self.m.flag, name, reason, until)
-        self.expect_ok(f"ui.flag({self.pg}, {self.pvar(name)}, {ts(reason)}, {ts(until)})", ok)
+        shows = ""
+        if ok:
+            p = self.m.person(name)
+            shows = f", {ts(p.flag[0] if self.m.flag_in_force(p) else '')}"
+        self.expect_ok(f"ui.flag({self.pg}, {self.pvar(name)}, {ts(reason)}, {ts(until)}{shows})", ok)
 
     def s_approver(self, name, user) -> None:
         ok = self.attempt(self.m.set_approver, name, user)
@@ -824,10 +848,10 @@ class Renderer:
         self.emit(f"await ui.setColumns({self.pg}, {ts(list(hidden))});")
 
     def s_activity(self) -> None:
-        self.emit(f"expect(await ui.activity({self.pg})).toEqual({ts(self.m.activity())});")
+        self.emit(f"expect(await ui.activity({self.pg})).toEqual({ts([x.strip() for x in self.m.activity()])});")
 
     def s_dups(self) -> None:
-        self.emit(f"expect(await ui.dups({self.pg})).toEqual({ts(self.m.dups())});")
+        self.emit(f"expect(await ui.dups({self.pg})).toEqual({ts([x.strip() for x in self.m.dups()])});")
 
     def s_export_statement(self, name) -> None:
         p = self.m.person(name)
@@ -935,6 +959,9 @@ class Renderer:
         self.expect_ok(f"ui.periodAction({self.pg}, {ts(name)}, \"reopen\")", ok)
 
     def s_quick(self, name, amount) -> None:
+        existing = self.m.find_person(name)
+        if existing is not None and not self.m.visible(existing):
+            raise HiddenRow(f"quick add names {existing.name}, whose row {self.m.user} cannot see")
         call = f"ui.quickAdd({self.pg}, {ts({'name': name, 'amount': amount})})"
         try:
             c = self.m.quick_add(name, amount)
@@ -942,7 +969,11 @@ class Renderer:
             self.emit(f"expect(await {call}).toBeNull();")
             return
         p = self.m.person(name)
-        c.var = self.var(f"c_{slugify(name)}_{c.idx}")
+        if existing is not None:
+            # the typed name may be an alias (cp102): the helper finds the new claim under the row
+            # the model resolved it to, not under a row showing the typed text
+            call = f"ui.quickAdd({self.pg}, {ts({'name': name, 'amount': amount})}, {self.pvar(name)})"
+        c.var = self.var(f"c_{slugify(p.name)}_{c.idx}")
         self.emit(f"const {c.var} = ui.must(await {call});")
         if not p.var:
             p.var = self.var("p_" + slugify(name))
@@ -1001,7 +1032,7 @@ class Renderer:
             return
         if start and self.m.has("settings_dated"):
             ok = self.attempt(self.m.set_setting, key, value, start)
-            shows = self.m.setting(key) or ""
+            shows = self.m.setting(key) or hell.STARTING_VALUES.get(key, "")
             self.expect_ok(f"ui.setSettingDated({self.pg}, {ts(key)}, {ts(value)}, {ts(start)}, {ts(shows)})", ok)
             return
         if self.attempt(self.m.set_setting, key, value):

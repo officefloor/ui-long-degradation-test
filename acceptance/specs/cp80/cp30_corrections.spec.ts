@@ -290,7 +290,7 @@ test.describe("corrections", () => {
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "A"}));
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "C"}));
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "A"}));
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "B", "gradeFrom": "2026-03-20"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "B", "gradeFrom": "2026-03-20"}, {"grade": "C"})).toBe(true);
     const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "7.77"}));
     expect(await ui.claimAction(pg_uma, c_ben_0, "void")).toBe(true);
     const c_ben_1 = ui.must(await ui.addClaimTwice(pg_uma, p_ben, {"amount": "7.77", "date": "2026-03-28"}));
@@ -560,7 +560,7 @@ test.describe("corrections", () => {
     expect(await ui.claimAction(pg_wes, c_cam_0, "settle")).toBe(false);
     expect(await ui.periodAction(pg_wes, "P1", "close")).toBe(true);
     const c_cam_1 = ui.must(await ui.addClaim(pg_wes, p_cam, {"amount": "1.00"}));
-    const c_cam_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Cam", "amount": "1.00"}));
+    const c_cam_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Cam", "amount": "1.00"}, p_cam));
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-name")).toHaveText("Cam");
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-grade")).toHaveText("A");

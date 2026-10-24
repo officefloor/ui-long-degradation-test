@@ -517,7 +517,7 @@ test.describe("today permission", () => {
     expect(await ui.addPoolMember(pg_uma, "P2", {"member": "Cam", "share": "100.00"})).toBe(true);
     expect(await ui.addPoolMember(pg_uma, "P1", {"member": "pool:P2", "share": "10.00"})).toBe(true);
     const pl_ben_1 = ui.must(await ui.addPlan(pg_uma, p_ben, {"amount": "99.95", "start": "2026-03-01", "end": "2026-04-30", "every": "10"}));
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "20.00"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "20.00"}, p_ben));
     expect(await ui.search(pg_uma, "e")).toEqual([`${sheet} Ben (A) 0.00`]);
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.importPeople(pg_wes, "Dot,B\nFay,C,,")).toMatchObject({"added": 2, "updated": 0});
@@ -974,7 +974,7 @@ test.describe("today permission", () => {
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "12.50", "date": "2026-02-10", "note": "n"}));
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     await ui.showRetired(pg_wes, true);
-    expect(await ui.flag(pg_wes, p_ada, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_wes, p_ada, "late", "2026-03-12", "")).toBe(true);
     await ui.refresh(pg_wes);
     expect(await ui.merge(pg_wes, p_ada, "Ben")).toBe(false);
     await ui.refresh(pg_wes);
@@ -1020,7 +1020,7 @@ test.describe("today permission", () => {
     await expect(pg_wes.getByTestId("watched-due-total")).toHaveText("0.00");
     expect(await ui.claimAction(pg_wes, c_ben_0, "void")).toBe(true);
     await ui.refresh(pg_wes);
-    expect(await ui.flag(pg_wes, p_ada, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_wes, p_ada, "late", "2026-03-12", "")).toBe(true);
     expect(await ui.editClaim(pg_wes, c_cam_0, {"date": "2026-03-20"})).toBe(false);
     await ui.refresh(pg_uma);
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(true);

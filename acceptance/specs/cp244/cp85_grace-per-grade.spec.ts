@@ -537,7 +537,7 @@ test.describe("grace per grade", () => {
     expect(await ui.statementAsOf(pg_wes, p_ada, "2026-02-10")).toBe(false);
     expect(await ui.bulkGrade(pg_wes, [p_ada, p_ben], {"grade": "A", "from": "2026-03-20"})).toBe(2);
     const c_ben_1 = ui.must(await ui.addClaim(pg_wes, p_ben, {"amount": "4.00", "date": "2026-03-20"}));
-    const c_ben_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "99.95"}));
+    const c_ben_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "99.95"}, p_ben));
     const c_cam_0 = ui.must(await ui.addClaimTwice(pg_wes, p_cam, {"amount": "0.04", "date": "2026-03-01"}));
     expect(await ui.claimCount(pg_wes, p_cam)).toBe(1);
     const pg_vic = await ui.userPage(browser, "vic", sheet);

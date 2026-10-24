@@ -717,7 +717,7 @@ test.describe("redate claim", () => {
     expect(await ui.hold(pg_wes, p_cam, {"from": "2026-03-20", "to": "2026-04-02"})).toBe(true);
     await ui.setSetting(pg_wes, "policy-date", "2026-03-15");
     const c_cam_0_2 = ui.must(await ui.addClaim(pg_wes, p_cam, {"amount": "7.77"}));
-    const c_ben_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "20.00"}));
+    const c_ben_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "20.00"}, p_ben));
     expect(await ui.setRate(pg_wes, {"grade": "C", "pct": "33.33"})).toBe(true);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");

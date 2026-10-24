@@ -36,6 +36,8 @@ Figures (two decimals, dot, no grouping; `n/a` when undefined):
 """
 from __future__ import annotations
 
+import contextlib
+import copy as _copy_mod
 import csv
 import io
 from dataclasses import dataclass, field
@@ -389,6 +391,9 @@ def top_since(tid: str) -> int:
 
 DEFAULT_FLOOR = Decimal("1.00")
 DEFAULT_TERMS = 14
+# What the settings panel shows in force when nothing is recorded on or before the sheet's today
+# (cp24, cp26, cp48: "before every from-date the sheet's starting value"); other keys show nothing.
+STARTING_VALUES = {"floor": "1.00", "late-pct": "0.00", "terms": str(DEFAULT_TERMS)}
 DATED_SETTINGS = ("floor", "late-pct", "terms", "clerk-limit", "cap", "proof-threshold", "note-threshold",
                   "rounding", "review-threshold")
 DATED_PREFIXES = ("terms-", "grace-", "proof-threshold-", "clerk-limit-")
@@ -461,6 +466,9 @@ class Person:
     openings: dict = field(default_factory=dict)     # period name -> Decimal (cp173)
     flag: tuple | None = None                        # (reason, until) (cp179)
     approver: str = ""                               # cp199
+    seq: int = 0                                     # creation sequence on the screen's family: the stable
+                                                     #   identity of a row (order is the list position, which
+                                                     #   moves and may be reused after a merge)
     var: str = ""                                    # TS variable the renderer gives the row id
 
     def keys(self) -> set:
@@ -576,13 +584,14 @@ def write(fn):
             if self.on("viewer") and self.role() == "viewer":
                 raise Refused("viewer")
         today_before = self.today
+        alloc = (self.screen["cseq"][0], self.screen["pseq"][0])
         if not self.on("rollup") or self._replay:
             self._depth += 1
             try:
                 result = fn(self, *a, **kw)
             finally:
                 self._depth -= 1
-            self._journal(fn.__name__, a, kw, today_before)
+            self._journal(fn.__name__, a, kw, today_before, alloc)
             return result
         before, tot_before = self._figures()
         self._depth += 1
@@ -604,7 +613,7 @@ def write(fn):
                 fields.append(("overdue-total", tot_after[2], 44))
             self.audit_line("TOTALS", *fields)
         self._alerts(after)
-        self._journal(fn.__name__, a, kw, today_before)
+        self._journal(fn.__name__, a, kw, today_before, alloc)
         return result
     inner.__name__ = fn.__name__
     inner.__doc__ = fn.__doc__
@@ -624,7 +633,8 @@ class Model:
         self.family: dict = family if family is not None else {}
         self.family[sheet] = self
         self.screen: dict = screen if screen is not None else {
-            "show_retired": set(), "asof": {}, "locale": {}, "columns": {}, "preview": {}, "seq": [0]}
+            "show_retired": set(), "asof": {}, "locale": {}, "columns": {}, "preview": {}, "seq": [0],
+            "cseq": [0], "pseq": [0]}      # claim / person creation sequences, shared by the family
         self.grades: list[str] = list(GRADES)
         self.user: str | None = None
         self.today: date = date(2026, 1, 1)
@@ -693,12 +703,56 @@ class Model:
     def has(self, feature: str) -> bool:
         return self.k >= SINCE[feature]
 
-    def _journal(self, name: str, a: tuple, kw: dict, today_before: date) -> None:
+    def _journal(self, name: str, a: tuple, kw: dict, today_before: date, alloc: tuple) -> None:
         """Journal a top-level write for the as-of replay; a write in INNER_WRITES is one sheet's
-        part of another sheet's write (a transfer's arrival) and is replayed through that write."""
+        part of another sheet's write (a transfer's arrival) and is replayed through that write.
+        `alloc` is the (claim, person) creation counters the write started from: a replay that
+        skips later-dated writes restores them before each write, so every row it recreates gets
+        the seq the live row has, and the as-of view matches rows by identity, not position."""
         if self._depth == 0 and name not in INNER_WRITES:
             self.screen["seq"][0] += 1
-            self.journal.append((self.screen["seq"][0], self.user, today_before, name, a, kw))
+            self.journal.append((self.screen["seq"][0], self.user, today_before, name, a, kw, alloc))
+
+    # ---- identities ---------------------------------------------------------------------------
+    def _next_cseq(self) -> int:
+        self.screen["cseq"][0] += 1
+        return self.screen["cseq"][0]
+
+    def _next_pseq(self) -> int:
+        self.screen["pseq"][0] += 1
+        return self.screen["pseq"][0]
+
+    def _next_idx(self, key: str) -> int:
+        """The next idx under a person: one past the highest they hold (a reassign, merge or
+        transfer leaves gaps, so a count would hand out an idx twice)."""
+        return max([x.idx for x in self.claims if x.person == key] + [-1]) + 1
+
+    def _next_order(self) -> int:
+        """The list position of a new row: one past the highest held (a merge frees a position,
+        so a count could give two rows one position)."""
+        return max([p.order for p in self.people.values()] + [-1]) + 1
+
+    @contextlib.contextmanager
+    def _transaction(self):
+        """All-or-nothing: a Refused raised inside leaves the whole family (every sheet, the
+        screen, the journal and the audit) as it was at entry. Used where a request promises
+        atomicity over several inner writes (a paste, a part-settle)."""
+        family, screen = self.family, self.screen          # the live containers, kept by identity
+        fam_copy, screen_copy = _copy_mod.deepcopy((family, screen))
+        try:
+            yield
+        except BaseException:
+            for sid in list(family):
+                if sid not in fam_copy:
+                    del family[sid]
+            for sid, saved in fam_copy.items():
+                live = family[sid]
+                live.__dict__.clear()
+                live.__dict__.update(saved.__dict__)
+                live.family, live.screen = family, screen
+            screen.clear()
+            screen.update(screen_copy)
+            raise
 
     def delegator(self, user: str | None = None) -> str | None:
         """The steward whose role `user` holds today by delegation (the latest one in force)."""
@@ -720,7 +774,7 @@ class Model:
         if not self.has("audit") or self._replay:
             return
         fields = list(fields)
-        if event not in ("ROLLUP", "TOTALS"):
+        if event not in ("ROLLUP", "TOTALS", "ALERT"):      # lines that only report figures
             by = self.delegator()
             if by:
                 fields.append(("for", by, 61))
@@ -973,7 +1027,7 @@ class Model:
         if key in self.people and not self.on("names"):
             key = f"{key}#{len(self.people)}"
         # the first grade applies from the beginning of time (cp28), whatever the form's from-date
-        p = Person(name=name, grades=[(None, grade)], order=len(self.people))
+        p = Person(name=name, grades=[(None, grade)], order=self._next_order(), seq=self._next_pseq())
         if terms not in (None, "") and self.has("person_terms"):
             self._record_terms(p, {"terms": terms})
         if contact_text and self.has("contact"):
@@ -992,7 +1046,8 @@ class Model:
         self.editing[self.user] = (self._key(p), p.version)
         if self._depth == 0:
             self.screen["seq"][0] += 1
-            self.journal.append((self.screen["seq"][0], self.user, self.today, "edit_open", (name,), {}))
+            self.journal.append((self.screen["seq"][0], self.user, self.today, "edit_open", (name,), {},
+                                 (self.screen["cseq"][0], self.screen["pseq"][0])))
 
     def _key(self, p: Person) -> str:
         return next(k for k, v in self.people.items() if v is p)
@@ -1018,11 +1073,16 @@ class Model:
                 p.grades = [(s, g) for s, g in p.grades if s != start] + [(start, grade)]
             else:
                 p.grades = [(None, grade)]
-        terms_given = "terms" in fields and self.has("person_terms")
-        if terms_given:
+        # terms= / contact= are written when the form's value differs from what the row showed
+        # before the save (cp63, cp99): a field left as it was, or cleared when already empty,
+        # adds nothing. Observable by any app; "the form gave a value" is not.
+        terms_given = "terms" in fields and self.has("person_terms") \
+            and self._terms_field(fields) != self.person_terms_now(p)
+        if "terms" in fields and self.has("person_terms"):
             self._record_terms(p, fields)
-        contact_given = "contact" in fields and self.has("contact")
-        if contact_given:
+        contact_given = "contact" in fields and self.has("contact") \
+            and (fields["contact"] or "").strip().casefold() != p.contact
+        if "contact" in fields and self.has("contact"):
             p.contact = self._contact_rules(fields["contact"], exclude=p)
         if "tags" in fields and self.on("person_tags"):
             p.tags = self._tags_field(fields["tags"])
@@ -1156,7 +1216,8 @@ class Model:
             raise Refused("rate-form-error")
         old = [r for r in self.rates if r[0] == grade and r[1] == s]
         self.rates = [r for r in self.rates if not (r[0] == grade and r[1] == s)]
-        self.rates.append((grade, s, val, e, self.today, len(self.claims)))
+        # the claim sequence at the save: claims created later carry a higher seq (cp156)
+        self.rates.append((grade, s, val, e, self.today, self.screen["cseq"][0]))
         if self.on("rate_versions"):
             self.rate_versions[(grade, s)] = self.rate_versions.get((grade, s), 0) + 1
             if old:
@@ -1202,7 +1263,7 @@ class Model:
     def _rate_at_own(self, grade: str, when: date, c: Claim | None = None) -> Decimal | None:
         rows = [r for r in self.rates if r[0] == grade]
         if c is not None:
-            rows = [r for r in rows if not (self._forward_only(r) and c.seq < r[5])]
+            rows = [r for r in rows if not (self._forward_only(r) and c.seq <= r[5])]
         if not self.on("rate_dated"):
             rows = [r for r in rows if r[1] is None] or rows
             row = rows[-1] if rows else None
@@ -1266,7 +1327,8 @@ class Model:
             if c is not None:
                 db = self.due_by(c)
                 return db if db else when
-            return when + timedelta(days=self.terms_for(p, when))
+            # exactly the due-by the claim would be fixed with (cp38, cp83, cp84, cp180)
+            return self.due_by_from(when, self.terms_for(p, when, self.today))
         return when
 
     def claim_period(self, c: Claim) -> Period | None:
@@ -1438,7 +1500,7 @@ class Model:
                    extra: dict | None = None) -> Claim:
         ref, tags = self._extra_checks(extra)
         c = Claim(person=self._key(p), amount=a, date=dt, note=note, corrects=corrects,
-                  idx=sum(1 for x in self.claims if x.person == self._key(p)), seq=len(self.claims))
+                  idx=self._next_idx(self._key(p)), seq=self._next_cseq())
         c.created_on = self.today
         c.terms_days = self.terms_for(p, dt, self.today)
         if self.on("overdue") and self.on("terms_fixed"):
@@ -1552,17 +1614,25 @@ class Model:
                 finally:
                     probe.amount = saved
                 plan.append((p, a, dt, note, ref, match))
-            for p, a, dt, note, ref, match in plan:
-                if match is None:
-                    c = self._paste_one(p.name, money(a), dt.isoformat(), note, ref)
-                else:
-                    c = match
-                    if c.amount != a:
-                        self.edit_claim(p.name, c.idx, {"amount": money(a)})
-                self.open_claim(p.name, c.idx)
+            try:
+                with self._transaction():
+                    for p, a, dt, note, ref, match in plan:
+                        if match is None:
+                            c = self._paste_one(p.name, money(a), dt.isoformat(), note, ref)
+                        else:
+                            c = match
+                            if c.amount != a:
+                                self.edit_claim(p.name, c.idx, {"amount": money(a)})
+                        self.open_claim(p.name, c.idx)
+            except Refused:
+                raise Refused("paste-error")
             return len(parsed)
-        for p, a, dt, note, ref in parsed:
-            self._paste_one(p.name, money(a), dt.isoformat(), note, ref)
+        try:
+            with self._transaction():
+                for p, a, dt, note, ref in parsed:
+                    self._paste_one(p.name, money(a), dt.isoformat(), note, ref)
+        except Refused:
+            raise Refused("paste-error")
         return len(parsed)
 
     @write
@@ -1582,7 +1652,7 @@ class Model:
     def claim_edit_open(self, name: str, idx: int) -> None:
         """cp69: open the claim's editor; refused when another user holds it."""
         c = self.claim(name, idx)
-        if not self._editable(c) or (self.on("viewer") and self.role() == "viewer"):
+        if not self._editable(c) or self.in_closed_claim(c) or (self.on("viewer") and self.role() == "viewer"):
             raise Refused("claim-error")
         if self.on("lock"):
             holder = self.locks.get(c.seq)
@@ -1731,8 +1801,11 @@ class Model:
         return c.proofs > 0
 
     @write
-    def settle_claim(self, name: str, idx: int, on: str | None = None) -> Claim:
+    def settle_claim(self, name: str, idx: int, on: str | None = None, judged: "Claim | None" = None) -> Claim:
+        """Settle the claim; `judged` (cp185) is the claim whose opener, last editor and proofs
+        the four-eyes and proof rules look at instead (the original of a part-settle)."""
         c = self.claim(name, idx)
+        j = judged or c
         if c.status != "OPEN" or self.in_closed_claim(c) or self.is_deferred(c):
             raise Refused("claim-error")
         on_info = None
@@ -1747,11 +1820,11 @@ class Model:
             on_info = (d, r.due(rc))
         if not self._perm("settle", True):
             raise Refused("claim-error")
-        if self.on("four_eyes") and c.opened_by == self.user:
+        if self.on("four_eyes") and j.opened_by == self.user:
             raise Refused("claim-error")
-        if self.on("four_eyes_editor") and c.edited_by == self.user:
+        if self.on("four_eyes_editor") and j.edited_by == self.user:
             raise Refused("claim-error")
-        if not self._proofs_ok(c):
+        if not self._proofs_ok(j):
             raise Refused("claim-error")
         when = c.date if self.on("policy") else self.today
         limit = self.setting_at("clerk-limit", when)
@@ -1786,15 +1859,24 @@ class Model:
         return c
 
     def settle_part(self, name: str, idx: int, amount: str) -> Claim:
-        """cp185: the part is split off as a new claim and settled at once, each by its rules."""
+        """cp185: the part is split off as a new claim and settled at once. The four-eyes and
+        proof rules are judged on the original claim (the new claim's opener is the splitter, who
+        could otherwise never part-settle); a refusal of either step leaves nothing behind."""
         if not self.on("partial_settle"):
             raise Refused("claim-error")
         c = self.claim(name, idx)
         if self._settle_refused(c):
             raise Refused("claim-error")
-        n = self.split_claim(name, idx, amount)
         try:
-            self.settle_claim(name, n.idx)
+            a = self._amount(amount, None)
+        except Refused:
+            raise Refused("claim-error")
+        if not self.on("split") or a <= 0 or a >= c.amount or not self._perm("open", True):
+            raise Refused("claim-error")
+        try:
+            with self._transaction():
+                n = self.split_claim(name, idx, amount)
+                self.settle_claim(name, n.idx, judged=c)
         except Refused:
             raise Refused("claim-error")
         return n
@@ -1953,8 +2035,8 @@ class Model:
         c.amount -= a
         c.stated = None
         n = Claim(person=c.person, amount=a, date=c.date, note=c.note, status="OPEN", opened_by=self.user,
-                  idx=sum(1 for x in self.claims if x.person == c.person), seq=len(self.claims),
-                  split_from=c.number or "", late_entry=c.late_entry)
+                  idx=self._next_idx(c.person), seq=self._next_cseq(),
+                  split_from=c.number or "", late_entry=c.late_entry, tags=list(c.tags))
         n.created_on = self.today
         n.terms_days = self.terms_for(p, c.date, self.today)
         if self.on("overdue") and self.on("terms_fixed"):
@@ -2462,7 +2544,7 @@ class Model:
             n = Claim(person=self._key(target), amount=c.amount, date=c.date, note=c.note, status=c.status,
                       opened_by=c.opened_by, frozen=c.frozen, due_by=c.due_by, corrects=c.corrects,
                       stated=c.stated if keep_bound else None, history=list(c.history),
-                      idx=sum(1 for x in self.claims if x.person == self._key(target)), seq=len(self.claims),
+                      idx=self._next_idx(self._key(target)), seq=self._next_cseq(),
                       deferred_until=c.deferred_until, proofs=c.proofs, late_entry=c.late_entry,
                       reminded=list(c.reminded), terms_days=c.terms_days, edited_by=c.edited_by,
                       tags=list(c.tags), void_reason=c.void_reason, comments=list(c.comments),
@@ -2509,6 +2591,7 @@ class Model:
                 pl.members.remove(bm)
         if keep:
             a.statements += b.statements
+            a.statement_log = sorted(a.statement_log + b.statement_log, key=lambda e: e[1])
             if a.stated_total is None and b.stated_total is not None:
                 a.stated_total, a.stated_on = b.stated_total, b.stated_on
         self.merges.append({"into": a, "person": b, "day": self.today, "claims": {n.seq for _c, n in moved},
@@ -2555,17 +2638,19 @@ class Model:
     def receive_person(self, src: "Model", p: Person, claims: list, existing: Person | None) -> Person:
         keep = self.on("bindings_follow")
         if existing is None:
-            q = Person(name=p.name, grades=list(p.grades), order=len(self.people), terms=p.terms,
-                       contact=p.contact, aliases=list(p.aliases), tags=list(p.tags), origin=src.sheet,
-                       arrived_on=self.today, terms_dated=list(p.terms_dated))
+            q = Person(name=p.name, grades=list(p.grades), order=self._next_order(), seq=self._next_pseq(),
+                       terms=p.terms, contact=p.contact, aliases=list(p.aliases), tags=list(p.tags),
+                       origin=src.sheet, arrived_on=self.today, terms_dated=list(p.terms_dated))
             if keep:
                 q.statements, q.stated_total, q.stated_on = p.statements, p.stated_total, p.stated_on
+                q.statement_log = list(p.statement_log)
             self.people[norm_name(p.name)] = q
         else:
             q = existing
             q.aliases += [p.name] + [x for x in p.aliases if norm_name(x) not in q.keys()]
             if keep:
                 q.statements += p.statements
+                q.statement_log = sorted(q.statement_log + p.statement_log, key=lambda e: e[1])
                 if q.stated_total is None and p.stated_total is not None:
                     q.stated_total, q.stated_on = p.stated_total, p.stated_on
         self._move_claims(src, claims, q, keep)
@@ -2602,7 +2687,8 @@ class Model:
         self.audit_line("SHEET_CLONED", ("from", src.sheet, 126))
         keymap = {}
         for k, p in sorted(src.people.items(), key=lambda kv: kv[1].order):
-            q = Person(name=p.name, grades=list(p.grades), order=len(self.people), retired_from=p.retired_from,
+            q = Person(name=p.name, grades=list(p.grades), order=self._next_order(), seq=self._next_pseq(),
+                       retired_from=p.retired_from,
                        holds=list(p.holds), terms=p.terms, contact=p.contact, aliases=list(p.aliases),
                        tags=list(p.tags), retirements=list(p.retirements), terms_dated=list(p.terms_dated))
             self.people[k] = q
@@ -3247,7 +3333,7 @@ class Model:
         if not self.on("merge_undo") or self.role() != "steward" or rec is None or rec["day"] != self.today:
             raise Refused("person-error")
         b = rec["person"]
-        b.order = len(self.people)
+        b.order = self._next_order()
         self.people[norm_name(b.name)] = b
         a.aliases = [x for x in a.aliases if norm_name(x) not in rec["aliases"]]
         for c in self.claims:
@@ -3398,7 +3484,7 @@ class Model:
         if d > self.today:
             raise Refused("person-error")
         r = self.asof_model(d)
-        rp = r.people.get(p.name) or next((q for q in r.people.values() if q.order == p.order), None)
+        rp = next((q for q in r.people.values() if q.seq == p.seq), None)   # absent: not yet added then
         if rp is None:
             raise Refused("person-error")
         counted = [rc for rc in r.person_claims(rp) if r.counts(rc)]
@@ -4435,16 +4521,19 @@ class Model:
         successful write journaled while the sheet's today was on or before `d`, replayed in
         order, with `d` as today for every figure."""
         fam: dict = {}
-        screen = dict(self.screen, asof={}, preview={}, seq=[0])
+        # the replay's own counters: a shallow copy would share the live lists, and restoring
+        # them per entry below would then rewind the live sheet's sequences
+        screen = dict(self.screen, asof={}, preview={}, seq=[0], cseq=[0], pseq=[0])
         for sid in self.family:
             r = Model(self.k, sid, self.off, family=fam, screen=screen)
             r._replay = True
         entries = sorted((e, sid) for sid, live in self.family.items() for e in live.journal)
-        for (_seq, user, today, name, a, kw), sid in entries:
+        for (_seq, user, today, name, a, kw, alloc), sid in entries:
             if today > d:
                 continue
             r = fam[sid]
             r.user = user
+            screen["cseq"][0], screen["pseq"][0] = alloc
             try:
                 getattr(r, name)(*a, **kw)
             except (Refused, KeyError, StopIteration, ValueError):
@@ -4462,13 +4551,13 @@ class Model:
         pv = self.screen["preview"].get(self.user) if self.on("preview") else None
         if pv and src is self:
             src = self.preview_model(pv)
-        vars_p = {p.order: p.var for p in self.people.values()}
+        vars_p = {p.seq: p.var for p in self.people.values()}
         vars_c = {c.seq: c.var for c in self.claims}
         people = {}
         for p in src.displayed():
             key = src._key(p)
             claims = sorted(src.person_claims(p), key=lambda c: c.idx, reverse=True)
-            people[key] = {"var": vars_p.get(p.order, ""), "visible": src.visible(p),
+            people[key] = {"var": vars_p.get(p.seq, ""), "visible": src.visible(p),
                            "cells": src.person_cells(p),
                            "periods": {n: src.person_period_text(p, per) for n, per in src.periods.items()},
                            "carried": {n: src.carried_text(p, per) for n, per in src.periods.items()} if src.on("carried") else {},
@@ -4786,12 +4875,14 @@ change: a refused claim leaves no new person behind and writes nothing.""",
     20: """An OPEN claim can no longer be edited; only a DRAFT can, and the edit of an open claim is refused
 with an error on the claim. To change an open claim, void it and add a new one. A voided claim now
 keeps its number (it is still never reused), and CLAIM_VOIDED carries it.""",
-    21: """A person can be retired from a date (defaults to the sheet's today). A claim dated after a
-person's retirement date is refused with an error; claims dated on or before it are allowed even
-if added later. Retired people are left out of the list (no row for them on the screen at all)
-unless "show retired" is on: a toggle on the screen, off when the screen is first opened and left
-as it is by loading a sheet. Their claims keep counting in every total. Show retired yes/no and
-retired-from. Retiring writes PERSON_RETIRED name=<name> from=<date>.""",
+    21: """A person can be retired from a date (defaults to the sheet's today). A claim dated after a person's
+retirement date is refused with an error; claims dated on or before it are allowed even if added
+later. Retired people are left out of the list (no row for them on the screen at all) unless "show
+retired" is on: a toggle on the screen, off when the screen is first opened and left as it is by
+loading a sheet. Their claims keep counting in every total. Show retired yes/no and retired-from.
+Retiring writes PERSON_RETIRED name=<name> from=<date>. A person with a retirement date set counts
+as retired at once, whatever the date, even one after the sheet's today: the row shows retired yes,
+the list hides it, and every rule that speaks of a retired person or member applies to them.""",
     22: """A person can be put on hold, and taken off hold again. While held, their OPEN claims count in no
 live total: not their own claimed or due-total, not the sheet's totals, not a period's total. Their
 SETTLED claims still count. Show hold yes/no. Holding writes PERSON_HELD name=<name>; releasing
@@ -4870,11 +4961,12 @@ again by the last statement if that statement included it, CLAIM_REJECTED with r
 the end). The opener cannot approve their own claim. In every other way a PENDING claim is handled
 like an OPEN one: it cannot be edited, it can be voided (CLAIM_VOIDED), it goes overdue and bears
 the late charge, and a hold takes it out of the totals.""",
-    37: """A steward can move a DRAFT, OPEN or PENDING claim to another person on the sheet (a refusal
-shows an error on the claim). The claim keeps its number and date, loses any figure a statement
-bound it to (it is live again until its new person's next statement), every total follows, and
-CLAIM_REASSIGNED is written, naming the claim like every claim line (with the new person) and
-ending from=<old name> to=<new name>. A settled or voided claim cannot move.""",
+    37: """A steward can move a DRAFT, OPEN or PENDING claim to another person on the sheet (a refusal shows an
+error on the claim). The claim keeps its number and date, loses any figure a statement bound it to
+(it is live again until its new person's next statement), every total follows, and CLAIM_REASSIGNED
+is written, naming the claim like every claim line (with the new person) and ending from=<old name>
+to=<new name>. A settled or voided claim cannot move. The moved claim is listed as its new person's
+newest claim (first under them), whatever its date.""",
     38: """Terms can be set per grade (settings, SETTING_CHANGED key=terms-<grade> value=<days>); a grade
 without its own terms uses the sheet's terms. A claim's due-by is now fixed when the claim is
 created, from the terms of its person's grade in force on the claim's date; it does not change
@@ -4924,15 +5016,17 @@ the due of their claims that count whose date falls in the period. Closing a per
 figures too, at that moment, for every person on the sheet; a person added later shows 0.00 for
 a closed period. Reopening makes them live again. The period's own due-total is always the sum of
 the people's figures for it.""",
-    48: """Settings that carry a figure are now dated: the floor, the late percent, the terms (the sheet's
-and each grade's), the clerk limit, the cap, and any later limit or threshold. Saving one of them
+    48: """Settings that carry a figure are now dated: the floor, the late percent, the terms (the sheet's and
+each grade's), the clerk limit, the cap, and any later limit or threshold. Saving one of them
 records its value from a from-date (default the sheet's today), keeping the values already recorded
-(a save with a from-date already recorded replaces that value); SETTING_CHANGED gains from=<date>
-at its end when one was given. A claim's floor and late percent and the terms that fix its due-by
-are the values in force on the claim's date: the latest from-date on or before it, and before
-every from-date the sheet's starting value (1.00, 0.00, 14 days). The clerk limit and the cap are
-the values in force on the sheet's today. The policy date and the period numbering date are not
-dated. The settings panel shows, for each key, the value in force on the sheet's today.""",
+(a save with a from-date already recorded replaces that value); SETTING_CHANGED gains from=<date> at
+its end when one was given. A claim's floor and late percent and the terms that fix its due-by are
+the values in force on the claim's date: the latest from-date on or before it, and before every
+from-date the sheet's starting value (1.00, 0.00, 14 days). The clerk limit and the cap are the
+values in force on the sheet's today. The policy date and the period numbering date are not dated.
+The settings panel shows, for each key, the value in force on the sheet's today: for the floor, the
+late percent and the terms that is the sheet's starting value (1.00, 0.00, 14) when nothing is
+recorded on or before today, and for a key with no starting value nothing.""",
     49: """A paste box takes lines of name,amount,date,note (the note may hold commas; the date may be
 blank for the sheet's today; the note may be absent) and adds a DRAFT claim per line, in order,
 for the named person (the name must be on the sheet, matched as names are compared). Every line is
@@ -4965,10 +5059,13 @@ key=perm-<action> value=<roles>; not dated). A blank entry keeps the standing ru
 void and close by clerk and steward; reassign and reopen by steward. An action a role is not
 allowed is refused with its usual error. The opener still cannot settle their own claim, the
 clerk limit and the proof threshold still apply, and approving or rejecting stays with stewards.""",
-    54: """A third role, viewer, can be assigned. A viewer sees every screen and figure and can change
-nothing: every form submission and every action, including changing the sheet's today, a
-statement, a hold and the paste box, is refused with its usual error, writes nothing and changes
-nothing.""",
+    54: """A third role, viewer, can be assigned. A viewer sees every screen and figure and can change nothing:
+every form submission and every action, including changing the sheet's today, a statement, a hold
+and the paste box, is refused with its usual error, writes nothing and changes nothing. A bulk
+button (open, settle, reassign, grade, retire, hold, re-date, void) or a generate button (periods, a
+fiscal year, quarters, plans) pressed by a viewer goes through with nothing done: its counts show 0
+done and every selected item refused, and no error shows; a paste, an import, a rollover and every
+other form or action by a viewer is refused with its error.""",
     55: """The sheet has grace days (settings, a whole number, blank means off, not dated; SETTING_CHANGED
 key=grace-days value=<days>). When the sheet's today is changed, every open period whose to-date
 plus the grace days is before the new today is closed, in order of their to-dates, exactly as a
@@ -5002,20 +5099,23 @@ header, the TOTALS line) now leave out the single highest and the single lowest 
 when three or more people have a figure (a due-total of n/a is no figure; an overdue-total is
 always a figure). Per-person figures, per-grade and per-period totals, backing and the claimed
 total are not trimmed.""",
-    61: """A steward can delegate the steward role to a user for a from-date and a to-date, inclusive, by
-the sheet's today (a form; DELEGATED user=<user> from=<date> to=<date>; anyone but a steward, or a
+    61: """A steward can delegate the steward role to a user for a from-date and a to-date, inclusive, by the
+sheet's today (a form; DELEGATED user=<user> from=<date> to=<date>; anyone but a steward, or a
 to-date before the from-date, is refused with an error on the form). While the sheet's today is
-inside the range the user acts as a steward in every rule; every audit line of a change that
-user makes then (not the ROLLUP and TOTALS lines) ends with for=<the steward who delegated>.""",
+inside the range the user acts as a steward in every rule; every audit line of a change that user
+makes then (not the ROLLUP and TOTALS lines, nor a later line that only reports figures, such as
+ALERT) ends with for=<the steward who delegated>.""",
     62: """A steward can archive the sheet (a button; SHEET_ARCHIVED; anyone else is refused with an error
 on the sheet). Show archived yes/no. On an archived sheet everything stays visible and every
 change is refused with its usual error, including changing the sheet's today, every bulk action,
 the paste box and the quick-add bar.""",
-    63: """A person may have their own terms: a number of days on the person form, blank for none
-(PERSON_ADDED and PERSON_EDITED gain terms=<days> at the end when the form gave a value, the empty
-value when it was cleared). A claim's due-by is fixed at creation from the first of: the person's
-own terms, the terms of their grade, the sheet's terms, each as in force on the claim's date. Show
-the person's terms on the row.""",
+    63: """A person may have their own terms: a number of days on the person form, blank for none (PERSON_ADDED
+gains terms=<days> at the end when the form gave a value; PERSON_EDITED gains terms=<days> at the
+end when the terms the form gave differ from the terms the row showed before the save, the empty
+value when they were cleared; an edit that leaves them as they were, or clears terms the person did
+not have, adds nothing). A claim's due-by is fixed at creation from the first of: the person's own
+terms, the terms of their grade, the sheet's terms, each as in force on the claim's date. Show the
+person's terms on the row.""",
     64: """The order of the due steps changes: the late charge is now worked out on the rate figure alone,
 or on the figure a statement bound, and the floor is applied last: a claim's live due is the
 greater of the floor in force on its date and its figure plus its late charge. A statement now
@@ -5037,11 +5137,12 @@ counts dated within the 30 days up to and including the sheet's today. The summa
 grade the number of active people on that grade (retired people excluded).""",
     68: """Backing is now the sum of the patrons' settled figures over their SETTLED claims dated within the
 90 days up to and including the sheet's today (each at its frozen figure), 0.00 with none.""",
-    69: """Opening a claim's editor (the edit button) now locks the claim for other users until the editor
-is saved or cancelled (a cancel button on the claim) or the sheet's today changes; another user's
-edit button on a locked claim is refused with an error on the claim. A claim that cannot be edited
-is refused at the edit button, as before, and takes no lock; a viewer's edit button is refused like
-any action of theirs.""",
+    69: """Opening a claim's editor (the edit button) now locks the claim for other users until the editor is
+saved or cancelled (a cancel button on the claim) or the sheet's today changes; another user's edit
+button on a locked claim is refused with an error on the claim. A claim that cannot be edited is
+refused at the edit button, as before, and takes no lock; a viewer's edit button is refused like any
+action of theirs. A claim in a closed period cannot be edited, so its edit button is refused as
+well.""",
     70: """A period can be soft-closed (a button beside close): its due-total and every person's figure for
 it are fixed at that moment, but claims dated inside it can still be added, edited, opened, settled
 and voided; a claim added while its period is soft-closed shows late-entry yes and writes
@@ -5066,15 +5167,16 @@ retirements, closed periods). Every other claim of theirs is unstated, as a stat
 row shows that date as the statement date and that day's due-total as the stated total; STATEMENT
 gains asof=<date> at its end when a date was given. A date after the sheet's today is refused with
 an error on the person.""",
-    74: """An as-of date can be set on the screen (an entry, a set button and a clear button; show the
-as-of date, or nothing). While it is set, every figure and flag on the screen for the signed-in
-user, in every row, every total, the header, the periods, the rates and the summary, is shown as
-it stood at the end of the last day on or before that date: every change made while the sheet's
-today was on or before the as-of date counts, every later change does not, and the as-of date
-stands in for the sheet's today in every figure (overdue, late charges, holds, deferrals,
-retirements, the grade and rate in force). The audit file is unaffected, and every change,
-a statement as of a date included, is refused with its usual error while the as-of date is set.
-The as-of date belongs to the signed-in user's screen; other users are unaffected.""",
+    74: """An as-of date can be set on the screen (an entry, a set button and a clear button; show the as-of
+date, or nothing). While it is set, every cell on the screen for the signed-in user (every figure,
+flag, list and line: in every row, every total, the header, the periods, the rates, the summary, and
+any panel added later unless its request says otherwise) is shown as it stood at the end of the last
+day on or before that date: every change made while the sheet's today was on or before the as-of
+date counts, every later change does not, and the as-of date stands in for the sheet's today in
+every figure (overdue, late charges, holds, deferrals, retirements, the grade and rate in force).
+The audit file is unaffected, and every change, a statement as of a date included, is refused with
+its usual error while the as-of date is set. The as-of date belongs to the signed-in user's screen;
+other users are unaffected.""",
     75: """People can be selected (a checkbox on each row) and given a grade together: a grade, a from-date
 (default the sheet's today) and a button. Each selected person, in list order, gets that grade
 from that date exactly as the person form would, with the same PERSON_EDITED and rollup lines.
@@ -5093,12 +5195,13 @@ the claim on the sheet's today (the days from the claim's date): aged 0 to 30 da
 key=entry-date value=<date>). While it is set, it is the default date of a new claim wherever the
 sheet's today was: the claim form, the quick-add bar, a pasted line with a blank date and a
 correction.""",
-    80: """A claim now belongs to the period containing its due-by date, not its date (the due-by as fixed
-at creation; for a claim about to be added, its date plus the terms it would get). Everything
-that depends on a claim's period follows: the period shown on the claim, period totals and the
-per-person period figures, per-period numbering, and which claims a closed period refuses (a
-claim whose due-by falls in a closed period cannot be added, edited, opened, settled or voided; a
-claim dated in a closed period whose due-by falls outside it can).""",
+    80: """A claim now belongs to the period containing its due-by date, not its date (the due-by as fixed at
+creation; for a claim about to be added, its date plus the terms it would get). Everything that
+depends on a claim's period follows: the period shown on the claim, period totals and the per-person
+period figures, per-period numbering, which claims a soft-closed period takes as late entries (by
+the due-by the claim would be fixed with), and which claims a closed period refuses (a claim whose
+due-by falls in a closed period cannot be added, edited, opened, settled or voided; a claim dated in
+a closed period whose due-by falls outside it can).""",
     # ---- Act II, second half
     81: """An OPEN or PENDING claim can be reminded (a button on the claim): REMIND is written, naming the
 claim like every claim line, and the claim shows the sheet's today as its reminded date. A claim
@@ -5143,12 +5246,12 @@ given.""",
 on that boundary date of the claim's figure plus the charges of the boundaries before it, each
 rounded like the claim as before, then added up. A claim settled with its charge keeps the frozen
 figure.""",
-    89: """A claim may carry tags: a comma separated text on the claim form, each tag trimmed and
-lower-cased, repeats dropped; the claim shows its tags sorted, comma and space separated. The form
-can change a claim's tags when it can edit the claim. For every tag ever used on the sheet, the
-sheet shows a due-total per tag: the due of the claims that count which carry it (a claim with two
-tags counts in both). CLAIM_ADDED gains tags=<comma separated, sorted> at its end when any were
-given.""",
+    89: """A claim may carry tags: a comma separated text on the claim form, each tag trimmed and lower-cased,
+repeats dropped; the claim shows its tags sorted, comma and space separated. The form can change a
+claim's tags when it can edit the claim. For every tag ever used on the sheet, the sheet shows a
+due-total per tag: the due of the claims that count which carry it (a claim with two tags counts in
+both). CLAIM_ADDED gains tags=<comma separated, sorted> at its end when any were given. A claim
+split off another carries the original's tags.""",
     90: """The sheet has a list of void reasons (a text entry and an add button; VOID_REASON_ADDED
 reason=<text>; blank or repeated is refused with an error beside the entry). While the list is not
 empty, voiding a claim needs a reason chosen from it (a select on the claim): a void without one is
@@ -5187,9 +5290,11 @@ numbered 1, 2, ... on the sheet in the order the batches happen. Each claim sett
 batch number; a claim settled one at a time shows nothing. The screen shows the number of the last
 batch beside the bulk settle button, or nothing when there has been none.""",
     99: """A person may have a contact: a text on the person form, stored with surrounding spaces removed and
-lower-cased, shown on the row. A contact already on the sheet (another person's) is refused with
-an error on the form, and nothing is saved; a blank contact is none. PERSON_ADDED and
-PERSON_EDITED gain contact=<contact> at the end when the form gave one.""",
+lower-cased, shown on the row. A contact already on the sheet (another person's) is refused with an
+error on the form, and nothing is saved; a blank contact is none. PERSON_ADDED gains
+contact=<contact> at the end when the form gave one; PERSON_EDITED gains contact=<contact> at the
+end when the contact the form gave differs from the one stored (the empty value when it was
+cleared).""",
     100: """A bulk settle is now all-or-nothing: if any selected claim cannot be settled by the signed-in
 user (any refusal the single settle would give; going to PENDING is not a refusal), none of them is
 settled, every one counts as refused and nothing is written. Otherwise every selected claim is
@@ -5223,8 +5328,9 @@ POOL_ADDED name=<name>) and members: a person chosen from a select, with a share
 decimals, more than 0.00 and at most 100.00), added from the pool's row (POOL_MEMBER_ADDED
 pool=<pool> name=<person> share=<share>); a person already in the pool, or a bad share, is refused
 with an error on the pool. Show for each pool its total share and balanced yes/no: balanced when the
-shares total exactly 100.00. A retired member's share counts as 0.00 toward the total. A person can
-be in several pools. Show each member's share on the member's line.""",
+shares total exactly 100.00. A retired member's share (a member with a retirement date set, whatever
+the date) counts as 0.00 toward the total. A person can be in several pools. Show each member's
+share on the member's line.""",
     106: """The sheet has a pot (two decimals, settings, blank means none, not dated; SETTING_CHANGED key=pot
 value=<pot>). Each member of a balanced pool shows a cut: the pot times their share divided by
 100, rounded half to even to two decimals; a retired member cuts 0.00. The remainder, the pot minus
@@ -5255,19 +5361,20 @@ screen (nothing when none).""",
 over the sheet and all its descendants: the number of people, the due-total (each sheet's due-total
 as that sheet shows it, added up) and the overdue-total (likewise). A sheet with no children shows
 its own figures there.""",
-    111: """A steward can transfer a person to another sheet by id (an entry and a button on the row;
-anyone else, a retired person, this sheet's own id, is refused with an error on the row). The person arrives on the other sheet with every grade they were given (and its from-date), their
-terms, contact, aliases and tags, and their claims with their status, dates, notes, frozen figures
-and logs; each claim that had a number
-receives the next number of the other sheet, in the order the claims were opened; figures a
-statement bound are lost and the statement count starts at 0; references are not carried. A name,
-alias or contact already on the other sheet refuses the transfer. The person leaves this sheet
-entirely (patron links, pool memberships, plans and watches dropped). This sheet writes
-PERSON_TRANSFERRED name=<name> to=<sheet id>, the other PERSON_TRANSFERRED name=<name>
-from=<sheet id>, each followed by that sheet's rollup lines.""",
+    111: """A steward can transfer a person to another sheet by id (an entry and a button on the row; anyone
+else, a retired person, this sheet's own id, is refused with an error on the row). The person
+arrives on the other sheet with every grade they were given (and its from-date), their terms,
+contact, aliases and tags, and their claims with their status, dates, notes, frozen figures and
+logs; each claim that had a number receives the next number of the other sheet, in the order the
+claims were opened (by the sheet's today when each was opened, then by the order they were added);
+figures a statement bound are lost and the statement count starts at 0; references are not carried.
+A name, alias or contact already on the other sheet refuses the transfer. The person leaves this
+sheet entirely (patron links, pool memberships, plans and watches dropped). This sheet writes
+PERSON_TRANSFERRED name=<name> to=<sheet id>, the other PERSON_TRANSFERRED name=<name> from=<sheet
+id>, each followed by that sheet's rollup lines.""",
     112: """A name or alias may no longer be used on a sheet when any sheet of its tree (its ancestors, its
 descendants and their descendants, among the sheets that exist) already uses it as a name or alias:
-adding, renaming, an alias, the quick-add bar, the paste box and the import are refused as a
+adding, renaming, an alias, the quick-add bar, the paste box (and any later import) are refused as a
 duplicate would be. People who already clash are not changed: each shows clashing yes, and every
 edit of them through the person form is refused until the edit renames them to a name that does not
 clash (and leaves no clashing alias).""",
@@ -5327,14 +5434,15 @@ sheet's today>; anyone not retired is refused with an error on the row). They ar
 (retired no, no retired-from); the retirement is kept on the row as <from> to <the day unretired>, one line per past
 retirement; and a claim dated after the from and before the to of a
 past retirement is refused as a claim after a retirement is.""",
-    126: """A steward can clone the sheet to another id (an entry and a button; SHEET_CLONE_MADE to=<id> on
-this sheet). The other sheet must be empty (never used); otherwise, or for anyone but a steward,
-the clone is refused with an error on the sheet. The clone gets this sheet's today, settings, roles,
+    126: """A steward can clone the sheet to another id (an entry and a button; SHEET_CLONE_MADE to=<id> on this
+sheet). The other sheet must be empty (never used); otherwise, or for anyone but a steward, the
+clone is refused with an error on the sheet. The clone gets this sheet's today, settings, roles,
 rates, holidays, void reasons, templates, people (grades, terms, contacts, aliases, tags, holds,
 retirements, patrons), pools, periods (all open) and claims (status, frozen figures, dates, notes,
-logs; numbers given afresh in the order the originals were opened, by the clone's own numbering);
-statements are not copied. The clone's first audit line is SHEET_CLONED from=<this sheet's id>,
-followed by its rollup lines for every person and its totals.""",
+logs; numbers given afresh in the order the originals were opened (by the sheet's today when each
+was opened, then by the order they were added), by the clone's own numbering); statements are not
+copied. The clone's first audit line is SHEET_CLONED from=<this sheet's id>, followed by its rollup
+lines for every person and its totals.""",
     127: """The header shows the signed-in user's own figures when a person on the sheet has the user's name
 (by name or alias, as names are compared): that person's due-total and overdue-total; nothing when
 there is no such person.""",
@@ -5409,7 +5517,8 @@ and how many refused.""",
 SETTING_CHANGED key=alert-threshold value=<amount>). After a change's rollup lines, for each person
 whose due-total went from at or below the threshold (or no due-total) to above it, one line ALERT
 name=<name> due-total=<due-total> is written, in list order. A person already above it writes no
-further ALERT until their due-total has been at or below the threshold and crosses it again.""",
+further ALERT until their due-total has been at or below the threshold and crosses it again. An
+ALERT line, like ROLLUP and TOTALS, never ends with for=.""",
     147: """Show on each person their snapshot lines: one per SNAPSHOT written for them, oldest first, as
 <the day being left> <due-total>.""",
     148: """A person's claimed, and the sheet's claimed-total, no longer include corrections: claimed is the
@@ -5428,14 +5537,14 @@ sheet id.""",
 value=<half-up or half-even>; anything else is refused with an error on the settings; blank means
 none). A claim whose date has a rounding mode in force rounds every live figure by that mode; a
 claim with none in force on its date rounds by the policy date as before.""",
-    152: """Pasted claims now arrive OPEN: after the lines are checked, each claim is added and then opened
-by the signed-in user exactly as the open button would (numbered in paste order, writing
-CLAIM_ADDED then CLAIM_OPENED with the rollup lines, going to REVIEW when that applies later), and
-any refusal the open button would give (a note required, a period's cap, a flag, a permission)
-refuses the whole paste. A line naming a person, date and note that match one of their claims
-updates that claim instead of adding one: a DRAFT is edited to the line's amount (CLAIM_EDITED when
-it changes) and opened; a claim in any other status matching the line is an error for the paste.
-Show how many lines went through.""",
+    152: """Pasted claims now arrive OPEN: after the lines are checked, each claim is added and then opened by
+the signed-in user exactly as the open button would (numbered in paste order, writing CLAIM_ADDED
+then CLAIM_OPENED with the rollup lines, going to REVIEW when that applies later), and any refusal
+the open button would give (a note required, a period's cap, a flag, a permission) refuses the whole
+paste. A line naming a person, date and note that match one of their claims as they stood before the
+paste updates that claim instead of adding one (two lines of one paste never match each other): a
+DRAFT is edited to the line's amount (CLAIM_EDITED when it changes) and opened; a claim in any other
+status matching the line is an error for the paste. Show how many lines went through.""",
     153: """A rate is now kept as versions: setting a rate for a grade and from-date that already exist
 keeps the value it replaces as an older version and adds a new one, and the rate row shows its version count. The rate in force is always the newest version; everything else is as before.""",
     154: """Add a classic summary beside the summary: per period, the due-total counting each claim by its
@@ -5475,8 +5584,9 @@ stood at the end of that day, with that date as the sheet's today.""",
     162: """Each claim can show its timeline: a button on the claim lists the audit lines about it, newest
 first, each as the file holds it: the lines carrying its number (number=<its number>), and for a
 claim with no number the lines naming its person, amount and date together.""",
-    163: """Show on each person their statements, one line per statement still standing (a cancelled one
-is gone), oldest first, as <statement date> <due-total>.""",
+    163: """Show on each person their statements, one line per statement still standing (a cancelled one is
+gone), oldest first, as <statement date> <due-total>. The statements a merge or a transfer brings
+over show among them, by date.""",
     164: """A correction may not exceed what remains of the claim it corrects: the target's amount less the
 amounts of the corrections already made against it (VOID or DELETED ones left out). A larger
 correction is refused with an error on the form.""",
@@ -5532,9 +5642,9 @@ CLAIM_PROOF_ADDED gains kind=<kind> at its end when a kind was chosen, and the c
 per kind beside the total. The sheet gains proof kinds (settings, a comma separated list of kinds, not dated;
 SETTING_CHANGED key=proof-kinds value=<list>): while set, a claim above the proof threshold needs
 at least one proof of each listed kind before it can be settled or approved.""",
-    178: """The screen shows a steward's dashboard: the count of PENDING claims, of REVIEW claims and of
-overdue claims that count, over the sheet. A user who is not a steward sees the three cells
-empty.""",
+    178: """The screen shows a steward's dashboard: the count of PENDING claims, of REVIEW claims and of overdue
+claims that count, over the sheet. A user who is not a steward sees the three cells empty. Under an
+as-of date the cells show the counts as they stood then, for the role the user had then.""",
     179: """A steward can flag a person with a reason and an until date (entries and a button on the row;
 PERSON_FLAGGED name=<name> reason=<reason> until=<date>; anyone else or a blank reason is refused
 with an error on the row). While the sheet's today is on or before the until date the row shows the
@@ -5543,9 +5653,10 @@ paste); after the date the flag shows nothing and has no effect.""",
     180: """The terms that fix a claim's due-by are now the terms in force on the day the claim was created
 (the sheet's today then), not on the claim's date: the person's own terms, their grade's and the
 sheet's are each looked up on that day. Every due-by on the sheet is worked out this way.""",
-    181: """The sheet has notes: a text and an add button (NOTE_ADDED text=<text>; a blank note is refused
-with an error beside the entry). Show the notes newest first as <sheet's today when added>
-<user>: <text>.""",
+    181: """The sheet has notes: a text and an add button (NOTE_ADDED text=<text>; a blank note is refused with
+an error beside the entry). Show the notes newest first as <sheet's today when added> <user>:
+<text>. Under an as-of date the list shows the notes added while the sheet's today was on or before
+that date.""",
     182: """An OPEN or PENDING claim can be held and released with a toggle on the claim (CLAIM_HELD and
 CLAIM_RELEASED naming the claim; any other status is refused with an error on the claim). A held
 claim leaves every live total exactly as a held person's claims do (a figure bound by a statement
@@ -5557,10 +5668,11 @@ A locked period cannot be reopened. Show locked yes/no.""",
 and the ROLLUP and TOTALS lines count a held claim's amount; only the due figures leave the totals
 while held.""",
     185: """An OPEN claim can be part-settled: an amount and a button on the claim. The amount is split off
-exactly as the split button does, and the new claim is settled at once by the signed-in user
-exactly as the settle button does (going to PENDING when the clerk limit says so); a split or a
-settle that would be refused refuses the whole action with an error on the claim and changes
-nothing.""",
+exactly as the split button does, and the new claim is settled at once by the signed-in user exactly
+as the settle button does (going to PENDING when the clerk limit says so); a split or a settle that
+would be refused refuses the whole action with an error on the claim and changes nothing; the
+four-eyes rules and the proof rule are judged on the original claim (the new claim's opener is the
+signed-in user, as with the split button, who may still part-settle).""",
     186: """A year entry and a button generate the four calendar quarters of that year as periods named
 <yyyy>-Q1 to <yyyy>-Q4, each as the period form would add it (a quarter that exists or overlaps is
 left out); show how many were made.""",
@@ -5615,7 +5727,8 @@ that status over the tree.""",
     202: """Two snapshot dates can be compared: a from-date, a to-date and a button list, per person in list
 order, <name> <then> <now>: `then` is the due-total of the SNAPSHOT written when the sheet's today
 was changed away from the from-date (empty when there is none), `now` is likewise the snapshot for
-the to-date, or the person's due-total now when the to-date is blank.""",
+the to-date, or the person's due-total now when the to-date is blank. Each line is shown trimmed: an
+empty figure leaves no trailing space.""",
     203: """A plan can be paused and resumed (buttons on the plan; PLAN_PAUSED and PLAN_RESUMED
 name=<person> start=<plan start>; pausing a paused plan or resuming a running one is refused).
 A plan date on or after the day it was paused and before the day it was resumed is skipped, not

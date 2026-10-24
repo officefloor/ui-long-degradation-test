@@ -188,7 +188,7 @@ test.describe("bulk settle", () => {
     await expect(pg_wes.getByTestId("header-claims-VOID-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("header-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("header-overdue-total")).toHaveText("0.00");
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Cam", "amount": "7.77"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Cam", "amount": "7.77"}, p_cam));
     expect(await ui.editPerson(pg_wes, p_dot, {"grade": "A"})).toBe(true);
     expect(await ui.addPatron(pg_wes, p_ben, "Cam")).toBe(false);
     await ui.refresh(pg_vic);
@@ -434,7 +434,7 @@ test.describe("bulk settle", () => {
     await expect(pg_uma.getByTestId("header-claims-VOID-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("header-due-total")).toHaveText("0.70");
     await expect(pg_uma.getByTestId("header-overdue-total")).toHaveText("0.70");
-    expect(await ui.editPerson(pg_uma, p_ben, {"grade": "A", "gradeFrom": "2026-02-10"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ben, {"grade": "A", "gradeFrom": "2026-02-10"}, {"grade": "B"})).toBe(true);
     expect(await ui.addPatron(pg_uma, p_ada, "Ben")).toBe(false);
     expect(await ui.setRate(pg_uma, {"grade": "B", "pct": "33.33", "from": "2026-03-10", "to": "2026-03-25"})).toBe(true);
     await ui.refresh(pg_uma);

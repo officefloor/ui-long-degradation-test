@@ -492,7 +492,7 @@ test.describe("late per boundary", () => {
     expect(await ui.claimAction(pg_vic, c_ada_1, "settle")).toBe(false);
     expect(await ui.claimAction(pg_vic, c_ada_0, "open")).toBe(true);
     expect(await ui.claimAction(pg_vic, c_ada_1, "settle")).toBe(false);
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Cam", "amount": "0.04"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Cam", "amount": "0.04"}, p_cam));
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-name")).toHaveText("Ben (A)");
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-grade")).toHaveText("A");

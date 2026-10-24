@@ -89,7 +89,7 @@ test.describe("archive sheet", () => {
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "C"}));
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "B"}));
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "12.50", "date": "2026-03-20"}));
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "A", "gradeFrom": "2026-03-15"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "A", "gradeFrom": "2026-03-15"}, {"grade": "B"})).toBe(true);
     const c_ada_1 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "10.25", "date": "2026-03-28"}));
     expect(await ui.claimAction(pg_uma, c_ada_1, "void")).toBe(true);
     await ui.setToday(pg_uma, "2026-03-27");
@@ -381,7 +381,7 @@ test.describe("archive sheet", () => {
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "C"}));
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "C"}));
     expect(await ui.hold(pg_uma, p_ben, {"from": "2026-03-01", "to": "2026-03-28"})).toBe(true);
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "7.77"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "7.77"}, p_ada));
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     await ui.setSetting(pg_uma, "clerk-limit", "3.00");
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);

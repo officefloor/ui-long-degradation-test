@@ -137,7 +137,7 @@ test.describe("clerk limit per grade", () => {
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "A", "terms": "20"}));
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     await ui.setToday(pg_vic, "2026-03-28");
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ben", "amount": "20.00"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ben", "amount": "20.00"}, p_ben));
     await ui.refresh(pg_vic);
     expect(await ui.reassign(pg_vic, c_ben_0, "Cam")).toBe(true);
     expect(await ui.claimAction(pg_vic, c_ben_0, "open")).toBe(true);
@@ -1162,7 +1162,7 @@ test.describe("clerk limit per grade", () => {
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "A"}));
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "B", "contact": " Ada@x "}));
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "A", "tags": "b, a"}));
-    expect(await ui.editPerson(pg_uma, p_ada, {"terms": "20", "termsFrom": "2026-03-12"})).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"terms": "20", "termsFrom": "2026-03-12"}, {"terms": ""})).toBe(true);
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "4.00", "date": "2026-04-02", "note": "n", "ref": "R-1"}));
     expect(await ui.hold(pg_uma, p_ada, {"from": "2026-02-10", "to": "2026-03-20"})).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "A", "pct": "10.00", "from": "2026-03-25", "to": "2026-03-12"})).toBe(false);

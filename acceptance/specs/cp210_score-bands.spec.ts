@@ -242,7 +242,7 @@ test.describe("score bands", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("2026-03-20");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -501,7 +501,7 @@ test.describe("score bands", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -830,7 +830,7 @@ test.describe("score bands", () => {
     await expect(pg_uma.getByTestId("my-crew-due-total")).toHaveText("");
     expect(await ui.importOpenings(pg_uma, "Ada,2026-02,5.50")).toBe(1);
     expect(await ui.editInline(pg_uma, c_ben_0, "10.25")).toBe(true);
-    expect(await ui.snapshotCompare(pg_uma, "2026-04-05", "2026-04-05")).toEqual(["Ben  ", "Ada  "]);
+    expect(await ui.snapshotCompare(pg_uma, "2026-04-05", "2026-04-05")).toEqual(["Ben", "Ada"]);
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     expect(await ui.importRates(pg_uma, "C,10.00\nC,33.33,2026-03-05")).toBe(2);
     expect(await ui.editClaim(pg_uma, c_ben_0, {"date": "2026-03-28"})).toBe(true);
@@ -1440,7 +1440,7 @@ test.describe("score bands", () => {
     await expect(pg_uma.getByTestId("my-crew-due-total")).toHaveText("");
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.bulkReassign(pg_wes, [c_ben_0, c_ben_1, c_ben_2], "Ada")).toEqual({ reassigned: 3, refused: 0 });
-    const c_ben_0_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "7.77"}));
+    const c_ben_0_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "7.77"}, p_ben));
     expect(await ui.claimAction(pg_wes, c_ben_0_2, "open")).toBe(true);
     expect(await ui.addProof(pg_wes, c_ben_0, "receipt")).toBe(true);
     expect(await ui.statementAsOf(pg_wes, p_ada, "2026-03-15")).toBe(false);

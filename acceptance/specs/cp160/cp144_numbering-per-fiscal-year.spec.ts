@@ -621,7 +621,7 @@ test.describe("numbering per fiscal year", () => {
     const c_cam_0 = await ui.claimAt(pg_wes, p_cam, 0);
     const c_cam_1 = await ui.claimAt(pg_wes, p_cam, 1);
     expect(await ui.editClaim(pg_wes, c_cam_0, {"date": "2026-04-02"})).toBe(false);
-    const c_ben_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "0.04"}));
+    const c_ben_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "0.04"}, p_ben));
     await ui.refresh(pg_uma);
     expect(await ui.claimAction(pg_uma, c_ben_0, "settle")).toBe(true);
     await ui.refresh(pg_uma);
@@ -1363,7 +1363,7 @@ test.describe("numbering per fiscal year", () => {
     expect(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "B", "contact": "ADA@X"})).toBeNull();
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "B", "contact": "ben@x", "tags": "b, a"}));
     const pl_ada_1 = ui.must(await ui.addPlan(pg_uma, p_ada, {"amount": "20.00", "start": "2026-02-20", "end": "2026-04-30", "day": "31"}));
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "3.33"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "3.33"}, p_ben));
     expect(await ui.importPeople(pg_uma, "Ada,C\nFay,B,,fay@x")).toMatchObject({"added": 1, "updated": 1});
     const p_fay = await ui.personId(pg_uma, "Fay");
     expect(await ui.setRate(pg_uma, {"grade": "A", "pct": "5.00"})).toBe(true);
@@ -1856,7 +1856,7 @@ test.describe("numbering per fiscal year", () => {
       `PERIOD_CLOSED sheet=${sheet} by=uma period=P1 total=0.00 auto=yes`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Dot grade=B`,
       `ROLLUP sheet=${sheet} by=uma person=Dot claimed=0.00 due-total=0.00 overdue-total=0.00`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Fay grade=A terms=3 contact=fay@x`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Fay grade=A terms=3`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=7.50`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Fay amount=7.77 date=2026-03-27 ref=r-1`
     ]);

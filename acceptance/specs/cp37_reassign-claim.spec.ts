@@ -90,7 +90,7 @@ test.describe("reassign claim", () => {
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "A"}));
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "A"}));
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "7.77"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "7.77"}, p_cam));
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
     expect(await ui.editPerson(pg_uma, p_ada, {"grade": "A"})).toBe(true);
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(true);
@@ -518,9 +518,9 @@ test.describe("reassign claim", () => {
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "B"}));
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "B"}));
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "A"}));
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "4.00"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "4.00"}, p_ben));
     expect(await ui.retire(pg_uma, p_ben, "2026-03-09")).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "B", "gradeFrom": "2026-03-20"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "B", "gradeFrom": "2026-03-20"}, {"grade": "A"})).toBe(true);
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "0.40", "date": "2026-04-02"}));
     await ui.showRetired(pg_uma, true);
     expect(await ui.claimAction(pg_uma, c_ben_0, "void")).toBe(true);
@@ -578,7 +578,7 @@ test.describe("reassign claim", () => {
     expect(await ui.hold(pg_vic, p_ben, {})).toBe(true);
     expect(await ui.statement(pg_vic, p_cam)).toBe(true);
     await ui.setToday(pg_vic, "2026-04-11");
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "10.25"}));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "10.25"}, p_ada));
     const c_ada_2 = ui.must(await ui.addClaim(pg_vic, p_ada, {"amount": "0.04", "date": "2026-02-25"}));
     expect(await ui.editPerson(pg_vic, p_ben, {"grade": "C", "gradeFrom": "2026-03-20"})).toBe(true);
     const c_ada_3 = ui.must(await ui.addClaim(pg_vic, p_ada, {"amount": "10.35"}));

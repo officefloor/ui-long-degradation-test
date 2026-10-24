@@ -146,7 +146,7 @@ test.describe("forward only rates", () => {
     const pl_ben_1 = ui.must(await ui.addPlan(pg_uma, p_ben, {"amount": "12.50", "start": "2026-03-09", "end": "2026-04-30", "day": "15"}));
     expect(await ui.statementAsOf(pg_uma, p_ben, "2026-03-28")).toBe(false);
     await ui.setSetting(pg_uma, "policy-date", "2026-03-05");
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "10.25"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "10.25"}, p_cam));
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.reassign(pg_wes, c_cam_0, "Ben")).toBe(true);
     expect(await ui.inlineGrade(pg_wes, p_ben, "C")).toBe(true);
@@ -191,7 +191,7 @@ test.describe("forward only rates", () => {
     expect(await ui.claimEditOpen(pg_uma, c_cam_0)).toBe(false);
     await ui.refresh(pg_wes);
     expect(await ui.claimEditSave(pg_wes, c_cam_0, {"amount": "10.25"})).toBe(false);
-    expect(await ui.editPerson(pg_wes, p_ben, {"grade": "B", "gradeFrom": "2026-03-28"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_wes, p_ben, {"grade": "B", "gradeFrom": "2026-03-28"}, {"grade": "C"})).toBe(true);
     const c_cam_0_2 = ui.must(await ui.addClaim(pg_wes, p_cam, {"amount": "10.35", "ref": "inv 7"}));
     await ui.refresh(pg_wes);
     expect(await ui.reassign(pg_wes, c_cam_0_2, "Ben")).toBe(true);
@@ -907,7 +907,7 @@ test.describe("forward only rates", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("2026-03-05");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -997,7 +997,7 @@ test.describe("forward only rates", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

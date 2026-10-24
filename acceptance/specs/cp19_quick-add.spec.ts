@@ -9,12 +9,12 @@ test.describe("quick add", () => {
     await ui.setToday(pg_uma, "2026-03-10");
     expect(await ui.setRate(pg_uma, {"grade": "A", "pct": "10.00"})).toBe(true);
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "A"}));
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "5.00"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "5.00"}, p_ada));
     const c_dot_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "7.00"}));
     const p_dot = await ui.personId(pg_uma, "Dot");
     expect(await ui.quickAdd(pg_uma, {"name": "", "amount": "1.00"})).toBeNull();
     expect(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "-1.00"})).toBeNull();
-    const c_dot_1 = ui.must(await ui.quickAdd(pg_uma, {"name": " dot ", "amount": "2.00"}));
+    const c_dot_1 = ui.must(await ui.quickAdd(pg_uma, {"name": " dot ", "amount": "2.00"}, p_dot));
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-name")).toHaveText("Ada");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-grade")).toHaveText("A");

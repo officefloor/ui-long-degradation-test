@@ -169,7 +169,7 @@ test.describe("sheet age buckets", () => {
     ]);
     expect(await ui.setTodayTry(pg_wes, "2026-04-08")).toBe(false);
     await ui.refresh(pg_vic);
-    expect(await ui.flag(pg_vic, p_cam, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_vic, p_cam, "late", "2026-03-12", "")).toBe(true);
     const c_ben_0 = ui.must(await ui.addClaim(pg_vic, p_ben, {"amount": "20.00"}));
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");
@@ -209,7 +209,7 @@ test.describe("sheet age buckets", () => {
     await ui.sortBy(pg_vic, "due-total");
     await ui.setToday(pg_vic, "2026-04-08");
     expect(await ui.statement(pg_vic, p_ada)).toBe(true);
-    expect(await ui.editInline(pg_vic, c_ben_0, "0.04")).toBe(false);
+    expect(await ui.editInline(pg_vic, c_ben_0, "0.04")).toBe(true);
     expect(await ui.addLine(pg_vic, c_ben_0, {"label": "y", "qty": "1", "unit": "2.50"})).toBe(true);
     expect(await ui.hold(pg_vic, p_ben, {"from": "2026-03-01", "to": "2026-03-20"})).toBe(true);
     await ui.refresh(pg_vic);
@@ -248,7 +248,7 @@ test.describe("sheet age buckets", () => {
     expect(await ui.claimAction(pg_vic, c_ben_0, "open")).toBe(true);
     expect(await ui.inlineGrade(pg_vic, p_cam, "B")).toBe(true);
     await ui.refresh(pg_vic);
-    expect(await ui.flag(pg_vic, p_ada, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_vic, p_ada, "late", "2026-03-12", "")).toBe(true);
     expect(await ui.statementAsOf(pg_vic, p_ada, "2026-04-02")).toBe(true);
     expect(await ui.importRates(pg_vic, "A,20.00\nA,33.33,2026-03-05")).toBe(2);
     await ui.refresh(pg_uma);
@@ -565,6 +565,7 @@ test.describe("sheet age buckets", () => {
       `PERIOD_CLOSED sheet=${sheet} by=vic period=P1 total=0.00 auto=yes`,
       `PERIOD_CLOSED sheet=${sheet} by=vic period=P2 total=0.00 auto=yes`,
       `STATEMENT sheet=${sheet} by=vic name=Ada due-total=0.00 claims=0`,
+      `CLAIM_EDITED sheet=${sheet} by=vic person=Ada amount=0.04 date=2026-03-05`,
       `CLAIM_LINE_ADDED sheet=${sheet} by=vic person=Ada amount=2.50 date=2026-03-05 label=y qty=1 unit=2.50`,
       `PERSON_HELD sheet=${sheet} by=vic name=Ben from=2026-03-01`,
       `CLAIM_OPENED sheet=${sheet} by=vic person=Ada amount=2.50 date=2026-03-05 number=FY2025-1`,
@@ -711,7 +712,7 @@ test.describe("sheet age buckets", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("2026-03-09");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -855,7 +856,7 @@ test.describe("sheet age buckets", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("8.33");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("8.33");
@@ -1601,7 +1602,7 @@ test.describe("sheet age buckets", () => {
       `ROLLUP sheet=${sheet} by=uma person=Ben claimed=0.00 due-total=n/a overdue-total=0.00`,
       `PERSON_ADDED sheet=${sheet} by=uma name=Ada grade=C contact=ada@x`,
       `ROLLUP sheet=${sheet} by=uma person=Ada claimed=0.00 due-total=0.00 overdue-total=0.00`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=A terms=3`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=A`,
       `PLAN_ADDED sheet=${sheet} by=uma name=Ada amount=10.35 start=2026-02-20 day=15 end=2026-04-30`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=25.00 date=2026-03-20`,
       `CLAIM_PROOF_ADDED sheet=${sheet} by=uma person=Ben amount=25.00 date=2026-03-20 proofs=1 kind=photo`,

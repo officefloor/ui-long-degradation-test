@@ -146,6 +146,42 @@ async function counter(page: Page, cell: Locator, error: Locator, what: string):
   return ok ? Number(await shown(cell)) : null;
 }
 
+/** Fill a form field, or CLEAR it when the test gives no value. A refused submission leaves what
+ *  was typed in the form (nothing in the contract says otherwise), so a value left over from the
+ *  attempt before must never leak into this one: the test states every field it submits. A field
+ *  the screen does not have is skipped. */
+async function setField(scope: Locator | Page, testid: string, value: string | undefined): Promise<void> {
+  const loc = scope.getByTestId(testid);
+  if (value !== undefined) {
+    await loc.fill(value);
+  } else if ((await loc.count()) > 0) {
+    await loc.fill('');
+  }
+}
+
+/** The result count a button shows once its action is done (how many were added, made, opened).
+ *  `was` is what the cell showed before the click. The count is taken once it differs from `was`,
+ *  or once the cell was seen cleared and shown again (README: a result is cleared when its button
+ *  is pressed again). Two identical results in a row can look the same on screen for the whole
+ *  wait: then, with no error showing and a value in the cell, that value is taken rather than
+ *  failing a step the app did take. */
+async function countAfter(page: Page, cell: Locator, error: Locator, what: string, was: string): Promise<string | null> {
+  let cleared = false;
+  const done = async () => {
+    if ((await cell.count()) === 0) return false;
+    const now = await shown(cell);
+    if (now === '') { cleared = true; return false; }
+    return now !== was || was === '' || cleared;
+  };
+  try {
+    return (await until(page, done, error, what)) ? await shown(cell) : null;
+  } catch (e) {
+    if (await error.isVisible().catch(() => false)) return null;
+    if ((await cell.count()) > 0 && (await shown(cell)) !== '') return shown(cell);
+    throw e;
+  }
+}
+
 // ---- session ---------------------------------------------------------------------------------
 
 // Each sign-in gets its own browser context, so users on one sheet act independently. A context
@@ -274,20 +310,24 @@ export async function personId(page: Page, name: string): Promise<string> {
 
 type PersonFields = { name?: string; grade?: string; gradeFrom?: string; terms?: string; termsFrom?: string; contact?: string; tags?: string };
 
-async function fillPersonForm(page: Page, f: PersonFields) {
+/** Fill the person form. `clear` (an add) also empties every optional field the test does not
+ *  give, so nothing typed for a refused add carries into this one; an edit leaves the
+ *  fields it is not given as the editor filled them. */
+async function fillPersonForm(page: Page, f: PersonFields, clear = false) {
   if (f.name !== undefined) await page.getByTestId('person-form-name').fill(f.name);
   if (f.grade !== undefined) await page.getByTestId('person-form-grade').selectOption(f.grade);
-  if (f.gradeFrom !== undefined) await page.getByTestId('person-form-grade-from').fill(f.gradeFrom);
-  if (f.terms !== undefined) await page.getByTestId('person-form-terms').fill(f.terms);
-  if (f.termsFrom !== undefined) await page.getByTestId('person-form-terms-from').fill(f.termsFrom);
-  if (f.contact !== undefined) await page.getByTestId('person-form-contact').fill(f.contact);
-  if (f.tags !== undefined) await page.getByTestId('person-form-tags').fill(f.tags);
+  for (const [key, testid] of [['gradeFrom', 'person-form-grade-from'], ['terms', 'person-form-terms'],
+    ['termsFrom', 'person-form-terms-from'], ['contact', 'person-form-contact'], ['tags', 'person-form-tags']] as const) {
+    const v = f[key];
+    if (v !== undefined) await page.getByTestId(testid).fill(v);
+    else if (clear) await setField(page, testid, undefined);
+  }
 }
 
 /** Add a person through the form. The new row's id, or null when the form refused. */
 export async function addPerson(page: Page, f: PersonFields & { name: string; grade: string }): Promise<string | null> {
   const before = await ids(rows(page), 'person-row-');
-  await fillPersonForm(page, f);
+  await fillPersonForm(page, f, true);
   await page.getByTestId('person-form-submit').click();
   let added: string | null = null;
   const ok = await until(page, async () => (added = await addedPerson(page, before, f.name)) !== null,
@@ -306,21 +346,26 @@ export async function editOpen(page: Page, personId: string): Promise<void> {
  * the grade the row shows once saved: by default the grade entered, but a grade dated from another
  * day may leave the grade in force on the sheet's today unchanged.
  */
-export async function editSave(page: Page, f: PersonFields, shows: string | undefined = f.grade): Promise<boolean> {
+type Shows = string | { grade?: string; terms?: string };
+
+export async function editSave(page: Page, f: PersonFields, shows?: Shows): Promise<boolean> {
   const id = editing.get(page);
   if (!id) throw new Error('editSave without editOpen');
+  const want = typeof shows === 'string' ? { grade: shows } : (shows ?? {});
+  const grade = want.grade ?? f.grade;                       // the grade the row shows once saved
+  const terms = want.terms ?? f.terms;                       // the terms in force the row shows
   await fillPersonForm(page, f);
   await page.getByTestId('person-form-submit').click();
   const r = row(page, id);
   return until(page, async () => {
     if (f.name !== undefined && plainName(await shown(r.getByTestId('person-name'))) !== f.name.trim()) return false;
-    if (shows !== undefined && await shown(r.getByTestId('person-grade')) !== shows) return false;
-    if (f.terms !== undefined && await shown(r.getByTestId('person-terms')) !== f.terms) return false;
+    if (grade !== undefined && await shown(r.getByTestId('person-grade')) !== grade) return false;
+    if (terms !== undefined && await shown(r.getByTestId('person-terms')) !== terms) return false;
     return !(await page.getByTestId('person-form-error').isVisible().catch(() => false));
   }, page.getByTestId('person-form-error'), 'save person');
 }
 
-export async function editPerson(page: Page, personId: string, f: PersonFields, shows?: string): Promise<boolean> {
+export async function editPerson(page: Page, personId: string, f: PersonFields, shows?: Shows): Promise<boolean> {
   await editOpen(page, personId);
   return editSave(page, f, shows);
 }
@@ -369,8 +414,8 @@ export async function hold(page: Page, personId: string, f: { from?: string; to?
   const wasText = await shown(r.getByTestId('person-hold'));
   const lines = r.getByTestId('person-hold-line');
   const wasLines = await lines.count();
-  if (f.from !== undefined) await r.getByTestId('person-hold-from').fill(f.from);
-  if (f.to !== undefined) await r.getByTestId('person-hold-to').fill(f.to);
+  await setField(r, 'person-hold-from', f.from);
+  await setField(r, 'person-hold-to', f.to);
   await r.getByTestId('person-hold-toggle').click();
   return until(page, async () => dated
     ? (await lines.count()) > wasLines
@@ -491,11 +536,8 @@ export async function bulkRetire(page: Page, personIds: string[], date: string):
   await page.getByTestId('bulk-retire-date').fill(date);
   const was = await shown(page.getByTestId('bulk-retired'));
   await page.getByTestId('bulk-retire').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await page.getByTestId('bulk-retired').count()) > 0
-    && (await shown(page.getByTestId('bulk-retired'))) !== '' && ((await shown(page.getByTestId('bulk-retired'))) !== was || was === ''),
-    page.getByTestId('person-error'), 'bulk retire');
-  return ok ? Number(await shown(page.getByTestId('bulk-retired'))) : null;
+  const n = await countAfter(page, page.getByTestId('bulk-retired'), page.getByTestId('person-error'), 'bulk retire', was);
+  return n === null ? null : Number(n);
 }
 
 type PlanFields = { amount: string; start: string; every?: string; day?: string; end: string; sheet?: string };
@@ -507,9 +549,9 @@ export async function addPlan(page: Page, personId: string, f: PlanFields): Prom
   const before = await ids(plans, 'plan-row-');
   await r.getByTestId('plan-form-amount').fill(f.amount);
   await r.getByTestId('plan-form-start').fill(f.start);
-  if (f.every !== undefined) await r.getByTestId('plan-form-every').fill(f.every);
-  if (f.day !== undefined) await r.getByTestId('plan-form-day').fill(f.day);
-  if (f.sheet !== undefined) await r.getByTestId('plan-form-sheet').fill(f.sheet);
+  await setField(r, 'plan-form-every', f.every);
+  await setField(r, 'plan-form-day', f.day);
+  await setField(r, 'plan-form-sheet', f.sheet);
   await r.getByTestId('plan-form-end').fill(f.end);
   await r.getByTestId('plan-form-submit').click();
   let added: string | null = null;
@@ -545,17 +587,17 @@ export async function generatePlans(page: Page): Promise<number | null> {
   const cell = page.getByTestId('plan-generated-count');
   const was = await shown(cell);
   await page.getByTestId('plan-generate').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await cell.count()) > 0 && (await shown(cell)) !== ''
-    && ((await shown(cell)) !== was || was === ''), page.getByTestId('plan-generate-error'), 'generate plans');
-  return ok ? Number(await shown(cell)) : null;
+  const n = await countAfter(page, cell, page.getByTestId('plan-generate-error'), 'generate plans', was);
+  return n === null ? null : Number(n);
 }
 
-/** Flag the person with a reason until a date: true once the row shows the reason. */
-export async function flag(page: Page, personId: string, reason: string, until_: string): Promise<boolean> {
+/** Flag the person with a reason until a date: true once the row shows `shows` (the reason while
+ *  the flag is in force; nothing when its until-date is already past, in which case the step
+ *  counts as taken once no error has shown for a while). */
+export async function flag(page: Page, personId: string, reason: string, until_: string, shows: string = reason): Promise<boolean> {
   const r = row(page, personId);
-  const done = async () => reason.trim() !== '' && (await shown(r.getByTestId('person-flag-shown'))) === reason.trim();
-  const already = await done();
+  const done = async () => (await shown(r.getByTestId('person-flag-shown'))) === shows.trim();
+  const already = shows.trim() === '' || await done();
   await r.getByTestId('person-flag-reason').fill(reason);
   await r.getByTestId('person-flag-until').fill(until_);
   await r.getByTestId('person-flag').click();
@@ -597,15 +639,12 @@ export async function mergeUndo(page: Page, personId: string): Promise<boolean> 
 /** Hold the selected people together: how many were held. */
 export async function bulkHold(page: Page, personIds: string[], f: { from?: string; to?: string }): Promise<number | null> {
   for (const id of personIds) await row(page, id).getByTestId('person-select').setChecked(true);
-  if (f.from !== undefined) await page.getByTestId('bulk-hold-from').fill(f.from);
-  if (f.to !== undefined) await page.getByTestId('bulk-hold-to').fill(f.to);
+  await setField(page, 'bulk-hold-from', f.from);
+  await setField(page, 'bulk-hold-to', f.to);
   const was = await shown(page.getByTestId('bulk-held'));
   await page.getByTestId('bulk-hold').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await page.getByTestId('bulk-held').count()) > 0
-    && (await shown(page.getByTestId('bulk-held'))) !== '' && ((await shown(page.getByTestId('bulk-held'))) !== was || was === ''),
-    page.getByTestId('person-error'), 'bulk hold');
-  return ok ? Number(await shown(page.getByTestId('bulk-held'))) : null;
+  const n = await countAfter(page, page.getByTestId('bulk-held'), page.getByTestId('person-error'), 'bulk hold', was);
+  return n === null ? null : Number(n);
 }
 
 export async function exportPerson(page: Page, personId: string): Promise<string> {
@@ -619,14 +658,11 @@ export async function exportPerson(page: Page, personId: string): Promise<string
 export async function bulkGrade(page: Page, personIds: string[], f: { grade: string; from?: string }): Promise<number | null> {
   for (const id of personIds) await row(page, id).getByTestId('person-select').setChecked(true);
   await page.getByTestId('bulk-grade').selectOption(f.grade);
-  if (f.from !== undefined) await page.getByTestId('bulk-grade-from').fill(f.from);
+  await setField(page, 'bulk-grade-from', f.from);
   const was = await shown(page.getByTestId('bulk-graded'));
   await page.getByTestId('bulk-grade-apply').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await page.getByTestId('bulk-graded').count()) > 0
-    && (await shown(page.getByTestId('bulk-graded'))) !== '' && ((await shown(page.getByTestId('bulk-graded'))) !== was || was === ''),
-    page.getByTestId('person-error'), 'bulk grade');
-  return ok ? Number(await shown(page.getByTestId('bulk-graded'))) : null;
+  const n = await countAfter(page, page.getByTestId('bulk-graded'), page.getByTestId('person-error'), 'bulk grade', was);
+  return n === null ? null : Number(n);
 }
 
 // ---- claims ----------------------------------------------------------------------------------
@@ -659,20 +695,22 @@ export async function claimAt(page: Page, personId: string, idx: number): Promis
 
 type ClaimFields = { amount?: string; date?: string; note?: string; corrects?: string; ref?: string; tags?: string };
 
-async function fillClaimForm(r: Locator, f: ClaimFields) {
-  if (f.amount !== undefined) await r.getByTestId('claim-form-amount').fill(f.amount);
-  if (f.date !== undefined) await r.getByTestId('claim-form-date').fill(f.date);
-  if (f.note !== undefined) await r.getByTestId('claim-form-note').fill(f.note);
-  if (f.corrects !== undefined) await r.getByTestId('claim-form-corrects').fill(f.corrects);
-  if (f.ref !== undefined) await r.getByTestId('claim-form-ref').fill(f.ref);
-  if (f.tags !== undefined) await r.getByTestId('claim-form-tags').fill(f.tags);
+/** Fill the claim form. `clear` (an add) also empties every field the test does not give (a
+ *  blank date takes the default), so nothing typed for a refused add carries into this one; an
+ *  edit leaves the fields it is not given as the editor filled them. */
+async function fillClaimForm(r: Locator, f: ClaimFields, clear = false) {
+  for (const key of ['amount', 'date', 'note', 'corrects', 'ref', 'tags'] as const) {
+    const v = f[key];
+    if (v !== undefined) await r.getByTestId(`claim-form-${key}`).fill(v);
+    else if (clear) await setField(r, `claim-form-${key}`, undefined);
+  }
 }
 
 /** Add a claim from the person's row. The new claim's id, or null when refused. */
 export async function addClaim(page: Page, personId: string, f: ClaimFields & { amount: string }): Promise<string | null> {
   const r = row(page, personId);
   const before = await ids(claimRows(r), 'claim-row-');
-  await fillClaimForm(r, f);
+  await fillClaimForm(r, f, true);
   await r.getByTestId('claim-form-submit').click();
   let added: string | null = null;
   const ok = await until(page, async () => (added = await addedClaim(r, before, f)) !== null,
@@ -684,7 +722,7 @@ export async function addClaim(page: Page, personId: string, f: ClaimFields & { 
 export async function addClaimTwice(page: Page, personId: string, f: ClaimFields & { amount: string }): Promise<string | null> {
   const r = row(page, personId);
   const before = await ids(claimRows(r), 'claim-row-');
-  await fillClaimForm(r, f);
+  await fillClaimForm(r, f, true);
   await r.getByTestId('claim-form-submit').dblclick();
   const ok = await until(page, async () => (await addedClaim(r, before, f)) !== null,
     r.getByTestId('claim-form-error'), 'add claim twice');
@@ -748,11 +786,28 @@ export async function editClaim(page: Page, claimId: string, f: ClaimFields): Pr
   const r = personRowOf(page, claimId);
   await c.getByTestId('claim-edit').click();
   if (await c.getByTestId('claim-error').isVisible().catch(() => false)) return false;
+  const ok = await saveClaimEditor(page, c, r, f, 'edit claim');
+  if (!ok) await cancelOpenEditor(c);
+  return ok;
+}
+
+/** Submit the open claim editor with `f` and judge the outcome. When the typed values are what the
+ *  row already shows, the save cannot be seen on the row: the step then counts as saved only once
+ *  no error has shown for a while (the `already` rule of until()). */
+async function saveClaimEditor(page: Page, c: Locator, r: Locator, f: ClaimFields, what: string): Promise<boolean> {
   await fillClaimForm(r, f);
-  await r.getByTestId('claim-form-submit').click();
   const error = c.getByTestId('claim-error').or(r.getByTestId('claim-form-error'));
   const was = await editedCells(c, f);
-  return until(page, async () => editedShows(c, f, was), error, 'edit claim');
+  const already = await editedShows(c, f, was);
+  await r.getByTestId('claim-form-submit').click();
+  return until(page, async () => editedShows(c, f, was), error, what, already);
+}
+
+/** A refused save leaves the editor open (the contract says a refusal changes nothing): close it
+ *  with the cancel button when the screen has one, so the shared form is back to adding. */
+async function cancelOpenEditor(c: Locator): Promise<void> {
+  const cancel = c.getByTestId('claim-cancel');
+  if ((await cancel.count()) > 0 && await cancel.isVisible().catch(() => false)) await cancel.click().catch(() => undefined);
 }
 
 /** The cells an edit will be judged by, as they are before the save. */
@@ -794,11 +849,7 @@ export async function claimEditOpen(page: Page, claimId: string): Promise<boolea
 export async function claimEditSave(page: Page, claimId: string, f: ClaimFields): Promise<boolean> {
   const c = claimRow(page, claimId);
   const r = personRowOf(page, claimId);
-  await fillClaimForm(r, f);
-  await r.getByTestId('claim-form-submit').click();
-  const error = c.getByTestId('claim-error').or(r.getByTestId('claim-form-error'));
-  const was = await editedCells(c, f);
-  return until(page, async () => editedShows(c, f, was), error, 'save claim editor');
+  return saveClaimEditor(page, c, r, f, 'save claim editor');
 }
 
 /** Change a draft's amount in the row (its own entry and save button): true when the row shows it. */
@@ -1062,13 +1113,17 @@ export async function bulkSettle(page: Page, claimIds: string[]): Promise<{ sett
 }
 
 /** The quick-add bar: the new claim's id, or null when refused. */
-export async function quickAdd(page: Page, f: { name: string; amount: string }): Promise<string | null> {
+/** Quick-add a claim by typed name: the new claim's id, or null when refused. `personId` names
+ *  the row the claim lands on when the typed text is not the name that row shows, an alias;
+ *  without it the row is found by the typed name. */
+export async function quickAdd(page: Page, f: { name: string; amount: string }, personId?: string): Promise<string | null> {
   const before = await ids(claimRows(page), 'claim-row-');
   await page.getByTestId('quick-name').fill(f.name);
   await page.getByTestId('quick-amount').fill(f.amount);
   await page.getByTestId('quick-submit').click();
+  const scope = personId !== undefined ? row(page, personId) : rowsNamed(page, f.name);
   let added: string | null = null;
-  const ok = await until(page, async () => (added = await addedClaim(rowsNamed(page, f.name), before, { amount: f.amount })) !== null,
+  const ok = await until(page, async () => (added = await addedClaim(scope, before, { amount: f.amount })) !== null,
     page.getByTestId('quick-error'), 'quick add');
   return ok ? added : null;
 }
@@ -1078,8 +1133,8 @@ export async function quickAdd(page: Page, f: { name: string; amount: string }):
 export async function setRate(page: Page, f: { grade: string; pct: string; from?: string; to?: string }): Promise<boolean> {
   await page.getByTestId('rate-form-grade').selectOption(f.grade);
   await page.getByTestId('rate-form-pct').fill(f.pct);
-  if (f.from !== undefined) await page.getByTestId('rate-form-from').fill(f.from);
-  if (f.to !== undefined) await page.getByTestId('rate-form-to').fill(f.to);
+  await setField(page, 'rate-form-from', f.from);
+  await setField(page, 'rate-form-to', f.to);
   const r = page.getByTestId(`rate-row-${f.grade}-${f.from ?? 'start'}`);
   const done = async () => (await r.count()) > 0 && await shown(r.getByTestId('rate-pct')) === f.pct
     && (f.to === undefined || await shown(r.getByTestId('rate-to')) === f.to);
@@ -1094,7 +1149,7 @@ export async function addPeriod(page: Page, f: { name: string; from: string; to:
   await page.getByTestId('period-form-name').fill(f.name);
   await page.getByTestId('period-form-from').fill(f.from);
   await page.getByTestId('period-form-to').fill(f.to);
-  if (f.cap !== undefined) await page.getByTestId('period-form-cap').fill(f.cap);
+  await setField(page, 'period-form-cap', f.cap);
   await page.getByTestId('period-form-submit').click();
   return until(page, async () => (await all.count()) > before, page.getByTestId('period-form-error'), 'add period');
 }
@@ -1105,11 +1160,8 @@ export async function generatePeriods(page: Page, from: string, to: string): Pro
   await page.getByTestId('period-generate-to').fill(to);
   const was = await shown(page.getByTestId('period-generated'));
   await page.getByTestId('period-generate').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await page.getByTestId('period-generated').count()) > 0
-    && (await shown(page.getByTestId('period-generated'))) !== '' && ((await shown(page.getByTestId('period-generated'))) !== was || was === ''),
-    page.getByTestId('period-generate-error'), 'generate periods');
-  return ok ? Number(await shown(page.getByTestId('period-generated'))) : null;
+  const n = await countAfter(page, page.getByTestId('period-generated'), page.getByTestId('period-generate-error'), 'generate periods', was);
+  return n === null ? null : Number(n);
 }
 
 /** close | soft-close | reopen | lock | unlock: true when the period's closed (or locked) flag changed. */
@@ -1124,6 +1176,7 @@ export async function periodAction(page: Page, name: string, action: string): Pr
 
 export async function setSetting(page: Page, key: string, value: string): Promise<void> {
   await page.getByTestId(`setting-${key}`).fill(value);
+  await setField(page, `setting-${key}-from`, undefined);    // undated: from the sheet's today
   await page.getByTestId('settings-save').click();
   await expect(page.getByTestId(`setting-${key}-current`)).toHaveText(value, { timeout: WAIT });
 }
@@ -1133,6 +1186,7 @@ export async function setSettingTry(page: Page, key: string, value: string): Pro
   const done = async () => (await shown(page.getByTestId(`setting-${key}-current`))) === value;
   const already = await done();
   await page.getByTestId(`setting-${key}`).fill(value);
+  await setField(page, `setting-${key}-from`, undefined);
   await page.getByTestId('settings-save').click();
   return until(page, done, page.getByTestId('settings-error'), 'save setting', already);
 }
@@ -1184,8 +1238,8 @@ export async function addPoolMember(page: Page, pool: string, f: { member: strin
     return false;
   }
   await r.getByTestId('pool-member-share').fill(f.share);
-  if (f.from !== undefined) await r.getByTestId('pool-member-from').fill(f.from);
-  if (f.to !== undefined) await r.getByTestId('pool-member-to').fill(f.to);
+  await setField(r, 'pool-member-from', f.from);
+  await setField(r, 'pool-member-to', f.to);
   await r.getByTestId('pool-member-add').click();
   return until(page, async () => (await members.count()) > was, r.getByTestId('pool-error'), 'add pool member');
 }
@@ -1196,11 +1250,9 @@ export async function importPeople(page: Page, text: string): Promise<{ added: n
   const was = await shown(cell);
   await page.getByTestId('import-people').fill(text);
   await page.getByTestId('import-submit').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await cell.count()) > 0 && (await shown(cell)) !== ''
-    && ((await shown(cell)) !== was || was === ''), page.getByTestId('import-error'), 'import people');
-  if (!ok) return null;
-  const out: { added: number; updated?: number } = { added: Number(await shown(cell)) };
+  const n = await countAfter(page, cell, page.getByTestId('import-error'), 'import people', was);
+  if (n === null) return null;
+  const out: { added: number; updated?: number } = { added: Number(n) };
   const upd = page.getByTestId('import-updated');
   if ((await upd.count()) > 0) out.updated = Number(await shown(upd));
   return out;
@@ -1212,10 +1264,8 @@ export async function importRates(page: Page, text: string): Promise<number | nu
   const was = await shown(cell);
   await page.getByTestId('import-rates').fill(text);
   await page.getByTestId('import-rates-submit').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await cell.count()) > 0 && (await shown(cell)) !== ''
-    && ((await shown(cell)) !== was || was === ''), page.getByTestId('import-rates-error'), 'import rates');
-  return ok ? Number(await shown(cell)) : null;
+  const n = await countAfter(page, cell, page.getByTestId('import-rates-error'), 'import rates', was);
+  return n === null ? null : Number(n);
 }
 
 /** Generate a fiscal year's monthly periods: how many were made, or null when refused. */
@@ -1223,11 +1273,8 @@ export async function generateFy(page: Page, year: string): Promise<number | nul
   await page.getByTestId('period-generate-fy-year').fill(year);
   const was = await shown(page.getByTestId('period-generated'));
   await page.getByTestId('period-generate-fy').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await page.getByTestId('period-generated').count()) > 0
-    && (await shown(page.getByTestId('period-generated'))) !== '' && ((await shown(page.getByTestId('period-generated'))) !== was || was === ''),
-    page.getByTestId('period-generate-error'), 'generate fiscal year');
-  return ok ? Number(await shown(page.getByTestId('period-generated'))) : null;
+  const n = await countAfter(page, page.getByTestId('period-generated'), page.getByTestId('period-generate-error'), 'generate fiscal year', was);
+  return n === null ? null : Number(n);
 }
 
 /** Search the tree: the result lines in order, once the screen says how many there are. */
@@ -1313,11 +1360,8 @@ export async function generateQuarters(page: Page, year: string): Promise<number
   await page.getByTestId('period-generate-quarters-year').fill(year);
   const was = await shown(page.getByTestId('period-generated'));
   await page.getByTestId('period-generate-quarters').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await page.getByTestId('period-generated').count()) > 0
-    && (await shown(page.getByTestId('period-generated'))) !== '' && ((await shown(page.getByTestId('period-generated'))) !== was || was === ''),
-    page.getByTestId('period-generate-error'), 'generate quarters');
-  return ok ? Number(await shown(page.getByTestId('period-generated'))) : null;
+  const n = await countAfter(page, page.getByTestId('period-generated'), page.getByTestId('period-generate-error'), 'generate quarters', was);
+  return n === null ? null : Number(n);
 }
 
 /** Paste opening balances: how many lines went through, or null when refused. */
@@ -1326,10 +1370,8 @@ export async function importOpenings(page: Page, text: string): Promise<number |
   const was = await shown(cell);
   await page.getByTestId('opening-import').fill(text);
   await page.getByTestId('opening-import-submit').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await cell.count()) > 0 && (await shown(cell)) !== ''
-    && ((await shown(cell)) !== was || was === ''), page.getByTestId('opening-error'), 'import openings');
-  return ok ? Number(await shown(cell)) : null;
+  const n = await countAfter(page, cell, page.getByTestId('opening-error'), 'import openings', was);
+  return n === null ? null : Number(n);
 }
 
 /** Void the selected claims together: how many were voided and how many refused. */
@@ -1404,11 +1446,8 @@ export async function rollover(page: Page, year: string): Promise<number | null>
   await page.getByTestId('rollover-year').fill(year);
   const was = await shown(page.getByTestId('rollover-made'));
   await page.getByTestId('rollover').click();
-  await page.waitForTimeout(300);
-  const ok = await until(page, async () => (await page.getByTestId('rollover-made').count()) > 0
-    && (await shown(page.getByTestId('rollover-made'))) !== '' && ((await shown(page.getByTestId('rollover-made'))) !== was || was === ''),
-    page.getByTestId('rollover-error'), 'rollover');
-  return ok ? Number(await shown(page.getByTestId('rollover-made'))) : null;
+  const n = await countAfter(page, page.getByTestId('rollover-made'), page.getByTestId('rollover-error'), 'rollover', was);
+  return n === null ? null : Number(n);
 }
 
 /** Undo the last rollover: true once the screen shows it undone. */

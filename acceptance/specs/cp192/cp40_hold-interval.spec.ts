@@ -105,8 +105,8 @@ test.describe("hold interval", () => {
     expect(await ui.hold(pg_uma, p_ben, {"from": "2026-02-10"})).toBe(true);
     const c_cam_0 = ui.must(await ui.addClaimTwice(pg_uma, p_cam, {"amount": "0.40", "date": "2026-03-05"}));
     expect(await ui.claimCount(pg_uma, p_cam)).toBe(1);
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "20.00"}));
-    const c_ben_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "25.00"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "20.00"}, p_ben));
+    const c_ben_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "25.00"}, p_ben));
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "20.00", "date": "2026-03-20"}));
     expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(true);
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);

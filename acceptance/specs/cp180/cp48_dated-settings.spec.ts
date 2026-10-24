@@ -449,7 +449,7 @@ test.describe("dated settings", () => {
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "A"}));
     expect(await ui.exportCsv(pg_uma)).toBe("name,grade,retired-from,due-total\nCam,A,,0.00\nBen,A,,0.00\n");
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "25.00"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "25.00"}, p_cam));
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(true);
     const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "1.00", "date": "2026-03-09"}));
     await ui.setToday(pg_uma, "2026-04-16");

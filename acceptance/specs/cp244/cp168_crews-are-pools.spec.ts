@@ -122,7 +122,7 @@ test.describe("crews are pools", () => {
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "A", "terms": "20", "contact": "ben@x", "tags": "c"}));
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "A", "terms": "3", "tags": "b, a"}));
     const pl_ben_1 = ui.must(await ui.addPlan(pg_uma, p_ben, {"amount": "4.00", "start": "2026-03-01", "end": "2026-04-30", "day": "1"}));
-    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-03-28"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-03-28"}, {"grade": "A"})).toBe(true);
     expect(await ui.retire(pg_uma, p_ada, "2026-04-02")).toBe(true);
     await ui.showRetired(pg_uma, true);
     expect(await ui.pasteClaims(pg_uma, "Cam,1.00,,paste\nBen,20.00,,\nBen,7.77,2026-03-20,")).toBe(3);
@@ -602,7 +602,7 @@ test.describe("crews are pools", () => {
       `CLAIM_OPENED sheet=${sheet} by=wes person=Cam amount=0.01 date=2026-03-20 for=vic`,
       `ROLLUP sheet=${sheet} by=wes person=Cam claimed=1.00 due-total=2.00 overdue-total=0.00`,
       `TOTALS sheet=${sheet} by=wes claimed-total=28.77 due-total=2.00 overdue-total=0.00`,
-      `ALERT sheet=${sheet} by=wes name=Cam due-total=2.00 for=vic`,
+      `ALERT sheet=${sheet} by=wes name=Cam due-total=2.00`,
       `PERIOD_CLOSED sheet=${sheet} by=wes period=2026-04 total=3.00 for=vic`,
       `PERIOD_CLOSED sheet=${sheet} by=wes period=2026-03 total=2.00 for=vic`,
       `PERIOD_REOPENED sheet=${sheet} by=vic period=2026-04`,
@@ -1419,7 +1419,7 @@ test.describe("crews are pools", () => {
     await expect(pg_uma.getByTestId("my-due-total")).toHaveText("");
     await expect(pg_uma.getByTestId("my-overdue-total")).toHaveText("");
     await expect(pg_uma.getByTestId("my-crew-due-total")).toHaveText("");
-    const c_fay_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Fay", "amount": "99.95"}));
+    const c_fay_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Fay", "amount": "99.95"}, p_fay));
     expect(await ui.movePerson(pg_uma, p_cam, "down")).toBe(true);
     expect(await ui.statementAsOf(pg_uma, p_cam, "2026-02-25")).toBe(false);
     expect(await ui.bulkOpen(pg_uma, [c_fay_0, c_cam_0])).toEqual({ opened: 2, refused: 0 });
@@ -1427,7 +1427,7 @@ test.describe("crews are pools", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("2026-03-15");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1502,7 +1502,7 @@ test.describe("crews are pools", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("3");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

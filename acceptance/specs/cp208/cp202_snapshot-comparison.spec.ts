@@ -21,7 +21,7 @@ test.describe("snapshot comparison", () => {
     expect(await ui.hold(pg_uma, p_ada, {"from": "2026-03-01"})).toBe(true);
     expect(await ui.snapshotCompare(pg_uma, "2026-03-01", "2026-03-05")).toEqual(["Ada 1.00 2.00", "Ben 0.00 1.00"]);
     expect(await ui.snapshotCompare(pg_uma, "2026-03-05", "")).toEqual(["Ada 2.00 2.00", "Ben 1.00 1.00"]);
-    expect(await ui.snapshotCompare(pg_uma, "2026-03-02", "2026-03-10")).toEqual(["Ada  ", "Ben  "]);
+    expect(await ui.snapshotCompare(pg_uma, "2026-03-02", "2026-03-10")).toEqual(["Ada", "Ben"]);
     await ui.setToday(pg_uma, "2026-03-11");
     expect(await ui.snapshotCompare(pg_uma, "2026-03-01", "2026-03-10")).toEqual(["Ada 1.00 2.00", "Ben 0.00 1.00"]);
     await ui.refresh(pg_uma);
@@ -132,7 +132,7 @@ test.describe("snapshot comparison", () => {
     await expect(pg_uma.getByTestId("my-crew-due-total")).toHaveText("");
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.redate(pg_wes, c_ada_0, "2026-02-25")).toBe(true);
-    const c_ada_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ada", "amount": "25.00"}));
+    const c_ada_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ada", "amount": "25.00"}, p_ada));
     expect(await ui.editInline(pg_wes, c_ada_2, "4.00")).toBe(true);
     expect(await ui.claimAction(pg_wes, c_ada_0, "settle")).toBe(true);
     expect(await ui.addLine(pg_wes, c_ada_2, {"label": "x", "qty": "3", "unit": "0.01"})).toBe(true);
@@ -180,7 +180,7 @@ test.describe("snapshot comparison", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("2026-04-02");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -329,7 +329,7 @@ test.describe("snapshot comparison", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("2.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1398,7 +1398,7 @@ test.describe("snapshot comparison", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("yes");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

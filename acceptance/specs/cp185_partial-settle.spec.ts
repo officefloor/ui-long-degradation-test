@@ -21,12 +21,18 @@ test.describe("partial settle", () => {
     expect(await ui.settlePart(pg_vic, p_ada, c_ada_0, "10.00")).toBeNull();
     expect(await ui.settlePart(pg_vic, p_ada, c_ada_0, "50.00")).toBeNull();
     expect(await ui.settlePart(pg_vic, p_ada, c_ada_0, "45.00")).toBeNull();
-    expect(await ui.settlePart(pg_vic, p_ada, c_ada_1, "5.00")).toBeNull();
+    const c_ada_2 = ui.must(await ui.settlePart(pg_vic, p_ada, c_ada_1, "5.00"));
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.settlePart(pg_wes, p_ada, c_ada_0, "1.00")).toBeNull();
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("80.00");
     await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("8.50");
+    await expect(pg_wes.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-amount")).toHaveText("5.00");
+    await expect(pg_wes.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-number")).toHaveText("FY2026-3");
+    await expect(pg_wes.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-status")).toHaveText("SETTLED");
+    await expect(pg_wes.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-due")).toHaveText("1.00");
+    await expect(pg_wes.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-split-from")).toHaveText("FY2026-2");
+    await expect(pg_wes.getByTestId("claim-row-" + c_ada_2).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-amount")).toHaveText("15.00");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-number")).toHaveText("FY2026-2");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-status")).toHaveText("OPEN");
@@ -43,8 +49,8 @@ test.describe("partial settle", () => {
     await expect(pg_wes.getByTestId("rollup-due-total")).toHaveText("8.50");
     await expect(pg_wes.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("rollup-overdue-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("rollup-settled-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("rollup-open-total")).toHaveText("8.50");
+    await expect(pg_wes.getByTestId("rollup-settled-total")).toHaveText("1.00");
+    await expect(pg_wes.getByTestId("rollup-open-total")).toHaveText("7.50");
     await expect(pg_wes.getByTestId("bulk-settle-batch")).toHaveText("");
     await expect(pg_wes.getByTestId("rollup-cut-total")).toHaveText("0.00");
     await ui.expectAudit(sheet, [
@@ -65,7 +71,8 @@ test.describe("partial settle", () => {
       `CLAIM_SPLIT sheet=${sheet} by=vic person=Ada amount=15.00 date=2026-03-10 number=FY2026-2 into=FY2026-3`,
       `CLAIM_OPENED sheet=${sheet} by=vic person=Ada amount=5.00 date=2026-03-10 number=FY2026-3`,
       `ROLLUP sheet=${sheet} by=vic person=Ada claimed=80.00 due-total=8.50 overdue-total=0.00`,
-      `TOTALS sheet=${sheet} by=vic claimed-total=80.00 due-total=8.50 overdue-total=0.00`
+      `TOTALS sheet=${sheet} by=vic claimed-total=80.00 due-total=8.50 overdue-total=0.00`,
+      `CLAIM_SETTLED sheet=${sheet} by=vic person=Ada amount=5.00 date=2026-03-10 number=FY2026-3 due=1.00`
     ]);
   });
   test("partial settle scenario 1", { tag: '@functionality' }, async ({ browser }) => {
@@ -186,7 +193,7 @@ test.describe("partial settle", () => {
     await ui.showRetired(pg_vic, true);
     expect(await ui.claimFromTemplate(pg_vic, p_ben, "T1")).toBeNull();
     await ui.refresh(pg_vic);
-    expect(await ui.flag(pg_vic, p_ben, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_vic, p_ben, "late", "2026-03-12", "")).toBe(true);
     await ui.refresh(pg_vic);
     expect(await ui.resettle(pg_vic, c_ben_1)).toBe(true);
     expect(await ui.periodAction(pg_vic, "2026-07", "soft-close")).toBe(true);
@@ -1342,7 +1349,7 @@ test.describe("partial settle", () => {
     expect(await ui.addCrew(pg_uma, "C1", "Cam")).toBe(true);
     const pl_cam_1 = ui.must(await ui.addPlan(pg_uma, p_cam, {"amount": "0.04", "start": "2026-02-20", "end": "2026-04-30", "every": "7"}));
     const pg_vic = await ui.userPage(browser, "vic", sheet);
-    expect(await ui.flag(pg_vic, p_ben, "late", "2026-04-30")).toBe(true);
+    expect(await ui.flag(pg_vic, p_ben, "late", "2026-04-30", "late")).toBe(true);
     expect(await ui.statement(pg_vic, p_cam)).toBe(true);
     await ui.expectAuditView(pg_vic, "Cam", [
       `STATEMENT sheet=${sheet} by=vic name=Cam due-total=0.00 claims=0`,

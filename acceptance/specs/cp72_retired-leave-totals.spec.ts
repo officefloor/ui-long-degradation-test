@@ -196,7 +196,7 @@ test.describe("retired leave totals", () => {
     await expect(pg_wes.getByTestId("header-claims-VOID-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("header-due-total")).toHaveText("0.50");
     await expect(pg_wes.getByTestId("header-overdue-total")).toHaveText("0.00");
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "3.33"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "3.33"}, p_ben));
     await ui.refresh(pg_vic);
     expect(await ui.claimAction(pg_vic, c_ada_0, "open")).toBe(true);
     expect(await ui.watch(pg_vic, p_cam, true)).toBe(true);

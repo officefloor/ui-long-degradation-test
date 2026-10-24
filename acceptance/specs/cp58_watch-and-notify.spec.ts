@@ -704,7 +704,7 @@ test.describe("watch and notify", () => {
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "B"}));
     const c_dot_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "99.95"}));
     const p_dot = await ui.personId(pg_uma, "Dot");
-    const c_dot_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "25.00"}));
+    const c_dot_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "25.00"}, p_dot));
     expect(await ui.claimAction(pg_uma, c_dot_0, "void")).toBe(true);
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);

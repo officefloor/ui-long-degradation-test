@@ -357,7 +357,7 @@ test.describe("external reference", () => {
       `PERSON_HELD sheet=${sheet} by=uma name=Cam from=2026-03-05`,
       `PERSON_WATCHED sheet=${sheet} by=uma name=Ben`,
       `CLAIM_EDITED sheet=${sheet} by=uma person=Ada amount=10.25 date=2026-03-20`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ada grade=A terms=3`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ada grade=A`,
       `CLAIM_VOIDED sheet=${sheet} by=uma person=Ada amount=10.25 date=2026-03-20`
     ]);
   });
@@ -422,7 +422,7 @@ test.describe("external reference", () => {
     await expect(pg_vic.getByTestId("header-claims-VOID-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("header-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("header-overdue-total")).toHaveText("0.00");
-    expect(await ui.editPerson(pg_vic, p_ada, {"grade": "A", "gradeFrom": "2026-04-02"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_vic, p_ada, {"grade": "A", "gradeFrom": "2026-04-02"}, {"grade": "C"})).toBe(true);
     await ui.setSetting(pg_vic, "proof-threshold", "1.00");
     await ui.refresh(pg_vic);
     expect(await ui.unstate(pg_vic, p_cam)).toBe(true);
@@ -806,7 +806,7 @@ test.describe("external reference", () => {
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "0.04", "date": "2026-02-10", "note": "n", "ref": " r-1 "}));
     const c_ada_1 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "1.00", "note": "n"}));
     expect(await ui.claimAction(pg_uma, c_ada_1, "open")).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C", "gradeFrom": "2026-03-15"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C", "gradeFrom": "2026-03-15"}, {"grade": "A"})).toBe(true);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("1.00");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("1.00");

@@ -258,7 +258,7 @@ test.describe("statement as of", () => {
     expect(await ui.periodAction(pg_uma, "P1", "close")).toBe(true);
     expect(await ui.periodAction(pg_uma, "P2", "soft-close")).toBe(true);
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "25.00"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "25.00"}, p_ben));
     expect(await ui.statementAsOf(pg_uma, p_ben, "2026-03-05")).toBe(false);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");
@@ -868,7 +868,7 @@ test.describe("statement as of", () => {
     await expect(pg_vic.getByTestId("header-claims-VOID-count")).toHaveText("1");
     await expect(pg_vic.getByTestId("header-due-total")).toHaveText("1.00");
     await expect(pg_vic.getByTestId("header-overdue-total")).toHaveText("0.00");
-    expect(await ui.editPerson(pg_vic, p_ada, {"grade": "C", "gradeFrom": "2026-04-02"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_vic, p_ada, {"grade": "C", "gradeFrom": "2026-04-02"}, {"grade": "B"})).toBe(true);
     const c_cam_2 = ui.must(await ui.addClaim(pg_vic, p_cam, {"amount": "10.35"}));
     expect(await ui.claimEditOpen(pg_vic, c_cam_2)).toBe(true);
     await ui.refresh(pg_wes);

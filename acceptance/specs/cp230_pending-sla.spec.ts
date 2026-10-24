@@ -148,7 +148,7 @@ test.describe("pending sla", () => {
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "C"}));
     expect(await ui.addCrew(pg_uma, "C1", "Cam")).toBe(true);
     expect(await ui.addCrewMember(pg_uma, "C1", "Ben")).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_ada, {"terms": "20", "termsFrom": "2026-03-12"})).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"terms": "20", "termsFrom": "2026-03-12"}, {"terms": ""})).toBe(true);
     expect(await ui.movePerson(pg_uma, p_ada, "down")).toBe(true);
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
     expect(await ui.addAlias(pg_uma, p_ben, " ada ")).toBe(false);
@@ -999,7 +999,7 @@ test.describe("pending sla", () => {
     await expect(pg_uma.getByTestId("my-crew-due-total")).toHaveText("");
     await expect(pg_uma.getByTestId("my-reviews-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("watched-due-total")).toHaveText("0.00");
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "20.00"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "20.00"}, p_ben));
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "10.35", "date": "2026-03-15", "ref": " r-1 ", "tags": "b,a,a"}));
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(false);
     expect(await ui.addLine(pg_uma, c_cam_0, {"label": "y", "qty": "3", "unit": "0.01"})).toBe(true);
@@ -1645,7 +1645,7 @@ test.describe("pending sla", () => {
     const c_cam_1 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "1.00", "ref": "inv 7"}));
     expect(await ui.pasteClaims(pg_uma, "Dot,3.33,2026-03-28,\nBen,3.33,,paste")).toBeNull();
     expect(await ui.setApprover(pg_uma, p_dot, "uma")).toBe(true);
-    expect(await ui.snapshotCompare(pg_uma, "2026-04-05", "2026-03-10")).toEqual(["Cam  ", "Ben  ", "Dot  "]);
+    expect(await ui.snapshotCompare(pg_uma, "2026-04-05", "2026-03-10")).toEqual(["Cam", "Ben", "Dot"]);
     await ui.refresh(pg_vic);
     expect(await ui.unstate(pg_vic, p_ben)).toBe(true);
     await ui.refresh(pg_vic);

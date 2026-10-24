@@ -47,7 +47,7 @@ test.describe("grade merge retroactive", () => {
     const c_ada_3 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "10.00", "date": "2026-03-11"}));
     expect(await ui.claimAction(pg_uma, c_ada_2, "open")).toBe(true);
     expect(await ui.claimAction(pg_uma, c_ada_3, "open")).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "B", "gradeFrom": "2026-03-20"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "B", "gradeFrom": "2026-03-20"}, {"grade": "C"})).toBe(true);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-grade")).toHaveText("C");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("24.00");
@@ -240,7 +240,7 @@ test.describe("grade merge retroactive", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("2.57");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("1.57");

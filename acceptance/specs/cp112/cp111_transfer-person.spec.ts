@@ -559,7 +559,7 @@ test.describe("transfer person", () => {
     expect(await ui.editInline(pg_wes, c_ben_0, "10.25")).toBe(true);
     expect(await ui.editPerson(pg_wes, p_ben, {"grade": "A", "gradeFrom": "2026-03-20"})).toBe(true);
     expect(await ui.statement(pg_wes, p_ben)).toBe(true);
-    expect(await ui.editPerson(pg_wes, p_cam, {"grade": "B", "gradeFrom": "2026-03-20"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_wes, p_cam, {"grade": "B", "gradeFrom": "2026-03-20"}, {"grade": "C"})).toBe(true);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("n/a");
@@ -960,7 +960,7 @@ test.describe("transfer person", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("2026-03-28");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1023,7 +1023,7 @@ test.describe("transfer person", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

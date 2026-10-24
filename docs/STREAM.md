@@ -133,6 +133,10 @@ end, and shown on every surface of §2.
 - **A refused action shows its error element and changes nothing**, on screen and in the audit
   file; a screen that does neither fails the test. The helpers wait on the screen's result or its
   error and return as soon as either shows (`acceptance/support/README.md`, "Errors and timing").
+- **The test states every field it submits** and clears the ones it leaves out; a result count is
+  cleared when its button is pressed again; a refused claim edit leaves the editor open and the
+  helper cancels it. These came out of the calibration run (§11): each is a place where a form's
+  leftover state, not the rule under test, decided a step.
 - **Specs come from the reference model, never from an agent.** The model is a stateful simulator
   of the UI script (users, dates, workflow, histories, sheets), not a formula table; the script is
   the spec's input, so the rendered Playwright steps and every expected value come from one
@@ -595,3 +599,47 @@ The 250 requests of the earlier world, from which Acts III to V were re-cut, are
 - CONCUR — https://arxiv.org/html/2603.03683v1
 - GitClear duplication figures (via) — https://tianpan.co/blog/2026-04-20-vibe-code-at-scale-technical-debt
 - Awesome Falsehood — https://github.com/sza-1/awesome-falsehood
+
+## 11. The calibration run (October 2026): what the stream itself got wrong
+
+Two stacks (angular-spring, tanstack-officefloor) were each run one chain through the stream
+with the specs as they were. From cp86 on, both agents failed the same scenarios at the same
+steps: a failure shared by two independent stacks is the stream's, not the agents'. The agents'
+own final messages (they read the spec, so they name the line) were the diagnosis. Root causes,
+all fixed in the model, the renderer or the helpers, never by weakening a rule:
+
+- **Placement of a claim about to be added.** `placing_date` summed calendar days for a claim not
+  yet created but used the business-day due-by (cp83/84) and the creation-day terms (cp180) once
+  it existed. So the model refused adds, marked late entries and allowed pastes that no app
+  could agree with: the single largest cause (closed-period refusals and LATE_ENTRY lines in
+  dozens of scenarios).
+- **Identities that were positions.** A claim's `seq` was `len(claims)` and its `idx` a count of
+  the person's claims; a person's `order` was `len(people)`. Every removal (merge, transfer,
+  reassign) let a later row reuse a number, so a spec could check one `claim-row` for two values
+  in a row, or bind Fay's row and expect Ben's name. Now `seq` comes from family-wide counters a
+  replay restores per journal entry, `idx` and `order` are one past the highest held, and
+  `ui.claimAt` takes a rank, not an idx. The as-of view matches rows by `seq`.
+- **The sheet token in a cell.** `sheet-parent`, `person-origin` and export lines went through
+  `ts()` and reached the spec as the literal `__SHEET__-p`; `emit` now renders any string literal
+  carrying the token as a template literal.
+- **Helpers that assumed a clean form or a changing count** (above, §4), a quick-add by alias
+  looked up by the typed text, a flag past its date waited for a reason that never shows, a
+  dated setting expected the panel blank where the request says the starting value shows.
+- **Model rules the requests did not state**, now stated at the checkpoint that introduces them
+  (the model was right, the text was silent): the moved claim is its new person's newest (cp37);
+  a retirement date set is retired at once (cp21, cp105); PERSON_EDITED's `terms=`/`contact=`
+  appear when the value differs from what the row showed (cp63, cp99: "the form gave a value" is
+  not observable); a viewer's bulk or generate button goes through with 0 done (cp54); the edit
+  button of a claim in a closed period is refused (cp69); ALERT carries no `for=` (cp61,
+  cp146); the as-of view covers every cell, notes and statement lines included (cp74, cp181);
+  the dashboard under as-of (cp178); opened-order ties (cp111, cp126); a paste matches only
+  claims that existed before it (cp152); merged statements show as lines (cp136, cp163); a
+  part-settle is judged on the original claim (cp185); list lines are trimmed (cp202).
+- **Model bugs the requests exposed:** a part-settle left its split behind when the settle was
+  refused; a paste could add some lines before a later line's open was refused (both are now
+  transactions over the model); a statement as of a date before the person existed matched
+  another row by position (now refused).
+- **The harness and the stacks:** an agent's `bin/start` left a JVM on the run's port and the
+  next agent's `bin/e2e` tested that stale app; the run now frees the port before and after every
+  agent turn, and `bin/e2e` refuses a port already served and waits up to five minutes for
+  health instead of running against nothing.

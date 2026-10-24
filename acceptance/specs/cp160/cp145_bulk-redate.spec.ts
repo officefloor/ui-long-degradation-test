@@ -266,7 +266,6 @@ test.describe("bulk redate", () => {
       `SNAPSHOT sheet=${sheet} by=uma name=Cam due-total=0.00`,
       `STATEMENT sheet=${sheet} by=uma name=Cam due-total=0.00 claims=0`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Cam amount=12.50 date=2026-02-28`,
-      `LATE_ENTRY sheet=${sheet} by=uma person=Cam amount=12.50 date=2026-02-28`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Cam amount=12.50 date=2026-03-31`,
       `CLAIM_PROOF_ADDED sheet=${sheet} by=uma person=Cam amount=12.50 date=2026-02-28 proofs=1`,
       `CLAIM_OPENED sheet=${sheet} by=uma person=Cam amount=12.50 date=2026-03-31 number=X-1`,
@@ -369,7 +368,7 @@ test.describe("bulk redate", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-proofs")).toHaveText("1");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-late-entry")).toHaveText("yes");
+    await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-late-entry")).toHaveText("no");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-reminded")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-ref")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-tags")).toHaveText("");
@@ -480,7 +479,6 @@ test.describe("bulk redate", () => {
       `SNAPSHOT sheet=${sheet} by=uma name=Cam due-total=0.00`,
       `STATEMENT sheet=${sheet} by=uma name=Cam due-total=0.00 claims=0`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Cam amount=12.50 date=2026-02-28`,
-      `LATE_ENTRY sheet=${sheet} by=uma person=Cam amount=12.50 date=2026-02-28`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Cam amount=12.50 date=2026-03-31`,
       `CLAIM_PROOF_ADDED sheet=${sheet} by=uma person=Cam amount=12.50 date=2026-02-28 proofs=1`,
       `CLAIM_OPENED sheet=${sheet} by=uma person=Cam amount=12.50 date=2026-03-31 number=X-1`,

@@ -563,7 +563,7 @@ test.describe("claim log", () => {
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("1.50");
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     await ui.setSetting(pg_uma, "clerk-limit", "3.00");
-    const c_ada_2 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "10.35"}));
+    const c_ada_2 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "10.35"}, p_ada));
     expect(await ui.retire(pg_uma, p_ada, "2026-03-09")).toBe(true);
     await ui.showRetired(pg_uma, true);
     expect(await ui.hold(pg_uma, p_ada, {})).toBe(true);

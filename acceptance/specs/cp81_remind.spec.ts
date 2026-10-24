@@ -126,7 +126,7 @@ test.describe("remind", () => {
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     await ui.setSetting(pg_uma, "policy-date", "2026-03-05");
     expect(await ui.claimAction(pg_uma, c_ben_0, "void")).toBe(true);
-    const c_ada_3 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "1.00"}));
+    const c_ada_3 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "1.00"}, p_ada));
     expect(await ui.bulkOpen(pg_uma, [c_ada_1, c_ada_2, c_ada_3])).toEqual({ opened: 3, refused: 0 });
     expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(true);
     const pg_wes = await ui.userPage(browser, "wes", sheet);

@@ -115,7 +115,7 @@ test.describe("bulk grade", () => {
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "C", "terms": "3"}));
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
     expect(await ui.watch(pg_uma, p_ada, true)).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "A", "gradeFrom": "2026-04-02"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "A", "gradeFrom": "2026-04-02"}, {"grade": "C"})).toBe(true);
     expect(await ui.hold(pg_uma, p_ben, {"from": "2026-03-20"})).toBe(true);
     const c_dot_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "7.77"}));
     const p_dot = await ui.personId(pg_uma, "Dot");

@@ -304,7 +304,7 @@ test.describe("viewer role", () => {
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "B"}));
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "B"}));
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "A"}));
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "4.00"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "4.00"}, p_cam));
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(true);
     expect(await ui.addProof(pg_uma, c_cam_0)).toBe(true);
     expect(await ui.hold(pg_uma, p_cam, {"from": "2026-03-05", "to": "2026-03-09"})).toBe(true);
@@ -335,7 +335,7 @@ test.describe("viewer role", () => {
     await expect(pg_uma.getByTestId("header-overdue-total")).toHaveText("0.00");
     expect(await ui.defer(pg_uma, c_cam_0, "2026-04-22")).toBe(true);
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "4.00"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "4.00"}, p_ada));
     expect(await ui.defer(pg_uma, c_cam_0, "2026-04-17")).toBe(true);
     expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(true);
     expect(await ui.periodAction(pg_uma, "P1", "close")).toBe(true);
@@ -365,11 +365,11 @@ test.describe("viewer role", () => {
     await expect(pg_uma.getByTestId("header-claims-VOID-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("header-due-total")).toHaveText("1.33");
     await expect(pg_uma.getByTestId("header-overdue-total")).toHaveText("0.00");
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.40"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.40"}, p_cam));
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     expect(await ui.claimAction(pg_uma, c_cam_1, "open")).toBe(true);
     const c_ada_1 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "12.50", "date": "2026-03-28"}));
-    const c_cam_2 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "10.35"}));
+    const c_cam_2 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "10.35"}, p_cam));
     expect(await ui.addClaim(pg_uma, p_ben, {"amount": "1.00", "date": "2026-03-01"})).toBeNull();
     expect(await ui.setSettingDated(pg_uma, "proof-threshold", "3.00", "2026-02-10", "3.00")).toBe(true);
     await ui.refresh(pg_uma);

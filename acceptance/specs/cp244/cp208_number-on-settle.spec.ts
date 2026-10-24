@@ -143,7 +143,7 @@ test.describe("number on settle", () => {
     expect(await ui.addPoolMember(pg_uma, "P1", {"member": "Ada", "share": "33.33"})).toBe(true);
     expect(await ui.addPoolMember(pg_uma, "P1", {"member": "Cam", "share": "33.33"})).toBe(true);
     expect(await ui.addPoolMember(pg_uma, "P1", {"member": "Ben", "share": "33.34", "from": "2026-03-01", "to": "2026-04-30"})).toBe(true);
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "10.35"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "10.35"}, p_ada));
     expect(await ui.activity(pg_uma)).toEqual(["uma CLAIM_ADDED 1", "uma HOLIDAY_ADDED 1", "uma PERSON_ADDED 3", "uma POOL_ADDED 1", "uma POOL_MEMBER_ADDED 3", "uma RATE_SET 4", "uma ROLE_SET 1", "uma ROLLUP 3", "uma SETTING_CHANGED 10", "uma TEMPLATE_SAVED 1", "uma VOID_REASON_ADDED 2"]);
     expect(await ui.editClaim(pg_uma, c_ada_0, {"amount": "1.00"})).toBe(true);
     expect(await ui.addProof(pg_uma, c_ada_0)).toBe(true);
@@ -571,7 +571,7 @@ test.describe("number on settle", () => {
     expect(await ui.periodAction(pg_vic, "2026-04", "close")).toBe(true);
     expect(await ui.inlineGrade(pg_vic, p_cam, "C")).toBe(true);
     expect(await ui.addClaim(pg_vic, p_cam, {"amount": "10.35", "note": "n"})).toBeNull();
-    expect(await ui.editPerson(pg_vic, p_cam, {"grade": "A", "gradeFrom": "2026-02-25"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_vic, p_cam, {"grade": "A", "gradeFrom": "2026-02-25"}, {"grade": "C"})).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-due-total")).toHaveText("0.00");

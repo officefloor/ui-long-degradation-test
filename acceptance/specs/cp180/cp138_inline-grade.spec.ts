@@ -149,7 +149,7 @@ test.describe("inline grade", () => {
       `PERSON_ADDED sheet=${sheet} by=wes name=Eve grade=B`
     ]);
     expect(await ui.addAlias(pg_wes, p_eve, "Bee")).toBe(true);
-    expect(await ui.statementAsOf(pg_wes, p_eve, "2026-03-20")).toBe(true);
+    expect(await ui.statementAsOf(pg_wes, p_eve, "2026-03-20")).toBe(false);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-due-total")).toHaveText("0.00");
@@ -204,42 +204,10 @@ test.describe("inline grade", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("2026-04-02");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-name")).toHaveText("Fay");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-grade")).toHaveText("B");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-claimed")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-statement-count")).toHaveText("1");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-stated-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-statement-date")).toHaveText("2026-03-10");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-retired")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-retired-from")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-hold")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-overdue-count")).toHaveText("0");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-overdue-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-patrons")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-backing")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-excess")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-watched")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-terms")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-active")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-aged-0-30")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-aged-31-60")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-aged-61")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-settled-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-open-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-contact")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-aliases")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-clashing")).toHaveText("no");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-cut-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-origin")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-retirement-line")).toHaveText([]);
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-tags")).toHaveText("");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-period-P1-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-period-P2-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("rollup-claimed-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("rollup-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("rollup-overdue-count")).toHaveText("0");
@@ -321,7 +289,6 @@ test.describe("inline grade", () => {
       `RATE_SET sheet=${sheet} by=wes grade=A rate=10.00`,
       `STATEMENT sheet=${sheet} by=wes name=Eve due-total=0.00 claims=0`,
       `PERSON_ALIAS_ADDED sheet=${sheet} by=wes name=Eve alias=Bee`,
-      `STATEMENT sheet=${sheet} by=wes name=Eve due-total=0.00 claims=0 asof=2026-03-20`,
       `PERSON_HELD sheet=${sheet} by=wes name=Eve from=2026-02-10`,
       `STATEMENT sheet=${sheet} by=wes name=Eve due-total=0.00 claims=0`,
       `SETTING_CHANGED sheet=${sheet} by=wes key=note-threshold value=2.50`,
@@ -337,7 +304,7 @@ test.describe("inline grade", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("yes");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -345,7 +312,7 @@ test.describe("inline grade", () => {
     await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-grade")).toHaveText("B");
     await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-due-total")).toHaveText("0.00");
-    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-statement-count")).toHaveText("3");
+    await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-statement-count")).toHaveText("2");
     await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-stated-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-statement-date")).toHaveText("2026-04-04");
     await expect(pg_wes.getByTestId("person-row-" + p_eve).getByTestId("person-retired")).toHaveText("no");
@@ -453,7 +420,6 @@ test.describe("inline grade", () => {
       `RATE_SET sheet=${sheet} by=wes grade=A rate=10.00`,
       `STATEMENT sheet=${sheet} by=wes name=Eve due-total=0.00 claims=0`,
       `PERSON_ALIAS_ADDED sheet=${sheet} by=wes name=Eve alias=Bee`,
-      `STATEMENT sheet=${sheet} by=wes name=Eve due-total=0.00 claims=0 asof=2026-03-20`,
       `PERSON_HELD sheet=${sheet} by=wes name=Eve from=2026-02-10`,
       `STATEMENT sheet=${sheet} by=wes name=Eve due-total=0.00 claims=0`,
       `SETTING_CHANGED sheet=${sheet} by=wes key=note-threshold value=2.50`,
@@ -496,7 +462,7 @@ test.describe("inline grade", () => {
     expect(await ui.statement(pg_uma, p_dot)).toBe(true);
     const c_dot_2 = ui.must(await ui.addClaim(pg_uma, p_dot, {"amount": "3.33"}));
     const c_dot_3 = ui.must(await ui.addClaim(pg_uma, p_dot, {"amount": "1.00", "date": "2026-03-20", "ref": "inv 7"}));
-    const c_dot_4 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "4.00"}));
+    const c_dot_4 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "4.00"}, p_dot));
     expect(await ui.pasteClaims(pg_uma, "Dot,3.33,2026-03-28,")).toBe(1);
     const c_dot_5 = await ui.claimAt(pg_uma, p_dot, 5);
     await ui.refresh(pg_uma);
@@ -600,7 +566,7 @@ test.describe("inline grade", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("2026-02-10");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -686,7 +652,7 @@ test.describe("inline grade", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("6.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("1.00");

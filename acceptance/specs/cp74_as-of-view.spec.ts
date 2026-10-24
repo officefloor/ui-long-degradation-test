@@ -321,8 +321,8 @@ test.describe("as of view", () => {
     expect(await ui.addProof(pg_vic, c_dot_0)).toBe(true);
     expect(await ui.claimAction(pg_vic, c_dot_0, "open")).toBe(true);
     expect(await ui.setSettingDated(pg_vic, "proof-threshold", "1.00", "2026-03-09", "1.00")).toBe(true);
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "4.00"}));
-    const c_dot_0_2 = ui.must(await ui.quickAdd(pg_vic, {"name": "Dot", "amount": "99.95"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "4.00"}, p_ada));
+    const c_dot_0_2 = ui.must(await ui.quickAdd(pg_vic, {"name": "Dot", "amount": "99.95"}, p_dot));
     expect(await ui.retire(pg_vic, p_dot, "2026-03-05")).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("4.00");

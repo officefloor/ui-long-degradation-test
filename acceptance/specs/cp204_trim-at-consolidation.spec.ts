@@ -234,13 +234,13 @@ test.describe("trim at consolidation", () => {
     expect(await ui.retire(pg_uma, p_eve, "2026-03-20")).toBe(true);
     const c_dot_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "10.25"}));
     const p_dot = await ui.personId(pg_uma, "Dot");
-    const c_ben_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "99.95"}));
+    const c_ben_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "99.95"}, p_ben));
     expect(await ui.statement(pg_uma, p_fay)).toBe(true);
     await ui.setAsOf(pg_uma, "2026-03-01");
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("2026-03-01");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -392,7 +392,7 @@ test.describe("trim at consolidation", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("4");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -928,7 +928,7 @@ test.describe("trim at consolidation", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("2026-03-09");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1062,7 +1062,7 @@ test.describe("trim at consolidation", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1435,7 +1435,7 @@ test.describe("trim at consolidation", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1501,7 +1501,7 @@ test.describe("trim at consolidation", () => {
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_5).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_5).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_5).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_uma.getByTestId("claim-row-" + c_ben_5).getByTestId("claim-late-entry")).toHaveText("no");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ben_5).getByTestId("claim-late-entry")).toHaveText("yes");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_5).getByTestId("claim-reminded")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_5).getByTestId("claim-ref")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_5).getByTestId("claim-tags")).toHaveText("c");
@@ -1803,6 +1803,7 @@ test.describe("trim at consolidation", () => {
       `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=A for=wes`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=1.00 date=2026-03-05 for=wes`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=25.00 date=2026-02-10 tags=c for=wes`,
+      `LATE_ENTRY sheet=${sheet} by=uma person=Ben amount=25.00 date=2026-02-10 for=wes`,
       `CLAIM_EDITED sheet=${sheet} by=uma person=Ben amount=99.95 date=2026-03-05 for=wes`,
       `CLAIM_PROOF_ADDED sheet=${sheet} by=uma person=Ben amount=1.00 date=2026-03-05 proofs=1 for=wes`,
       `CLAIM_VOIDED sheet=${sheet} by=uma person=Ben amount=1.00 date=2026-03-05 for=wes`,

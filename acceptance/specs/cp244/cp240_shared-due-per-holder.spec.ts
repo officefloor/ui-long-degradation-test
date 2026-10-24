@@ -696,7 +696,7 @@ test.describe("shared due per holder", () => {
     const c_ben_2 = await ui.claimAt(pg_uma, p_ben, 2);
     expect(await ui.addClaim(pg_uma, p_ben, {"amount": "20.00", "note": "n"})).toBeNull();
     expect(await ui.planPause(pg_uma, pl_ben_1, false)).toBe(false);
-    expect(await ui.snapshotCompare(pg_uma, "2026-04-05", "2026-03-10")).toEqual(["Cam 0.00 ", "Ben 0.00 "]);
+    expect(await ui.snapshotCompare(pg_uma, "2026-04-05", "2026-03-10")).toEqual(["Cam 0.00", "Ben 0.00"]);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-due-total")).toHaveText("0.00");
@@ -743,7 +743,7 @@ test.describe("shared due per holder", () => {
     expect(await ui.shareClaim(pg_uma, c_ben_0, "Cam", "25.00")).toBe(true);
     expect(await ui.statementAsOf(pg_uma, p_cam, "2026-03-28")).toBe(false);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
-    expect(await ui.flag(pg_vic, p_ben, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_vic, p_ben, "late", "2026-03-12", "")).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-due-total")).toHaveText("0.00");

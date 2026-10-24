@@ -710,7 +710,7 @@ test.describe("note required", () => {
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "1.00", "note": "n"}));
     expect(await ui.addProof(pg_uma, c_ada_0)).toBe(true);
     expect(await ui.generatePeriods(pg_uma, "2026-01-15", "2026-02-20")).toBe(2);
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "7.77"}));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "7.77"}, p_ada));
     const c_ada_2 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "10.25", "note": "n"}));
     expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(true);
     expect(await ui.periodAction(pg_uma, "2026-01", "close")).toBe(false);

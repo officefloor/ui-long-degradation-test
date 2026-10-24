@@ -111,7 +111,6 @@ test.describe("permission matrix", () => {
     expect(await ui.setRate(pg_uma, {"grade": "C", "pct": "12.50"})).toBe(true);
     expect(await ui.periodAction(pg_uma, "P1", "close")).toBe(true);
     expect(await ui.retire(pg_uma, p_ben, "2026-04-02")).toBe(true);
-    expect(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "4.00"})).toBeNull();
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "10.25"}));
     await ui.showRetired(pg_uma, true);
     expect(await ui.addClaim(pg_uma, p_ben, {"amount": "0.40"})).toBeNull();
@@ -366,7 +365,7 @@ test.describe("permission matrix", () => {
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "C"}));
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "10.35"}));
     const c_cam_1 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "25.00", "date": "2026-03-05"}));
-    expect(await ui.editPerson(pg_uma, p_ben, {"grade": "C", "gradeFrom": "2026-03-20"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ben, {"grade": "C", "gradeFrom": "2026-03-20"}, {"grade": "B"})).toBe(true);
     const c_dot_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "4.00"}));
     const p_dot = await ui.personId(pg_uma, "Dot");
     expect(await ui.statement(pg_uma, p_dot)).toBe(true);
@@ -746,7 +745,7 @@ test.describe("permission matrix", () => {
     expect(await ui.claimAction(pg_wes, c_ada_0, "void")).toBe(true);
     expect(await ui.defer(pg_wes, c_cam_0, "2026-04-21")).toBe(true);
     await ui.refresh(pg_vic);
-    expect(await ui.editPerson(pg_vic, p_cam, {"grade": "C", "gradeFrom": "2026-03-01"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_vic, p_cam, {"grade": "C", "gradeFrom": "2026-03-01"}, {"grade": "B"})).toBe(true);
     expect(await ui.hold(pg_vic, p_cam, {"from": "2026-03-01", "to": "2026-03-20"})).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");

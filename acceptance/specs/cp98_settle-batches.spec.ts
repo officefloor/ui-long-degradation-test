@@ -131,7 +131,7 @@ test.describe("settle batches", () => {
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.unstate(pg_vic, p_ada)).toBe(true);
     const c_cam_0 = ui.must(await ui.addClaim(pg_vic, p_cam, {"amount": "1.00", "date": "2026-03-15", "note": "n"}));
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Cam", "amount": "20.00"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Cam", "amount": "20.00"}, p_cam));
     expect(await ui.statement(pg_vic, p_ben)).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");

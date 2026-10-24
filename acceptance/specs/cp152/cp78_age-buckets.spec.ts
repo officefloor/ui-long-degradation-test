@@ -100,9 +100,9 @@ test.describe("age buckets", () => {
     expect(await ui.pasteClaims(pg_wes, "Cam,0.40,,\nCam,0.04,,")).toBe(2);
     const c_cam_0 = await ui.claimAt(pg_wes, p_cam, 0);
     const c_cam_1 = await ui.claimAt(pg_wes, p_cam, 1);
-    const c_cam_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Cam", "amount": "0.40"}));
+    const c_cam_2 = ui.must(await ui.quickAdd(pg_wes, {"name": "Cam", "amount": "0.40"}, p_cam));
     expect(await ui.pasteClaims(pg_wes, "Ben,0.04,2026-04-02,\nCam,7.77,,\nBen,4.00,,")).toBeNull();
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "99.95"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "99.95"}, p_ben));
     const c_ben_1 = ui.must(await ui.addClaim(pg_wes, p_ben, {"amount": "4.00", "date": "2026-03-01", "note": "n"}));
     expect(await ui.statement(pg_wes, p_cam)).toBe(true);
     await ui.refresh(pg_wes);
@@ -567,7 +567,7 @@ test.describe("age buckets", () => {
     await expect(pg_uma.getByTestId("header-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("header-overdue-total")).toHaveText("0.00");
     await ui.setSetting(pg_uma, "clerk-limit", "");
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C", "gradeFrom": "2026-04-02"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C", "gradeFrom": "2026-04-02"}, {"grade": "B"})).toBe(true);
     await ui.refresh(pg_vic);
     expect(await ui.periodAction(pg_vic, "P1", "reopen")).toBe(true);
     expect(await ui.setSettingDated(pg_vic, "note-threshold", "1.00", "2026-03-20", "1.00")).toBe(true);

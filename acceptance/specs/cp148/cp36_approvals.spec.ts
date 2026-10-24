@@ -646,7 +646,7 @@ test.describe("approvals", () => {
     expect(await ui.editPerson(pg_uma, p_ada, {"grade": "A"})).toBe(true);
     const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "7.77"}));
     const pg_wes = await ui.userPage(browser, "wes", sheet);
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ada", "amount": "0.04"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ada", "amount": "0.04"}, p_ada));
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("0.00");

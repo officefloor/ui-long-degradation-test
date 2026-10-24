@@ -1044,7 +1044,7 @@ test.describe("period claim counts", () => {
       `CLAIM_OPENED sheet=${sheet} by=wes person=Ada amount=12.50 date=2026-03-05`,
       `CLAIM_ADDED sheet=${sheet} by=wes person=Ada amount=12.50 date=2026-03-05`
     ]);
-    expect(await ui.setSettingDated(pg_wes, "floor", "0.50", "2026-03-20", "")).toBe(true);
+    expect(await ui.setSettingDated(pg_wes, "floor", "0.50", "2026-03-20", "1.00")).toBe(true);
     expect(await ui.hold(pg_wes, p_ada, {"from": "2026-03-15"})).toBe(true);
     expect(await ui.statement(pg_wes, p_ada)).toBe(true);
     expect(await ui.periodAction(pg_wes, "P1", "soft-close")).toBe(true);

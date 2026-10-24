@@ -400,7 +400,7 @@ test.describe("retire", () => {
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.claimAction(pg_vic, c_cam_0, "open")).toBe(true);
     await ui.refresh(pg_uma);
-    const c_ada_2 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "4.00"}));
+    const c_ada_2 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "4.00"}, p_ada));
     await ui.setToday(pg_uma, "2026-05-19");
     expect(await ui.claimAction(pg_uma, c_ada_1, "open")).toBe(true);
     expect(await ui.retire(pg_uma, p_ben, "2026-03-15")).toBe(true);

@@ -17,7 +17,7 @@ test.describe("entry date", () => {
     await ui.setSetting(pg_uma, "entry-date", "2026-03-05");
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "10.00"}));
     const c_ada_1 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "20.00", "date": "2026-03-09"}));
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "5.00"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "5.00"}, p_ben));
     expect(await ui.pasteClaims(pg_uma, "Ada,1.00,,\nBen,2.00,2026-03-01,")).toBe(2);
     const c_ada_2 = await ui.claimAt(pg_uma, p_ada, 2);
     const c_ben_1 = await ui.claimAt(pg_uma, p_ben, 1);
@@ -450,7 +450,7 @@ test.describe("entry date", () => {
     await expect(pg_wes.getByTestId("header-overdue-total")).toHaveText("0.00");
     expect(await ui.generatePeriods(pg_wes, "2026-01-15", "2026-02-20")).toBe(2);
     const c_ada_0 = ui.must(await ui.addClaim(pg_wes, p_ada, {"amount": "0.04", "note": "n"}));
-    expect(await ui.editPerson(pg_wes, p_ada, {"grade": "C", "gradeFrom": "2026-03-15"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_wes, p_ada, {"grade": "C", "gradeFrom": "2026-03-15"}, {"grade": "B"})).toBe(true);
     expect(await ui.claimAction(pg_wes, c_ada_0, "open")).toBe(true);
     expect(await ui.addProof(pg_wes, c_ben_1)).toBe(true);
     await ui.refresh(pg_wes);

@@ -267,7 +267,8 @@ test.describe("monthly totals", () => {
       `CLAIM_ADDED sheet=${sheet} by=uma person=Cam amount=20.00 date=2026-03-05 ref=inv 7`,
       `HOLIDAY_ADDED sheet=${sheet} by=uma date=2026-03-27`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=0.04 date=2026-03-28`,
-      `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=4.00 date=2026-02-10`
+      `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=4.00 date=2026-02-10`,
+      `LATE_ENTRY sheet=${sheet} by=uma person=Ada amount=4.00 date=2026-02-10`
     ]);
     await ui.clearAsOf(pg_uma);
     await ui.refresh(pg_uma);
@@ -360,7 +361,7 @@ test.describe("monthly totals", () => {
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-late-entry")).toHaveText("no");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-late-entry")).toHaveText("yes");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-reminded")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-ref")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-tags")).toHaveText("");
@@ -534,7 +535,8 @@ test.describe("monthly totals", () => {
       `CLAIM_ADDED sheet=${sheet} by=uma person=Cam amount=20.00 date=2026-03-05 ref=inv 7`,
       `HOLIDAY_ADDED sheet=${sheet} by=uma date=2026-03-27`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=0.04 date=2026-03-28`,
-      `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=4.00 date=2026-02-10`
+      `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=4.00 date=2026-02-10`,
+      `LATE_ENTRY sheet=${sheet} by=uma person=Ada amount=4.00 date=2026-02-10`
     ]);
   });
   test("monthly totals scenario 2", { tag: '@functionality' }, async ({ browser }) => {

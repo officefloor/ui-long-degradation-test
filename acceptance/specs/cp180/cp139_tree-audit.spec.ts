@@ -133,7 +133,7 @@ test.describe("tree audit", () => {
     await expect(pg_wes.getByTestId("my-due-total")).toHaveText("");
     await expect(pg_wes.getByTestId("my-overdue-total")).toHaveText("");
     expect(await ui.inlineGrade(pg_wes, p_ben, "A")).toBe(true);
-    expect(await ui.editPerson(pg_wes, p_ben, {"grade": "C", "gradeFrom": "2026-03-01"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_wes, p_ben, {"grade": "C", "gradeFrom": "2026-03-01"}, {"grade": "A"})).toBe(true);
     expect(await ui.watch(pg_wes, p_ada, true)).toBe(true);
     await ui.refresh(pg_wes);
     expect(await ui.periodAction(pg_wes, "P2", "reopen")).toBe(true);
@@ -365,7 +365,7 @@ test.describe("tree audit", () => {
       `PERSON_EDITED sheet=${sheet} by=wes name=Ben grade=A`,
       `PERIOD_REOPENED sheet=${sheet} by=wes period=P1`,
       `RATE_SET sheet=${sheet} by=wes grade=C rate=10.00`,
-      `PERSON_EDITED sheet=${sheet} by=wes name=Ada grade=A terms=`,
+      `PERSON_EDITED sheet=${sheet} by=wes name=Ada grade=A`,
       `PERSON_EDITED sheet=${sheet} by=wes name=Ada grade=B`
     ]);
   });

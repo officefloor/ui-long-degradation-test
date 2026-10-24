@@ -610,7 +610,10 @@ it." That has three consequences worth stating.
 The agent is given a single command, `acceptance.agent_test_cmd` (for example `./e2e`), pinned into
 the app and documented in the pinned `CLAUDE.md`. It builds the app, brings it up via `app.start`,
 runs the currently-visible spec or specs only, and tears down (`app.stop`). Blind holds by construction, because the agent can only run what it can see, its own
-checkpoint's spec, never the withheld priors. This is exactly the REST arm's condition, the agent
+checkpoint's spec, never the withheld priors. The run frees the agent's port (`fuser -k`) before
+and after every agent turn: the calibration run showed an agent's hand-started `bin/start` outliving
+its turn, so the next agent's `./e2e` tested a stale app and watched every spec fail; `./e2e` itself
+now refuses a port already served and waits out a slow start instead of running against nothing. This is exactly the REST arm's condition, the agent
 iterating against its own test, moved to a served, full-stack app.
 
 ### Scoring is still the post-turn gate, not the agent's runs

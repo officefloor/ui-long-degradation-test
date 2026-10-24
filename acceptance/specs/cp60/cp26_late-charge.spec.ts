@@ -496,7 +496,7 @@ test.describe("late charge", () => {
     await expect(pg_wes.getByTestId("rollup-overdue-total")).toHaveText("3.42");
     expect(await ui.claimAction(pg_wes, c_cam_0, "void")).toBe(true);
     expect(await ui.addClaim(pg_wes, p_cam, {"amount": "12.50", "date": "2026-03-20"})).toBeNull();
-    const c_ben_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "0.04"}));
+    const c_ben_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ben", "amount": "0.04"}, p_ben));
     expect(await ui.addClaim(pg_wes, p_cam, {"amount": "10.25"})).toBeNull();
     await ui.setToday(pg_wes, "2026-04-11");
     expect(await ui.setRate(pg_wes, {"grade": "B", "pct": "20.00", "from": "2026-03-01"})).toBe(true);

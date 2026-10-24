@@ -189,7 +189,7 @@ test.describe("duplicate claims", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("2026-02-10");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -326,7 +326,7 @@ test.describe("duplicate claims", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("2.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -759,7 +759,7 @@ test.describe("duplicate claims", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("yes");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("4");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1153,7 +1153,7 @@ test.describe("duplicate claims", () => {
     expect(await ui.retire(pg_uma, p_ada, "2026-02-25")).toBe(true);
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     await ui.showRetired(pg_wes, true);
-    expect(await ui.flag(pg_wes, p_ada, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_wes, p_ada, "late", "2026-03-12", "")).toBe(true);
     expect(await ui.statement(pg_wes, p_ada)).toBe(true);
     expect(await ui.setSettingDated(pg_wes, "clerk-limit", "1.50", "2026-03-28", "1.50")).toBe(true);
     await ui.showRetired(pg_wes, true);

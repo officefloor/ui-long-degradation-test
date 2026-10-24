@@ -145,7 +145,7 @@ test.describe("numbering per period", () => {
     expect(await ui.claimAction(pg_uma, c_ada_0, "void")).toBe(true);
     const c_ben_2 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "3.33", "date": "2026-04-02"}));
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "7.77"}));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "7.77"}, p_ada));
     expect(await ui.addPatron(pg_uma, p_ben, "Ada")).toBe(true);
     expect(await ui.periodAction(pg_uma, "P2", "close")).toBe(true);
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "7.77"}));
@@ -680,7 +680,7 @@ test.describe("numbering per period", () => {
     await expect(pg_uma.getByTestId("rollup-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("0.00");
-    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-04-02"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-04-02"}, {"grade": "A"})).toBe(true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     await ui.showRetired(pg_vic, true);
     const c_cam_0 = ui.must(await ui.addClaim(pg_vic, p_cam, {"amount": "25.00"}));

@@ -1105,7 +1105,7 @@ test.describe("export claims", () => {
     await expect(pg_uma.getByTestId("my-overdue-total")).toHaveText("");
     expect(await ui.setRate(pg_uma, {"grade": "B", "pct": "33.33"})).toBe(true);
     expect(await ui.editInline(pg_uma, c_ada_0, "10.25")).toBe(true);
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "3.33"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "3.33"}, p_ben));
     expect(await ui.editClaim(pg_uma, c_ada_1, {"amount": "7.77"})).toBe(false);
     await ui.showRetired(pg_uma, true);
     expect(await ui.unretire(pg_uma, p_ada)).toBe(true);

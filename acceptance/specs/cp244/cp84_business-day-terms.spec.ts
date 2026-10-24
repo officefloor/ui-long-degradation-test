@@ -150,9 +150,9 @@ test.describe("business day terms", () => {
     expect(await ui.delegate(pg_wes, {"user": "vic", "from": "2026-03-01", "to": "2026-04-02"})).toBe(true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     const c_ben_0 = ui.must(await ui.addClaim(pg_vic, p_ben, {"amount": "10.25", "note": "n"}));
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Cam", "amount": "99.95"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Cam", "amount": "99.95"}, p_cam));
     const c_cam_1 = ui.must(await ui.addClaim(pg_vic, p_cam, {"amount": "0.04", "date": "2026-03-20", "note": "n"}));
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "10.25"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "10.25"}, p_ada));
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("0.00");

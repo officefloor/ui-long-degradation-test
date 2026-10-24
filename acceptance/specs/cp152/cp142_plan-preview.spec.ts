@@ -500,7 +500,7 @@ test.describe("plan preview", () => {
     expect(await ui.periodAction(pg_wes, "P1", "reopen")).toBe(true);
     expect(await ui.addComment(pg_wes, c_fay_0, "see note")).toBe(true);
     expect(await ui.setRate(pg_wes, {"grade": "A", "pct": "5.00"})).toBe(true);
-    const c_fay_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Fay", "amount": "3.33"}));
+    const c_fay_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Fay", "amount": "3.33"}, p_fay));
     expect(await ui.setRate(pg_wes, {"grade": "C", "pct": "33.33", "from": "2026-03-01", "to": "2026-03-12"})).toBe(true);
     expect(await ui.addLine(pg_wes, c_fay_1, {"label": "y", "qty": "3", "unit": "4.00"})).toBe(true);
     const c_fay_2 = ui.must(await ui.split(pg_wes, p_fay, c_fay_0, "4.00"));
@@ -540,7 +540,7 @@ test.describe("plan preview", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("2026-02-10");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("4.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("4.00");
@@ -626,7 +626,7 @@ test.describe("plan preview", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("4.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("4.00");

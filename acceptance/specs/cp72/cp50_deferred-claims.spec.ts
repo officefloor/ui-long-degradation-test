@@ -386,7 +386,7 @@ test.describe("deferred claims", () => {
     expect(await ui.statement(pg_uma, p_ben)).toBe(true);
     const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "0.40"}));
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "12.50", "date": "2026-02-25"}));
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "25.00"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "25.00"}, p_cam));
     expect(await ui.claimAction(pg_uma, c_cam_1, "open")).toBe(true);
     expect(await ui.addPatron(pg_uma, p_cam, "Ada")).toBe(true);
     expect(await ui.editClaim(pg_uma, c_ben_0, {"date": "2026-03-01"})).toBe(true);

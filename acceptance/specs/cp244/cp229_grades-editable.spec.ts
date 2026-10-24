@@ -196,7 +196,7 @@ test.describe("grades editable", () => {
     expect(await ui.addCrewMember(pg_uma, "C1", "Ben")).toBe(true);
     expect(await ui.editPerson(pg_uma, p_ben, {"terms": ""})).toBe(true);
     expect(await ui.pasteClaims(pg_uma, "Ada,25.00,,\nAda,10.35,2026-03-20,\nAda,99.95,,a, b")).toBeNull();
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "10.25"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "10.25"}, p_ada));
     expect(await ui.setRate(pg_uma, {"grade": "A", "pct": "12.50"})).toBe(true);
     expect(await ui.addComment(pg_uma, c_ada_0, "see note")).toBe(true);
     expect(await ui.editPerson(pg_uma, p_ben, {"grade": "C", "gradeFrom": "2026-03-28"})).toBe(true);
@@ -280,7 +280,7 @@ test.describe("grades editable", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -606,7 +606,7 @@ test.describe("grades editable", () => {
       `POOL_MEMBER_ADDED sheet=${sheet} by=uma pool=P1 name=Ben share=33.33`,
       `CREW_ADDED sheet=${sheet} by=uma name=C1 lead=Ada`,
       `CREW_MEMBER_ADDED sheet=${sheet} by=uma crew=C1 name=Ben`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C terms=`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=C`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=10.25 date=2026-03-01`,
       `RATE_SET sheet=${sheet} by=uma grade=A rate=12.50`,
       `COMMENT_ADDED sheet=${sheet} by=uma person=Ada amount=10.25 date=2026-03-01 text=see note`,
@@ -1617,7 +1617,7 @@ test.describe("grades editable", () => {
       `PERSON_ALIAS_ADDED sheet=${sheet} by=uma name=Ben alias=Bee`,
       `SNAPSHOT sheet=${sheet} by=uma name=Ben due-total=0.00`,
       `SNAPSHOT sheet=${sheet} by=uma name=Ada due-total=n/a`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=B terms=20`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=B`,
       `RATE_SET sheet=${sheet} by=uma grade=A rate=20.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=12.50 from=2026-03-05`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=1.00 date=2026-03-28`,
@@ -2064,7 +2064,7 @@ test.describe("grades editable", () => {
       `PERSON_ALIAS_ADDED sheet=${sheet} by=uma name=Ben alias=Bee`,
       `SNAPSHOT sheet=${sheet} by=uma name=Ben due-total=0.00`,
       `SNAPSHOT sheet=${sheet} by=uma name=Ada due-total=n/a`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=B terms=20`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=B`,
       `RATE_SET sheet=${sheet} by=uma grade=A rate=20.00`,
       `RATE_SET sheet=${sheet} by=uma grade=B rate=12.50 from=2026-03-05`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ben amount=1.00 date=2026-03-28`,

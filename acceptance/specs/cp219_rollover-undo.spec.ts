@@ -1074,14 +1074,14 @@ test.describe("rollover undo", () => {
     await expect(pg_uma.getByTestId("my-overdue-total")).toHaveText("");
     await expect(pg_uma.getByTestId("my-crew-due-total")).toHaveText("");
     await expect(pg_uma.getByTestId("my-reviews-count")).toHaveText("0");
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "99.95"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "99.95"}, p_ada));
     const c_ada_1 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "7.77", "date": "2026-03-15", "tags": "b,a,a"}));
     const c_ada_2 = ui.must(await ui.addClaimTwice(pg_uma, p_ada, {"amount": "4.00", "date": "2026-02-10"}));
     expect(await ui.claimCount(pg_uma, p_ada)).toBe(3);
     expect(await ui.watch(pg_uma, p_ada, true)).toBe(true);
     expect(await ui.editInline(pg_uma, c_ada_2, "7.77")).toBe(true);
     const pg_wes = await ui.userPage(browser, "wes", sheet);
-    expect(await ui.flag(pg_wes, p_ada, "late", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_wes, p_ada, "late", "2026-03-12", "")).toBe(true);
     expect(await ui.statement(pg_wes, p_ada)).toBe(true);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");
@@ -1125,7 +1125,7 @@ test.describe("rollover undo", () => {
     const p_dot = ui.must(await ui.addPerson(pg_wes, {"name": "Dot", "grade": "B"}));
     expect(await ui.search(pg_wes, "e")).toEqual([`${sheet}-p Ben (A) 1.00`]);
     expect(await ui.inlineGrade(pg_wes, p_dot, "B")).toBe(true);
-    const c_dot_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Dot", "amount": "7.77"}));
+    const c_dot_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Dot", "amount": "7.77"}, p_dot));
     expect(await ui.periodAction(pg_wes, "P1", "close")).toBe(true);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_dot).getByTestId("person-claimed")).toHaveText("0.00");
@@ -1160,7 +1160,7 @@ test.describe("rollover undo", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1425,9 +1425,9 @@ test.describe("rollover undo", () => {
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "C", "contact": "ADA@X"}));
     expect(await ui.addCrew(pg_uma, "C1", "Cam")).toBe(true);
     expect(await ui.addCrewMember(pg_uma, "C1", "Ben")).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_cam, {"terms": "3", "termsFrom": "2026-03-12"})).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"terms": "3", "termsFrom": "2026-03-12"}, {"terms": ""})).toBe(true);
     const pl_cam_1 = ui.must(await ui.addPlan(pg_uma, p_cam, {"amount": "1.00", "start": "2026-03-01", "end": "2026-04-30", "every": "7"}));
-    expect(await ui.snapshotCompare(pg_uma, "2026-03-10", "2026-03-10")).toEqual(["Cam  ", "Ben  "]);
+    expect(await ui.snapshotCompare(pg_uma, "2026-03-10", "2026-03-10")).toEqual(["Cam", "Ben"]);
     expect(await ui.pasteClaims(pg_uma, "Ben,10.35,2026-03-01,\nBen,4.00,,paste\nBen,25.00,,")).toBeNull();
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.rollover(pg_vic, "2026")).toBeNull();
@@ -1516,7 +1516,7 @@ test.describe("rollover undo", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("yes");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

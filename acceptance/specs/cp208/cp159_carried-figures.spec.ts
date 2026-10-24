@@ -1092,7 +1092,7 @@ test.describe("carried figures", () => {
     await expect(pg_wes.getByTestId("my-overdue-total")).toHaveText("");
     expect(await ui.editPerson(pg_wes, p_dot, {"grade": "C", "gradeFrom": "2026-03-09"})).toBe(true);
     expect(await ui.addAlias(pg_wes, p_dot, "")).toBe(false);
-    const c_dot_3 = ui.must(await ui.quickAdd(pg_wes, {"name": "Dot", "amount": "0.40"}));
+    const c_dot_3 = ui.must(await ui.quickAdd(pg_wes, {"name": "Dot", "amount": "0.40"}, p_dot));
     expect(await ui.inlineGrade(pg_wes, p_dot, "C")).toBe(true);
     expect(await ui.watch(pg_wes, p_dot, true)).toBe(true);
     await ui.refresh(pg_wes);
@@ -1126,7 +1126,7 @@ test.describe("carried figures", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("yes");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1243,7 +1243,7 @@ test.describe("carried figures", () => {
       `CLAIM_ADDED sheet=${sheet} by=wes person=Dot amount=7.77 date=2026-04-23 ref=R-2`,
       `CLAIM_ADDED sheet=${sheet} by=wes person=Dot amount=7.77 date=2026-04-23 ref=R-1`,
       `PERSON_HELD sheet=${sheet} by=wes name=Dot from=2026-02-10`,
-      `PERSON_EDITED sheet=${sheet} by=wes name=Dot grade=C terms=`,
+      `PERSON_EDITED sheet=${sheet} by=wes name=Dot grade=C`,
       `CLAIM_PROOF_ADDED sheet=${sheet} by=wes person=Dot amount=7.77 date=2026-04-23 proofs=1`,
       `PERIOD_ADDED sheet=${sheet} by=wes period=2026-01 from=2026-01-01 to=2026-01-31`,
       `PERIOD_ADDED sheet=${sheet} by=wes period=2026-02 from=2026-02-01 to=2026-02-28`,

@@ -30,7 +30,7 @@ test.describe("name with grade", () => {
     await expect(pg_uma.getByTestId("crew-row-Red").getByTestId("crew-lead")).toHaveText("Ben (B)");
     await expect(pg_uma.getByTestId("crew-row-Red").getByTestId("crew-due-total")).toHaveText("0.00");
     expect(await ui.editPerson(pg_uma, p_ben, {"grade": "A", "gradeFrom": "2026-03-05"})).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "A", "gradeFrom": "2026-03-15"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "A", "gradeFrom": "2026-03-15"}, {"grade": "C"})).toBe(true);
     expect(await ui.search(pg_uma, "a")).toEqual([`${sheet} Ada (A) 1.00`, `${sheet} Cam (C) n/a`]);
     expect(await ui.exportCsv(pg_uma)).toBe("name,grade,retired-from,due-total\nAda,A,,1.00\nBen,A,,0.00\nCam,C,,n/a\n");
     await ui.refresh(pg_uma);
@@ -174,7 +174,7 @@ test.describe("name with grade", () => {
     expect(await ui.hold(pg_vic, p_cam, {"from": "2026-03-05"})).toBe(true);
     const c_cam_0 = ui.must(await ui.claimFromTemplate(pg_vic, p_cam, "T1"));
     await ui.refresh(pg_uma);
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.04"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.04"}, p_cam));
     expect(await ui.retire(pg_uma, p_cam, "2026-03-09")).toBe(true);
     await ui.showRetired(pg_uma, true);
     expect(await ui.addClaim(pg_uma, p_cam, {"amount": "0.04", "note": "n", "ref": " r-1 "})).toBeNull();
@@ -655,7 +655,7 @@ test.describe("name with grade", () => {
     expect(await ui.addProof(pg_uma, c_ben_2)).toBe(true);
     expect(await ui.ratePreview(pg_uma, "B", "5.00")).toEqual({ count: 0, diff: "0.00" });
     const pg_wes = await ui.userPage(browser, "wes", sheet);
-    expect(await ui.flag(pg_wes, p_ben, "late", "2026-04-30")).toBe(true);
+    expect(await ui.flag(pg_wes, p_ben, "late", "2026-04-30", "late")).toBe(true);
     expect(await ui.claimEditOpen(pg_wes, c_ben_0)).toBe(true);
     await ui.refresh(pg_uma);
     expect(await ui.claimEditOpen(pg_uma, c_ben_0)).toBe(false);
@@ -740,7 +740,7 @@ test.describe("name with grade", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

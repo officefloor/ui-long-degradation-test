@@ -242,7 +242,7 @@ test.describe("grade dated", () => {
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "C"}));
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "10.25", "date": "2026-03-01"}));
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "0.04"}));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "0.04"}, p_ada));
     await ui.setToday(pg_uma, "2026-04-08");
     expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "A", "pct": "33.33", "from": "2026-03-01"})).toBe(true);
@@ -466,7 +466,7 @@ test.describe("grade dated", () => {
     await expect(pg_wes.getByTestId("rollup-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("rollup-overdue-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("rollup-overdue-total")).toHaveText("0.00");
-    const c_dot_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Dot", "amount": "12.50"}));
+    const c_dot_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Dot", "amount": "12.50"}, p_dot));
     const c_cam_0 = ui.must(await ui.addClaim(pg_wes, p_cam, {"amount": "7.77"}));
     expect(await ui.setRate(pg_wes, {"grade": "A", "pct": "7.50"})).toBe(true);
     expect(await ui.editPerson(pg_wes, p_dot, {"grade": "A"})).toBe(true);

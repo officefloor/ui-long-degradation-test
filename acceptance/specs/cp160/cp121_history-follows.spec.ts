@@ -35,7 +35,7 @@ test.describe("history follows", () => {
     const c_ada_0_2 = await ui.claimAt(pg_vic, p_ada_2, 0);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ada_2).getByTestId("person-name")).toHaveText("Ada");
-    await expect(pg_vic.getByTestId("person-row-" + p_ada_2).getByTestId("person-origin")).toHaveText("__SHEET__");
+    await expect(pg_vic.getByTestId("person-row-" + p_ada_2).getByTestId("person-origin")).toHaveText(`${sheet}`);
     await expect(pg_vic.getByTestId("person-row-" + p_ada_2).getByTestId("person-grade")).toHaveText("B");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0_2).getByTestId("claim-status")).toHaveText("OPEN");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_0_2).getByTestId("claim-due")).toHaveText("n/a");
@@ -67,7 +67,7 @@ test.describe("history follows", () => {
       `RATE_SET sheet=${sheet}-t by=uma grade=A rate=20.00`
     ]);
     await ui.refresh(pg_vic);
-    await expect(pg_vic.getByTestId("person-row-" + p_ada_2).getByTestId("person-origin")).toHaveText("__SHEET__");
+    await expect(pg_vic.getByTestId("person-row-" + p_ada_2).getByTestId("person-origin")).toHaveText(`${sheet}`);
     await ui.expectAudit(`${sheet}-t`, [
       `RATE_SET sheet=${sheet}-t by=uma grade=A rate=20.00`,
       `PERSON_TRANSFERRED sheet=${sheet}-t by=vic name=Ada from=${sheet}`,
@@ -215,7 +215,7 @@ test.describe("history follows", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("2026-02-10");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -309,7 +309,7 @@ test.describe("history follows", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -616,7 +616,7 @@ test.describe("history follows", () => {
     await expect(pg_wes.getByTestId("header-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("header-overdue-total")).toHaveText("0.00");
     const c_ada_1 = ui.must(await ui.split(pg_wes, p_ada, c_ben_0, "1.00"));
-    const c_dot_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Dot", "amount": "0.04"}));
+    const c_dot_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Dot", "amount": "0.04"}, p_dot));
     expect(await ui.statement(pg_wes, p_cam)).toBe(true);
     await ui.refresh(pg_uma);
     expect(await ui.claimAction(pg_uma, c_ada_1, "settle")).toBe(true);
@@ -900,7 +900,7 @@ test.describe("history follows", () => {
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_4).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_4).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_4).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_uma.getByTestId("claim-row-" + c_ada_4).getByTestId("claim-late-entry")).toHaveText("no");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ada_4).getByTestId("claim-late-entry")).toHaveText("yes");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_4).getByTestId("claim-reminded")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_4).getByTestId("claim-ref")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_4).getByTestId("claim-tags")).toHaveText("");
@@ -972,7 +972,7 @@ test.describe("history follows", () => {
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-late-entry")).toHaveText("no");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-reminded")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-ref")).toHaveText("");
-    await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-tags")).toHaveText("");
+    await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-tags")).toHaveText("c");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-comments-line")).toHaveText([]);
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-batch")).toHaveText("");
     await expect(pg_uma.getByTestId("claim-row-" + c_ben_0).getByTestId("claim-amount")).toHaveText("6.77");
@@ -1119,7 +1119,7 @@ test.describe("history follows", () => {
     await expect(pg_uma.getByTestId("summary-status-VOID-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("summary-void-error-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("summary-void-late-count")).toHaveText("0");
-    await expect(pg_uma.getByTestId("tag-c-due-total")).toHaveText("1.00");
+    await expect(pg_uma.getByTestId("tag-c-due-total")).toHaveText("2.00");
     await expect(pg_uma.getByTestId("month-2026-02-due-total")).toHaveText("1.00");
     await expect(pg_uma.getByTestId("month-2026-03-due-total")).toHaveText("4.88");
     await expect(pg_uma.getByTestId("pool-row-P1").getByTestId("pool-total-share")).toHaveText("110.00");
@@ -1205,6 +1205,7 @@ test.describe("history follows", () => {
       `TOTALS sheet=${sheet} by=uma claimed-total=43.87 due-total=1.00 overdue-total=1.00`,
       `PERIOD_SOFT_CLOSED sheet=${sheet} by=uma period=2026-03 total=0.00`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=4.00 date=2026-02-10`,
+      `LATE_ENTRY sheet=${sheet} by=uma person=Ada amount=4.00 date=2026-02-10`,
       `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=B`,
       `PERSON_EDITED sheet=${sheet} by=uma name=Ada grade=B`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Ada amount=-1.00 date=2026-03-05`,

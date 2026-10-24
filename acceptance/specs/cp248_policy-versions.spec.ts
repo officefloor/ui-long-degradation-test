@@ -14,7 +14,7 @@ test.describe("policy versions", () => {
     expect(await ui.setRole(pg_uma, "vic", "steward")).toBe(true);
     await ui.setSetting(pg_uma, "clerk-limit", "1.50");
     await ui.setSetting(pg_uma, "cap", "3.00");
-    expect(await ui.setSettingDated(pg_uma, "floor", "2.00", "2026-03-05", "")).toBe(true);
+    expect(await ui.setSettingDated(pg_uma, "floor", "2.00", "2026-03-05", "1.00")).toBe(true);
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "10.00", "date": "2026-02-20"}));
     const c_ada_1 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "20.00"}));
     const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "40.00", "date": "2026-02-25"}));
@@ -710,7 +710,7 @@ test.describe("policy versions", () => {
     expect(await ui.setTodayTry(pg_uma, "2026-04-15")).toBe(false);
     expect(await ui.statement(pg_uma, p_dot)).toBe(true);
     expect(await ui.hold(pg_uma, p_dot, {"from": "2026-03-15"})).toBe(true);
-    const c_dot_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "99.95"}));
+    const c_dot_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "99.95"}, p_dot));
     expect(await ui.importRates(pg_uma, "A,20.00\nC,7.50,2026-03-05")).toBe(2);
     expect(await ui.importPeople(pg_uma, "Eve,A\nFay,B,,")).toMatchObject({"added": 2, "updated": 0});
     const p_eve = await ui.personId(pg_uma, "Eve");
@@ -802,7 +802,7 @@ test.describe("policy versions", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("2026-03-05");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -951,7 +951,7 @@ test.describe("policy versions", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("3");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1432,7 +1432,7 @@ test.describe("policy versions", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("1.00");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

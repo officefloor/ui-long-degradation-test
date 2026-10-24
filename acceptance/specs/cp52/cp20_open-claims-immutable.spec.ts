@@ -520,7 +520,7 @@ test.describe("open claims immutable", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("0.04");
     await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("1.00");
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "0.40"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "0.40"}, p_ada));
     expect(await ui.editPerson(pg_vic, p_ben, {"grade": "A"})).toBe(true);
     expect(await ui.statement(pg_vic, p_ada)).toBe(true);
     expect(await ui.claimAction(pg_vic, c_ada_0, "open")).toBe(true);
@@ -545,7 +545,7 @@ test.describe("open claims immutable", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_cam_0).getByTestId("claim-stated")).toHaveText("no");
     await expect(pg_vic.getByTestId("rollup-claimed-total")).toHaveText("0.40");
     await expect(pg_vic.getByTestId("rollup-due-total")).toHaveText("1.00");
-    const c_ben_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ben", "amount": "7.77"}));
+    const c_ben_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ben", "amount": "7.77"}, p_ben));
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-name")).toHaveText("Ben");
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-grade")).toHaveText("A");

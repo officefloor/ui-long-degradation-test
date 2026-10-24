@@ -897,7 +897,7 @@ test.describe("claim hold", () => {
     await expect(pg_vic.getByTestId("my-crew-due-total")).toHaveText("");
     expect(await ui.remind(pg_vic, c_ada_0)).toBe(false);
     const pg_wes = await ui.userPage(browser, "wes", sheet);
-    expect(await ui.flag(pg_wes, p_ada, "check", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_wes, p_ada, "check", "2026-03-12", "check")).toBe(true);
     expect(await ui.inlineGrade(pg_wes, p_ada, "C")).toBe(true);
     expect(await ui.statementAsOf(pg_wes, p_ada, "2026-02-25")).toBe(false);
     expect(await ui.claimAction(pg_wes, c_ada_0, "void")).toBe(true);

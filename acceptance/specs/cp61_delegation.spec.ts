@@ -97,7 +97,7 @@ test.describe("delegation", () => {
     expect(await ui.setRate(pg_uma, {"grade": "C", "pct": "12.50"})).toBe(true);
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "0.40", "date": "2026-03-15"}));
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "4.00"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "4.00"}, p_cam));
     const c_cam_2 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "3.33", "date": "2026-03-15"}));
     expect(await ui.exportCsv(pg_uma)).toBe("name,grade,retired-from,due-total\nCam,B,,0.00\nAda,B,,0.00\n");
     await ui.refresh(pg_uma);
@@ -704,7 +704,7 @@ test.describe("delegation", () => {
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "10.35", "date": "2026-03-28"}));
     expect(await ui.editPerson(pg_uma, p_ada, {"grade": "A"})).toBe(true);
     expect(await ui.hold(pg_uma, p_ada, {"from": "2026-03-01", "to": "2026-03-20"})).toBe(true);
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "10.35"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "10.35"}, p_ada));
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(true);
     expect(await ui.addPatron(pg_uma, p_cam, "Ada")).toBe(true);
@@ -734,7 +734,7 @@ test.describe("delegation", () => {
     await expect(pg_uma.getByTestId("header-due-total")).toHaveText("2.00");
     await expect(pg_uma.getByTestId("header-overdue-total")).toHaveText("0.00");
     expect(await ui.claimAction(pg_uma, c_cam_0, "void")).toBe(true);
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "10.25"}));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "10.25"}, p_ada));
     expect(await ui.addProof(pg_uma, c_ada_1)).toBe(true);
     expect(await ui.addProof(pg_uma, c_ada_1)).toBe(true);
     const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "7.77", "date": "2026-03-01"}));

@@ -417,8 +417,8 @@ test.describe("rounding policy date", () => {
     const p_ada = ui.must(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "A"}));
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "A"}));
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "C"}));
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "20.00"}));
-    expect(await ui.editPerson(pg_uma, p_ben, {"grade": "B", "gradeFrom": "2026-03-20"}, "C")).toBe(true);
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "20.00"}, p_cam));
+    expect(await ui.editPerson(pg_uma, p_ben, {"grade": "B", "gradeFrom": "2026-03-20"}, {"grade": "C"})).toBe(true);
     const c_cam_1 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "3.33"}));
     await ui.setSetting(pg_uma, "floor", "2.00");
     expect(await ui.retire(pg_uma, p_cam, "2026-02-10")).toBe(true);

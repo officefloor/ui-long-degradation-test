@@ -162,12 +162,12 @@ test.describe("plans", () => {
     expect(await ui.addPatron(pg_uma, p_ada, "Cam")).toBe(true);
     expect(await ui.importPeople(pg_uma, "Ada,A\nFay,A,3,")).toMatchObject({"added": 1, "updated": 1});
     const p_fay = await ui.personId(pg_uma, "Fay");
-    expect(await ui.editPerson(pg_uma, p_fay, {"grade": "C", "gradeFrom": "2026-03-28"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_fay, {"grade": "C", "gradeFrom": "2026-03-28"}, {"grade": "A"})).toBe(true);
     const c_fay_0 = ui.must(await ui.addClaimTwice(pg_uma, p_fay, {"amount": "20.00", "date": "2026-03-09"}));
     expect(await ui.claimCount(pg_uma, p_fay)).toBe(1);
     expect(await ui.claimAction(pg_uma, c_fay_0, "open")).toBe(true);
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C", "gradeFrom": "2026-03-01"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C", "gradeFrom": "2026-03-01"}, {"grade": "A"})).toBe(true);
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("0.00");
@@ -693,7 +693,7 @@ test.describe("plans", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("2026-02-10");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -771,6 +771,7 @@ test.describe("plans", () => {
       `SNAPSHOT sheet=${sheet} by=vic name=Dot due-total=2.00`,
       `STATEMENT sheet=${sheet} by=vic name=Ada due-total=0.00 claims=0`,
       `CLAIM_ADDED sheet=${sheet} by=vic person=Ada amount=10.35 date=2026-02-10 ref=inv 7`,
+      `LATE_ENTRY sheet=${sheet} by=vic person=Ada amount=10.35 date=2026-02-10`,
       `CLAIM_OPENED sheet=${sheet} by=wes person=Ada amount=10.35 date=2026-02-10 number=P1-1`,
       `ROLLUP sheet=${sheet} by=wes person=Ada claimed=10.35 due-total=2.07 overdue-total=2.07`,
       `TOTALS sheet=${sheet} by=wes claimed-total=10.39 due-total=4.07 overdue-total=2.07`,
@@ -786,7 +787,7 @@ test.describe("plans", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("3");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -838,7 +839,7 @@ test.describe("plans", () => {
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-late-entry")).toHaveText("no");
+    await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-late-entry")).toHaveText("yes");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-reminded")).toHaveText("");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-ref")).toHaveText("inv 7");
     await expect(pg_vic.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-tags")).toHaveText("");
@@ -1084,6 +1085,7 @@ test.describe("plans", () => {
       `SNAPSHOT sheet=${sheet} by=vic name=Dot due-total=2.00`,
       `STATEMENT sheet=${sheet} by=vic name=Ada due-total=0.00 claims=0`,
       `CLAIM_ADDED sheet=${sheet} by=vic person=Ada amount=10.35 date=2026-02-10 ref=inv 7`,
+      `LATE_ENTRY sheet=${sheet} by=vic person=Ada amount=10.35 date=2026-02-10`,
       `CLAIM_OPENED sheet=${sheet} by=wes person=Ada amount=10.35 date=2026-02-10 number=P1-1`,
       `ROLLUP sheet=${sheet} by=wes person=Ada claimed=10.35 due-total=2.07 overdue-total=2.07`,
       `TOTALS sheet=${sheet} by=wes claimed-total=10.39 due-total=4.07 overdue-total=2.07`,

@@ -322,7 +322,7 @@ test.describe("due by and overdue", () => {
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "C"}));
     const p_ben = ui.must(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "C"}));
     expect(await ui.periodAction(pg_uma, "P2", "close")).toBe(true);
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "3.33"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "3.33"}, p_cam));
     expect(await ui.periodAction(pg_uma, "P1", "close")).toBe(true);
     expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C"})).toBe(true);
     expect(await ui.addClaim(pg_uma, p_cam, {"amount": "3.33"})).toBeNull();

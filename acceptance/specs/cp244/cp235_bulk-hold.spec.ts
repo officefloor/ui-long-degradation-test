@@ -1194,12 +1194,12 @@ test.describe("bulk hold", () => {
     expect(await ui.addPeriod(pg_uma, {"name": "P2", "from": "2026-03-16", "to": "2026-03-31"})).toBe(true);
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "B", "contact": "ben@x", "tags": "c"}));
     expect(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "C", "contact": "ben@x"})).toBeNull();
-    expect(await ui.editPerson(pg_uma, p_cam, {"terms": "20", "termsFrom": "2026-03-12"})).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"terms": "20", "termsFrom": "2026-03-12"}, {"terms": ""})).toBe(true);
     await ui.setToday(pg_uma, "2026-03-31");
     expect(await ui.editPerson(pg_uma, p_cam, {"grade": "B", "gradeFrom": "2026-03-09"})).toBe(true);
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.hold(pg_wes, p_cam, {"from": "2026-02-25", "to": "2026-03-09"})).toBe(true);
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Cam", "amount": "10.35"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_wes, {"name": "Cam", "amount": "10.35"}, p_cam));
     expect(await ui.hold(pg_wes, p_cam, {"from": "2026-03-01"})).toBe(true);
     expect(await ui.watch(pg_wes, p_cam, true)).toBe(true);
     await ui.refresh(pg_wes);

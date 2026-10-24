@@ -167,7 +167,7 @@ test.describe("watched total", () => {
     await expect(pg_wes.getByTestId("my-reviews-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("watched-due-total")).toHaveText("0.00");
     await ui.refresh(pg_wes);
-    expect(await ui.flag(pg_wes, p_cam, "check", "2026-03-12")).toBe(true);
+    expect(await ui.flag(pg_wes, p_cam, "check", "2026-03-12", "")).toBe(true);
     expect(await ui.claimAction(pg_wes, c_cam_0, "void")).toBe(true);
     const c_cam_0_2 = ui.must(await ui.addClaim(pg_wes, p_cam, {"amount": "99.95", "note": "n"}));
     expect(await ui.editClaim(pg_wes, c_cam_0_2, {"amount": "1.00"})).toBe(true);
@@ -362,7 +362,7 @@ test.describe("watched total", () => {
       `PERSON_ALIAS_ADDED sheet=${sheet} by=wes name=Ben alias=Al`,
       `CLAIM_ADDED sheet=${sheet} by=wes person=Cam amount=20.00 date=2026-04-02`,
       `SETTING_CHANGED sheet=${sheet} by=wes key=cap value= from=2026-03-15`,
-      `PERSON_EDITED sheet=${sheet} by=wes name=Cam grade=A terms=`
+      `PERSON_EDITED sheet=${sheet} by=wes name=Cam grade=A`
     ]);
     await ui.clearAsOf(pg_wes);
     await ui.refresh(pg_wes);
@@ -760,7 +760,7 @@ test.describe("watched total", () => {
       `PERSON_ALIAS_ADDED sheet=${sheet} by=wes name=Ben alias=Al`,
       `CLAIM_ADDED sheet=${sheet} by=wes person=Cam amount=20.00 date=2026-04-02`,
       `SETTING_CHANGED sheet=${sheet} by=wes key=cap value= from=2026-03-15`,
-      `PERSON_EDITED sheet=${sheet} by=wes name=Cam grade=A terms=`
+      `PERSON_EDITED sheet=${sheet} by=wes name=Cam grade=A`
     ]);
   });
   test("watched total scenario 2", { tag: '@functionality' }, async ({ browser }) => {
@@ -1049,7 +1049,7 @@ test.describe("watched total", () => {
       `ROLLUP sheet=${sheet} by=wes person=Eve claimed=0.00 due-total=0.00 overdue-total=0.00`,
       `PERSON_ADDED sheet=${sheet} by=wes name=Fay grade=A`,
       `ROLLUP sheet=${sheet} by=wes person=Fay claimed=0.00 due-total=0.00 overdue-total=0.00`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=B terms=`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=B`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Fay amount=10.25 date=2026-04-02 tags=c`
     ]);
     await ui.clearAsOf(pg_uma);
@@ -1441,7 +1441,7 @@ test.describe("watched total", () => {
       `ROLLUP sheet=${sheet} by=wes person=Eve claimed=0.00 due-total=0.00 overdue-total=0.00`,
       `PERSON_ADDED sheet=${sheet} by=wes name=Fay grade=A`,
       `ROLLUP sheet=${sheet} by=wes person=Fay claimed=0.00 due-total=0.00 overdue-total=0.00`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=B terms=`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Ben grade=B`,
       `CLAIM_ADDED sheet=${sheet} by=uma person=Fay amount=10.25 date=2026-04-02 tags=c`
     ]);
   });

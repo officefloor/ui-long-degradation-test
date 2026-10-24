@@ -109,7 +109,7 @@ test.describe("floor", () => {
     const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben, {"amount": "7.77"}));
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "10.35", "date": "2026-03-01"}));
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
-    const c_ben_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "99.95"}));
+    const c_ben_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ben", "amount": "99.95"}, p_ben));
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     const c_ada_1 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "10.35", "date": "2026-03-01"}));
     await ui.refresh(pg_uma);
@@ -276,7 +276,7 @@ test.describe("floor", () => {
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.claimAction(pg_vic, c_ada_0, "settle")).toBe(true);
     expect(await ui.statement(pg_vic, p_ada)).toBe(true);
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "7.77"}));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "7.77"}, p_ada));
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("1.00");
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("n/a");

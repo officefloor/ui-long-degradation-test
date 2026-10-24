@@ -602,7 +602,7 @@ test.describe("cut history", () => {
     const pl_cam_1 = ui.must(await ui.addPlan(pg_uma, p_cam, {"amount": "0.40", "start": "2026-02-20", "end": "2026-04-30", "day": "15"}));
     expect(await ui.movePerson(pg_uma, p_ben, "up")).toBe(true);
     const c_ada_0 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "3.33"}));
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.04"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.04"}, p_cam));
     expect(await ui.watch(pg_uma, p_ada, true)).toBe(true);
     expect(await ui.addLine(pg_uma, c_ada_0, {"label": "x", "qty": "3", "unit": "4.00"})).toBe(true);
     expect(await ui.periodAction(pg_uma, "2026-02", "soft-close")).toBe(true);
@@ -1132,7 +1132,7 @@ test.describe("cut history", () => {
     expect(await ui.editPerson(pg_vic, p_cam, {"grade": "A"})).toBe(true);
     expect(await ui.bulkGrade(pg_vic, [p_cam, p_ada], {"grade": "C", "from": "2026-03-28"})).toBe(2);
     await ui.refresh(pg_vic);
-    expect(await ui.flag(pg_vic, p_cam, "check", "2026-04-30")).toBe(true);
+    expect(await ui.flag(pg_vic, p_cam, "check", "2026-04-30", "check")).toBe(true);
     expect(await ui.editPerson(pg_vic, p_ben, {"grade": "B"})).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ada).getByTestId("person-claimed")).toHaveText("0.00");

@@ -336,7 +336,7 @@ test.describe("tree numbering", () => {
       `CLAIM_EDITED sheet=${sheet} by=uma person=Dot amount=20.00 date=2026-03-15`,
       `CLAIM_EDITED sheet=${sheet} by=uma person=Dot amount=12.50 date=2026-03-15`,
       `CLAIM_VOIDED sheet=${sheet} by=uma person=Dot amount=12.50 date=2026-03-15 reason=error`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Cam grade=C terms=`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Cam grade=C`,
       `PERSON_HELD sheet=${sheet} by=uma name=Ben from=2026-03-28`,
       `PERSON_HELD sheet=${sheet} by=uma name=Ben from=2026-03-01`,
       `PERSON_EDITED sheet=${sheet} by=uma name=Dot grade=B`,
@@ -601,7 +601,7 @@ test.describe("tree numbering", () => {
       `CLAIM_EDITED sheet=${sheet} by=uma person=Dot amount=20.00 date=2026-03-15`,
       `CLAIM_EDITED sheet=${sheet} by=uma person=Dot amount=12.50 date=2026-03-15`,
       `CLAIM_VOIDED sheet=${sheet} by=uma person=Dot amount=12.50 date=2026-03-15 reason=error`,
-      `PERSON_EDITED sheet=${sheet} by=uma name=Cam grade=C terms=`,
+      `PERSON_EDITED sheet=${sheet} by=uma name=Cam grade=C`,
       `PERSON_HELD sheet=${sheet} by=uma name=Ben from=2026-03-28`,
       `PERSON_HELD sheet=${sheet} by=uma name=Ben from=2026-03-01`,
       `PERSON_EDITED sheet=${sheet} by=uma name=Dot grade=B`,
@@ -968,7 +968,7 @@ test.describe("tree numbering", () => {
     expect(await ui.addPerson(pg_uma, {"name": "Ada", "grade": "B", "terms": "3", "contact": "ADA@X"})).toBeNull();
     expect(await ui.addPerson(pg_uma, {"name": "Ben", "grade": "B"})).toBeNull();
     const p_cam = ui.must(await ui.addPerson(pg_uma, {"name": "Cam", "grade": "A"}));
-    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "3.33"}));
+    const c_cam_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "3.33"}, p_cam));
     expect(await ui.claimEditOpen(pg_uma, c_cam_0)).toBe(true);
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.claimEditOpen(pg_wes, c_cam_0)).toBe(false);
@@ -976,7 +976,7 @@ test.describe("tree numbering", () => {
     expect(await ui.claimEditSave(pg_uma, c_cam_0, {"amount": "1.00"})).toBe(true);
     await ui.setSetting(pg_uma, "entry-date", "2026-03-01");
     const c_cam_1 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "0.04", "date": "2026-03-01", "tags": "a, B"}));
-    const c_cam_2 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "7.77"}));
+    const c_cam_2 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "7.77"}, p_cam));
     const c_cam_3 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "10.35", "ref": "R-2"}));
     expect(await ui.claimAction(pg_uma, c_cam_2, "open")).toBe(true);
     await ui.refresh(pg_uma);
@@ -1019,7 +1019,7 @@ test.describe("tree numbering", () => {
     expect(await ui.defer(pg_uma, c_cam_2, "2026-03-14")).toBe(true);
     expect(await ui.statementAsOf(pg_uma, p_cam, "2026-03-05")).toBe(false);
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(true);
-    const c_cam_6 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "99.95"}));
+    const c_cam_6 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "99.95"}, p_cam));
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("person-row-" + p_cam).getByTestId("person-due-total")).toHaveText("0.00");
@@ -1070,7 +1070,7 @@ test.describe("tree numbering", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("2026-02-25");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1148,7 +1148,7 @@ test.describe("tree numbering", () => {
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

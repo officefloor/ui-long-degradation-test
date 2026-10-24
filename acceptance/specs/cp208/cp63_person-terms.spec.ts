@@ -124,7 +124,7 @@ test.describe("person terms", () => {
     await expect(pg_uma.getByTestId("header-claims-VOID-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("header-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("header-overdue-total")).toHaveText("0.00");
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.04"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.04"}, p_cam));
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     expect(await ui.claimAction(pg_wes, c_cam_1, "open")).toBe(true);
     expect(await ui.setRate(pg_wes, {"grade": "B", "pct": "7.50", "from": "2026-03-10"})).toBe(true);

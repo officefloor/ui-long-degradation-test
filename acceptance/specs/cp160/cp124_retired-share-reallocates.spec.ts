@@ -625,7 +625,7 @@ test.describe("retired share reallocates", () => {
     await expect(pg_wes.getByTestId("header-claims-VOID-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("header-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("header-overdue-total")).toHaveText("0.00");
-    expect(await ui.editPerson(pg_wes, p_ada, {"grade": "C", "gradeFrom": "2026-03-09"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_wes, p_ada, {"grade": "C", "gradeFrom": "2026-03-09"}, {"grade": "A"})).toBe(true);
     expect(await ui.watch(pg_wes, p_ada, true)).toBe(true);
     expect(await ui.setRate(pg_wes, {"grade": "A", "pct": "5.00", "from": "2026-03-16"})).toBe(true);
     expect(await ui.statementAsOf(pg_wes, p_ada, "2026-03-05")).toBe(false);
@@ -995,13 +995,13 @@ test.describe("retired share reallocates", () => {
     await ui.showRetired(pg_wes, true);
     const c_ada_0_2 = ui.must(await ui.addClaimTwice(pg_wes, p_ada, {"amount": "10.35", "date": "2026-02-10"}));
     expect(await ui.claimCount(pg_wes, p_ada)).toBe(1);
-    const c_ada_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ada", "amount": "4.00"}));
+    const c_ada_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Ada", "amount": "4.00"}, p_ada));
     expect(await ui.claimAction(pg_wes, c_ada_0_2, "open")).toBe(true);
     await ui.setAsOf(pg_wes, "2026-03-09");
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_wes.getByTestId("sheet-asof")).toHaveText("2026-03-09");
-    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_wes.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_wes.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_wes.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -1087,7 +1087,7 @@ test.describe("retired share reallocates", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("yes");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

@@ -61,7 +61,7 @@ test.describe("parent sheet rates", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("1.00");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-due")).toHaveText("1.00");
     await expect(pg_uma.getByTestId("person-row-" + p_ben).getByTestId("person-due-total")).toHaveText("2.00");
@@ -88,7 +88,7 @@ test.describe("parent sheet rates", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("person-row-" + p_ada).getByTestId("person-due-total")).toHaveText("1.00");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-due")).toHaveText("1.00");
     await expect(pg_uma.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-stated")).toHaveText("no");
@@ -207,7 +207,7 @@ test.describe("parent sheet rates", () => {
     await expect(pg_wes.getByTestId("header-due-total")).toHaveText("0.00");
     await expect(pg_wes.getByTestId("header-overdue-total")).toHaveText("0.00");
     expect(await ui.bulkGrade(pg_wes, [p_cam, p_ben], {"grade": "A"})).toBe(2);
-    const c_cam_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Cam", "amount": "1.00"}));
+    const c_cam_1 = ui.must(await ui.quickAdd(pg_wes, {"name": "Cam", "amount": "1.00"}, p_cam));
     await ui.refresh(pg_wes);
     expect(await ui.unstate(pg_wes, p_cam)).toBe(true);
     expect(await ui.statement(pg_wes, p_ben)).toBe(true);
@@ -634,7 +634,7 @@ test.describe("parent sheet rates", () => {
     await expect(pg_wes.getByTestId("header-due-total")).toHaveText("1.00");
     await expect(pg_wes.getByTestId("header-overdue-total")).toHaveText("0.00");
     expect(await ui.addPatron(pg_wes, p_ada, "Cam")).toBe(true);
-    expect(await ui.editPerson(pg_wes, p_cam, {"grade": "A", "gradeFrom": "2026-04-02"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_wes, p_cam, {"grade": "A", "gradeFrom": "2026-04-02"}, {"grade": "B"})).toBe(true);
     await ui.setAsOf(pg_wes, "2026-03-09");
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("sheet-archived")).toHaveText("no");
@@ -948,7 +948,7 @@ test.describe("parent sheet rates", () => {
     expect(await ui.addPoolMember(pg_uma, "P1", {"member": "Ben", "share": "33.33"})).toBe(true);
     expect(await ui.statement(pg_uma, p_ben_2)).toBe(true);
     expect(await ui.periodAction(pg_uma, "P1", "soft-close")).toBe(true);
-    const c_cam_0_2 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.04"}));
+    const c_cam_0_2 = ui.must(await ui.quickAdd(pg_uma, {"name": "Cam", "amount": "0.04"}, p_cam_2));
     const c_ben_0 = ui.must(await ui.addClaim(pg_uma, p_ben_2, {"amount": "12.50", "tags": " c "}));
     expect(await ui.statement(pg_uma, p_cam_2)).toBe(true);
     await ui.expectAuditView(pg_uma, "Ben", [
@@ -1044,7 +1044,7 @@ test.describe("parent sheet rates", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("2026-04-02");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("rollup-claimed-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("rollup-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("rollup-overdue-count")).toHaveText("0");
@@ -1132,7 +1132,7 @@ test.describe("parent sheet rates", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("person-row-" + p_cam_2).getByTestId("person-name")).toHaveText("Cam");
     await expect(pg_uma.getByTestId("person-row-" + p_cam_2).getByTestId("person-grade")).toHaveText("A");
     await expect(pg_uma.getByTestId("person-row-" + p_cam_2).getByTestId("person-claimed")).toHaveText("3.37");

@@ -124,7 +124,7 @@ test.describe("quarterly periods", () => {
     expect(await ui.editPerson(pg_uma, p_cam, {"grade": "B", "gradeFrom": "2026-02-10"})).toBe(true);
     expect(await ui.inlineGrade(pg_uma, p_cam, "A")).toBe(true);
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-04-02"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C", "gradeFrom": "2026-04-02"}, {"grade": "A"})).toBe(true);
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     await ui.refresh(pg_vic);
@@ -157,7 +157,7 @@ test.describe("quarterly periods", () => {
     expect(await ui.ratePreview(pg_vic, "B", "12.50")).toEqual({ count: 0, diff: "0.00" });
     const pg_wes = await ui.userPage(browser, "wes", sheet);
     await ui.showRetired(pg_wes, true);
-    expect(await ui.flag(pg_wes, p_cam, "late", "2026-04-30")).toBe(true);
+    expect(await ui.flag(pg_wes, p_cam, "late", "2026-04-30", "late")).toBe(true);
     expect(await ui.statement(pg_wes, p_cam)).toBe(true);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");
@@ -194,7 +194,7 @@ test.describe("quarterly periods", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("2026-03-09");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("0");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -319,7 +319,7 @@ test.describe("quarterly periods", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("1.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");
@@ -676,7 +676,7 @@ test.describe("quarterly periods", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("2.25");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

@@ -669,7 +669,7 @@ test.describe("holidays", () => {
     await expect(pg_uma.getByTestId("header-claims-VOID-count")).toHaveText("0");
     await expect(pg_uma.getByTestId("header-due-total")).toHaveText("0.00");
     await expect(pg_uma.getByTestId("header-overdue-total")).toHaveText("0.00");
-    const c_dot_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "7.77"}));
+    const c_dot_1 = ui.must(await ui.quickAdd(pg_uma, {"name": "Dot", "amount": "7.77"}, p_dot));
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     expect(await ui.claimAction(pg_vic, c_ada_0, "open")).toBe(true);
     const c_ada_1 = ui.must(await ui.addClaim(pg_vic, p_ada, {"amount": "0.04", "date": "2026-04-02", "note": "n"}));
@@ -796,7 +796,7 @@ test.describe("holidays", () => {
       `ROLLUP sheet=${sheet} by=wes person=Cam claimed=0.00 due-total=0.00 overdue-total=0.00`,
       `PERSON_EDITED sheet=${sheet} by=wes name=Ada grade=A`,
       `ROLLUP sheet=${sheet} by=wes person=Ada claimed=0.00 due-total=0.00 overdue-total=0.00`,
-      `PERSON_EDITED sheet=${sheet} by=wes name=Cam grade=A terms=`,
+      `PERSON_EDITED sheet=${sheet} by=wes name=Cam grade=A`,
       `CLAIM_OPENED sheet=${sheet} by=wes person=Dot amount=4.00 date=2026-03-01 number=2026-03-2`,
       `ROLLUP sheet=${sheet} by=wes person=Dot claimed=4.00 due-total=1.00 overdue-total=1.00`,
       `TOTALS sheet=${sheet} by=wes claimed-total=4.00 due-total=0.00 overdue-total=0.00`,
@@ -1068,7 +1068,7 @@ test.describe("holidays", () => {
       `ROLLUP sheet=${sheet} by=wes person=Cam claimed=0.00 due-total=0.00 overdue-total=0.00`,
       `PERSON_EDITED sheet=${sheet} by=wes name=Ada grade=A`,
       `ROLLUP sheet=${sheet} by=wes person=Ada claimed=0.00 due-total=0.00 overdue-total=0.00`,
-      `PERSON_EDITED sheet=${sheet} by=wes name=Cam grade=A terms=`,
+      `PERSON_EDITED sheet=${sheet} by=wes name=Cam grade=A`,
       `CLAIM_OPENED sheet=${sheet} by=wes person=Dot amount=4.00 date=2026-03-01 number=2026-03-2`,
       `ROLLUP sheet=${sheet} by=wes person=Dot claimed=4.00 due-total=1.00 overdue-total=1.00`,
       `TOTALS sheet=${sheet} by=wes claimed-total=4.00 due-total=0.00 overdue-total=0.00`,
@@ -1526,6 +1526,7 @@ test.describe("holidays", () => {
       `SETTING_CHANGED sheet=${sheet} by=vic key=proof-threshold value= from=2026-03-20`,
       `PERIOD_SOFT_CLOSED sheet=${sheet} by=vic period=P1 total=0.00`,
       `CLAIM_ADDED sheet=${sheet} by=vic person=Ada amount=12.50 date=2026-02-10`,
+      `LATE_ENTRY sheet=${sheet} by=vic person=Ada amount=12.50 date=2026-02-10`,
       `RATE_SET sheet=${sheet} by=vic grade=C rate=20.00`,
       `ROLLUP sheet=${sheet} by=vic person=Ada claimed=0.00 due-total=0.00 overdue-total=0.00`,
       `ROLLUP sheet=${sheet} by=vic person=Ben claimed=50.00 due-total=2.00 overdue-total=5.00`,
@@ -1581,7 +1582,7 @@ test.describe("holidays", () => {
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-deferred-until")).toHaveText("");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-proofs")).toHaveText("0");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-split-from")).toHaveText("");
-    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-late-entry")).toHaveText("no");
+    await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-late-entry")).toHaveText("yes");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_1).getByTestId("claim-reminded")).toHaveText("");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-amount")).toHaveText("20.00");
     await expect(pg_wes.getByTestId("claim-row-" + c_ada_0).getByTestId("claim-date")).toHaveText("2026-03-29");
@@ -1888,6 +1889,7 @@ test.describe("holidays", () => {
       `SETTING_CHANGED sheet=${sheet} by=vic key=proof-threshold value= from=2026-03-20`,
       `PERIOD_SOFT_CLOSED sheet=${sheet} by=vic period=P1 total=0.00`,
       `CLAIM_ADDED sheet=${sheet} by=vic person=Ada amount=12.50 date=2026-02-10`,
+      `LATE_ENTRY sheet=${sheet} by=vic person=Ada amount=12.50 date=2026-02-10`,
       `RATE_SET sheet=${sheet} by=vic grade=C rate=20.00`,
       `ROLLUP sheet=${sheet} by=vic person=Ada claimed=0.00 due-total=0.00 overdue-total=0.00`,
       `ROLLUP sheet=${sheet} by=vic person=Ben claimed=50.00 due-total=2.00 overdue-total=5.00`,

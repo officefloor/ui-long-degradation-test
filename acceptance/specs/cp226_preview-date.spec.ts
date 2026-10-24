@@ -283,7 +283,7 @@ test.describe("preview date", () => {
     expect(await ui.editPerson(pg_uma, p_cam, {"terms": "20", "termsFrom": "2026-03-01"})).toBe(true);
     expect(await ui.watch(pg_uma, p_ben, true)).toBe(true);
     const pg_vic = await ui.userPage(browser, "vic", sheet);
-    expect(await ui.flag(pg_vic, p_cam, "late", "2026-04-30")).toBe(true);
+    expect(await ui.flag(pg_vic, p_cam, "late", "2026-04-30", "late")).toBe(true);
     expect(await ui.addAlias(pg_vic, p_ada, "Al")).toBe(true);
     expect(await ui.generateQuarters(pg_vic, "2026")).toBe(3);
     expect(await ui.addAlias(pg_vic, p_ada, "")).toBe(false);
@@ -329,7 +329,7 @@ test.describe("preview date", () => {
     await ui.refresh(pg_uma);
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(false);
     expect(await ui.claimAction(pg_uma, c_cam_0, "open")).toBe(false);
-    expect(await ui.editPerson(pg_uma, p_ben, {"grade": "A", "gradeFrom": "2026-04-02"}, "C")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ben, {"grade": "A", "gradeFrom": "2026-04-02"}, {"grade": "C"})).toBe(true);
     expect(await ui.claimAction(pg_uma, c_cam_0, "void")).toBe(false);
     await ui.refresh(pg_vic);
     expect(await ui.claimAction(pg_vic, c_cam_0, "open")).toBe(true);
@@ -371,7 +371,7 @@ test.describe("preview date", () => {
     expect(await ui.statement(pg_vic, p_ben)).toBe(true);
     expect(await ui.periodAction(pg_vic, "2026-Q3", "soft-close")).toBe(true);
     expect(await ui.retire(pg_vic, p_ben, "2026-02-10")).toBe(true);
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "4.00"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "4.00"}, p_ada));
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
@@ -746,7 +746,7 @@ test.describe("preview date", () => {
     expect(await ui.reassign(pg_wes, c_dot_0, "Cam")).toBe(true);
     expect(await ui.addProof(pg_wes, c_dot_0, "photo")).toBe(true);
     expect(await ui.editInline(pg_wes, c_dot_0, "4.00")).toBe(true);
-    expect(await ui.snapshotCompare(pg_wes, "2026-04-05", "2026-03-10")).toEqual(["Cam  ", "Ben  ", "Dot  "]);
+    expect(await ui.snapshotCompare(pg_wes, "2026-04-05", "2026-03-10")).toEqual(["Cam", "Ben", "Dot"]);
     expect(await ui.periodAction(pg_wes, "P2", "soft-close")).toBe(true);
     await ui.refresh(pg_wes);
     await expect(pg_wes.getByTestId("person-row-" + p_cam).getByTestId("person-claimed")).toHaveText("0.00");

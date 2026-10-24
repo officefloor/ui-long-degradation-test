@@ -213,7 +213,7 @@ test.describe("cut totals", () => {
     expect(await ui.editClaim(pg_vic, c_eve_0, {"amount": "7.77"})).toBe(true);
     await ui.refresh(pg_vic);
     expect(await ui.periodAction(pg_vic, "P2", "reopen")).toBe(true);
-    const c_eve_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Eve", "amount": "20.00"}));
+    const c_eve_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Eve", "amount": "20.00"}, p_eve));
     expect(await ui.editPerson(pg_vic, p_eve, {"grade": "B"})).toBe(true);
     await ui.refresh(pg_vic);
     expect(await ui.delegate(pg_vic, {"user": "wes", "from": "2026-02-10", "to": "2026-03-15"})).toBe(true);
@@ -260,7 +260,7 @@ test.describe("cut totals", () => {
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("sheet-archived")).toHaveText("yes");
     await expect(pg_vic.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_vic.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_vic.getByTestId("consolidated-people-count")).toHaveText("2");
     await expect(pg_vic.getByTestId("consolidated-due-total")).toHaveText("0.00");
     await expect(pg_vic.getByTestId("consolidated-overdue-total")).toHaveText("0.00");

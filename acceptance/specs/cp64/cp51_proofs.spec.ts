@@ -428,7 +428,7 @@ test.describe("proofs", () => {
     await ui.refresh(pg_vic);
     const c_ada_2 = ui.must(await ui.addClaim(pg_vic, p_ada, {"amount": "20.00", "date": "2026-03-15"}));
     const c_ada_3 = ui.must(await ui.addClaim(pg_vic, p_ada, {"amount": "10.35"}));
-    const c_ada_4 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "7.77"}));
+    const c_ada_4 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ada", "amount": "7.77"}, p_ada));
     expect(await ui.defer(pg_vic, c_ada_0, "2026-05-05")).toBe(true);
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");

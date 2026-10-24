@@ -128,7 +128,7 @@ test.describe("header counters", () => {
     const pg_vic = await ui.userPage(browser, "vic", sheet);
     const c_ben_0 = ui.must(await ui.addClaimTwice(pg_vic, p_ben, {"amount": "1.00", "date": "2026-03-28"}));
     expect(await ui.claimCount(pg_vic, p_ben)).toBe(1);
-    const c_ben_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ben", "amount": "99.95"}));
+    const c_ben_1 = ui.must(await ui.quickAdd(pg_vic, {"name": "Ben", "amount": "99.95"}, p_ben));
     await ui.setToday(pg_vic, "2026-04-09");
     await ui.refresh(pg_vic);
     await expect(pg_vic.getByTestId("person-row-" + p_ben).getByTestId("person-claimed")).toHaveText("0.00");

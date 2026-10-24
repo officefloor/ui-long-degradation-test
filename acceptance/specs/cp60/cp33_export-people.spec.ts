@@ -299,7 +299,7 @@ test.describe("export people", () => {
     await expect(pg_uma.getByTestId("rollup-overdue-total")).toHaveText("0.00");
     const c_cam_0 = ui.must(await ui.addClaim(pg_uma, p_cam, {"amount": "0.40", "date": "2026-04-02"}));
     expect(await ui.claimAction(pg_uma, c_cam_0, "void")).toBe(true);
-    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C", "gradeFrom": "2026-03-15"}, "A")).toBe(true);
+    expect(await ui.editPerson(pg_uma, p_ada, {"grade": "C", "gradeFrom": "2026-03-15"}, {"grade": "A"})).toBe(true);
     await ui.setSetting(pg_uma, "clerk-limit", "1.50");
     expect(await ui.editPerson(pg_uma, p_cam, {"grade": "C"})).toBe(true);
     expect(await ui.hold(pg_uma, p_ada, {})).toBe(true);

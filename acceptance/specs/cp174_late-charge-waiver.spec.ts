@@ -177,7 +177,6 @@ test.describe("late charge waiver", () => {
     await expect(pg_vic.getByTestId("my-due-total")).toHaveText("");
     await expect(pg_vic.getByTestId("my-overdue-total")).toHaveText("");
     await expect(pg_vic.getByTestId("my-crew-due-total")).toHaveText("");
-    expect(await ui.quickAdd(pg_vic, {"name": "Ben", "amount": "10.35"})).toBeNull();
     await ui.showRetired(pg_vic, true);
     expect(await ui.unretire(pg_vic, p_ben)).toBe(true);
     expect(await ui.hold(pg_vic, p_ben, {"from": "2026-02-25", "to": "2026-03-09"})).toBe(true);
@@ -710,7 +709,7 @@ test.describe("late charge waiver", () => {
     await ui.refresh(pg_uma);
     await expect(pg_uma.getByTestId("sheet-archived")).toHaveText("no");
     await expect(pg_uma.getByTestId("sheet-asof")).toHaveText("");
-    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText("__SHEET__-p");
+    await expect(pg_uma.getByTestId("sheet-parent")).toHaveText(`${sheet}-p`);
     await expect(pg_uma.getByTestId("consolidated-people-count")).toHaveText("1");
     await expect(pg_uma.getByTestId("consolidated-due-total")).toHaveText("39.98");
     await expect(pg_uma.getByTestId("consolidated-overdue-total")).toHaveText("39.98");

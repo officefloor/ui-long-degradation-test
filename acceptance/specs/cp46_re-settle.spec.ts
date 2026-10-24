@@ -128,7 +128,7 @@ test.describe("re settle", () => {
     expect(await ui.hold(pg_uma, p_cam, {"from": "2026-02-10", "to": "2026-03-20"})).toBe(true);
     expect(await ui.statement(pg_uma, p_ada)).toBe(true);
     expect(await ui.setRate(pg_uma, {"grade": "C", "pct": "7.50"})).toBe(true);
-    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "20.00"}));
+    const c_ada_0 = ui.must(await ui.quickAdd(pg_uma, {"name": "Ada", "amount": "20.00"}, p_ada));
     expect(await ui.statement(pg_uma, p_cam)).toBe(true);
     const c_ada_1 = ui.must(await ui.addClaim(pg_uma, p_ada, {"amount": "12.50"}));
     expect(await ui.claimAction(pg_uma, c_ada_0, "open")).toBe(true);
@@ -720,7 +720,7 @@ test.describe("re settle", () => {
     const c_cam_0 = ui.must(await ui.addClaim(pg_wes, p_cam, {"amount": "7.77"}));
     expect(await ui.statement(pg_wes, p_cam)).toBe(true);
     expect(await ui.exportCsv(pg_wes)).toBe("name,grade,retired-from,due-total\nBen,A,,0.00\nCam,B,,0.00\n");
-    expect(await ui.editPerson(pg_wes, p_cam, {"grade": "A", "gradeFrom": "2026-04-02"}, "B")).toBe(true);
+    expect(await ui.editPerson(pg_wes, p_cam, {"grade": "A", "gradeFrom": "2026-04-02"}, {"grade": "B"})).toBe(true);
     const c_ben_2 = ui.must(await ui.addClaim(pg_wes, p_ben, {"amount": "25.00", "date": "2026-03-05"}));
     const c_ben_3 = ui.must(await ui.addClaim(pg_wes, p_ben, {"amount": "4.00"}));
     expect(await ui.setRate(pg_wes, {"grade": "A", "pct": "20.00", "from": "2026-03-10"})).toBe(true);
